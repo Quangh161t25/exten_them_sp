@@ -231,7 +231,58 @@
         return lines.join("\n");
     }
 
+    function copyAllProductIds() {
+        if (!allRows.length) {
+            setStatus("Chưa có dữ liệu để copy Mã SP!", true);
+            return;
+        }
+
+        const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+        let targetRows = allRows;
+
+        if (query) {
+            targetRows = allRows.filter(row => {
+                return (row.title && row.title.toLowerCase().includes(query)) ||
+                       (row.productId && row.productId.toLowerCase().includes(query)) ||
+                       (row.sku && row.sku.toLowerCase().includes(query)) ||
+                       (row.subtitle && row.subtitle.toLowerCase().includes(query)) ||
+                       (row.rawText && row.rawText.toLowerCase().includes(query));
+            });
+        }
+
+        const ids = targetRows
+            .map(row => (row.productId || "").trim())
+            .filter(Boolean);
+
+        if (!ids.length) {
+            setStatus("Không tìm thấy Mã sản phẩm nào để copy!", true);
+            return;
+        }
+
+        const idsString = ids.join(",");
+        navigator.clipboard.writeText(idsString).then(() => {
+            setStatus(`✓ Đã copy ${ids.length} Mã SP (dạng: ${ids.slice(0, 3).join(",")}${ids.length > 3 ? "..." : ""}) vào Clipboard!`);
+            const btnCopyIds = document.getElementById('btn-copy-all-ids-hieu-qua-sp');
+            if (btnCopyIds) {
+                const orig = btnCopyIds.innerHTML;
+                btnCopyIds.innerHTML = '✓ Đã copy!';
+                btnCopyIds.style.backgroundColor = '#059669';
+                setTimeout(() => {
+                    btnCopyIds.innerHTML = orig;
+                    btnCopyIds.style.backgroundColor = '#10b981';
+                }, 2000);
+            }
+        }).catch(err => {
+            setStatus(`Lỗi copy: ${err.message}`, true);
+        });
+    }
+
     // Event listeners
+    const btnCopyAllIds = document.getElementById('btn-copy-all-ids-hieu-qua-sp');
+    if (btnCopyAllIds) {
+        btnCopyAllIds.addEventListener('click', copyAllProductIds);
+    }
+
     if (btnRead) {
         btnRead.addEventListener('click', () => readPerformanceData(false));
     }
