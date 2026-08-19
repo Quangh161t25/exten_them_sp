@@ -23,6 +23,7 @@
 <button class="tab-btn" data-tab="tab-ds-sp">DS SP</button>
 <button class="tab-btn" data-tab="tab-sp">SP</button>
 <button class="tab-btn" data-tab="tab-hieu-qua-sp">Hiệu quả SP</button>
+<button class="tab-btn" data-tab="tab-day-sp">Đẩy SP</button>
 <button class="tab-btn" data-tab="tab-sp-shopee">Web Shopee</button>
 <button class="tab-btn" data-tab="tab-sheet-sp-shopee">SP Shopee</button>
 <button class="tab-btn" data-tab="tab-sp-giam-gia">SP Giảm Giá</button>
@@ -525,6 +526,46 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 </div>
 </section>
 </div>
+<div id="tab-day-sp" class="tab-content" hidden>
+<section class="tool-section">
+<div class="section-head">
+<h2>Tự Động Đẩy Sản Phẩm (Tối đa 5 SP)</h2>
+</div>
+<div style="margin-bottom: 10px;">
+<label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">Danh sách Mã SP cần đẩy:</label>
+<textarea id="day-sp-ids-input" class="brand-input" rows="4" placeholder="Nhập hoặc dán danh sách Mã sản phẩm (ngăn cách bằng dấu phẩy, khoảng trắng hoặc xuống dòng)&#10;Ví dụ: 56214022220, 26708337820, 26435284327, 43932209124, 53260579040" style="width: 100%; box-sizing: border-box; font-size: 11px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; resize: vertical; font-family: monospace;"></textarea>
+<div style="display: flex; gap: 6px; margin-top: 6px;">
+<button id="btn-get-ids-from-hieu-qua" type="button" class="secondary" style="flex: 1; padding: 4px 6px; font-size: 11px;">📋 Lấy từ tab Hiệu quả SP</button>
+<button id="btn-clear-day-sp-ids" type="button" class="secondary" style="padding: 4px 10px; font-size: 11px; color: #dc2626;">Xóa trắng</button>
+</div>
+</div>
+
+<div style="background: #f8fafc; padding: 8px 10px; border-radius: 4px; border: 1px solid #e2e8f0; margin-bottom: 10px;">
+<label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #1e293b; cursor: pointer;">
+<input type="checkbox" id="chk-auto-repeat-4h" style="cursor: pointer;">
+<span>🔄 Tự động đẩy lặp lại sau mỗi 4 tiếng (Duy trì 5 vị trí)</span>
+</label>
+<p style="margin: 4px 0 0 20px; font-size: 10px; color: #64748b; line-height: 1.3;">Mỗi lượt đẩy của Shopee kéo dài 4 tiếng. Khi hết lượt, extension sẽ tự động tìm và đẩy tiếp 5 sản phẩm theo danh sách.</p>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin-bottom: 10px;">
+<button id="btn-start-day-sp" type="button" class="primary-action" style="background-color: #16a34a; font-weight: bold; font-size: 12px; padding: 8px;">🚀 BẮT ĐẦU ĐẨY 5 SP NGAY</button>
+<button id="btn-open-shopee-product-list" type="button" class="secondary" style="background-color: white; color: #1e293b; border: 1px solid #d8dee8; font-size: 11px;">🌐 Mở DS SP</button>
+</div>
+
+<p id="day-sp-status" style="margin: 0 0 8px; font-size: 12px; color: #64748b; font-weight: 500;"></p>
+
+<div style="border: 1px solid #d8dee8; border-radius: 4px; background: #f8fafc; padding: 8px; max-height: calc(100vh - 360px); min-height: 160px; overflow-y: auto;">
+<div style="font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 6px; display: flex; justify-content: space-between;">
+<span>Tiến trình & Trạng thái 5 vị trí:</span>
+<span style="font-size: 10px; color: #64748b;">(Tối đa 5/5 SP)</span>
+</div>
+<div id="day-sp-log-list">
+<div style="padding: 15px; text-align: center; color: #94a3b8; font-size: 11px;">Chưa chạy lượt đẩy nào. Bấm "BẮT ĐẦU ĐẨY 5 SP NGAY" để chạy.</div>
+</div>
+</div>
+</section>
+</div>
 <div id="tab-sp-shopee" class="tab-content" hidden>
 <section class="tool-section">
 <div class="section-head">
@@ -892,6 +933,7 @@ Kết quả trả về sẽ tự động định dạng bằng HTML cơ bản (&
 <script src="web_sp_tab.js"></script>
 <script src="hang_hoan_tab.js"></script>
 <script src="hieu_qua_sp_tab.js"></script>
+<script src="day_sp_tab.js"></script>
 </body>
 
 </html>

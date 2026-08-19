@@ -6636,6 +6636,8 @@ const CAI_DAT_TAB_NAME_TO_ID = {
   "sp": "tab-sp",
   "hieu qua sp": "tab-hieu-qua-sp",
   "hieu qua san pham": "tab-hieu-qua-sp",
+  "day sp": "tab-day-sp",
+  "day san pham": "tab-day-sp",
   "don hang": "tab-don-hang-detail",
   "hang hoan": "tab-hang-hoan",
   "ds sp": "tab-ds-sp",

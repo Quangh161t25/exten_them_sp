@@ -6037,6 +6037,12 @@ function downloadExcelFileBypass(wb, filename) {
         .catch((err) => sendResponse({ ok: false, error: err.message }));
       return true;
     }
+    if (message?.type === "EXECUTE_AUTO_BOOST_LIST") {
+      executeAutoBoostProductList(message.productIds, message.maxSlots)
+        .then(sendResponse)
+        .catch((err) => sendResponse({ ok: false, error: err.message }));
+      return true;
+    }
     if (message?.type === "EXTRACT_SELLER_ORDER_DETAIL_FULL") {
       extractSellerOrderDetailFullData()
         .then(sendResponse)
@@ -9272,6 +9278,141 @@ async function extractProductPerformanceData() {
     rows,
     count: rows.length,
     url: window.location.href
+  };
+}
+
+async function executeAutoBoostProductList(productIds = [], maxSlots = 5) {
+  if (!Array.isArray(productIds) || !productIds.length) {
+    return { ok: false, error: "Danh sách Mã sản phẩm trống" };
+  }
+
+  // 1. Thu thập tất cả các thẻ sản phẩm và action row trên trang hiện tại
+  const actionEntries = findProductActionRows();
+  if (!actionEntries.length) {
+    return {
+      ok: false,
+      error: "Không tìm thấy sản phẩm nào trên trang. Vui lòng mở trang Danh sách sản phẩm (portal/product/list)!"
+    };
+  }
+
+  const results = [];
+  let boostedCount = 0;
+  let alreadyBoostingCount = 0;
+
+  // Thu thập thông tin các thẻ sản phẩm trên trang
+  const pageCards = actionEntries.map(entry => {
+    const card = findProductCardFromActionRow(entry.row);
+    const itemId = getProductListItemId(card);
+    const name = getProductListName(card);
+    return {
+      entry,
+      card,
+      itemId,
+      name,
+      cardText: card.textContent || ""
+    };
+  });
+
+  for (const targetId of productIds) {
+    const cleanTargetId = String(targetId).trim();
+    if (!cleanTargetId) continue;
+
+    // Tìm thẻ sản phẩm khớp Mã SP (hoặc chứa Mã SP)
+    const matched = pageCards.find(pc => pc.itemId === cleanTargetId || pc.cardText.includes(cleanTargetId));
+
+    if (!matched) {
+      results.push({
+        id: cleanTargetId,
+        name: "",
+        status: "not_found",
+        msg: "Không tìm thấy trên trang"
+      });
+      continue;
+    }
+
+    // Kiểm tra xem sản phẩm có đang trong trạng thái được đẩy (còn đếm ngược giờ) không
+    const cardText = matched.card.textContent || "";
+    const isCurrentlyBoosting = cardText.includes("Đang đẩy") || (cardText.includes("Còn ") && /\d{2}:\d{2}/.test(cardText));
+    
+    if (isCurrentlyBoosting) {
+      const timeMatch = cardText.match(/Còn\s*([0-9:]+)/i);
+      const remaining = timeMatch ? timeMatch[1] : "đang đẩy";
+      alreadyBoostingCount++;
+      results.push({
+        id: cleanTargetId,
+        name: matched.name,
+        status: "already_boosting",
+        msg: `Đang đẩy (còn ${remaining})`
+      });
+      continue;
+    }
+
+    // Kiểm tra nếu tổng số sản phẩm đã đẩy đạt giới hạn maxSlots
+    if (boostedCount + alreadyBoostingCount >= maxSlots) {
+      results.push({
+        id: cleanTargetId,
+        name: matched.name,
+        status: "limit_reached",
+        msg: "Đã đạt giới hạn 5/5 SP đang đẩy"
+      });
+      continue;
+    }
+
+    // Thực hiện thao tác bấm menu ... -> Đẩy sản phẩm
+    try {
+      hoverElementAtCenter(matched.entry.moreTarget);
+      await sleep(250);
+      clickElementAtCenter(matched.entry.moreTarget);
+      await sleep(250);
+
+      const dropdownItem = await waitForVisibleDropdownItem("Đẩy sản phẩm");
+
+      if (!dropdownItem) {
+        results.push({
+          id: cleanTargetId,
+          name: matched.name,
+          status: "error",
+          msg: "Không thấy tùy chọn Đẩy SP"
+        });
+      } else if (dropdownItem.classList.contains("disabled") || dropdownItem.getAttribute("aria-disabled") === "true") {
+        const reason = dropdownItem.title || dropdownItem.textContent.trim() || "Bị khóa";
+        results.push({
+          id: cleanTargetId,
+          name: matched.name,
+          status: "limit_reached",
+          msg: `Không thể đẩy (${reason})`
+        });
+      } else {
+        clickElementAtCenter(dropdownItem);
+        await sleep(500);
+        boostedCount++;
+        results.push({
+          id: cleanTargetId,
+          name: matched.name,
+          status: "boosted",
+          msg: "Đã kích hoạt đẩy thành công!"
+        });
+      }
+
+      // Đóng dropdown bằng cách dispatch Escape
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+      await sleep(500);
+    } catch (clickErr) {
+      results.push({
+        id: cleanTargetId,
+        name: matched.name,
+        status: "error",
+        msg: clickErr.message
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    results,
+    boostedCount,
+    alreadyBoostingCount,
+    totalRequested: productIds.length
   };
 }
 

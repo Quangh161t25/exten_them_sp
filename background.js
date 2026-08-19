@@ -442,6 +442,19 @@ async function uploadImageToFreeImageHost(imageUrl) {
     return true;
   }
 
+  if (message?.type === "SCHEDULE_AUTO_BOOST_ALARM") {
+    const period = message.intervalMinutes || 240;
+    chrome.alarms?.create("ALARM_AUTO_BOOST_4H", { periodInMinutes: period });
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message?.type === "CANCEL_AUTO_BOOST_ALARM") {
+    chrome.alarms?.clear("ALARM_AUTO_BOOST_4H");
+    sendResponse({ ok: true });
+    return true;
+  }
+
   if (message?.type === "SAVE_WEB_SP") {
     Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
       .then(async ([token, sheetId]) => {
@@ -989,3 +1002,38 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     }
   }
 });
+
+// --- AUTO BOOST SCHEDULER (4 Hours) ---
+chrome.alarms?.onAlarm?.addListener(async (alarm) => {
+  if (alarm.name === "ALARM_AUTO_BOOST_4H") {
+    try {
+      const res = await chrome.storage.local.get(["shopee_auto_boost_config"]);
+      const config = res.shopee_auto_boost_config || {};
+      if (!config.autoRepeat || !config.ids) return;
+
+      const raw = config.ids;
+      const tokens = raw.split(/[\s,;\n\r\t]+/);
+      const ids = tokens.map(t => t.replace(/[^0-9]/g, '')).filter(t => t.length >= 6);
+      if (!ids.length) return;
+
+      // Tìm tab đang mở danh sách sản phẩm Shopee
+      const tabs = await chrome.tabs.query({ url: "*://banhang.shopee.vn/portal/product/list*" });
+      if (tabs && tabs.length > 0) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          type: "EXECUTE_AUTO_BOOST_LIST",
+          productIds: ids,
+          maxSlots: 5
+        }, (response) => {
+          if (response && response.ok) {
+            config.lastLogs = response.results || [];
+            config.lastRunTime = Date.now();
+            chrome.storage.local.set({ shopee_auto_boost_config: config });
+          }
+        });
+      }
+    } catch (err) {
+      console.warn("Auto boost alarm error:", err);
+    }
+  }
+});
+
