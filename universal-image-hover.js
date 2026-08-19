@@ -25,7 +25,7 @@
             border: 1.5px solid #ffffff !important;
             box-sizing: border-box !important;
         `;
-        hoverBtn.title = "Lưu ảnh vào Sheet LUU_ANH_API";
+        hoverBtn.title = "Tải ảnh vào Sheet LUU_ANH_API (Lưu link gốc vào cột D link_cu)";
         hoverBtn.innerHTML = '📥';
         
         // Đảm bảo nút được thêm vào body khi DOM sẵn sàng

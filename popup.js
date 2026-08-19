@@ -8290,11 +8290,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const item = {
           id: imgId,
           link: imgUrl,
-          ten_anh: file.name
+          ten_anh: file.name,
+          link_cu: file.link_cu || file.originalUrl || ""
         };
 
         uploadedList.push(item);
-        sheetRowsToSave.push([item.id, item.link, item.ten_anh]);
+        sheetRowsToSave.push([item.id, item.link, item.ten_anh, item.link_cu || ""]);
       } catch (err) {
         console.error("Lỗi upload ảnh API:", err);
         showStatus(`Lỗi khi tải ảnh ${file.name}: ${err.message}`, "red");
@@ -8333,7 +8334,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}/values/LUU_ANH_API!A1:C1000`, {
+      const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}/values/LUU_ANH_API!A1:D1000`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -8349,10 +8350,12 @@ document.addEventListener("DOMContentLoaded", () => {
       let idIdx = headers.findIndex(h => h === "id");
       let linkIdx = headers.findIndex(h => h === "link");
       let tenAnhIdx = headers.findIndex(h => h === "ten_anh" || h === "tên ảnh" || h === "ten anh");
+      let linkCuIdx = headers.findIndex(h => h === "link_cu" || h === "link cu" || h === "link gốc" || h === "link_goc" || h === "linkgoc");
 
       if (idIdx === -1) idIdx = 0;
       if (linkIdx === -1) linkIdx = 1;
       if (tenAnhIdx === -1) tenAnhIdx = 2;
+      if (linkCuIdx === -1) linkCuIdx = 3;
 
       const loadedItems = [];
       for (let i = 1; i < rows.length; i++) {
@@ -8360,10 +8363,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const id = row[idIdx] || "";
         let link = row[linkIdx] || "";
         const ten_anh = row[tenAnhIdx] || "";
+        const link_cu = row[linkCuIdx] || "";
 
         if (link && (link.startsWith("http://") || link.startsWith("https://"))) {
           link = formatLinkToJpg(link);
-          loadedItems.push({ id, link, ten_anh });
+          loadedItems.push({ id, link, ten_anh, link_cu });
         }
       }
 
@@ -8383,7 +8387,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (currentViewMode === "table") {
       if (!tbody) return;
       if (reversedList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 15px; color: #94a3b8;">Chưa có ảnh nào trong dữ liệu.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 15px; color: #94a3b8;">Chưa có ảnh nào trong dữ liệu.</td></tr>`;
         return;
       }
 
@@ -8393,9 +8397,12 @@ document.addEventListener("DOMContentLoaded", () => {
           <td style="padding: 6px 8px;">
             <img src="${item.link}" style="width: 36px; height: 36px; object-fit: cover; border-radius: 4px; border: 1px solid #e2e8f0; display: block;">
           </td>
-          <td style="padding: 6px 8px; font-weight: 500; color: #1e293b; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.ten_anh}">${item.ten_anh}</td>
-          <td style="padding: 6px 8px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            <a href="${item.link}" target="_blank" style="color: #2563eb; text-decoration: none;">${item.link}</a>
+          <td style="padding: 6px 8px; font-weight: 500; color: #1e293b; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.ten_anh}">${item.ten_anh}</td>
+          <td style="padding: 6px 8px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <a href="${item.link}" target="_blank" style="color: #2563eb; text-decoration: none;" title="${item.link}">${item.link}</a>
+          </td>
+          <td style="padding: 6px 8px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            ${item.link_cu ? `<a href="${item.link_cu}" target="_blank" style="color: #64748b; text-decoration: none;" title="${item.link_cu}">${item.link_cu}</a>` : `<span style="color: #94a3b8;">-</span>`}
           </td>
           <td style="padding: 6px 8px; text-align: center;">
             <button type="button" onclick="navigator.clipboard.writeText('${item.link}')" style="padding: 2px 6px; font-size: 10px; background: #0284c7; color: white; border: none; border-radius: 3px; cursor: pointer;">Copy</button>

@@ -122,9 +122,17 @@ async function uploadImageToFreeImageHost(imageUrl) {
   if (message?.type === "SAVE_IMAGE_TO_SHEET_API") {
     (async () => {
       try {
-        const rawUrl = message.imageUrl || "";
+        let rawUrl = message.imageUrl || "";
         if (!rawUrl) {
           throw new Error("Không tìm thấy đường dẫn ảnh!");
+        }
+
+        if (rawUrl.startsWith("//")) {
+          rawUrl = "https:" + rawUrl;
+        } else if (rawUrl.startsWith("/") && message.pageUrl) {
+          try {
+            rawUrl = new URL(rawUrl, message.pageUrl).href;
+          } catch (e) {}
         }
 
         // 1. Upload ảnh lên FreeImage.host bằng API key
@@ -133,16 +141,28 @@ async function uploadImageToFreeImageHost(imageUrl) {
         // 2. Chuẩn bị kết nối Google Sheet
         const token = await getGoogleAccessToken();
         await ensureSheetExists("LUU_ANH_API", token);
+
+        // Đảm bảo tiêu đề cột [id, link, ten_anh, link_cu] tồn tại
+        const { res: hRes, data: hData } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}/values/LUU_ANH_API!A1:D1`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (hRes.ok && (!hData.values || hData.values.length === 0)) {
+          await updateSheetValues("LUU_ANH_API!A1:D1", [["id", "link", "ten_anh", "link_cu"]], token);
+        } else if (hRes.ok && hData.values && hData.values[0]) {
+          if (hData.values[0].length < 4 || !hData.values[0][3]) {
+            await updateSheetValues("LUU_ANH_API!D1", [["link_cu"]], token);
+          }
+        }
         
         // 3. Tạo ID và tên ảnh
         const imgId = "IMG_" + Date.now();
         const titleName = message.title || "Ảnh từ Web";
         
-        // Chuẩn bị dòng dữ liệu: [id, link, ten_anh]
-        const rowData = [imgId, hostedImageUrl, titleName];
+        // Chuẩn bị dòng dữ liệu 4 cột: [id, link, ten_anh, link_cu]
+        const rowData = [imgId, hostedImageUrl, titleName, rawUrl];
         
-        await appendSheetValues("LUU_ANH_API!A:C", [rowData], token);
-        sendResponse({ ok: true, id: imgId, url: hostedImageUrl });
+        await appendSheetValues("LUU_ANH_API!A:D", [rowData], token);
+        sendResponse({ ok: true, id: imgId, url: hostedImageUrl, link_cu: rawUrl });
       } catch (err) {
         console.error("Lỗi lưu LUU_ANH_API:", err);
         sendResponse({ ok: false, error: err.message });
@@ -248,15 +268,19 @@ async function uploadImageToFreeImageHost(imageUrl) {
     getGoogleAccessToken()
       .then(async (token) => {
         await ensureSheetExists("LUU_ANH_API", token);
-        // Ensure header row id, link, ten_anh exists
-        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}/values/LUU_ANH_API!A1:C1`, {
+        // Ensure header row id, link, ten_anh, link_cu exists
+        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}/values/LUU_ANH_API!A1:D1`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok && (!data.values || data.values.length === 0)) {
-          await updateSheetValues("LUU_ANH_API!A1:C1", [["id", "link", "ten_anh"]], token);
+          await updateSheetValues("LUU_ANH_API!A1:D1", [["id", "link", "ten_anh", "link_cu"]], token);
+        } else if (res.ok && data.values && data.values[0]) {
+          if (data.values[0].length < 4 || !data.values[0][3]) {
+            await updateSheetValues("LUU_ANH_API!D1", [["link_cu"]], token);
+          }
         }
         if (message.rows && message.rows.length > 0) {
-          await appendSheetValues("LUU_ANH_API!A:C", message.rows, token);
+          await appendSheetValues("LUU_ANH_API!A:D", message.rows, token);
         }
         sendResponse({ ok: true });
       })

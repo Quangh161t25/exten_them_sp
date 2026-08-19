@@ -255,7 +255,7 @@ style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); bo
 <div id="api-img-dropzone" tabindex="0" style="border: 2px dashed #3b82f6; border-radius: 8px; padding: 20px 15px; text-align: center; background: #f0f7ff; cursor: pointer; transition: all 0.2s ease; margin-bottom: 12px; outline: none;">
   <div style="font-size: 32px; margin-bottom: 6px;">📥</div>
   <div style="font-size: 13px; font-weight: bold; color: #1e40af;">Kéo thả ảnh, Click chọn hoặc bấm Ctrl + V để Dán ảnh</div>
-  <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Tự động đẩy ảnh lên API và lưu thông tin vào Sheet LUU_ANH_API (id, link, ten_anh)</div>
+  <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Tự động đẩy ảnh lên API và lưu thông tin vào Sheet LUU_ANH_API (id, link, ten_anh, link_cu)</div>
   <input type="file" id="api-img-file-input" accept="image/*" multiple style="display: none;">
 </div>
 
@@ -276,16 +276,17 @@ style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); bo
   <table style="width: 100%; border-collapse: collapse; font-size: 11px;" id="api-img-table">
     <thead>
       <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #334155; text-align: left;">
-        <th style="padding: 6px 8px; width: 40px;">STT</th>
-        <th style="padding: 6px 8px; width: 60px;">Ảnh</th>
+        <th style="padding: 6px 8px; width: 35px;">STT</th>
+        <th style="padding: 6px 8px; width: 45px;">Ảnh</th>
         <th style="padding: 6px 8px;">Tên file</th>
         <th style="padding: 6px 8px;">Link API (.jpg)</th>
-        <th style="padding: 6px 8px; width: 50px; text-align: center;">Copy</th>
+        <th style="padding: 6px 8px;">Link cũ (link_cu)</th>
+        <th style="padding: 6px 8px; width: 45px; text-align: center;">Copy</th>
       </tr>
     </thead>
     <tbody id="api-img-tbody">
       <tr>
-        <td colspan="5" style="text-align: center; padding: 15px; color: #94a3b8;">Chưa có ảnh nào được tải lên trong phiên này.</td>
+        <td colspan="6" style="text-align: center; padding: 15px; color: #94a3b8;">Chưa có ảnh nào được tải lên trong phiên này.</td>
       </tr>
     </tbody>
   </table>
