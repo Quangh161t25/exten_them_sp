@@ -277,10 +277,61 @@
         });
     }
 
+    function copyAllProductNames() {
+        if (!allRows.length) {
+            setStatus("Chưa có dữ liệu để copy Tên SP!", true);
+            return;
+        }
+
+        const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+        let targetRows = allRows;
+
+        if (query) {
+            targetRows = allRows.filter(row => {
+                return (row.title && row.title.toLowerCase().includes(query)) ||
+                       (row.productId && row.productId.toLowerCase().includes(query)) ||
+                       (row.sku && row.sku.toLowerCase().includes(query)) ||
+                       (row.subtitle && row.subtitle.toLowerCase().includes(query)) ||
+                       (row.rawText && row.rawText.toLowerCase().includes(query));
+            });
+        }
+
+        const names = targetRows
+            .map(row => (row.title || "").trim())
+            .filter(Boolean);
+
+        if (!names.length) {
+            setStatus("Không tìm thấy Tên sản phẩm nào để copy!", true);
+            return;
+        }
+
+        const namesString = names.join("\n");
+        navigator.clipboard.writeText(namesString).then(() => {
+            setStatus(`✓ Đã copy ${names.length} Tên sản phẩm (mỗi dòng 1 tên) vào Clipboard!`);
+            const btnCopyNames = document.getElementById('btn-copy-names-hieu-qua-sp');
+            if (btnCopyNames) {
+                const orig = btnCopyNames.innerHTML;
+                btnCopyNames.innerHTML = '✓ Đã copy!';
+                btnCopyNames.style.backgroundColor = '#1d4ed8';
+                setTimeout(() => {
+                    btnCopyNames.innerHTML = orig;
+                    btnCopyNames.style.backgroundColor = '#3b82f6';
+                }, 2000);
+            }
+        }).catch(err => {
+            setStatus(`Lỗi copy: ${err.message}`, true);
+        });
+    }
+
     // Event listeners
     const btnCopyAllIds = document.getElementById('btn-copy-all-ids-hieu-qua-sp');
     if (btnCopyAllIds) {
         btnCopyAllIds.addEventListener('click', copyAllProductIds);
+    }
+
+    const btnCopyNames = document.getElementById('btn-copy-names-hieu-qua-sp');
+    if (btnCopyNames) {
+        btnCopyNames.addEventListener('click', copyAllProductNames);
     }
 
     if (btnRead) {

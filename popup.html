@@ -500,9 +500,12 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 <button id="btn-copy-hieu-qua-sp" type="button" class="secondary">Copy TSV</button>
 </div>
 <input type="text" id="input-search-hieu-qua-sp" class="brand-input" placeholder="Tìm kiếm tên sản phẩm, mã SP, SKU..." style="width: 100%; padding: 6px; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px;">
-<p id="hieu-qua-sp-status" style="margin: 0; font-size: 12px; color: #64748b; flex: 1;"></p>
-<button id="btn-copy-all-ids-hieu-qua-sp" type="button" class="secondary" style="background-color: #10b981; color: white; border: 1px solid #059669; padding: 4px 10px; font-size: 11px; font-weight: bold; border-radius: 4px; cursor: pointer; white-space: nowrap;" title="Copy toàn bộ Mã sản phẩm cách nhau dấu phẩy (,)">📋 Copy Mã SP (,)</button>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 6px; flex-wrap: wrap;">
+<p id="hieu-qua-sp-status" style="margin: 0; font-size: 12px; color: #64748b; flex: 1; min-width: 100px;"></p>
+<div style="display: flex; gap: 6px;">
+<button id="btn-copy-names-hieu-qua-sp" type="button" class="secondary" style="background-color: #3b82f6; color: white; border: 1px solid #2563eb; padding: 4px 8px; font-size: 11px; font-weight: bold; border-radius: 4px; cursor: pointer; white-space: nowrap;" title="Copy toàn bộ Tên sản phẩm (mỗi dòng 1 tên)">📋 Copy Tên SP</button>
+<button id="btn-copy-all-ids-hieu-qua-sp" type="button" class="secondary" style="background-color: #10b981; color: white; border: 1px solid #059669; padding: 4px 8px; font-size: 11px; font-weight: bold; border-radius: 4px; cursor: pointer; white-space: nowrap;" title="Copy toàn bộ Mã sản phẩm cách nhau dấu phẩy (,)">📋 Copy Mã SP (,)</button>
+</div>
 </div>
 <div class="table-responsive" style="max-height: calc(100vh - 200px); min-height: 400px; overflow: auto; border: 1px solid #d8dee8; border-radius: 4px; background: white;">
 <table id="table-hieu-qua-sp" style="width: max-content; min-width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
