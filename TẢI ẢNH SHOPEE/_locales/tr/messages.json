@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Hizmet Şartları'nı kabul etmelisiniz."
+  },
+  "cancelSubscription": {
+    "message": "Aboneliği istediğiniz zaman iptal edin"
+  },
+  "contactUs": {
+    "message": "Herhangi bir sorunuz veya fikriniz varsa, lütfen bizimle iletişime geçmekten çekinmeyin."
+  },
+  "desc": {
+    "message": "Bu popüler araçla Shopee ürün görsellerini ve videolarını kolayca indirin!"
+  },
+  "description": {
+    "message": "Açıklama"
+  },
+  "download": {
+    "message": "İndir"
+  },
+  "download_videos": {
+    "message": "Videoları İndir"
+  },
+  "enjoyProFeatures": {
+    "message": "Şu anda Pro sürüm özelliklerimizin keyfini çıkarıyorsunuz."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Dışa Aktar"
+  },
+  "faqPage": {
+    "message": "SSS Sayfası"
+  },
+  "faqsDescription": {
+    "message": "Herhangi bir sorunuz var mı? Sıkça sorulan soruların cevaplarını topladık, bu yüzden SSS sayfamızı ziyaret etmekten çekinmeyin."
+  },
+  "faqsTitle": {
+    "message": "SSS"
+  },
+  "free": {
+    "message": "Ücretsiz"
+  },
+  "imageTab": {
+    "message": "Görüntü"
+  },
+  "images": {
+    "message": "Resimler"
+  },
+  "loading": {
+    "message": "Yükleniyor..."
+  },
+  "loginWithGoogle": {
+    "message": "Google ile giriş yap"
+  },
+  "logout": {
+    "message": "Çıkış Yap"
+  },
+  "main": {
+    "message": "Ana"
+  },
+  "manageSubscription": {
+    "message": "Aboneliği Yönet"
+  },
+  "moneyBackGuarantee": {
+    "message": "7 GÜN PARA İADE GARANTİSİ"
+  },
+  "one_click_download_images": {
+    "message": "Tek Tıkla Görüntüleri İndir"
+  },
+  "openProductPage": {
+    "message": "Resimleri almak için lütfen bir Shopee ürün sayfası açın veya ürün sayfasını yenileyin"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Sınırsız"
+  },
+  "remaining": {
+    "message": "Kalan"
+  },
+  "resumeSubscribe": {
+    "message": "ABONELİĞE DEVAM ET"
+  },
+  "subscribe": {
+    "message": "ABONE OL"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Acele edin, Pro aboneliğiniz sona eriyor! Şimdi devam etmek ve özel avantajlarınızı kaybetmemek için buraya tıklayın👇."
+  },
+  "thanksForSubscribing": {
+    "message": "Abone olduğunuz için teşekkürler!"
+  },
+  "times_per_day": {
+    "message": "günde kaç kez"
+  },
+  "title": {
+    "message": "Shopee Görsel İndirici"
+  },
+  "upgrade": {
+    "message": "Yükselt"
+  },
+  "upgradeMessage": {
+    "message": "Sınırsız indirme için Pro'ya yükseltin"
+  },
+  "usePaddle": {
+    "message": "Satın alımları işlemek için Paddle kullanıyoruz ve kart bilgilerinizi bilmiyoruz."
+  },
+  "variants": {
+    "message": "Varyantlar"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Videolar"
+  },
+  "single_image_limit_reached": {
+    "message": "Günlük tek resim indirme sınırına (10) ulaşıldı. Sınırsız indirmeler için Pro'ya yükseltin!"
+  },
+  "single_images": {
+    "message": "Tek resimler"
+  },
+  "remaining_today": {
+    "message": "Bugün kalan"
+  },
+  "bulk": {
+    "message": "Toplu"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Sınırsız için Yükselt >>"
+  },
+  "usage": {
+    "message": "Kullanım"
+  },
+  "unlimited": {
+    "message": "Sınırsız"
+  },
+  "individual_download": {
+    "message": "Tekli İndirme"
+  },
+  "individual": {
+    "message": "Tekli"
+  },
+  "plan": {
+    "message": "Plan"
+  },
+  "freeUser": {
+    "message": "Ücretsiz"
+  }
+}

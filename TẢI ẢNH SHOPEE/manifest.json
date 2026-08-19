@@ -1,0 +1,96 @@
+{
+  "update_url": "https://clients2.google.com/service/update2/crx",
+  "manifest_version": 3,
+  "name": "__MSG_title__",
+  "version": "4.0.0",
+  "default_locale": "en",
+  "description": "__MSG_desc__",
+  "action": {
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png",
+      "128": "icons/128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "index.html"
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "64": "icons/64.png",
+    "128": "icons/128.png"
+  },
+  "background": {
+    "service_worker": "./js/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.xiapibuy.com/*",
+        "*://*.shopee.co.id/*",
+        "*://shopee.tw/*",
+        "*://shopee.vn/*",
+        "*://shopee.co.th/*",
+        "*://shopee.ph/*",
+        "*://shopee.com.my/*",
+        "*://shopee.sg/*",
+        "*://shopee.com.br/*",
+        "*://shopee.com.mx/*",
+        "*://shopee.com.co/*",
+        "*://shopee.cl/*",
+        "*://shopee.pl/*"
+      ],
+      "js": [
+        "js/jquery.min.js",
+        "js/load.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://chatgpt.com/*",
+        "*://gemini.google.com/*"
+      ],
+      "js": [
+        "js/aiAutoPaste.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "matches": [
+        "*://*/*"
+      ],
+      "resources": [
+        "js/contentScript.js",
+        "index.html",
+        "assets/*",
+        "_locales/*",
+        "icons/*"
+      ]
+    }
+  ],
+  "oauth2": {
+    "client_id": "842612930096-2ge23tjq9aag83bkl5o7cotl5aa76ttc.apps.googleusercontent.com",
+    "scopes": [
+      "openid",
+      "email",
+      "profile"
+    ]
+  },
+  "host_permissions": [
+    "https://www.googleapis.com/*",
+    "https://api.webstarue.com/*"
+  ],
+  "permissions": [
+    "identity",
+    "storage",
+    "tabs",
+    "sidePanel",
+    "downloads"
+  ]
+}

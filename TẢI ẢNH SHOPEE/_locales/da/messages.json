@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Du skal acceptere vilkårene for tjenesten."
+  },
+  "cancelSubscription": {
+    "message": "Annuller abonnement når som helst"
+  },
+  "contactUs": {
+    "message": "Hvis du har spørgsmål eller idéer, er du velkommen til at kontakte os."
+  },
+  "desc": {
+    "message": "Download nemt Shopee-produktbilleder og -videoer med dette populære værktøj!"
+  },
+  "description": {
+    "message": "Beskrivelse"
+  },
+  "download": {
+    "message": "Download"
+  },
+  "download_videos": {
+    "message": "Download videoer"
+  },
+  "enjoyProFeatures": {
+    "message": "Du nyder i øjeblikket vores Pro-version funktioner."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Eksporter"
+  },
+  "faqPage": {
+    "message": "FAQ-side"
+  },
+  "faqsDescription": {
+    "message": "Har du nogen spørgsmål? Vi har samlet svar på ofte stillede spørgsmål, så besøg gerne vores Q&A-side."
+  },
+  "faqsTitle": {
+    "message": "Ofte stillede spørgsmål"
+  },
+  "free": {
+    "message": "Gratis"
+  },
+  "imageTab": {
+    "message": "Billede"
+  },
+  "images": {
+    "message": "Billeder"
+  },
+  "loading": {
+    "message": "Indlæser..."
+  },
+  "loginWithGoogle": {
+    "message": "Log ind med Google"
+  },
+  "logout": {
+    "message": "Log ud"
+  },
+  "main": {
+    "message": "Hoved"
+  },
+  "manageSubscription": {
+    "message": "Administrer abonnement"
+  },
+  "moneyBackGuarantee": {
+    "message": "7-DAGES PENGENE TILBAGE GARANTI"
+  },
+  "one_click_download_images": {
+    "message": "Én klik for at downloade billeder"
+  },
+  "openProductPage": {
+    "message": "Åbn venligst en Shopee-produktside for at få billederne eller opdater produktsiden"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Ubegrænset"
+  },
+  "remaining": {
+    "message": "Resterende"
+  },
+  "resumeSubscribe": {
+    "message": "GENOPTAG ABONNEMENT"
+  },
+  "subscribe": {
+    "message": "ABONNER"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Skynd dig, dit Pro-abonnement udløber snart! Klik her👇 for at forny nu og undgå at miste dine eksklusive fordele."
+  },
+  "thanksForSubscribing": {
+    "message": "Tak for din tilmelding!"
+  },
+  "times_per_day": {
+    "message": "gange per dag"
+  },
+  "title": {
+    "message": "Shopee Billedownloader"
+  },
+  "upgrade": {
+    "message": "Opgradere"
+  },
+  "upgradeMessage": {
+    "message": "Opgrader til Pro for ubegrænsede downloads"
+  },
+  "usePaddle": {
+    "message": "Vi bruger Paddle til at behandle køb og kender ikke dine kortoplysninger."
+  },
+  "variants": {
+    "message": "Varianter"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Videoer"
+  },
+  "single_image_limit_reached": {
+    "message": "Daglig grænse for download af enkelte billeder (10) nået. Opgrader til Pro for ubegrænset downloads!"
+  },
+  "single_images": {
+    "message": "Enkelte billeder"
+  },
+  "remaining_today": {
+    "message": "Tilbage i dag"
+  },
+  "bulk": {
+    "message": "Bulk"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Opgrader for Ubegrænset >>"
+  },
+  "usage": {
+    "message": "Forbrug"
+  },
+  "unlimited": {
+    "message": "Ubegrænset"
+  },
+  "individual_download": {
+    "message": "Individuel Download"
+  },
+  "individual": {
+    "message": "Individuel"
+  },
+  "plan": {
+    "message": "Plan"
+  },
+  "freeUser": {
+    "message": "Gratis"
+  }
+}

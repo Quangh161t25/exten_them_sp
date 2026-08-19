@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Вы должны согласиться с Условиями предоставления услуг."
+  },
+  "cancelSubscription": {
+    "message": "Отменить подписку в любое время"
+  },
+  "contactUs": {
+    "message": "Если у вас есть вопросы или идеи, пожалуйста, не стесняйтесь обращаться к нам."
+  },
+  "desc": {
+    "message": "Легко скачивайте изображения и видео товаров Shopee с помощью этого популярного инструмента!"
+  },
+  "description": {
+    "message": "Описание"
+  },
+  "download": {
+    "message": "Скачать"
+  },
+  "download_videos": {
+    "message": "Скачать видео"
+  },
+  "enjoyProFeatures": {
+    "message": "В настоящее время вы наслаждаетесь функциями нашей версии Pro."
+  },
+  "excel": {
+    "message": "Эксл"
+  },
+  "export": {
+    "message": "Экспорт"
+  },
+  "faqPage": {
+    "message": "Страница часто задаваемых вопросов"
+  },
+  "faqsDescription": {
+    "message": "Есть вопросы? У нас собраны ответы на часто задаваемые вопросы, так что заходите на нашу страницу вопросов и ответов."
+  },
+  "faqsTitle": {
+    "message": "Часто задаваемые вопросы"
+  },
+  "free": {
+    "message": "Бесплатно"
+  },
+  "imageTab": {
+    "message": "Изображение"
+  },
+  "images": {
+    "message": "Изображения"
+  },
+  "loading": {
+    "message": "Загрузка..."
+  },
+  "loginWithGoogle": {
+    "message": "Войти через Google"
+  },
+  "logout": {
+    "message": "Выйти"
+  },
+  "main": {
+    "message": "Главная"
+  },
+  "manageSubscription": {
+    "message": "Управление подпиской"
+  },
+  "moneyBackGuarantee": {
+    "message": "ГАРАНТИЯ ВОЗВРАТА ДЕНЕГ В ТЕЧЕНИЕ 7 ДНЕЙ"
+  },
+  "one_click_download_images": {
+    "message": "Одним нажатием скачать изображения"
+  },
+  "openProductPage": {
+    "message": "Пожалуйста, откройте страницу товара на Shopee, чтобы получить изображения, или обновите страницу товара"
+  },
+  "pro": {
+    "message": "ПРО"
+  },
+  "pro_function": {
+    "message": "Неограниченно"
+  },
+  "remaining": {
+    "message": "Осталось"
+  },
+  "resumeSubscribe": {
+    "message": "ВОЗОБНОВИТЬ ПОДПИСКУ"
+  },
+  "subscribe": {
+    "message": "ПОДПИСАТЬСЯ"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Спешите, ваша подписка Pro заканчивается! Нажмите здесь👇, чтобы возобновить сейчас и не лишиться своих эксклюзивных преимуществ."
+  },
+  "thanksForSubscribing": {
+    "message": "Спасибо за подписку!"
+  },
+  "times_per_day": {
+    "message": "раз в день"
+  },
+  "title": {
+    "message": "Загрузчик изображений Shopee"
+  },
+  "upgrade": {
+    "message": "Обновить"
+  },
+  "upgradeMessage": {
+    "message": "Обновите до Pro для неограниченных загрузок"
+  },
+  "usePaddle": {
+    "message": "Мы используем Paddle для обработки покупок и не знаем реквизиты вашей карты."
+  },
+  "variants": {
+    "message": "Варианты"
+  },
+  "videoTab": {
+    "message": "Видео"
+  },
+  "videos": {
+    "message": "Видео"
+  },
+  "single_image_limit_reached": {
+    "message": "Достигнут дневной лимит скачивания одиночных изображений (10). Обновитесь до Pro для неограниченных загрузок!"
+  },
+  "single_images": {
+    "message": "Одиночные изображения"
+  },
+  "remaining_today": {
+    "message": "Осталось сегодня"
+  },
+  "bulk": {
+    "message": "Пакет"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Обновить до безлимита >>"
+  },
+  "usage": {
+    "message": "Использование"
+  },
+  "unlimited": {
+    "message": "Безлимит"
+  },
+  "individual_download": {
+    "message": "Индивидуальная загрузка"
+  },
+  "individual": {
+    "message": "Одиночный"
+  },
+  "plan": {
+    "message": "План"
+  },
+  "freeUser": {
+    "message": "Бесплатно"
+  }
+}

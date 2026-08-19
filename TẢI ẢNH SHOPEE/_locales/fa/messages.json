@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "شما باید با شرایط خدمات موافقت کنید."
+  },
+  "cancelSubscription": {
+    "message": "لغو اشتراک در هر زمان"
+  },
+  "contactUs": {
+    "message": "اگر سوال یا ایده‌ای دارید، لطفاً در تماس با ما تردید نکنید."
+  },
+  "desc": {
+    "message": "به راحتی تصاویر ویدئوهای محصولات شاپی را با این ابزار محبوب دانلود کنید!"
+  },
+  "description": {
+    "message": "توضیحات"
+  },
+  "download": {
+    "message": "دانلود"
+  },
+  "download_videos": {
+    "message": "دانلود ویدیوها"
+  },
+  "enjoyProFeatures": {
+    "message": "شما در حال حاضر از ویژگی‌های نسخه Pro ما لذت می‌برید."
+  },
+  "excel": {
+    "message": "اکسل"
+  },
+  "export": {
+    "message": "صادر کردن"
+  },
+  "faqPage": {
+    "message": "صفحه سوالات متداول"
+  },
+  "faqsDescription": {
+    "message": "آیا سوالی دارید؟ ما پاسخ‌های سوالات متداول را جمع‌آوری کرده‌ایم، بنابراین به صفحه سوالات و پاسخ‌هایمان مراجعه کنید."
+  },
+  "faqsTitle": {
+    "message": "سوالات متداول"
+  },
+  "free": {
+    "message": "رایگان"
+  },
+  "imageTab": {
+    "message": "تصویر"
+  },
+  "images": {
+    "message": "تصاویر"
+  },
+  "loading": {
+    "message": "در حال بارگذاری..."
+  },
+  "loginWithGoogle": {
+    "message": "ورود با گوگل"
+  },
+  "logout": {
+    "message": "خروج"
+  },
+  "main": {
+    "message": "اصلی"
+  },
+  "manageSubscription": {
+    "message": "مدیریت اشتراک"
+  },
+  "moneyBackGuarantee": {
+    "message": "۷ روز ضمانت بازگشت وجه"
+  },
+  "one_click_download_images": {
+    "message": "دانلود تصاویر با یک کلیک"
+  },
+  "openProductPage": {
+    "message": "لطفاً یک صفحه محصول Shopee را باز کنید تا تصاویر را دریافت کرده یا صفحه محصول را تازه کنید"
+  },
+  "pro": {
+    "message": "حرفه‌ای"
+  },
+  "pro_function": {
+    "message": "نامحدود"
+  },
+  "remaining": {
+    "message": "باقی مانده"
+  },
+  "resumeSubscribe": {
+    "message": "ادامه اشتراک"
+  },
+  "subscribe": {
+    "message": "مشترک شوید"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ عجله کنید، اشتراک ویژه شما در حال انقضا است! برای ادامه اکنون کلیک کنید👇 و از دست دادن مزایای انحصاری خود جلوگیری کنید."
+  },
+  "thanksForSubscribing": {
+    "message": "سپاس از عضویت شما!"
+  },
+  "times_per_day": {
+    "message": "بار در روز"
+  },
+  "title": {
+    "message": "دانلود کننده تصویر Shopee"
+  },
+  "upgrade": {
+    "message": "ارتقاء"
+  },
+  "upgradeMessage": {
+    "message": "برای دانلود نامحدود به نسخه حرفه‌ای ارتقا دهید"
+  },
+  "usePaddle": {
+    "message": "ما از Paddle برای پردازش خریدها استفاده می‌کنیم و جزئیات کارت شما را نمی‌دانیم."
+  },
+  "variants": {
+    "message": "انواع"
+  },
+  "videoTab": {
+    "message": "ویدیو"
+  },
+  "videos": {
+    "message": "ویدیوها"
+  },
+  "single_image_limit_reached": {
+    "message": "محدودیت روزانه دانلود تصویر منفرد (10) به پایان رسید. برای دانلودهای نامحدود به Pro ارتقا دهید!"
+  },
+  "single_images": {
+    "message": "تصاویر منفرد"
+  },
+  "remaining_today": {
+    "message": "امروز باقیمانده"
+  },
+  "bulk": {
+    "message": "انبوه"
+  },
+  "upgrade_for_unlimited": {
+    "message": "ارتقا برای نامحدود >>"
+  },
+  "usage": {
+    "message": "استفاده"
+  },
+  "unlimited": {
+    "message": "نامحدود"
+  },
+  "individual_download": {
+    "message": "دانلود تک‌تک"
+  },
+  "individual": {
+    "message": "تک‌تک"
+  },
+  "plan": {
+    "message": "طرح"
+  },
+  "freeUser": {
+    "message": "رایگان"
+  }
+}

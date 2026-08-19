@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "คุณต้องยอมรับข้อกำหนดในการให้บริการ"
+  },
+  "cancelSubscription": {
+    "message": "ยกเลิกการสมัครได้ทุกเมื่อ"
+  },
+  "contactUs": {
+    "message": "หากคุณมีคำถามหรือข้อเสนอแนะ โปรดอย่าลังเลที่จะติดต่อเรา."
+  },
+  "desc": {
+    "message": "ดาวน์โหลดรูปภาพและวิดีโอสินค้าจาก Shopee ได้ง่ายๆ ด้วยเครื่องมือยอดนิยมนี้!"
+  },
+  "description": {
+    "message": "คำอธิบาย"
+  },
+  "download": {
+    "message": "ดาวน์โหลด"
+  },
+  "download_videos": {
+    "message": "ดาวน์โหลดวิดีโอ"
+  },
+  "enjoyProFeatures": {
+    "message": "คุณกำลังเพลิดเพลินกับฟีเจอร์เวอร์ชัน Pro ของเราอยู่ในขณะนี้."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "ส่งออก"
+  },
+  "faqPage": {
+    "message": "หน้าคำถามที่พบบ่อย"
+  },
+  "faqsDescription": {
+    "message": "มีคำถามหรือไม่? เราได้รวบรวมคำตอบสำหรับคำถามที่พบบ่อยไว้แล้ว สามารถเยี่ยมชมหน้าคำถามที่พบบ่อยของเราได้เลย"
+  },
+  "faqsTitle": {
+    "message": "คำถามที่พบบ่อย"
+  },
+  "free": {
+    "message": "ฟรี"
+  },
+  "imageTab": {
+    "message": "รูปภาพ"
+  },
+  "images": {
+    "message": "รูปภาพ"
+  },
+  "loading": {
+    "message": "กำลังโหลด..."
+  },
+  "loginWithGoogle": {
+    "message": "เข้าสู่ระบบด้วย Google"
+  },
+  "logout": {
+    "message": "ออกจากระบบ"
+  },
+  "main": {
+    "message": "หลัก"
+  },
+  "manageSubscription": {
+    "message": "จัดการการสมัครสมาชิก"
+  },
+  "moneyBackGuarantee": {
+    "message": "รับประกันคืนเงินภายใน 7 วัน"
+  },
+  "one_click_download_images": {
+    "message": "ดาวน์โหลดภาพด้วยคลิกเดียว"
+  },
+  "openProductPage": {
+    "message": "กรุณาเปิดหน้าผลิตภัณฑ์ Shopee เพื่อรับรูปภาพหรือรีเฟรชหน้าผลิตภัณฑ์"
+  },
+  "pro": {
+    "message": "โปร"
+  },
+  "pro_function": {
+    "message": "ไม่จำกัด"
+  },
+  "remaining": {
+    "message": "คงเหลือ"
+  },
+  "resumeSubscribe": {
+    "message": "กลับมาสมัครสมาชิกใหม่"
+  },
+  "subscribe": {
+    "message": "สมัครสมาชิก"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ รีบหน่อย การสมัครสมาชิก Pro ของคุณกำลังจะหมดอายุ! คลิกที่นี่👇 เพื่อดำเนินการต่อและหลีกเลี่ยงการสูญเสียสิทธิพิเศษของคุณ."
+  },
+  "thanksForSubscribing": {
+    "message": "ขอบคุณที่สมัครสมาชิก!"
+  },
+  "times_per_day": {
+    "message": "ครั้ง/วัน"
+  },
+  "title": {
+    "message": "Shopee Image Downloader (ตัวดาวน์โหลดรูปภาพ Shopee)"
+  },
+  "upgrade": {
+    "message": "อัพเกรด"
+  },
+  "upgradeMessage": {
+    "message": "อัพเกรดเป็น Pro เพื่อดาวน์โหลดไม่จำกัด"
+  },
+  "usePaddle": {
+    "message": "เราใช้ Paddle ในการดำเนินการสั่งซื้อและไม่ทราบรายละเอียดบัตรของคุณ."
+  },
+  "variants": {
+    "message": "รูปแบบ"
+  },
+  "videoTab": {
+    "message": "วิดีโอ"
+  },
+  "videos": {
+    "message": "วิดีโอ"
+  },
+  "single_image_limit_reached": {
+    "message": "ถึงขีดจำกัดการดาวน์โหลดภาพเดี่ยวรายวัน (10) แล้ว อัปเกรดเป็น Pro เพื่อดาวน์โหลดไม่จำกัด!"
+  },
+  "single_images": {
+    "message": "ภาพเดี่ยว"
+  },
+  "remaining_today": {
+    "message": "เหลือวันนี้"
+  },
+  "bulk": {
+    "message": "กลุ่ม"
+  },
+  "upgrade_for_unlimited": {
+    "message": "อัปเกรดไม่จำกัด >>"
+  },
+  "usage": {
+    "message": "การใช้งาน"
+  },
+  "unlimited": {
+    "message": "ไม่จำกัด"
+  },
+  "individual_download": {
+    "message": "ดาวน์โหลดแบบเดี่ยว"
+  },
+  "individual": {
+    "message": "เดี่ยว"
+  },
+  "plan": {
+    "message": "แผน"
+  },
+  "freeUser": {
+    "message": "ฟรี"
+  }
+}

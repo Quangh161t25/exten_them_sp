@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Morate se složiti sa Uslovima korišćenja."
+  },
+  "cancelSubscription": {
+    "message": "Otkažite pretplatu u bilo kom trenutku"
+  },
+  "contactUs": {
+    "message": "Ако имате било каква питања или идеје, молимо вас да нас контактирате без оклевања."
+  },
+  "desc": {
+    "message": "Preuzmite slike i video zapise sa Shopee-a lako uz ovaj popularni alat!"
+  },
+  "description": {
+    "message": "Опис"
+  },
+  "download": {
+    "message": "Преузимање"
+  },
+  "download_videos": {
+    "message": "Преузми видео снимке"
+  },
+  "enjoyProFeatures": {
+    "message": "Trenutno uživate u funkcijama naše Pro verzije."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Извоз"
+  },
+  "faqPage": {
+    "message": "FAQ страница"
+  },
+  "faqsDescription": {
+    "message": "Imate li pitanja? Prikupili smo odgovore na često postavljana pitanja, pa slobodno posetite našu stranicu sa pitanjima i odgovorima."
+  },
+  "faqsTitle": {
+    "message": "Честа питања"
+  },
+  "free": {
+    "message": "Besplatno"
+  },
+  "imageTab": {
+    "message": "Слика"
+  },
+  "images": {
+    "message": "Slike"
+  },
+  "loading": {
+    "message": "Učitavanje..."
+  },
+  "loginWithGoogle": {
+    "message": "Пријавите се преко Google-а"
+  },
+  "logout": {
+    "message": "Odjavi se"
+  },
+  "main": {
+    "message": "Главни"
+  },
+  "manageSubscription": {
+    "message": "Управљај претплатом"
+  },
+  "moneyBackGuarantee": {
+    "message": "7-DNEVNA GARANCIJA POVRATA NOVCA"
+  },
+  "one_click_download_images": {
+    "message": "Jednim klikom preuzmi slike"
+  },
+  "openProductPage": {
+    "message": "Molimo otvorite Shopee stranicu proizvoda da biste dobili slike ili osvežite stranicu proizvoda"
+  },
+  "pro": {
+    "message": "ПРО"
+  },
+  "pro_function": {
+    "message": "Neograničeno"
+  },
+  "remaining": {
+    "message": "Preostalo"
+  },
+  "resumeSubscribe": {
+    "message": "NASTAVI PRETPLATU"
+  },
+  "subscribe": {
+    "message": "ПРЕТПЛАТИ СЕ"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Požurite, vaša Pro pretplata ističe! Kliknite ovde👇 da nastavite odmah i izbegnete gubitak vaših ekskluzivnih pogodnosti."
+  },
+  "thanksForSubscribing": {
+    "message": "Hvala što ste se pretplatili!"
+  },
+  "times_per_day": {
+    "message": "puta dnevno"
+  },
+  "title": {
+    "message": "Shopee Преузимач слика"
+  },
+  "upgrade": {
+    "message": "Ažuriranje"
+  },
+  "upgradeMessage": {
+    "message": "Nadogradite na Pro za neograničena preuzimanja"
+  },
+  "usePaddle": {
+    "message": "Користимо Paddle за обраду куповина и не знамо податке о вашој картици."
+  },
+  "variants": {
+    "message": "Varijante"
+  },
+  "videoTab": {
+    "message": "Видео"
+  },
+  "videos": {
+    "message": "Video"
+  },
+  "single_image_limit_reached": {
+    "message": "Daily single image download limit (10) reached. Upgrade to Pro for unlimited downloads!"
+  },
+  "single_images": {
+    "message": "Single Images"
+  },
+  "remaining_today": {
+    "message": "Remaining today"
+  },
+  "bulk": {
+    "message": "Bulk"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Upgrade for Unlimited >>"
+  },
+  "usage": {
+    "message": "Usage"
+  },
+  "unlimited": {
+    "message": "Unlimited"
+  },
+  "individual_download": {
+    "message": "Појединачно Преузимање"
+  },
+  "individual": {
+    "message": "Појединачно"
+  },
+  "plan": {
+    "message": "Plan"
+  },
+  "freeUser": {
+    "message": "Besplatno"
+  }
+}

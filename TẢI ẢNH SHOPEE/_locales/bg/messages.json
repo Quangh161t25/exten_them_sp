@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Трябва да се съгласите с Условията за ползване."
+  },
+  "cancelSubscription": {
+    "message": "Отмени абонамента по всяко време"
+  },
+  "contactUs": {
+    "message": "Ако имате въпроси или идеи, моля не се колебайте да се свържете с нас."
+  },
+  "desc": {
+    "message": "Изтеглете лесно изображения и видеоклипове на продукти от Shopee с този популярен инструмент!"
+  },
+  "description": {
+    "message": "Описание"
+  },
+  "download": {
+    "message": "Изтегляне"
+  },
+  "download_videos": {
+    "message": "Изтегляне на видеоклипове"
+  },
+  "enjoyProFeatures": {
+    "message": "В момента се наслаждавате на функциите на нашата Pro версия."
+  },
+  "excel": {
+    "message": "Ексел"
+  },
+  "export": {
+    "message": "Експорт"
+  },
+  "faqPage": {
+    "message": "ЧЗВ страница"
+  },
+  "faqsDescription": {
+    "message": "Имате ли въпроси? Събрали сме отговори на често задавани въпроси, така че не се колебайте да посетите нашата страница с въпроси и отговори."
+  },
+  "faqsTitle": {
+    "message": "ЧЗВ"
+  },
+  "free": {
+    "message": "Безплатно"
+  },
+  "imageTab": {
+    "message": "Изображение"
+  },
+  "images": {
+    "message": "Изображения"
+  },
+  "loading": {
+    "message": "Зареждане..."
+  },
+  "loginWithGoogle": {
+    "message": "Вход с Google"
+  },
+  "logout": {
+    "message": "Изход"
+  },
+  "main": {
+    "message": "Основен"
+  },
+  "manageSubscription": {
+    "message": "Управление на абонамента"
+  },
+  "moneyBackGuarantee": {
+    "message": "7-ДНЕВНА ГАРАНЦИЯ ЗА ВРЪЩАНЕ НА ПАРИТЕ"
+  },
+  "one_click_download_images": {
+    "message": "Изтегляне на изображения с едно кликване"
+  },
+  "openProductPage": {
+    "message": "Моля, отворете страница на продукт в Shopee, за да получите изображенията или обновете страницата на продукта"
+  },
+  "pro": {
+    "message": "ПРО"
+  },
+  "pro_function": {
+    "message": "Неограничено"
+  },
+  "remaining": {
+    "message": "Оставащо"
+  },
+  "resumeSubscribe": {
+    "message": "ВЪЗОБНОВИ АБОНИРАНЕ"
+  },
+  "subscribe": {
+    "message": "АБОНИРАЙ СЕ"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Побързайте, вашият Pro абонамент изтича! Кликнете тук👇, за да го подновите сега и да избегнете загубата на ексклузивните си предимства."
+  },
+  "thanksForSubscribing": {
+    "message": "Благодарим ви, че се абонирахте!"
+  },
+  "times_per_day": {
+    "message": "пъти на ден"
+  },
+  "title": {
+    "message": "Shopee Изтегляне на изображения"
+  },
+  "upgrade": {
+    "message": "Надграждане"
+  },
+  "upgradeMessage": {
+    "message": "Преминете към Pro за неограничени изтегляния"
+  },
+  "usePaddle": {
+    "message": "Ние използваме Paddle за обработка на покупки и не знаем данните на вашата карта."
+  },
+  "variants": {
+    "message": "Варианти"
+  },
+  "videoTab": {
+    "message": "Видео"
+  },
+  "videos": {
+    "message": "Видео"
+  },
+  "single_image_limit_reached": {
+    "message": "Daily single image download limit (10) reached. Upgrade to Pro for unlimited downloads!"
+  },
+  "single_images": {
+    "message": "Single Images"
+  },
+  "remaining_today": {
+    "message": "Remaining today"
+  },
+  "bulk": {
+    "message": "Bulk"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Upgrade for Unlimited >>"
+  },
+  "usage": {
+    "message": "Usage"
+  },
+  "unlimited": {
+    "message": "Unlimited"
+  },
+  "individual_download": {
+    "message": "Индивидуално Изтегляне"
+  },
+  "individual": {
+    "message": "Индивидуален"
+  },
+  "plan": {
+    "message": "План"
+  },
+  "freeUser": {
+    "message": "Безплатно"
+  }
+}

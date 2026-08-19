@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Vous devez accepter les conditions d'utilisation."
+  },
+  "cancelSubscription": {
+    "message": "Annuler l'abonnement à tout moment"
+  },
+  "contactUs": {
+    "message": "Si vous avez des questions ou des idées, n'hésitez pas à nous contacter."
+  },
+  "desc": {
+    "message": "Téléchargez facilement les images et vidéos des produits Shopee avec cet outil populaire !"
+  },
+  "description": {
+    "message": "Description"
+  },
+  "download": {
+    "message": "Télécharger"
+  },
+  "download_videos": {
+    "message": "Télécharger des vidéos"
+  },
+  "enjoyProFeatures": {
+    "message": "Vous profitez actuellement des fonctionnalités de notre version Pro."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Exporter"
+  },
+  "faqPage": {
+    "message": "Page FAQ"
+  },
+  "faqsDescription": {
+    "message": "Vous avez des questions ? Nous avons rassemblé des réponses aux questions fréquemment posées, alors n'hésitez pas à visiter notre page Q&R."
+  },
+  "faqsTitle": {
+    "message": "FAQ"
+  },
+  "free": {
+    "message": "Gratuit"
+  },
+  "imageTab": {
+    "message": "Image"
+  },
+  "images": {
+    "message": "Images"
+  },
+  "loading": {
+    "message": "Chargement..."
+  },
+  "loginWithGoogle": {
+    "message": "Se connecter avec Google"
+  },
+  "logout": {
+    "message": "Déconnexion"
+  },
+  "main": {
+    "message": "Principal"
+  },
+  "manageSubscription": {
+    "message": "Gérer l'abonnement"
+  },
+  "moneyBackGuarantee": {
+    "message": "GARANTIE DE REMBOURSEMENT DE 7 JOURS"
+  },
+  "one_click_download_images": {
+    "message": "Téléchargement d'images en un clic"
+  },
+  "openProductPage": {
+    "message": "Veuillez ouvrir une page produit Shopee pour obtenir les images ou actualiser la page produit"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Illimité"
+  },
+  "remaining": {
+    "message": "Restant"
+  },
+  "resumeSubscribe": {
+    "message": "REPRENDRE L'ABONNEMENT"
+  },
+  "subscribe": {
+    "message": "S'ABONNER"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Dépêchez-vous, votre abonnement Pro arrive à expiration ! Cliquez ici👇 pour renouveler maintenant et éviter de perdre vos avantages exclusifs."
+  },
+  "thanksForSubscribing": {
+    "message": "Merci pour votre abonnement !"
+  },
+  "times_per_day": {
+    "message": "fois par jour"
+  },
+  "title": {
+    "message": "Téléchargeur d'images Shopee"
+  },
+  "upgrade": {
+    "message": "Mettre à niveau"
+  },
+  "upgradeMessage": {
+    "message": "Passez à Pro pour des téléchargements illimités"
+  },
+  "usePaddle": {
+    "message": "Nous utilisons Paddle pour traiter les achats et ne connaissons pas les détails de votre carte."
+  },
+  "variants": {
+    "message": "Variantes"
+  },
+  "videoTab": {
+    "message": "Vidéo"
+  },
+  "videos": {
+    "message": "Vidéos"
+  },
+  "single_image_limit_reached": {
+    "message": "Limite quotidienne de téléchargement d'images simples (10) atteinte. Passez à Pro pour des téléchargements illimités!"
+  },
+  "single_images": {
+    "message": "Images simples"
+  },
+  "remaining_today": {
+    "message": "Restant aujourd'hui"
+  },
+  "bulk": {
+    "message": "Lot"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Passer à illimité >>"
+  },
+  "usage": {
+    "message": "Utilisation"
+  },
+  "unlimited": {
+    "message": "Illimité"
+  },
+  "individual_download": {
+    "message": "Téléchargement Individuel"
+  },
+  "individual": {
+    "message": "Individuel"
+  },
+  "plan": {
+    "message": "Plan"
+  },
+  "freeUser": {
+    "message": "Gratuit"
+  }
+}

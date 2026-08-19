@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "U moet akkoord gaan met de Servicevoorwaarden."
+  },
+  "cancelSubscription": {
+    "message": "Abonne­ment op elk moment annuleren"
+  },
+  "contactUs": {
+    "message": "Als u vragen of ideeën heeft, aarzel dan niet om contact met ons op te nemen."
+  },
+  "desc": {
+    "message": "Download eenvoudig Shopee productafbeeldingen en video's met deze populaire tool!"
+  },
+  "description": {
+    "message": "Beschrijving"
+  },
+  "download": {
+    "message": "Downloaden"
+  },
+  "download_videos": {
+    "message": "Video's downloaden"
+  },
+  "enjoyProFeatures": {
+    "message": "Je geniet momenteel van onze Pro-versie functies."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Exporteren"
+  },
+  "faqPage": {
+    "message": "FAQ Pagina"
+  },
+  "faqsDescription": {
+    "message": "Heb je vragen? We hebben antwoorden verzameld op veelgestelde vragen, dus voel je vrij om onze Q&A-pagina te bezoeken."
+  },
+  "faqsTitle": {
+    "message": "Veelgestelde vragen"
+  },
+  "free": {
+    "message": "Gratis"
+  },
+  "imageTab": {
+    "message": "Afbeelding"
+  },
+  "images": {
+    "message": "Afbeeldingen"
+  },
+  "loading": {
+    "message": "Laden..."
+  },
+  "loginWithGoogle": {
+    "message": "Inloggen met Google"
+  },
+  "logout": {
+    "message": "Uitloggen"
+  },
+  "main": {
+    "message": "Hoofd"
+  },
+  "manageSubscription": {
+    "message": "Abonnement beheren"
+  },
+  "moneyBackGuarantee": {
+    "message": "7-DAGEN GELDTERUGGARANTIE"
+  },
+  "one_click_download_images": {
+    "message": "Een Klik Download Afbeeldingen"
+  },
+  "openProductPage": {
+    "message": "Open een Shopee productpagina om de afbeeldingen te krijgen of vernieuw de productpagina"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Onbeperkt"
+  },
+  "remaining": {
+    "message": "Overblijvend"
+  },
+  "resumeSubscribe": {
+    "message": "ABONNEMENT HERVATTEN"
+  },
+  "subscribe": {
+    "message": "ABONNEREN"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Snel, je Pro-abonnement verloopt! Klik hier👇 om nu te verlengen en te voorkomen dat je je exclusieve voordelen verliest."
+  },
+  "thanksForSubscribing": {
+    "message": "Bedankt voor het abonneren!"
+  },
+  "times_per_day": {
+    "message": "keer per dag"
+  },
+  "title": {
+    "message": "Shopee Afbeelding Downloader"
+  },
+  "upgrade": {
+    "message": "Bijwerken"
+  },
+  "upgradeMessage": {
+    "message": "Upgrade naar Pro voor onbeperkte downloads"
+  },
+  "usePaddle": {
+    "message": "We gebruiken Paddle om aankopen te verwerken en kennen uw kaartgegevens niet."
+  },
+  "variants": {
+    "message": "Varianten"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Video's"
+  },
+  "single_image_limit_reached": {
+    "message": "Dagelijkse limiet voor het downloaden van enkele afbeeldingen (10) bereikt. Upgrade naar Pro voor onbeperkt downloaden!"
+  },
+  "single_images": {
+    "message": "Enkele afbeeldingen"
+  },
+  "remaining_today": {
+    "message": "Vandaag over"
+  },
+  "bulk": {
+    "message": "Bulk"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Upgrade voor Onbeperkt >>"
+  },
+  "usage": {
+    "message": "Gebruik"
+  },
+  "unlimited": {
+    "message": "Onbeperkt"
+  },
+  "individual_download": {
+    "message": "Individuele Download"
+  },
+  "individual": {
+    "message": "Individueel"
+  },
+  "plan": {
+    "message": "Plan"
+  },
+  "freeUser": {
+    "message": "Gratis"
+  }
+}

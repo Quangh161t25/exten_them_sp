@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "আপনাকে পরিষেবার শর্তাবলীতে সম্মত হতে হবে।"
+  },
+  "cancelSubscription": {
+    "message": "যেকোনো সময় সাবস্ক্রিপশন বাতিল করুন"
+  },
+  "contactUs": {
+    "message": "যদি আপনার কোন প্রশ্ন বা ধারণা থাকে, তাহলে অনুগ্রহ করে আমাদের সাথে যোগাযোগ করতে দ্বিধা করবেন না।"
+  },
+  "desc": {
+    "message": "এই জনপ্রিয় টুলের সাহায্যে শপির পণ্য ছবি এবং ভিডিও সহজেই ডাউনলোড করুন!"
+  },
+  "description": {
+    "message": "বর্ণনা"
+  },
+  "download": {
+    "message": "ডাউনলোড"
+  },
+  "download_videos": {
+    "message": "ভিডিও ডাউনলোড করুন"
+  },
+  "enjoyProFeatures": {
+    "message": "আপনি বর্তমানে আমাদের প্রো সংস্করণের বৈশিষ্ট্যগুলি উপভোগ করছেন।"
+  },
+  "excel": {
+    "message": "এক্সেল"
+  },
+  "export": {
+    "message": "রপ্তানি"
+  },
+  "faqPage": {
+    "message": "প্রায়শই জিজ্ঞাসিত প্রশ্ন পৃষ্ঠা"
+  },
+  "faqsDescription": {
+    "message": "কোন প্রশ্ন আছে? আমরা প্রায়শই জিজ্ঞাসিত প্রশ্নের উত্তর সংগ্রহ করেছি, তাই আমাদের প্রশ্নোত্তর পৃষ্ঠাটি দেখার জন্য নির্দ্বিধায় যান।"
+  },
+  "faqsTitle": {
+    "message": "প্রায়শই জিজ্ঞাসিত প্রশ্নাবলী"
+  },
+  "free": {
+    "message": "বিনামূল্যে"
+  },
+  "imageTab": {
+    "message": "ছবি"
+  },
+  "images": {
+    "message": "ছবিগুলি"
+  },
+  "loading": {
+    "message": "লোড হচ্ছে..."
+  },
+  "loginWithGoogle": {
+    "message": "গুগল দিয়ে লগইন করুন"
+  },
+  "logout": {
+    "message": "লগআউট"
+  },
+  "main": {
+    "message": "প্রধান"
+  },
+  "manageSubscription": {
+    "message": "সাবস্ক্রিপশন পরিচালনা করুন"
+  },
+  "moneyBackGuarantee": {
+    "message": "৭-দিনের টাকা ফেরত গ্যারান্টি"
+  },
+  "one_click_download_images": {
+    "message": "এক ক্লিকেই ইমেজ ডাউনলোড"
+  },
+  "openProductPage": {
+    "message": "ছবিগুলি পেতে Shopee পণ্যের পৃষ্ঠা খুলুন অথবা পণ্যের পৃষ্ঠা রিফ্রেশ করুন"
+  },
+  "pro": {
+    "message": "প্রো"
+  },
+  "pro_function": {
+    "message": "অসীম"
+  },
+  "remaining": {
+    "message": "বাকি"
+  },
+  "resumeSubscribe": {
+    "message": "সাবস্ক্রিপশন পুনরায় চালু করুন"
+  },
+  "subscribe": {
+    "message": "সাবস্ক্রাইব"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ তাড়াতাড়ি করুন, আপনার প্রো সাবস্ক্রিপশন শেষ হতে চলেছে! এখনই পুনরায় চালু করতে এবং আপনার এক্সক্লুসিভ সুবিধাগুলি হারানো এড়াতে এখানে ক্লিক করুন👇।"
+  },
+  "thanksForSubscribing": {
+    "message": "সাবস্ক্রাইব করার জন্য ধন্যবাদ!"
+  },
+  "times_per_day": {
+    "message": "প্রতিদিনের বার"
+  },
+  "title": {
+    "message": "শপিতে ইমেজ ডাউনলোডার"
+  },
+  "upgrade": {
+    "message": "আপগ্রেড"
+  },
+  "upgradeMessage": {
+    "message": "অনির্দিষ্ট ডাউনলোডের জন্য প্রো-তে আপগ্রেড করুন"
+  },
+  "usePaddle": {
+    "message": "আমরা ক্রয় প্রক্রিয়া সম্পন্ন করতে Paddle ব্যবহার করি এবং আপনার কার্ডের বিবরণ জানি না।"
+  },
+  "variants": {
+    "message": "ভেরিয়েন্ট্স"
+  },
+  "videoTab": {
+    "message": "ভিডিও"
+  },
+  "videos": {
+    "message": "ভিডিও"
+  },
+  "single_image_limit_reached": {
+    "message": "দৈনিক একক চিত্র ডাউনলোড সীমা (10) পৌঁছে গেছে। সীমাহীন ডাউনলোডের জন্য Pro তে আপগ্রেড করুন!"
+  },
+  "single_images": {
+    "message": "একক চিত্র"
+  },
+  "remaining_today": {
+    "message": "আজ অবশিষ্ট"
+  },
+  "bulk": {
+    "message": "বাল্ক"
+  },
+  "upgrade_for_unlimited": {
+    "message": "সীমাহীনের জন্য আপগ্রেড করুন >>"
+  },
+  "usage": {
+    "message": "ব্যবহার"
+  },
+  "unlimited": {
+    "message": "সীমাহীন"
+  },
+  "individual_download": {
+    "message": "স্বতন্ত্র ডাউনলোড"
+  },
+  "individual": {
+    "message": "স্বতন্ত্র"
+  },
+  "plan": {
+    "message": "প্ল্যান"
+  },
+  "freeUser": {
+    "message": "বিনামূল্যে"
+  }
+}

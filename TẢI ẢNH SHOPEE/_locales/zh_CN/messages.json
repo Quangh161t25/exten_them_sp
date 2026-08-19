@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "您必须同意服务条款。"
+  },
+  "cancelSubscription": {
+    "message": "随时取消订阅"
+  },
+  "contactUs": {
+    "message": "如果您有任何问题或想法，请随时与我们联系。"
+  },
+  "desc": {
+    "message": "使用这个热门工具轻松下载虾皮产品图片和视频！"
+  },
+  "description": {
+    "message": "描述"
+  },
+  "download": {
+    "message": "下载"
+  },
+  "download_videos": {
+    "message": "下载视频"
+  },
+  "enjoyProFeatures": {
+    "message": "您目前正在使用我们的专业版功能。"
+  },
+  "excel": {
+    "message": "表格"
+  },
+  "export": {
+    "message": "导出"
+  },
+  "faqPage": {
+    "message": "常见问题页面"
+  },
+  "faqsDescription": {
+    "message": "有任何问题吗？我们收集了常见问题的答案，欢迎访问我们的问答页面。"
+  },
+  "faqsTitle": {
+    "message": "常见问题"
+  },
+  "free": {
+    "message": "免费"
+  },
+  "imageTab": {
+    "message": "图像"
+  },
+  "images": {
+    "message": "图片"
+  },
+  "loading": {
+    "message": "加载中..."
+  },
+  "loginWithGoogle": {
+    "message": "使用谷歌登录"
+  },
+  "logout": {
+    "message": "登出"
+  },
+  "main": {
+    "message": "主要"
+  },
+  "manageSubscription": {
+    "message": "管理订阅"
+  },
+  "moneyBackGuarantee": {
+    "message": "7天退款保证"
+  },
+  "one_click_download_images": {
+    "message": "一键下载图像"
+  },
+  "openProductPage": {
+    "message": "请打开虾皮商品页面获取图片，或刷新商品页面"
+  },
+  "pro": {
+    "message": "专业版"
+  },
+  "pro_function": {
+    "message": "无限制"
+  },
+  "remaining": {
+    "message": "剩余"
+  },
+  "resumeSubscribe": {
+    "message": "恢复订阅"
+  },
+  "subscribe": {
+    "message": "订阅"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ 快点，您的专业订阅即将到期！点击这里👇立即续订，以免失去您的专属优惠。"
+  },
+  "thanksForSubscribing": {
+    "message": "感谢您的订阅！"
+  },
+  "times_per_day": {
+    "message": "次/天"
+  },
+  "title": {
+    "message": "Shopee 图片下载器"
+  },
+  "upgrade": {
+    "message": "升级"
+  },
+  "upgradeMessage": {
+    "message": "升级到专业版获取无限下载"
+  },
+  "usePaddle": {
+    "message": "我们使用 Paddle 处理购买，不会知道您的卡片详细信息。"
+  },
+  "variants": {
+    "message": "变体"
+  },
+  "videoTab": {
+    "message": "视频"
+  },
+  "videos": {
+    "message": "视频"
+  },
+  "single_image_limit_reached": {
+    "message": "每日下载次数已达上限(1次)。升级到Pro享受无限下载！"
+  },
+  "single_images": {
+    "message": "单张图片"
+  },
+  "remaining_today": {
+    "message": "今日剩余"
+  },
+  "bulk": {
+    "message": "批量"
+  },
+  "upgrade_for_unlimited": {
+    "message": "升级享无限次数 >>"
+  },
+  "usage": {
+    "message": "用量"
+  },
+  "unlimited": {
+    "message": "不限次数"
+  },
+  "individual_download": {
+    "message": "单张下载"
+  },
+  "individual": {
+    "message": "单张"
+  },
+  "plan": {
+    "message": "套餐"
+  },
+  "freeUser": {
+    "message": "免费"
+  }
+}

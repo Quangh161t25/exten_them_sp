@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Sinun on hyväksyttävä palveluehdot."
+  },
+  "cancelSubscription": {
+    "message": "Peruuta tilaus milloin tahansa"
+  },
+  "contactUs": {
+    "message": "Jos sinulla on kysymyksiä tai ideoita, älä epäröi ottaa meihin yhteyttä."
+  },
+  "desc": {
+    "message": "Lataa Shopee-tuotekuvat ja videot helposti tämän suositun työkalun avulla!"
+  },
+  "description": {
+    "message": "Kuvaus"
+  },
+  "download": {
+    "message": "Lataa"
+  },
+  "download_videos": {
+    "message": "Lataa videot"
+  },
+  "enjoyProFeatures": {
+    "message": "Käytät tällä hetkellä Pro-versiomme ominaisuuksia."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Vie"
+  },
+  "faqPage": {
+    "message": "UKK-sivu"
+  },
+  "faqsDescription": {
+    "message": "Onko sinulla kysyttävää? Olemme keränneet vastaukset usein kysyttyihin kysymyksiin, joten käy rohkeasti Q&A-sivullamme."
+  },
+  "faqsTitle": {
+    "message": "UKK"
+  },
+  "free": {
+    "message": "Ilmainen"
+  },
+  "imageTab": {
+    "message": "Kuva"
+  },
+  "images": {
+    "message": "Kuvat"
+  },
+  "loading": {
+    "message": "Ladataan..."
+  },
+  "loginWithGoogle": {
+    "message": "Kirjaudu sisään Googlella"
+  },
+  "logout": {
+    "message": "Kirjaudu ulos"
+  },
+  "main": {
+    "message": "Pää"
+  },
+  "manageSubscription": {
+    "message": "Hallinnoi tilausta"
+  },
+  "moneyBackGuarantee": {
+    "message": "7 PÄIVÄN RAHA-TURVATAKUU"
+  },
+  "one_click_download_images": {
+    "message": "Yhden klikkauksen kuvien lataus"
+  },
+  "openProductPage": {
+    "message": "Avaa Shopee-tuotesivu saadaksesi kuvat tai päivitä tuotesivu"
+  },
+  "pro": {
+    "message": "AMMATTILAINEN"
+  },
+  "pro_function": {
+    "message": "Rajoittamaton"
+  },
+  "remaining": {
+    "message": "Jäljellä"
+  },
+  "resumeSubscribe": {
+    "message": "JATKA TILAUSTA"
+  },
+  "subscribe": {
+    "message": "TILAA"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Kiirehdi, Pro-tilauksesi on vanhenemassa! Napsauta tästä👇 jatkaaksesi nyt ja välttääksesi eksklusiivisten etujen menettämisen."
+  },
+  "thanksForSubscribing": {
+    "message": "Kiitos tilaamisesta!"
+  },
+  "times_per_day": {
+    "message": "kertaa päivässä"
+  },
+  "title": {
+    "message": "Shopee-kuvankaappaustyökalu"
+  },
+  "upgrade": {
+    "message": "Päivitä"
+  },
+  "upgradeMessage": {
+    "message": "Päivitä Pro-versioon rajattomien latausten saamiseksi"
+  },
+  "usePaddle": {
+    "message": "Käytämme Paddlea ostosten käsittelyyn, emmekä tiedä korttitietojasi."
+  },
+  "variants": {
+    "message": "Variantit"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Videot"
+  },
+  "single_image_limit_reached": {
+    "message": "Päivittäinen yksittäisten kuvien latausraja (10) saavutettu. Päivitä Pro-versioon rajoittamattomia latauksia varten!"
+  },
+  "single_images": {
+    "message": "Yksittäiset kuvat"
+  },
+  "remaining_today": {
+    "message": "Jäljellä tänään"
+  },
+  "bulk": {
+    "message": "Joukko"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Päivitä Rajoittamattomaksi >>"
+  },
+  "usage": {
+    "message": "Käyttö"
+  },
+  "unlimited": {
+    "message": "Rajoittamaton"
+  },
+  "individual_download": {
+    "message": "Yksittäinen Lataus"
+  },
+  "individual": {
+    "message": "Yksittäinen"
+  },
+  "plan": {
+    "message": "Suunnitelma"
+  },
+  "freeUser": {
+    "message": "Ilmainen"
+  }
+}

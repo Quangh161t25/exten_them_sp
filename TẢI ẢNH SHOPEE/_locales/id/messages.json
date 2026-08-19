@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Anda harus menyetujui Ketentuan Layanan."
+  },
+  "cancelSubscription": {
+    "message": "Batalkan langganan kapan saja"
+  },
+  "contactUs": {
+    "message": "Jika Anda memiliki pertanyaan atau ide, jangan ragu untuk menghubungi kami."
+  },
+  "desc": {
+    "message": "Unduh gambar dan video produk Shopee dengan mudah menggunakan alat populer ini!"
+  },
+  "description": {
+    "message": "Deskripsi"
+  },
+  "download": {
+    "message": "Unduh"
+  },
+  "download_videos": {
+    "message": "Unduh Video"
+  },
+  "enjoyProFeatures": {
+    "message": "Anda saat ini menikmati fitur versi Pro kami."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Ekspor"
+  },
+  "faqPage": {
+    "message": "Halaman FAQ"
+  },
+  "faqsDescription": {
+    "message": "Punya pertanyaan? Kami telah mengumpulkan jawaban untuk pertanyaan yang sering diajukan, silakan kunjungi halaman Tanya Jawab kami."
+  },
+  "faqsTitle": {
+    "message": "FAQ"
+  },
+  "free": {
+    "message": "Gratis"
+  },
+  "imageTab": {
+    "message": "Gambar"
+  },
+  "images": {
+    "message": "Gambar"
+  },
+  "loading": {
+    "message": "Memuat..."
+  },
+  "loginWithGoogle": {
+    "message": "Masuk dengan Google"
+  },
+  "logout": {
+    "message": "Keluar"
+  },
+  "main": {
+    "message": "Utama"
+  },
+  "manageSubscription": {
+    "message": "Kelola Langganan"
+  },
+  "moneyBackGuarantee": {
+    "message": "JAMINAN UANG KEMBALI 7 HARI"
+  },
+  "one_click_download_images": {
+    "message": "Unduh Gambar Sekali Klik"
+  },
+  "openProductPage": {
+    "message": "Harap buka halaman produk Shopee untuk mendapatkan gambar atau segarkan halaman produk"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Tidak Terbatas"
+  },
+  "remaining": {
+    "message": "Sisa"
+  },
+  "resumeSubscribe": {
+    "message": "LANJUTKAN BERLANGGANAN"
+  },
+  "subscribe": {
+    "message": "BERLANGGANAN"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Cepat, langganan Pro Anda akan segera habis! Klik di sini 👇 untuk melanjutkan sekarang dan hindari kehilangan manfaat eksklusif Anda."
+  },
+  "thanksForSubscribing": {
+    "message": "Terima kasih telah berlangganan!"
+  },
+  "times_per_day": {
+    "message": "waktu per hari"
+  },
+  "title": {
+    "message": "Shopee Image Downloader"
+  },
+  "upgrade": {
+    "message": "Pembaruan"
+  },
+  "upgradeMessage": {
+    "message": "Upgrade ke Pro untuk unduhan tanpa batas"
+  },
+  "usePaddle": {
+    "message": "Kami menggunakan Paddle untuk memproses pembelian dan tidak mengetahui detail kartu Anda."
+  },
+  "variants": {
+    "message": "Varian"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Video"
+  },
+  "single_image_limit_reached": {
+    "message": "Batas unduhan gambar tunggal harian (10) tercapai. Upgrade ke Pro untuk unduhan tanpa batas!"
+  },
+  "single_images": {
+    "message": "Gambar tunggal"
+  },
+  "remaining_today": {
+    "message": "Tersisa hari ini"
+  },
+  "bulk": {
+    "message": "Massal"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Upgrade untuk Tak Terbatas >>"
+  },
+  "usage": {
+    "message": "Penggunaan"
+  },
+  "unlimited": {
+    "message": "Tak Terbatas"
+  },
+  "individual_download": {
+    "message": "Unduh Individual"
+  },
+  "individual": {
+    "message": "Individual"
+  },
+  "plan": {
+    "message": "Paket"
+  },
+  "freeUser": {
+    "message": "Gratis"
+  }
+}

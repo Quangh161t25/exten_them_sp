@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Peate nõustuma teenusetingimustega."
+  },
+  "cancelSubscription": {
+    "message": "Tühista tellimus igal ajal"
+  },
+  "contactUs": {
+    "message": "Kui teil on küsimusi või ideid, ärge kartke meiega ühendust võtta."
+  },
+  "desc": {
+    "message": "Laadige Shopee toote pildid ja videod hõlpsasti alla selle populaarse tööriistaga!"
+  },
+  "description": {
+    "message": "Kirjeldus"
+  },
+  "download": {
+    "message": "Laadi alla"
+  },
+  "download_videos": {
+    "message": "Laadi alla videod"
+  },
+  "enjoyProFeatures": {
+    "message": "Te naudite praegu meie Pro versiooni funktsioone."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Ekspordi"
+  },
+  "faqPage": {
+    "message": "KKK leht"
+  },
+  "faqsDescription": {
+    "message": "Kas teil on küsimusi? Oleme kogunud vastused korduma kippuvatele küsimustele, nii et külastage julgelt meie KKK lehte."
+  },
+  "faqsTitle": {
+    "message": "KKK"
+  },
+  "free": {
+    "message": "Tasuta"
+  },
+  "imageTab": {
+    "message": "Pilt"
+  },
+  "images": {
+    "message": "Pildid"
+  },
+  "loading": {
+    "message": "Laadimine..."
+  },
+  "loginWithGoogle": {
+    "message": "Logi Google'i abil sisse"
+  },
+  "logout": {
+    "message": "Logi välja"
+  },
+  "main": {
+    "message": "Peamine"
+  },
+  "manageSubscription": {
+    "message": "Halda tellimust"
+  },
+  "moneyBackGuarantee": {
+    "message": "7-PÄEVANE RAHA TAGASTAMISE GARANTII"
+  },
+  "one_click_download_images": {
+    "message": "Ühe klõpsuga piltide allalaadimine"
+  },
+  "openProductPage": {
+    "message": "Palun avage Shopee tooteleht, et saada pilte, või värskendage tootelehte"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Piiramatu"
+  },
+  "remaining": {
+    "message": "Järele jäänud"
+  },
+  "resumeSubscribe": {
+    "message": "TAASE TELLIMUST"
+  },
+  "subscribe": {
+    "message": "TELLIMINE"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Kiirustage, teie Pro tellimus aegub! Klõpsake siin👇, et kohe jätkata ning vältida oma eksklusiivsete eeliste kaotamist."
+  },
+  "thanksForSubscribing": {
+    "message": "Tänan tellimise eest!"
+  },
+  "times_per_day": {
+    "message": "kordi päevas"
+  },
+  "title": {
+    "message": "Shopee Pildi Allalaadija"
+  },
+  "upgrade": {
+    "message": "Uuenda"
+  },
+  "upgradeMessage": {
+    "message": "Uuenda Pro versioonile, et saada piiramatu allalaadimise õigused"
+  },
+  "usePaddle": {
+    "message": "Kasutame ostude töötlemiseks Paddle'it ega tea teie kaardiandmeid."
+  },
+  "variants": {
+    "message": "Variandid"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Videod"
+  },
+  "single_image_limit_reached": {
+    "message": "Daily single image download limit (10) reached. Upgrade to Pro for unlimited downloads!"
+  },
+  "single_images": {
+    "message": "Single Images"
+  },
+  "remaining_today": {
+    "message": "Remaining today"
+  },
+  "bulk": {
+    "message": "Bulk"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Upgrade for Unlimited >>"
+  },
+  "usage": {
+    "message": "Usage"
+  },
+  "unlimited": {
+    "message": "Unlimited"
+  },
+  "individual_download": {
+    "message": "Individuaalne Allalaadimine"
+  },
+  "individual": {
+    "message": "Individuaalne"
+  },
+  "plan": {
+    "message": "Plaan"
+  },
+  "freeUser": {
+    "message": "Tasuta"
+  }
+}

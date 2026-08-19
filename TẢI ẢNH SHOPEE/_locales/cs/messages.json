@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Musíte souhlasit s Podmínkami služby."
+  },
+  "cancelSubscription": {
+    "message": "Zrušit předplatné kdykoliv"
+  },
+  "contactUs": {
+    "message": "Pokud máte jakékoli dotazy nebo nápady, neváhejte nás kontaktovat."
+  },
+  "desc": {
+    "message": "Stáhněte si obrázky a videa produktů Shopee snadno pomocí tohoto oblíbeného nástroje!"
+  },
+  "description": {
+    "message": "Popis"
+  },
+  "download": {
+    "message": "Stáhnout"
+  },
+  "download_videos": {
+    "message": "Stáhnout videa"
+  },
+  "enjoyProFeatures": {
+    "message": "Momentálně využíváte funkce naší verze Pro."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Exportovat"
+  },
+  "faqPage": {
+    "message": "Stránka FAQ"
+  },
+  "faqsDescription": {
+    "message": "Máte nějaké dotazy? Shromáždili jsme odpovědi na často kladené otázky, takže neváhejte navštívit naši stránku s otázkami a odpověďmi."
+  },
+  "faqsTitle": {
+    "message": "Často kladené dotazy"
+  },
+  "free": {
+    "message": "Zdarma"
+  },
+  "imageTab": {
+    "message": "Obrázek"
+  },
+  "images": {
+    "message": "Obrázky"
+  },
+  "loading": {
+    "message": "Načítání..."
+  },
+  "loginWithGoogle": {
+    "message": "Přihlásit se pomocí Googlu"
+  },
+  "logout": {
+    "message": "Odhlásit se"
+  },
+  "main": {
+    "message": "Hlavní"
+  },
+  "manageSubscription": {
+    "message": "Správa předplatného"
+  },
+  "moneyBackGuarantee": {
+    "message": "7DENNÍ ZÁRUKA VRÁCENÍ PENĚZ"
+  },
+  "one_click_download_images": {
+    "message": "Stažení obrázků jedním kliknutím"
+  },
+  "openProductPage": {
+    "message": "Prosím, otevřete produktovou stránku Shopee pro získání obrázků nebo obnovte produktovou stránku."
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Neomezený"
+  },
+  "remaining": {
+    "message": "Zbývá"
+  },
+  "resumeSubscribe": {
+    "message": "OBNOVIT ODBĚR"
+  },
+  "subscribe": {
+    "message": "PŘIHLÁSIT SE K ODBĚRU"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Rychle, vaše Pro předplatné vyprší! Klikněte sem👇 a obnovte ho nyní, abyste nepřišli o své exkluzivní výhody."
+  },
+  "thanksForSubscribing": {
+    "message": "Děkujeme za odběr!"
+  },
+  "times_per_day": {
+    "message": "krát za den"
+  },
+  "title": {
+    "message": "Shopee Image Downloader"
+  },
+  "upgrade": {
+    "message": "Upgradovat"
+  },
+  "upgradeMessage": {
+    "message": "Přejděte na Pro verzi pro neomezené stahování"
+  },
+  "usePaddle": {
+    "message": "K zpracování nákupů používáme Paddle a neznáme údaje o vaší kartě."
+  },
+  "variants": {
+    "message": "Varianty"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Videa"
+  },
+  "single_image_limit_reached": {
+    "message": "Dosažen denní limit stahování jednotlivých obrázků (10). Upgradujte na Pro pro neomezené stahování!"
+  },
+  "single_images": {
+    "message": "Jednotlivé obrázky"
+  },
+  "remaining_today": {
+    "message": "Zbývá dnes"
+  },
+  "bulk": {
+    "message": "Hromadné"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Upgradovat na Neomezené >>"
+  },
+  "usage": {
+    "message": "Využití"
+  },
+  "unlimited": {
+    "message": "Neomezené"
+  },
+  "individual_download": {
+    "message": "Individuální Stahování"
+  },
+  "individual": {
+    "message": "Individuální"
+  },
+  "plan": {
+    "message": "Plán"
+  },
+  "freeUser": {
+    "message": "Zdarma"
+  }
+}

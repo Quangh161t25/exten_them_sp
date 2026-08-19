@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "እናንተ የአገልግሎት ሁኔታዎችን ማረጋገጥ አለባችሁ።"
+  },
+  "cancelSubscription": {
+    "message": "በማንኛውም ጊዜ ስልክ ቀጠሮ ይሰርዙ"
+  },
+  "contactUs": {
+    "message": "ማንኛውንም ጥያቄ ወይም ሀሳቦች ካሉዎት እባኮትን እንደገና አይቀሬም እንዲነካን ይምረጡ።"
+  },
+  "desc": {
+    "message": "የሽውፒ ምርት ምስሎችን እና ቪዲዮዎችን በቀላሉ ያውርዱ በዚህ ዝነኛ መሳሪያ!"
+  },
+  "description": {
+    "message": "መግለጫ"
+  },
+  "download": {
+    "message": "አውርድ"
+  },
+  "download_videos": {
+    "message": "ቪዲዮዎችን ያውርዱ"
+  },
+  "enjoyProFeatures": {
+    "message": "አሁን የእኛን ፕሮ እትም ባህሪያት ተደስቷል።"
+  },
+  "excel": {
+    "message": "ኤክሴል"
+  },
+  "export": {
+    "message": "ኤክስፖርት"
+  },
+  "faqPage": {
+    "message": "የምጥጥና ጥያቄዎች ገፅ"
+  },
+  "faqsDescription": {
+    "message": "አንዳች ጥያቄ አለዎት? በተመሳሰሉ ጥያቄዎች ላይ አጠራር ያካበተ እንግዲህ የጥያቄና መልስ ገጻችንን ይጎብኙ።"
+  },
+  "faqsTitle": {
+    "message": "ተደጋጋሚ ጥያቄዎች"
+  },
+  "free": {
+    "message": "ነጻ"
+  },
+  "imageTab": {
+    "message": "ምስል"
+  },
+  "images": {
+    "message": "ምስሎች"
+  },
+  "loading": {
+    "message": "በመጫን ላይ..."
+  },
+  "loginWithGoogle": {
+    "message": "ከGoogle ጋር እንቅስቃሴ ፈጣሪው"
+  },
+  "logout": {
+    "message": "ውጣ"
+  },
+  "main": {
+    "message": "ዋነኛ"
+  },
+  "manageSubscription": {
+    "message": "የመገኛ አባልነት አስተዳደር"
+  },
+  "moneyBackGuarantee": {
+    "message": "የ7 ቀን የገንዘብ መለስ እሺዎች"
+  },
+  "one_click_download_images": {
+    "message": "አንድ ጠቅ ማውረድ ምስሎች"
+  },
+  "openProductPage": {
+    "message": "እባኮትን የShopee ምርት ገፅ ለማግኘት ይክፈቱ ወይም የምርት ገፁን ያድሱ"
+  },
+  "pro": {
+    "message": "ኮይል"
+  },
+  "pro_function": {
+    "message": "ያልተገደበ"
+  },
+  "remaining": {
+    "message": "ቀሪ"
+  },
+  "resumeSubscribe": {
+    "message": "እንደገና መመዝገብ"
+  },
+  "subscribe": {
+    "message": "መጨመር"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ ቶሎ ቶሎ፣ የPro ምዝገባዎ እየተሻሻለ ነው! አሁን እንዲቀጥሉ እና የተለዩትን ጥቅሞች እንዳትሳሱ እዚህ ይጫኑ👇።"
+  },
+  "thanksForSubscribing": {
+    "message": "እንቅስቃሴ ለመመዝገብ እናመሰግናለን!"
+  },
+  "times_per_day": {
+    "message": "በቀን ጊዜያት"
+  },
+  "title": {
+    "message": "ናሙና ምስል አውሳር"
+  },
+  "upgrade": {
+    "message": "አሻሽል"
+  },
+  "upgradeMessage": {
+    "message": "እምነት ወደ ፕሮ በማድረግ ለመጠቀም ምንም ድምፅ ያልተከለከለ ማንኛውንም ድምፅ እንደነበሩት ትምህርት"
+  },
+  "usePaddle": {
+    "message": "እኛ ግዢዎችን ለማከናወን Paddle እንጠቀማለን እና የካርድዎን ዝርዝሮች አናውቅም።"
+  },
+  "variants": {
+    "message": "አማራጮች"
+  },
+  "videoTab": {
+    "message": "ቪዲዮ"
+  },
+  "videos": {
+    "message": "ቪዲዮዎች"
+  },
+  "single_image_limit_reached": {
+    "message": "ዕለታዊ ነጠላ ምስል ማውረድ ገደብ (10) ደርሷል። ያልተገደበ ለማውረድ ወደ Pro አስተካክሉ!"
+  },
+  "single_images": {
+    "message": "ነጠላ ምስሎች"
+  },
+  "remaining_today": {
+    "message": "ዛሬ የቀረ"
+  },
+  "bulk": {
+    "message": "በጅምላ"
+  },
+  "upgrade_for_unlimited": {
+    "message": "ያልተገደበ ለማግኘት ያሻሽሉ >>"
+  },
+  "usage": {
+    "message": "አጠቃቀም"
+  },
+  "unlimited": {
+    "message": "ያልተገደበ"
+  },
+  "individual_download": {
+    "message": "የነጠላ ማውረድ"
+  },
+  "individual": {
+    "message": "ነጠላ"
+  },
+  "plan": {
+    "message": "ዕቅድ"
+  },
+  "freeUser": {
+    "message": "ነጻ"
+  }
+}

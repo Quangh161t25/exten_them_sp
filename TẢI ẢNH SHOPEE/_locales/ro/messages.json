@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Trebuie să fii de acord cu Termenii Serviciului."
+  },
+  "cancelSubscription": {
+    "message": "Anulează abonamentul oricând"
+  },
+  "contactUs": {
+    "message": "Dacă aveți întrebări sau idei, vă rugăm să nu ezitați să ne contactați."
+  },
+  "desc": {
+    "message": "Descărcați imagini și videoclipuri ale produselor Shopee cu ușurință, folosind acest instrument popular!"
+  },
+  "description": {
+    "message": "Descriere"
+  },
+  "download": {
+    "message": "Descarcă"
+  },
+  "download_videos": {
+    "message": "Descărcați video-uri"
+  },
+  "enjoyProFeatures": {
+    "message": "În prezent beneficiați de caracteristicile versiunii noastre Pro."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Exportă"
+  },
+  "faqPage": {
+    "message": "Pagina FAQ"
+  },
+  "faqsDescription": {
+    "message": "Aveți întrebări? Am adunat răspunsuri la întrebările frecvente, așa că nu ezitați să vizitați pagina noastră de întrebări și răspunsuri."
+  },
+  "faqsTitle": {
+    "message": "Întrebări frecvente"
+  },
+  "free": {
+    "message": "Gratuit"
+  },
+  "imageTab": {
+    "message": "Imagine"
+  },
+  "images": {
+    "message": "Imagini"
+  },
+  "loading": {
+    "message": "Încărcare..."
+  },
+  "loginWithGoogle": {
+    "message": "Conectează-te cu Google"
+  },
+  "logout": {
+    "message": "Deconectare"
+  },
+  "main": {
+    "message": "Principală"
+  },
+  "manageSubscription": {
+    "message": "Gestionează abonamentul"
+  },
+  "moneyBackGuarantee": {
+    "message": "GARANȚIE DE RETURNARE A BANILOR ÎN 7 ZILE"
+  },
+  "one_click_download_images": {
+    "message": "Descărcare imagini cu un clic"
+  },
+  "openProductPage": {
+    "message": "Vă rugăm să deschideți o pagină de produs Shopee pentru a obține imaginile sau să reîmprospătați pagina de produs"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Nelimitat"
+  },
+  "remaining": {
+    "message": "Rămas"
+  },
+  "resumeSubscribe": {
+    "message": "REIA ABONAREA"
+  },
+  "subscribe": {
+    "message": "ABONEAZĂ-TE"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Grăbește-te, abonamentul tău Pro expiră! Apasă aici👇 pentru a-l relua acum și a evita pierderea beneficiilor exclusive."
+  },
+  "thanksForSubscribing": {
+    "message": "Mulțumim pentru abonare!"
+  },
+  "times_per_day": {
+    "message": "ori pe zi"
+  },
+  "title": {
+    "message": "Descărcător de imagini Shopee"
+  },
+  "upgrade": {
+    "message": "Actualizează"
+  },
+  "upgradeMessage": {
+    "message": "Actualizează la Pro pentru descărcări nelimitate"
+  },
+  "usePaddle": {
+    "message": "Folosim Paddle pentru a procesa achizițiile și nu cunoaștem detaliile cardului dumneavoastră."
+  },
+  "variants": {
+    "message": "Variante"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Videoclipuri"
+  },
+  "single_image_limit_reached": {
+    "message": "Limita zilnică de descărcare a imaginilor individuale (10) atinsă. Faceți upgrade la Pro pentru descărcări nelimitate!"
+  },
+  "single_images": {
+    "message": "Imagini individuale"
+  },
+  "remaining_today": {
+    "message": "Rămâne astăzi"
+  },
+  "bulk": {
+    "message": "Lot"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Actualizați pentru Nelimitat >>"
+  },
+  "usage": {
+    "message": "Utilizare"
+  },
+  "unlimited": {
+    "message": "Nelimitat"
+  },
+  "individual_download": {
+    "message": "Descărcare Individuală"
+  },
+  "individual": {
+    "message": "Individual"
+  },
+  "plan": {
+    "message": "Plan"
+  },
+  "freeUser": {
+    "message": "Gratuit"
+  }
+}

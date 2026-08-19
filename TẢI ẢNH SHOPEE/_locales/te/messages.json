@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "మీరు సేవా నిబంధనలకు అంగీకరించాలి."
+  },
+  "cancelSubscription": {
+    "message": "ఎప్పుడైనా సభ్యత్వాన్ని రద్దు చేయండి"
+  },
+  "contactUs": {
+    "message": "మీకు ఏవైనా ప్రశ్నలు లేదా ఆలోచనలు ఉంటే, దయచేసి మాతో సంప్రదించడానికి సంకోచించవద్దు."
+  },
+  "desc": {
+    "message": "ఈ ప్రాచుర్యం పొందిన ఉపకరణంతో షోపీ ఉత్పత్తి చిత్రాలు మరియు వీడియోలను సులభంగా డౌన్లోడ్ చేసుకోండి!"
+  },
+  "description": {
+    "message": "వివరణ"
+  },
+  "download": {
+    "message": "డౌన్లోడ్"
+  },
+  "download_videos": {
+    "message": "వీడియోలను డౌన్‌లోడ్ చేయండి"
+  },
+  "enjoyProFeatures": {
+    "message": "మీరు ప్రస్తుతం మా ప్రో వెర్షన్ లక్షణాలను ఆస్వాదిస్తున్నారు."
+  },
+  "excel": {
+    "message": "ఎక్సెల్"
+  },
+  "export": {
+    "message": "ఎగుమతి"
+  },
+  "faqPage": {
+    "message": "ఎఫ్ ఎ క్యూ పేజీ"
+  },
+  "faqsDescription": {
+    "message": "ఎలాంటి ప్రశ్నలు ఉన్నాయా? మేము తరచుగా అడిగే ప్రశ్నలకు సమాధానాలను సేకరించాము, కాబట్టి మా ప్రశ్నలు & సమాధానాలు పేజీని దర్శించండి."
+  },
+  "faqsTitle": {
+    "message": "ఎఫ్‌ఎ క్యూ‌లు"
+  },
+  "free": {
+    "message": "ఉచితం"
+  },
+  "imageTab": {
+    "message": "చిత్రం"
+  },
+  "images": {
+    "message": "చిత్రాలు"
+  },
+  "loading": {
+    "message": "లోడ్ అవుతోంది..."
+  },
+  "loginWithGoogle": {
+    "message": "గూగుల్‌తో లాగిన్ అవ్వండి"
+  },
+  "logout": {
+    "message": "లాగ్అవుట్"
+  },
+  "main": {
+    "message": "ప్రధాన"
+  },
+  "manageSubscription": {
+    "message": "Subscriptionని నిర్వహించండి"
+  },
+  "moneyBackGuarantee": {
+    "message": "7-రోజుల డబ్బు తిరిగి హామీ"
+  },
+  "one_click_download_images": {
+    "message": "ఒక క్లిక్‌ తో చిత్రాలను డౌన్‌లోడ్ చేయండి"
+  },
+  "openProductPage": {
+    "message": "దయచేసి చిత్రాలను పొందడానికి లేదా ఉత్పత్తి పేజీ ని రిఫ్రెష్ చేయడానికి షోపీ ఉత్పత్తి పేజీ ని తెరవండి"
+  },
+  "pro": {
+    "message": "ప్రొ"
+  },
+  "pro_function": {
+    "message": "అపరిమిత"
+  },
+  "remaining": {
+    "message": "మిగిలినది"
+  },
+  "resumeSubscribe": {
+    "message": "సభ్యత్వాన్ని పునరుద్ధరించండి"
+  },
+  "subscribe": {
+    "message": "సబ్స్క్రైబ్ చేయండి"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ త్వరపడండి, మీ ప్రో సబ్‌స్క్రిప్షన్ గడువు ముగಿಯుతోంది! మీ ప్రత్యేక ప్రయోజనాలను కోల్పోవడం నివారించడానికి ఇప్పుడు పునః ప్రారంభించడానికి ఇక్కడ నొక్కండి👇."
+  },
+  "thanksForSubscribing": {
+    "message": "చందా కోసం ధన్యవాదాలు!"
+  },
+  "times_per_day": {
+    "message": "రోజుకు సార్లు"
+  },
+  "title": {
+    "message": "షోపీ ఇమేజ్ డౌన్లోడర్"
+  },
+  "upgrade": {
+    "message": "అప్‌గ్రేడ్"
+  },
+  "upgradeMessage": {
+    "message": "అనంతర డౌన్‌లోడ్ల కోసం ప్రోకి అప్‌గ్రేడ్ చేయండి"
+  },
+  "usePaddle": {
+    "message": "మేము Paddleని కొనుగోళ్లను ప్రాసెస్ చేయడానికి ఉపయోగిస్తాము మరియు మీ కార್ಡ್ వివరాలను తెలియజేసేది లేదువు."
+  },
+  "variants": {
+    "message": "వేరియంట్లు"
+  },
+  "videoTab": {
+    "message": "వీడియో"
+  },
+  "videos": {
+    "message": "వీడియోలు"
+  },
+  "single_image_limit_reached": {
+    "message": "రోజువారీ ఒకే చిత్ర డౌన్‌లోడ్ పరిమితి (10) చేరుకుంది. అపరిమిత డౌన్‌లోడ్‌ల కోసం Pro కు అప్‌గ్రేడ్ చేయండి!"
+  },
+  "single_images": {
+    "message": "ఒకే చిత్రాలు"
+  },
+  "remaining_today": {
+    "message": "నేడు మిగిలినది"
+  },
+  "bulk": {
+    "message": "పెద్ద మొత్తం"
+  },
+  "upgrade_for_unlimited": {
+    "message": "అపరిమితం కోసం అప్‌గ్రేడ్ చేయండి >>"
+  },
+  "usage": {
+    "message": "వినియోగం"
+  },
+  "unlimited": {
+    "message": "అపరిమితమైన"
+  },
+  "individual_download": {
+    "message": "వ్యక్తిగత డౌన్‌లోడ్"
+  },
+  "individual": {
+    "message": "వ్యక్తిగత"
+  },
+  "plan": {
+    "message": "ప్లాన్"
+  },
+  "freeUser": {
+    "message": "ఉచితం"
+  }
+}

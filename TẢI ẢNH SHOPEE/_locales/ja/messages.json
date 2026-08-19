@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "利用規約に同意する必要があります。"
+  },
+  "cancelSubscription": {
+    "message": "いつでもサブスクリプションをキャンセルできます"
+  },
+  "contactUs": {
+    "message": "ご質問やアイデアがありましたら、遠慮なくお問い合わせください。"
+  },
+  "desc": {
+    "message": "この人気ツールを使って、Shopeeの商品画像や動画を簡単にダウンロードしましょう！"
+  },
+  "description": {
+    "message": "説明"
+  },
+  "download": {
+    "message": "ダウンロード"
+  },
+  "download_videos": {
+    "message": "ビデオをダウンロード"
+  },
+  "enjoyProFeatures": {
+    "message": "現在、Proバージョンの機能をお楽しみいただいています。"
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "エクスポート"
+  },
+  "faqPage": {
+    "message": "FAQページ"
+  },
+  "faqsDescription": {
+    "message": "質問がありますか？よくある質問への回答を集めましたので、ぜひ私たちのQ&Aページをご覧ください。"
+  },
+  "faqsTitle": {
+    "message": "よくある質問"
+  },
+  "free": {
+    "message": "無料"
+  },
+  "imageTab": {
+    "message": "画像"
+  },
+  "images": {
+    "message": "画像"
+  },
+  "loading": {
+    "message": "読み込み中..."
+  },
+  "loginWithGoogle": {
+    "message": "Googleでログイン"
+  },
+  "logout": {
+    "message": "ログアウト"
+  },
+  "main": {
+    "message": "メイン"
+  },
+  "manageSubscription": {
+    "message": "サブスクリプションを管理する"
+  },
+  "moneyBackGuarantee": {
+    "message": "7日間返金保証"
+  },
+  "one_click_download_images": {
+    "message": "ワンクリックで画像をダウンロード"
+  },
+  "openProductPage": {
+    "message": "画像を取得するには、Shopeeの製品ページを開くか、製品ページを更新してください"
+  },
+  "pro": {
+    "message": "プロ"
+  },
+  "pro_function": {
+    "message": "無制限"
+  },
+  "remaining": {
+    "message": "残り"
+  },
+  "resumeSubscribe": {
+    "message": "サブスクリプションを再開する"
+  },
+  "subscribe": {
+    "message": "購読"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ 急いでください、Proサブスクリプションの期限が切れそうです！今すぐここをクリック👇して、限定特典を失うことを避けてください。"
+  },
+  "thanksForSubscribing": {
+    "message": "ご購読ありがとうございます！"
+  },
+  "times_per_day": {
+    "message": "回/日"
+  },
+  "title": {
+    "message": "Shopee画像ダウンローダー"
+  },
+  "upgrade": {
+    "message": "アップグレード"
+  },
+  "upgradeMessage": {
+    "message": "無制限ダウンロードのためにProにアップグレード"
+  },
+  "usePaddle": {
+    "message": "購入処理にはPaddleを使用しており、カード情報は知りません。"
+  },
+  "variants": {
+    "message": "バリアント"
+  },
+  "videoTab": {
+    "message": "ビデオ"
+  },
+  "videos": {
+    "message": "ビデオ"
+  },
+  "single_image_limit_reached": {
+    "message": "1日の単一画像ダウンロード制限(10回)に達しました。Proにアップグレードして無制限ダウンロード！"
+  },
+  "single_images": {
+    "message": "単一画像"
+  },
+  "remaining_today": {
+    "message": "本日の残り"
+  },
+  "bulk": {
+    "message": "一括"
+  },
+  "upgrade_for_unlimited": {
+    "message": "無制限にアップグレード >>"
+  },
+  "usage": {
+    "message": "使用量"
+  },
+  "unlimited": {
+    "message": "無制限"
+  },
+  "individual_download": {
+    "message": "個別ダウンロード"
+  },
+  "individual": {
+    "message": "個別"
+  },
+  "plan": {
+    "message": "プラン"
+  },
+  "freeUser": {
+    "message": "無料"
+  }
+}

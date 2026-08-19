@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "आपको सेवा की शर्तों से सहमत होना होगा।"
+  },
+  "cancelSubscription": {
+    "message": "कभी भी सदस्यता रद्द करें"
+  },
+  "contactUs": {
+    "message": "यदि आपके कोई प्रश्न या विचार हैं, तो कृपया हमसे संपर्क करने में संकोच न करें।"
+  },
+  "desc": {
+    "message": "इस लोकप्रिय उपकरण के साथ शॉपी उत्पाद चित्र और वीडियो आसानी से डाउनलोड करें!"
+  },
+  "description": {
+    "message": "विवरण"
+  },
+  "download": {
+    "message": "डाउनलोड"
+  },
+  "download_videos": {
+    "message": "वीडियो डाउनलोड करें"
+  },
+  "enjoyProFeatures": {
+    "message": "आप वर्तमान में हमारे प्रो संस्करण की सुविधाएँ का आनंद ले रहे हैं।"
+  },
+  "excel": {
+    "message": "एक्सेल"
+  },
+  "export": {
+    "message": "निर्यात"
+  },
+  "faqPage": {
+    "message": "अक्सर पूछे जाने वाले प्रश्न पृष्ठ"
+  },
+  "faqsDescription": {
+    "message": "कोई प्रश्न है? हमने अक्सर पूछे जाने वाले प्रश्नों के उत्तर एकत्र किए हैं, इसलिए हमारी प्रश्नोत्तर पृष्ठ पर जाने में संकोच न करें।"
+  },
+  "faqsTitle": {
+    "message": "आम सवाल"
+  },
+  "free": {
+    "message": "मुफ़्त"
+  },
+  "imageTab": {
+    "message": "छवि"
+  },
+  "images": {
+    "message": "चित्र"
+  },
+  "loading": {
+    "message": "लोड हो रहा है..."
+  },
+  "loginWithGoogle": {
+    "message": "Google के साथ लॉगिन करें"
+  },
+  "logout": {
+    "message": "लॉगआउट"
+  },
+  "main": {
+    "message": "मुख्य"
+  },
+  "manageSubscription": {
+    "message": "सदस्यता प्रबंधित करें"
+  },
+  "moneyBackGuarantee": {
+    "message": "7-दिन की पैसे वापस गारंटी"
+  },
+  "one_click_download_images": {
+    "message": "एक क्लिक में छवियाँ डाउनलोड करें"
+  },
+  "openProductPage": {
+    "message": "कृपया छापी उत्पाद पृष्ठ खोलें ताकि छवियाँ प्राप्त हो सकें या उत्पाद पृष्ठ को ताज़ा करें"
+  },
+  "pro": {
+    "message": "प्रो"
+  },
+  "pro_function": {
+    "message": "असीमित"
+  },
+  "remaining": {
+    "message": "बाकी"
+  },
+  "resumeSubscribe": {
+    "message": "पुनः सदस्यता प्रारंभ करें"
+  },
+  "subscribe": {
+    "message": "सब्सक्राइब करें"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ जल्दी करें, आपकी प्रो सदस्यता समाप्त हो रही है! अब इसे पुनः चालू करने और अपने विशेष लाभों को खोने से बचने के लिए यहां क्लिक करें👇।"
+  },
+  "thanksForSubscribing": {
+    "message": "सदस्यता लेने के लिए धन्यवाद!"
+  },
+  "times_per_day": {
+    "message": "दिन में बार"
+  },
+  "title": {
+    "message": "Shopee छवि डाउनलोडर"
+  },
+  "upgrade": {
+    "message": "उन्नति करें"
+  },
+  "upgradeMessage": {
+    "message": "अनलिमिटेड डाउनलोड के लिए प्रो में अपग्रेड करें"
+  },
+  "usePaddle": {
+    "message": "हम Paddle का उपयोग खरीदारी की प्रक्रिया के लिए करते हैं और आपके कार्ड विवरण नहीं जानते हैं।"
+  },
+  "variants": {
+    "message": "वेरिएंट्स"
+  },
+  "videoTab": {
+    "message": "वीडियो"
+  },
+  "videos": {
+    "message": "वीडियो"
+  },
+  "single_image_limit_reached": {
+    "message": "दैनिक एकल छवि डाउनलोड सीमा (10) तक पहुंच गई। असीमित डाउनलोड के लिए Pro में अपग्रेड करें!"
+  },
+  "single_images": {
+    "message": "एकल चित्र"
+  },
+  "remaining_today": {
+    "message": "आज शेष"
+  },
+  "bulk": {
+    "message": "थोक"
+  },
+  "upgrade_for_unlimited": {
+    "message": "असीमित के लिए अपग्रेड करें >>"
+  },
+  "usage": {
+    "message": "उपयोग"
+  },
+  "unlimited": {
+    "message": "असीमित"
+  },
+  "individual_download": {
+    "message": "व्यक्तिगत डाउनलोड"
+  },
+  "individual": {
+    "message": "व्यक्तिगत"
+  },
+  "plan": {
+    "message": "योजना"
+  },
+  "freeUser": {
+    "message": "मुफ़्त"
+  }
+}

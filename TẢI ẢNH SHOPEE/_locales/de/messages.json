@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Sie müssen den Nutzungsbedingungen zustimmen."
+  },
+  "cancelSubscription": {
+    "message": "Abonnement jederzeit kündigen"
+  },
+  "contactUs": {
+    "message": "Wenn Sie Fragen oder Ideen haben, zögern Sie bitte nicht, uns zu kontaktieren."
+  },
+  "desc": {
+    "message": "Laden Sie Shopee-Produktbilder und -videos mit diesem beliebten Tool ganz einfach herunter!"
+  },
+  "description": {
+    "message": "Beschreibung"
+  },
+  "download": {
+    "message": "Herunterladen"
+  },
+  "download_videos": {
+    "message": "Videos herunterladen"
+  },
+  "enjoyProFeatures": {
+    "message": "Sie nutzen derzeit die Funktionen unserer Pro-Version."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Exportieren"
+  },
+  "faqPage": {
+    "message": "FAQ-Seite"
+  },
+  "faqsDescription": {
+    "message": "Haben Sie Fragen? Wir haben Antworten auf häufig gestellte Fragen gesammelt, also besuchen Sie gerne unsere Q&A-Seite."
+  },
+  "faqsTitle": {
+    "message": "FAQs"
+  },
+  "free": {
+    "message": "Kostenlos"
+  },
+  "imageTab": {
+    "message": "Bild"
+  },
+  "images": {
+    "message": "Bilder"
+  },
+  "loading": {
+    "message": "Wird geladen..."
+  },
+  "loginWithGoogle": {
+    "message": "Mit Google anmelden"
+  },
+  "logout": {
+    "message": "Abmelden"
+  },
+  "main": {
+    "message": "Haupt"
+  },
+  "manageSubscription": {
+    "message": "Abonnement verwalten"
+  },
+  "moneyBackGuarantee": {
+    "message": "7-TAGE-GELD-ZURÜCK-GARANTIE"
+  },
+  "one_click_download_images": {
+    "message": "Bilder mit einem Klick herunterladen"
+  },
+  "openProductPage": {
+    "message": "Bitte öffnen Sie eine Shopee-Produktseite, um die Bilder zu erhalten, oder aktualisieren Sie die Produktseite."
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Unbegrenzt"
+  },
+  "remaining": {
+    "message": "Verbleibend"
+  },
+  "resumeSubscribe": {
+    "message": "ABONNEMENT FORTSETZEN"
+  },
+  "subscribe": {
+    "message": "ABONNIEREN"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Achtung, dein Pro-Abonnement läuft ab! Klicke hier👇, um es jetzt fortzusetzen und den Verlust deiner exklusiven Vorteile zu vermeiden."
+  },
+  "thanksForSubscribing": {
+    "message": "Danke für das Abonnieren!"
+  },
+  "times_per_day": {
+    "message": "Times pro Tag"
+  },
+  "title": {
+    "message": "Shopee Bild-Downloader"
+  },
+  "upgrade": {
+    "message": "Upgrade"
+  },
+  "upgradeMessage": {
+    "message": "Upgrade auf Pro für unbegrenzte Downloads"
+  },
+  "usePaddle": {
+    "message": "Wir verwenden Paddle, um Einkäufe zu verarbeiten und kennen Ihre Kartendaten nicht."
+  },
+  "variants": {
+    "message": "Varianten"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Videos"
+  },
+  "single_image_limit_reached": {
+    "message": "Tägliches Limit für einzelne Bild-Downloads (10) erreicht. Upgrade auf Pro für unbegrenzte Downloads!"
+  },
+  "single_images": {
+    "message": "Einzelne Bilder"
+  },
+  "remaining_today": {
+    "message": "Heute verbleibend"
+  },
+  "bulk": {
+    "message": "Stapel"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Upgrade für unbegrenzt >>"
+  },
+  "usage": {
+    "message": "Nutzung"
+  },
+  "unlimited": {
+    "message": "Unbegrenzt"
+  },
+  "individual_download": {
+    "message": "Einzelner Download"
+  },
+  "individual": {
+    "message": "Einzeln"
+  },
+  "plan": {
+    "message": "Plan"
+  },
+  "freeUser": {
+    "message": "Kostenlos"
+  }
+}

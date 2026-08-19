@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Anda perlu bersetuju dengan Terma Perkhidmatan."
+  },
+  "cancelSubscription": {
+    "message": "Batalkan langganan bila-bila masa"
+  },
+  "contactUs": {
+    "message": "Jika anda mempunyai sebarang soalan atau idea, silakan hubungi kami tanpa ragu-ragu."
+  },
+  "desc": {
+    "message": "Muat turun gambar dan video produk Shopee dengan mudah menggunakan alat popular ini!"
+  },
+  "description": {
+    "message": "Penerangan"
+  },
+  "download": {
+    "message": "Muat turun"
+  },
+  "download_videos": {
+    "message": "Muat Turun Video"
+  },
+  "enjoyProFeatures": {
+    "message": "Anda sedang menikmati ciri-ciri versi Pro kami."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Eksport"
+  },
+  "faqPage": {
+    "message": "Halaman Soalan Lazim"
+  },
+  "faqsDescription": {
+    "message": "Ada sebarang soalan? Kami telah mengumpulkan jawapan kepada soalan-soalan yang sering ditanya, jadi jangan ragu untuk melawat halaman Soal Jawab kami."
+  },
+  "faqsTitle": {
+    "message": "Soalan Lazim"
+  },
+  "free": {
+    "message": "Percuma"
+  },
+  "imageTab": {
+    "message": "Imej"
+  },
+  "images": {
+    "message": "Imej"
+  },
+  "loading": {
+    "message": "Memuat..."
+  },
+  "loginWithGoogle": {
+    "message": "Log masuk dengan Google"
+  },
+  "logout": {
+    "message": "Log keluar"
+  },
+  "main": {
+    "message": "Utama"
+  },
+  "manageSubscription": {
+    "message": "Urus Langganan"
+  },
+  "moneyBackGuarantee": {
+    "message": "JAMINAN WANG DIKEMBALIKAN 7 HARI"
+  },
+  "one_click_download_images": {
+    "message": "Muat Turun Imej Sekali Klik"
+  },
+  "openProductPage": {
+    "message": "Sila buka halaman produk Shopee untuk mendapatkan imej atau muat semula halaman produk"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Tiada Had"
+  },
+  "remaining": {
+    "message": "Tinggal"
+  },
+  "resumeSubscribe": {
+    "message": "SAMBUNG SEMULA LANGGAN"
+  },
+  "subscribe": {
+    "message": "LANGGANAN"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Cepat, langganan Pro anda akan tamat! Klik di sini👇 untuk sambung sekarang dan elakkan kehilangan faedah eksklusif anda."
+  },
+  "thanksForSubscribing": {
+    "message": "Terima kasih kerana melanggan!"
+  },
+  "times_per_day": {
+    "message": "bilangan kali sehari"
+  },
+  "title": {
+    "message": "Shopee Muat Turun Imej"
+  },
+  "upgrade": {
+    "message": "Naik taraf"
+  },
+  "upgradeMessage": {
+    "message": "Tingkatkan ke Pro untuk muat turun tanpa had"
+  },
+  "usePaddle": {
+    "message": "Kami menggunakan Paddle untuk memproses pembelian dan tidak mengetahui butiran kad anda."
+  },
+  "variants": {
+    "message": "Varian"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Video"
+  },
+  "single_image_limit_reached": {
+    "message": "Had muat turun imej tunggal harian (10) tercapai. Naik taraf ke Pro untuk muat turun tanpa had!"
+  },
+  "single_images": {
+    "message": "Imej tunggal"
+  },
+  "remaining_today": {
+    "message": "Baki hari ini"
+  },
+  "bulk": {
+    "message": "Pukal"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Naik taraf untuk Tanpa Had >>"
+  },
+  "usage": {
+    "message": "Penggunaan"
+  },
+  "unlimited": {
+    "message": "Tanpa Had"
+  },
+  "individual_download": {
+    "message": "Muat Turun Individu"
+  },
+  "individual": {
+    "message": "Individu"
+  },
+  "plan": {
+    "message": "Pelan"
+  },
+  "freeUser": {
+    "message": "Percuma"
+  }
+}

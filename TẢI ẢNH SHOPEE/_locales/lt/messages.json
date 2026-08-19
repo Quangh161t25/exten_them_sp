@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Turite sutikti su Paslaugų teikimo sąlygomis."
+  },
+  "cancelSubscription": {
+    "message": "Atšaukti prenumeratą bet kuriuo metu"
+  },
+  "contactUs": {
+    "message": "Jei turite klausimų ar idėjų, nedvejodami susisiekite su mumis."
+  },
+  "desc": {
+    "message": "Atsisiųskite Shopee produktų nuotraukas ir vaizdo įrašus lengvai naudodamiesi šiuo populiariu įrankiu!"
+  },
+  "description": {
+    "message": "Aprašymas"
+  },
+  "download": {
+    "message": "Atsisiųsti"
+  },
+  "download_videos": {
+    "message": "Atsisiųsti vaizdo įrašus"
+  },
+  "enjoyProFeatures": {
+    "message": "Šiuo metu naudojatės mūsų Pro versijos funkcijomis."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Eksportuoti"
+  },
+  "faqPage": {
+    "message": "DUK puslapis"
+  },
+  "faqsDescription": {
+    "message": "Turite klausimų? Mes surinkome atsakymus į dažnai užduodamus klausimus, todėl drąsiai apsilankykite mūsų DUK puslapyje."
+  },
+  "faqsTitle": {
+    "message": "DUK"
+  },
+  "free": {
+    "message": "Nemokamai"
+  },
+  "imageTab": {
+    "message": "Vaizdas"
+  },
+  "images": {
+    "message": "Paveikslai"
+  },
+  "loading": {
+    "message": "Įkeliama..."
+  },
+  "loginWithGoogle": {
+    "message": "Prisijungti su Google"
+  },
+  "logout": {
+    "message": "Atsijungti"
+  },
+  "main": {
+    "message": "Pagrindinis"
+  },
+  "manageSubscription": {
+    "message": "Tvarkyti prenumeratą"
+  },
+  "moneyBackGuarantee": {
+    "message": "7 DIENŲ PINIGŲ GRĄŽINIMO GARANTIJA"
+  },
+  "one_click_download_images": {
+    "message": "Vienu spustelėjimu atsisiųsti vaizdus"
+  },
+  "openProductPage": {
+    "message": "Prašome atidaryti Shopee produkto puslapį, kad gautumėte vaizdus, arba atnaujinkite produkto puslapį"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Neribotas"
+  },
+  "remaining": {
+    "message": "Liko"
+  },
+  "resumeSubscribe": {
+    "message": "TĘSTI prenumeratą"
+  },
+  "subscribe": {
+    "message": "PRENUMERUOTI"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Skubėkite, jūsų Pro prenumerata baigiasi! Spustelėkite čia👇, kad pratęstumėte dabar ir išvengtumėte išskirtinių privalumų praradimo."
+  },
+  "thanksForSubscribing": {
+    "message": "Ačiū, kad užsiprenumeravote!"
+  },
+  "times_per_day": {
+    "message": "kartus per dieną"
+  },
+  "title": {
+    "message": "Shopee Vaizdų Atsisiuntėjas"
+  },
+  "upgrade": {
+    "message": "Atnaujinti"
+  },
+  "upgradeMessage": {
+    "message": "Atsisiųskite neribotą kiekį, atnaujinkite į Pro"
+  },
+  "usePaddle": {
+    "message": "Mes naudojame Paddle pirkimams apdoroti ir nežinome jūsų kortelės duomenų."
+  },
+  "variants": {
+    "message": "Variantai"
+  },
+  "videoTab": {
+    "message": "Vaizdo įrašas"
+  },
+  "videos": {
+    "message": "Vaizdo įrašai"
+  },
+  "single_image_limit_reached": {
+    "message": "Daily single image download limit (10) reached. Upgrade to Pro for unlimited downloads!"
+  },
+  "single_images": {
+    "message": "Single Images"
+  },
+  "remaining_today": {
+    "message": "Remaining today"
+  },
+  "bulk": {
+    "message": "Bulk"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Upgrade for Unlimited >>"
+  },
+  "usage": {
+    "message": "Usage"
+  },
+  "unlimited": {
+    "message": "Unlimited"
+  },
+  "individual_download": {
+    "message": "Individualus Atsisiuntimas"
+  },
+  "individual": {
+    "message": "Individualus"
+  },
+  "plan": {
+    "message": "Planas"
+  },
+  "freeUser": {
+    "message": "Nemokamai"
+  }
+}

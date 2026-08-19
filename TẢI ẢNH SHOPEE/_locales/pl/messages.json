@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Musisz zaakceptować Warunki usługi."
+  },
+  "cancelSubscription": {
+    "message": "Anuluj subskrypcję w dowolnym momencie"
+  },
+  "contactUs": {
+    "message": "Jeśli masz pytania lub pomysły, nie wahaj się z nami skontaktować."
+  },
+  "desc": {
+    "message": "Pobierz obrazy i filmy produktów Shopee łatwo dzięki temu popularnemu narzędziu!"
+  },
+  "description": {
+    "message": "Opis"
+  },
+  "download": {
+    "message": "Pobierz"
+  },
+  "download_videos": {
+    "message": "Pobierz filmy"
+  },
+  "enjoyProFeatures": {
+    "message": "Obecnie korzystasz z funkcji naszej wersji Pro."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Eksportuj"
+  },
+  "faqPage": {
+    "message": "Strona FAQ"
+  },
+  "faqsDescription": {
+    "message": "Masz pytania? Zebraliśmy odpowiedzi na najczęściej zadawane pytania, więc zapraszamy na naszą stronę z FAQ."
+  },
+  "faqsTitle": {
+    "message": "Najczęściej zadawane pytania"
+  },
+  "free": {
+    "message": "Darmowy"
+  },
+  "imageTab": {
+    "message": "Obraz"
+  },
+  "images": {
+    "message": "Obrazy"
+  },
+  "loading": {
+    "message": "Ładowanie..."
+  },
+  "loginWithGoogle": {
+    "message": "Zaloguj się przez Google"
+  },
+  "logout": {
+    "message": "Wyloguj się"
+  },
+  "main": {
+    "message": "Główna"
+  },
+  "manageSubscription": {
+    "message": "Zarządzaj subskrypcją"
+  },
+  "moneyBackGuarantee": {
+    "message": "7-DNIOWA GWARANCJA ZWROTU PIENIĘDZY"
+  },
+  "one_click_download_images": {
+    "message": "Jednym kliknięciem pobierz obrazy"
+  },
+  "openProductPage": {
+    "message": "Proszę otworzyć stronę produktu Shopee, aby pobrać obrazy lub odświeżyć stronę produktu"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Nieograniczone"
+  },
+  "remaining": {
+    "message": "Pozostało"
+  },
+  "resumeSubscribe": {
+    "message": "WZNÓW SUBSKRYPCJĘ"
+  },
+  "subscribe": {
+    "message": "SUBSKRYBUJ"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Śpiesz się, Twoja subskrypcja Pro wygasa! Kliknij tutaj👇, aby przedłużyć teraz i uniknąć utraty ekskluzywnych korzyści."
+  },
+  "thanksForSubscribing": {
+    "message": "Dziękujemy za subskrypcję!"
+  },
+  "times_per_day": {
+    "message": "razy dziennie"
+  },
+  "title": {
+    "message": "Pobieranie Obrazów Shopee"
+  },
+  "upgrade": {
+    "message": "Aktualizuj"
+  },
+  "upgradeMessage": {
+    "message": "Zaktualizuj do wersji Pro, aby uzyskać nieograniczone pobieranie"
+  },
+  "usePaddle": {
+    "message": "Używamy Paddle do przetwarzania zakupów i nie znamy danych Twojej karty."
+  },
+  "variants": {
+    "message": "Warianty"
+  },
+  "videoTab": {
+    "message": "Wideo"
+  },
+  "videos": {
+    "message": "Filmy"
+  },
+  "single_image_limit_reached": {
+    "message": "Osiągnięto dzienny limit pobierania pojedynczych obrazów (10). Przejdź na Pro, aby uzyskać nieograniczone pobieranie!"
+  },
+  "single_images": {
+    "message": "Pojedyncze obrazy"
+  },
+  "remaining_today": {
+    "message": "Pozostało dzisiaj"
+  },
+  "bulk": {
+    "message": "Zbiorczo"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Przejdź na nieograniczone >>"
+  },
+  "usage": {
+    "message": "Użycie"
+  },
+  "unlimited": {
+    "message": "Nieograniczone"
+  },
+  "individual_download": {
+    "message": "Pobieranie Pojedyncze"
+  },
+  "individual": {
+    "message": "Pojedyncze"
+  },
+  "plan": {
+    "message": "Plan"
+  },
+  "freeUser": {
+    "message": "Darmowy"
+  }
+}

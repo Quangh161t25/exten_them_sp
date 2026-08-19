@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Bạn phải đồng ý với Điều khoản Dịch vụ."
+  },
+  "cancelSubscription": {
+    "message": "Hủy đăng ký bất cứ lúc nào"
+  },
+  "contactUs": {
+    "message": "Nếu bạn có bất kỳ câu hỏi hoặc ý tưởng nào, xin đừng ngần ngại liên hệ với chúng tôi."
+  },
+  "desc": {
+    "message": "Tải hình ảnh và video sản phẩm Shopee dễ dàng với công cụ phổ biến này!"
+  },
+  "description": {
+    "message": "Mô tả"
+  },
+  "download": {
+    "message": "Tải xuống"
+  },
+  "download_videos": {
+    "message": "Tải xuống Video"
+  },
+  "enjoyProFeatures": {
+    "message": "Bạn hiện đang tận hưởng các tính năng của phiên bản Pro của chúng tôi."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Xuất"
+  },
+  "faqPage": {
+    "message": "Trang Câu hỏi Thường gặp"
+  },
+  "faqsDescription": {
+    "message": "Có thắc mắc nào không? Chúng tôi đã tổng hợp các câu trả lời cho các câu hỏi thường gặp, vì vậy hãy ghé thăm trang Hỏi & Đáp của chúng tôi."
+  },
+  "faqsTitle": {
+    "message": "Câu hỏi thường gặp"
+  },
+  "free": {
+    "message": "Miễn phí"
+  },
+  "imageTab": {
+    "message": "Hình ảnh"
+  },
+  "images": {
+    "message": "Hình ảnh"
+  },
+  "loading": {
+    "message": "Đang tải..."
+  },
+  "loginWithGoogle": {
+    "message": "Đăng nhập bằng Google"
+  },
+  "logout": {
+    "message": "Đăng xuất"
+  },
+  "main": {
+    "message": "Chính"
+  },
+  "manageSubscription": {
+    "message": "Quản lý Đăng ký"
+  },
+  "moneyBackGuarantee": {
+    "message": "ĐẢM BẢO HOÀN TIỀN TRONG 7 NGÀY"
+  },
+  "one_click_download_images": {
+    "message": "Tải hình ảnh chỉ với một cú nhấp"
+  },
+  "openProductPage": {
+    "message": "Vui lòng mở trang sản phẩm trên Shopee để lấy hình ảnh hoặc làm mới trang sản phẩm"
+  },
+  "pro": {
+    "message": "CHUYÊN NGHIỆP"
+  },
+  "pro_function": {
+    "message": "Không giới hạn"
+  },
+  "remaining": {
+    "message": "Còn lại"
+  },
+  "resumeSubscribe": {
+    "message": "TIẾP TỤC ĐĂNG KÝ"
+  },
+  "subscribe": {
+    "message": "ĐĂNG KÝ"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Nhanh lên, gói Pro của bạn sắp hết hạn! Nhấn vào đây👇 để gia hạn ngay và tránh mất các quyền lợi độc quyền của bạn."
+  },
+  "thanksForSubscribing": {
+    "message": "Cảm ơn bạn đã đăng ký!"
+  },
+  "times_per_day": {
+    "message": "lần mỗi ngày"
+  },
+  "title": {
+    "message": "Tải Ảnh Shopee Nhanh"
+  },
+  "upgrade": {
+    "message": "Nâng cấp"
+  },
+  "upgradeMessage": {
+    "message": "Nâng cấp lên Pro để tải xuống không giới hạn"
+  },
+  "usePaddle": {
+    "message": "Chúng tôi sử dụng Paddle để xử lý các giao dịch mua và không biết thông tin thẻ của bạn."
+  },
+  "variants": {
+    "message": "Biến thể"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Video"
+  },
+  "single_image_limit_reached": {
+    "message": "Đã đạt giới hạn tải xuống hình ảnh đơn lẻ hàng ngày (10). Nâng cấp lên Pro để tải xuống không giới hạn!"
+  },
+  "single_images": {
+    "message": "Hình ảnh đơn lẻ"
+  },
+  "remaining_today": {
+    "message": "Còn lại hôm nay"
+  },
+  "bulk": {
+    "message": "Hàng loạt"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Nâng cấp không giới hạn >>"
+  },
+  "usage": {
+    "message": "Sử dụng"
+  },
+  "unlimited": {
+    "message": "Không giới hạn"
+  },
+  "individual_download": {
+    "message": "Tải Từng Ảnh"
+  },
+  "individual": {
+    "message": "Từng Ảnh"
+  },
+  "plan": {
+    "message": "Gói"
+  },
+  "freeUser": {
+    "message": "Miễn phí"
+  }
+}

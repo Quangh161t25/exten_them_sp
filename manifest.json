@@ -1,0 +1,163 @@
+{
+  "manifest_version": 3,
+  "name": "Shopee Quản Lý SP",
+  "version": "0.2.0",
+  "description": "Ho tro thao tac tren Shopee Kenh Nguoi Ban.",
+  "icons": {
+    "16": "icon-16.png",
+    "32": "icon-32.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "clipboardWrite",
+    "downloads",
+    "storage",
+    "scripting",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "https://banhang.shopee.vn/*",
+    "https://shopee.vn/*",
+    "https://*.susercontent.com/*",
+    "https://gemini.google.com/*",
+    "https://chatgpt.com/*"
+  ],
+  "action": {
+    "default_title": "Shopee Quản Lý SP",
+    "default_icon": {
+      "16": "icon-16.png",
+      "32": "icon-32.png",
+      "48": "icon-48.png",
+      "128": "icon-128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://shopee.vn/*",
+        "https://banhang.shopee.vn/*"
+      ],
+      "js": [
+        "shopee-fetch-interceptor.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://shopee.vn/*"
+      ],
+      "js": [
+        "content-start.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://banhang.shopee.vn/*",
+        "https://shopee.vn/*"
+      ],
+      "js": [
+        "xlsx.full.min.js",
+        "html2pdf.bundle.min.js",
+        "pdf-lib.min.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://gemini.google.com/*"
+      ],
+      "js": [
+        "gemini-content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://chatgpt.com/*"
+      ],
+      "js": [
+        "chatgpt-content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://phanmem.wameli.vn/*"
+      ],
+      "js": [
+        "wameli.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://*.xiapibuy.com/*",
+        "*://*.shopee.co.id/*",
+        "*://shopee.tw/*",
+        "*://shopee.vn/*",
+        "*://shopee.co.th/*",
+        "*://shopee.ph/*",
+        "*://shopee.com.my/*",
+        "*://shopee.sg/*",
+        "*://shopee.com.br/*",
+        "*://shopee.com.mx/*",
+        "*://shopee.com.co/*",
+        "*://shopee.cl/*",
+        "*://shopee.pl/*"
+      ],
+      "js": [
+        "TẢI ẢNH SHOPEE/js/jquery.min.js",
+        "TẢI ẢNH SHOPEE/js/load.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://chatgpt.com/*",
+        "*://gemini.google.com/*"
+      ],
+      "js": [
+        "TẢI ẢNH SHOPEE/js/aiAutoPaste.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "universal-image-hover.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "ioy.png",
+        "bce.png",
+        "shopee-fetch-interceptor.js",
+        "TẢI ẢNH SHOPEE/js/contentScript.js",
+        "TẢI ẢNH SHOPEE/index.html",
+        "TẢI ẢNH SHOPEE/assets/*",
+        "TẢI ẢNH SHOPEE/_locales/*",
+        "TẢI ẢNH SHOPEE/icons/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

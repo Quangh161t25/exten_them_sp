@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Unapaswa kukubali Sheria za Huduma."
+  },
+  "cancelSubscription": {
+    "message": "Ghairi usajili wakati wowote"
+  },
+  "contactUs": {
+    "message": "Ikiwa una maswali au mawazo yoyote, tafadhali usisite kuwasiliana nasi."
+  },
+  "desc": {
+    "message": "Pakua picha na video za bidhaa za Shopee kwa urahisi kwa kutumia chombo hiki maarufu!"
+  },
+  "description": {
+    "message": "Maelezo"
+  },
+  "download": {
+    "message": "Pakua"
+  },
+  "download_videos": {
+    "message": "Pakua Video"
+  },
+  "enjoyProFeatures": {
+    "message": "Kwa sasa unafurahia vipengele vya toleo letu la Pro."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Hamisha"
+  },
+  "faqPage": {
+    "message": "Ukurasa wa Maswali Yanayoulizwa Mara kwa Mara"
+  },
+  "faqsDescription": {
+    "message": "Je, una maswali yoyote? Tumekusanya majibu ya maswali yanayoulizwa mara kwa mara, kwa hiyo jisikie huru kutembelea ukurasa wetu wa Maswali na Majibu."
+  },
+  "faqsTitle": {
+    "message": "Maswali Yanayoulizwa Mara kwa Mara"
+  },
+  "free": {
+    "message": "Bure"
+  },
+  "imageTab": {
+    "message": "Picha"
+  },
+  "images": {
+    "message": "Picha"
+  },
+  "loading": {
+    "message": "Inapakia..."
+  },
+  "loginWithGoogle": {
+    "message": "Ingia na Google"
+  },
+  "logout": {
+    "message": "Ondoka"
+  },
+  "main": {
+    "message": "Kuu"
+  },
+  "manageSubscription": {
+    "message": "Simamia Usajili"
+  },
+  "moneyBackGuarantee": {
+    "message": "DHAMANA YA KUREJESHA PESA NDANI YA SIKU 7"
+  },
+  "one_click_download_images": {
+    "message": "Pakua Picha kwa Kubofya Mara Moja"
+  },
+  "openProductPage": {
+    "message": "Tafadhali fungua ukurasa wa bidhaa wa Shopee kupata picha au upya ukurasa wa bidhaa"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Isiyo na mipaka"
+  },
+  "remaining": {
+    "message": "Baki"
+  },
+  "resumeSubscribe": {
+    "message": "ENDELEA KUJISUBIRI"
+  },
+  "subscribe": {
+    "message": "JIANDIKISHE"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Harakisha, usajili wako wa Pro unakaribia kwisha! Bofya hapa👇 kuendelea sasa na kuepuka kupoteza manufaa yako ya kipekee."
+  },
+  "thanksForSubscribing": {
+    "message": "Asante kwa kujisajili!"
+  },
+  "times_per_day": {
+    "message": "mara kwa siku"
+  },
+  "title": {
+    "message": "Shopee Upakuaji wa Picha"
+  },
+  "upgrade": {
+    "message": "Boresha"
+  },
+  "upgradeMessage": {
+    "message": "Sasisha kwa Pro kwa ajili ya upakuaji usio na kikomo"
+  },
+  "usePaddle": {
+    "message": "Tunatumia Paddle kushughulikia manunuzi na hatujui maelezo ya kadi yako."
+  },
+  "variants": {
+    "message": "Aina"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Video"
+  },
+  "single_image_limit_reached": {
+    "message": "Kikomo cha kila siku cha kupakua picha moja (10) kimefikiwa. Panda daraja hadi Pro kwa upakuaji usio na kikomo!"
+  },
+  "single_images": {
+    "message": "Picha za moja"
+  },
+  "remaining_today": {
+    "message": "Iliyobaki leo"
+  },
+  "bulk": {
+    "message": "Wingi"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Panda daraja kwa Bila Kikomo >>"
+  },
+  "usage": {
+    "message": "Matumizi"
+  },
+  "unlimited": {
+    "message": "Bila Kikomo"
+  },
+  "individual_download": {
+    "message": "Pakua Moja Moja"
+  },
+  "individual": {
+    "message": "Moja"
+  },
+  "plan": {
+    "message": "Mpango"
+  },
+  "freeUser": {
+    "message": "Bure"
+  }
+}

@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "You have to agree to the Terms Of Service."
+  },
+  "cancelSubscription": {
+    "message": "Cancel subscription at anytime"
+  },
+  "contactUs": {
+    "message": "If you have any questions or ideas, please don't hesitate to contact us."
+  },
+  "desc": {
+    "message": "Download Shopee product images and videos easily with this popular tool!"
+  },
+  "description": {
+    "message": "Description"
+  },
+  "download": {
+    "message": "Download"
+  },
+  "download_videos": {
+    "message": "Download Videos"
+  },
+  "enjoyProFeatures": {
+    "message": "You are currently enjoying our Pro version features."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Export"
+  },
+  "faqPage": {
+    "message": "FAQ Page"
+  },
+  "faqsDescription": {
+    "message": "Have any questions? We have collected answers to frequently asked questions, so feel free to visit our Q&A page."
+  },
+  "faqsTitle": {
+    "message": "FAQs"
+  },
+  "free": {
+    "message": "Free"
+  },
+  "imageTab": {
+    "message": "Image"
+  },
+  "images": {
+    "message": "Images"
+  },
+  "loading": {
+    "message": "Loading..."
+  },
+  "loginWithGoogle": {
+    "message": "Login with Google"
+  },
+  "logout": {
+    "message": "Logout"
+  },
+  "main": {
+    "message": "Main"
+  },
+  "manageSubscription": {
+    "message": "Manage Subscription"
+  },
+  "moneyBackGuarantee": {
+    "message": "7-DAY MONEY BACK GUARANTEE"
+  },
+  "one_click_download_images": {
+    "message": "One Click Download Images"
+  },
+  "openProductPage": {
+    "message": "Please open a Shopee product page to get the images or refresh the product page"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Unlimited"
+  },
+  "remaining": {
+    "message": "Remaining"
+  },
+  "resumeSubscribe": {
+    "message": "RESUME SUBSCRIBE"
+  },
+  "subscribe": {
+    "message": "SUBSCRIBE"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Hurry, your Pro subscription is expiring! Click here👇 to resume now and avoid losing your exclusive benefits."
+  },
+  "thanksForSubscribing": {
+    "message": "Thanks for subscribing!"
+  },
+  "times_per_day": {
+    "message": "times/day"
+  },
+  "title": {
+    "message": "Shopee Image Downloader Fast"
+  },
+  "upgrade": {
+    "message": "Upgrade"
+  },
+  "upgradeMessage": {
+    "message": "Upgrade to Pro for unlimited downloads"
+  },
+  "usePaddle": {
+    "message": "We use Paddle to process purchases and do not know your card details."
+  },
+  "variants": {
+    "message": "Variants"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Videos"
+  },
+  "single_image_limit_reached": {
+    "message": "Daily download limit (1) reached. Upgrade to Pro for unlimited downloads!"
+  },
+  "single_images": {
+    "message": "Single Images"
+  },
+  "remaining_today": {
+    "message": "Remaining today"
+  },
+  "bulk": {
+    "message": "Bulk"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Upgrade for Unlimited >>"
+  },
+  "usage": {
+    "message": "Usage"
+  },
+  "unlimited": {
+    "message": "Unlimited"
+  },
+  "individual_download": {
+    "message": "Individual Download"
+  },
+  "individual": {
+    "message": "Individual"
+  },
+  "plan": {
+    "message": "Plan"
+  },
+  "freeUser": {
+    "message": "Free"
+  }
+}

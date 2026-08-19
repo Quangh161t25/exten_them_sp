@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "ನೀವು ಸೇವಾ ಷರತ್ತುಗಳಿಗೆ ಸಹಮತವನ್ನು ನೀಡಬೇಕು."
+  },
+  "cancelSubscription": {
+    "message": "ಸಬ್ಸ್ಕ್ರಿಪ್ಷನ್ ರದ್ದು ಮಾಡಲು ಯಾವಾಗ ಬೇಕಾದರೂ"
+  },
+  "contactUs": {
+    "message": "ನಿಮಗೆ ಯಾವುದೇ ಪ್ರಶ್ನೆಗಳು ಅಥವಾ ಆಲೋಚನೆಗಳಿದ್ದರೆ, ದಯವಿಟ್ಟು ನಮ್ಮನ್ನು ಸಂಪರ್ಕಿಸಲು ಹಿಂಜರಿಯಬೇಡಿ."
+  },
+  "desc": {
+    "message": "ಈ ಜನಪ್ರಿಯ ಸಾಧನದೊಂದಿಗೆ Shopee ಉತ್ಪನ್ನದ ಚಿತ್ರಗಳು ಮತ್ತು ವಿಡಿಯೋಗಳನ್ನು ಸುಲಭವಾಗಿ ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ!"
+  },
+  "description": {
+    "message": "ವಿವರಣೆ"
+  },
+  "download": {
+    "message": "ಡೌನ್‌ಲೋಡ್"
+  },
+  "download_videos": {
+    "message": "ವೀಡಿಯೋಗಳನ್ನು ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ"
+  },
+  "enjoyProFeatures": {
+    "message": "ನೀವು ಪ್ರಸ್ತುತ ನಮ್ಮ ಪ್ರೋ ಆವೃತ್ತಿಯ ವೈಶಿಷ್ಟ್ಯಗಳನ್ನು ಆನಂದಿಸುತ್ತಿದ್ದೀರಿ."
+  },
+  "excel": {
+    "message": "ಎಕ್ಸೆಲ್"
+  },
+  "export": {
+    "message": "ರಫ್ತು"
+  },
+  "faqPage": {
+    "message": "ಪದೇ ಪದೇ ಕೇಳುವ ಪ್ರಶ್ನೆಗಳು ಪುಟ"
+  },
+  "faqsDescription": {
+    "message": "ಯಾವುದೇ ಪ್ರಶ್ನೆಯಿದ್ದವೆಯೇ? ನಾವುಂತೆ ಟಿ ಆರ್ ಐ ಯೋಜನೆಯ ಉತ್ತರಗಳನ್ನು ಸಂಗ್ರಹಿಸಿದ್ದೇವೆ, ಆದ್ದರಿಂದ ದಯವಿಟ್ಟು ನಮ್ಮ ಪ್ರಶ್ನೋತ್ತರ ಪುಟವನ್ನು ಭೇಟಿ ಮಾಡಿ."
+  },
+  "faqsTitle": {
+    "message": "ಪದೇ ಪದೇ ಕೇಳಲ್ಪಡುವ ಪ್ರಶ್ನೆಗಳು"
+  },
+  "free": {
+    "message": "ಉಚಿತ"
+  },
+  "imageTab": {
+    "message": "ಚಿತ್ರ"
+  },
+  "images": {
+    "message": "ಚಿತ್ರಗಳು"
+  },
+  "loading": {
+    "message": "ಲೋಡ್ ಮಾಡಲು..."
+  },
+  "loginWithGoogle": {
+    "message": "ಗೂಗಲ್ ಮೂಲಕ ಲಾಗ್ ಇನ್"
+  },
+  "logout": {
+    "message": "ಲಾಗ್ ಔಟ್"
+  },
+  "main": {
+    "message": "ಮುಖ್ಯ"
+  },
+  "manageSubscription": {
+    "message": "ಚಂದಾದಾರಿಕೆಯನ್ನು ನಿರ್ವಹಿಸಿ"
+  },
+  "moneyBackGuarantee": {
+    "message": "7-ದಿನ ಗಳಲ್ಲಿ ಹಣ ಹಿಂತಿರುಗಿಸುವ ಘರವಾಣಿಕೆ"
+  },
+  "one_click_download_images": {
+    "message": "ಒಂದು ಕ್ಲಿಕ್‌ನಿಂದ ಚಿತ್ರಗಳನ್ನು ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ"
+  },
+  "openProductPage": {
+    "message": "ದಯವಿಟ್ಟು ಶೋಪಿ ಉತ್ಪನ್ನ ಪುಟವನ್ನು ತೆರೆಯಿರಿ ಅಥವಾ ಉತ್ಪನ್ನ ಪುಟವನ್ನು ಪುನಃ ಲೋಡ್ ಮಾಡಿ"
+  },
+  "pro": {
+    "message": "ಪ್ರೊ"
+  },
+  "pro_function": {
+    "message": "ಅಮಿತ"
+  },
+  "remaining": {
+    "message": "ಉಳಿದಿದೆ"
+  },
+  "resumeSubscribe": {
+    "message": "ಚಂದಾದಾರರನ್ನು ಪುನಃ ಪ್ರಾರಂಭಿಸಿ"
+  },
+  "subscribe": {
+    "message": "ಚಂದಾದಾರರಾಗಿರಿ"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ ಶೀಘ್ರದಲ್ಲಿ, ನಿಮ್ಮ ಪ್ರೋ ಚಂದಾದಾರಿ ಅವಧಿ ಪೂರ್ಣಗೊಳ್ಳುತ್ತಿದೆ! ನಿಮ್ಮ ವಿಶೇಷ ಲಾಭಗಳನ್ನು ಕಳೆದುಕೊಳ್ಳುವುದನ್ನು ತಪ್ಪಿಸಲು ಈಗ ಮರುಹೊಂದಿಸಲು ಇಲ್ಲಿ ಓದಿರಿ👇."
+  },
+  "thanksForSubscribing": {
+    "message": "ಸಬ್ಸ್ಕ್ರೈಬ್ ಮಾಡಿದಕ್ಕಾಗಿ ಧನ್ಯವಾದಗಳು!"
+  },
+  "times_per_day": {
+    "message": "ದಿನಕ್ಕೆ ಬಾರಿ"
+  },
+  "title": {
+    "message": "ಷೋಪಿ ಚಿತ್ರ ಡೌನ್‌ಲೋಡರ್"
+  },
+  "upgrade": {
+    "message": "ಅಪ್‌ಗ್ರೇಡ್"
+  },
+  "upgradeMessage": {
+    "message": "అపరిమిత డౌన్‌లోడ్‌ల కోసం ప్రోకు అప్‌గ్రేడ్ చేయండి"
+  },
+  "usePaddle": {
+    "message": "ನಾವು ಖರೀದಿಗಳನ್ನು ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲು Paddle ಅನ್ನು ಬಳಸುತ್ತೇವೆ ಮತ್ತು ನಿಮ್ಮ ಕಾರ್ಡ್ ವಿವರಗಳನ್ನು ತಿಳಿಯುವುದಿಲ್ಲ."
+  },
+  "variants": {
+    "message": "ವೆರಿಯಂಟ್ಸ್"
+  },
+  "videoTab": {
+    "message": "ವಿಡಿಯೋ"
+  },
+  "videos": {
+    "message": "ವೀಡಿಯೋಗಳು"
+  },
+  "single_image_limit_reached": {
+    "message": "ದೈನಂದಿನ ಏಕ ಚಿತ್ರ ಡೌನ್‌ಲೋಡ್ ಮಿತಿ (10) ತಲುಪಿದೆ. ಅನಿಯಮಿತ ಡೌನ್‌ಲೋಡ್‌ಗಳಿಗಾಗಿ Pro ಗೆ ಅಪ್‌ಗ್ರೇಡ್ ಮಾಡಿ!"
+  },
+  "single_images": {
+    "message": "ಏಕ ಚಿತ್ರಗಳು"
+  },
+  "remaining_today": {
+    "message": "ಇಂದು ಉಳಿದಿದೆ"
+  },
+  "bulk": {
+    "message": "ಬೃಹತ್"
+  },
+  "upgrade_for_unlimited": {
+    "message": "ಅನಿಯಮಿತಕ್ಕಾಗಿ ಅಪ್‌ಗ್ರೇಡ್ ಮಾಡಿ >>"
+  },
+  "usage": {
+    "message": "ಬಳಕೆ"
+  },
+  "unlimited": {
+    "message": "ಅನಿಯಮಿತ"
+  },
+  "individual_download": {
+    "message": "ವೈಯಕ್ತಿಕ ಡೌನ್‌ಲೋಡ್"
+  },
+  "individual": {
+    "message": "ವೈಯಕ್ತಿಕ"
+  },
+  "plan": {
+    "message": "ಯೋಜನೆ"
+  },
+  "freeUser": {
+    "message": "ಉಚಿತ"
+  }
+}

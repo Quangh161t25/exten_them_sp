@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "您必須同意服務條款。"
+  },
+  "cancelSubscription": {
+    "message": "隨時取消訂閱"
+  },
+  "contactUs": {
+    "message": "如果您有任何問題或想法，請隨時與我們聯繫。"
+  },
+  "desc": {
+    "message": "這個受歡迎的工具可以輕鬆下載蝦皮產品圖片和影片！"
+  },
+  "description": {
+    "message": "描述"
+  },
+  "download": {
+    "message": "下載"
+  },
+  "download_videos": {
+    "message": "下載影片"
+  },
+  "enjoyProFeatures": {
+    "message": "您目前正在享受我們的專業版功能。"
+  },
+  "excel": {
+    "message": "表格"
+  },
+  "export": {
+    "message": "匯出"
+  },
+  "faqPage": {
+    "message": "常見問題頁面"
+  },
+  "faqsDescription": {
+    "message": "有任何問題嗎？我們已經收集了一些常見問題的答案，歡迎造訪我們的問答頁面。"
+  },
+  "faqsTitle": {
+    "message": "常見問題"
+  },
+  "free": {
+    "message": "免費"
+  },
+  "imageTab": {
+    "message": "圖片"
+  },
+  "images": {
+    "message": "圖片"
+  },
+  "loading": {
+    "message": "載入中..."
+  },
+  "loginWithGoogle": {
+    "message": "使用 Google 登入"
+  },
+  "logout": {
+    "message": "登出"
+  },
+  "main": {
+    "message": "主要"
+  },
+  "manageSubscription": {
+    "message": "管理訂閱"
+  },
+  "moneyBackGuarantee": {
+    "message": "7天退款保證"
+  },
+  "one_click_download_images": {
+    "message": "一鍵下載圖片"
+  },
+  "openProductPage": {
+    "message": "請開啟蝦皮產品頁面以獲取圖片或刷新產品頁面"
+  },
+  "pro": {
+    "message": "專業"
+  },
+  "pro_function": {
+    "message": "無限制"
+  },
+  "remaining": {
+    "message": "剩餘"
+  },
+  "resumeSubscribe": {
+    "message": "恢復訂閱"
+  },
+  "subscribe": {
+    "message": "訂閱"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ 快點，您的專業訂閱即將到期！立即點擊此處👇以續訂，避免失去您的獨家優惠。"
+  },
+  "thanksForSubscribing": {
+    "message": "感謝您的訂閱！"
+  },
+  "times_per_day": {
+    "message": "次/天"
+  },
+  "title": {
+    "message": "Shopee 圖片下載器"
+  },
+  "upgrade": {
+    "message": "升級"
+  },
+  "upgradeMessage": {
+    "message": "升級到專業版獲取無限下載"
+  },
+  "usePaddle": {
+    "message": "我們使用Paddle處理購買事宜，並不會知道您的卡片資料。"
+  },
+  "variants": {
+    "message": "變體"
+  },
+  "videoTab": {
+    "message": "影片"
+  },
+  "videos": {
+    "message": "影片"
+  },
+  "single_image_limit_reached": {
+    "message": "每日下載次數已達上限(1次)。升級到Pro享受無限下載！"
+  },
+  "single_images": {
+    "message": "單張圖片"
+  },
+  "remaining_today": {
+    "message": "今日剩餘"
+  },
+  "bulk": {
+    "message": "批量"
+  },
+  "upgrade_for_unlimited": {
+    "message": "升級享無限次數 >>"
+  },
+  "usage": {
+    "message": "用量"
+  },
+  "unlimited": {
+    "message": "不限次數"
+  },
+  "individual_download": {
+    "message": "單張下載"
+  },
+  "individual": {
+    "message": "單張"
+  },
+  "plan": {
+    "message": "方案"
+  },
+  "freeUser": {
+    "message": "免費"
+  }
+}

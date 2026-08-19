@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Jums jāpiekrīt Pakalpojumu sniegšanas noteikumiem."
+  },
+  "cancelSubscription": {
+    "message": "Atcelt abonementu jebkurā laikā"
+  },
+  "contactUs": {
+    "message": "Ja jums ir kādi jautājumi vai idejas, lūdzu, nekautrējieties sazināties ar mums."
+  },
+  "desc": {
+    "message": "Vieglāk lejupielādējiet Shopee produktu attēlus un videoklipus ar šo populāro rīku!"
+  },
+  "description": {
+    "message": "Apraksts"
+  },
+  "download": {
+    "message": "Lejupielādēt"
+  },
+  "download_videos": {
+    "message": "Lejupielādēt videoklipus"
+  },
+  "enjoyProFeatures": {
+    "message": "Jūs pašlaik baudāt mūsu Pro versijas funkcijas."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Eksportēt"
+  },
+  "faqPage": {
+    "message": "BUJ lapa"
+  },
+  "faqsDescription": {
+    "message": "Vai jums ir kādi jautājumi? Mēs esam apkopojuši atbildes uz bieži uzdotajiem jautājumiem, tāpēc droši apmeklējiet mūsu J&A lapu."
+  },
+  "faqsTitle": {
+    "message": "BUJ"
+  },
+  "free": {
+    "message": "Bezmaksas"
+  },
+  "imageTab": {
+    "message": "Attēls"
+  },
+  "images": {
+    "message": "Attēli"
+  },
+  "loading": {
+    "message": "Ielādē..."
+  },
+  "loginWithGoogle": {
+    "message": "Pieteikties ar Google"
+  },
+  "logout": {
+    "message": "Iziet"
+  },
+  "main": {
+    "message": "Galvenais"
+  },
+  "manageSubscription": {
+    "message": "Pārvaldīt abonementu"
+  },
+  "moneyBackGuarantee": {
+    "message": "7-DIENAS NAUDAS ATMAKSAS GARANTIJA"
+  },
+  "one_click_download_images": {
+    "message": "Viens klikšķis, lai lejupielādētu attēlus"
+  },
+  "openProductPage": {
+    "message": "Lūdzu, atveriet Shopee produkta lapu, lai iegūtu attēlus, vai atsvaidziniet produkta lapu"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Neierobeots"
+  },
+  "remaining": {
+    "message": "Atlikušais"
+  },
+  "resumeSubscribe": {
+    "message": "ATJAUNOT ABONĒŠANU"
+  },
+  "subscribe": {
+    "message": "ABONĒT"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Steidzieties, jūsu Pro abonements drīz beigsies! Klikšķiniet šeit👇, lai to atjaunotu un izvairītos no ekskluzīvu priekšrocību zaudēšanas."
+  },
+  "thanksForSubscribing": {
+    "message": "Paldies, ka abonējāt!"
+  },
+  "times_per_day": {
+    "message": "reizēm dienā"
+  },
+  "title": {
+    "message": "Shopee attēlu lejupielādētājs"
+  },
+  "upgrade": {
+    "message": "Atjaunināt"
+  },
+  "upgradeMessage": {
+    "message": "Atjauniniet uz Pro versiju, lai iegūtu neierobežotas lejupielādes"
+  },
+  "usePaddle": {
+    "message": "Mēs izmantojam Paddle, lai apstrādātu pirkumus un nezina jūsu kartes datus."
+  },
+  "variants": {
+    "message": "Varianti"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Video"
+  },
+  "single_image_limit_reached": {
+    "message": "Daily single image download limit (10) reached. Upgrade to Pro for unlimited downloads!"
+  },
+  "single_images": {
+    "message": "Single Images"
+  },
+  "remaining_today": {
+    "message": "Remaining today"
+  },
+  "bulk": {
+    "message": "Bulk"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Upgrade for Unlimited >>"
+  },
+  "usage": {
+    "message": "Usage"
+  },
+  "unlimited": {
+    "message": "Unlimited"
+  },
+  "individual_download": {
+    "message": "Individuāla Lejupielāde"
+  },
+  "individual": {
+    "message": "Individuāls"
+  },
+  "plan": {
+    "message": "Plāns"
+  },
+  "freeUser": {
+    "message": "Bezmaksas"
+  }
+}

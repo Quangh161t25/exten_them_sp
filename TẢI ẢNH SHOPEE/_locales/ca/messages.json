@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Has d'acceptar els Termes del Servei."
+  },
+  "cancelSubscription": {
+    "message": "Cancel·la la subscripció en qualsevol moment"
+  },
+  "contactUs": {
+    "message": "Si teniu cap pregunta o idea, no dubteu a contactar amb nosaltres."
+  },
+  "desc": {
+    "message": "Descarrega imatges i vídeos de productes de Shopee fàcilment amb aquesta eina popular!"
+  },
+  "description": {
+    "message": "Descripció"
+  },
+  "download": {
+    "message": "Descarregar"
+  },
+  "download_videos": {
+    "message": "Descarregar vídeos"
+  },
+  "enjoyProFeatures": {
+    "message": "Actualment gaudeixes de les funcions de la nostra versió Pro."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Exporta"
+  },
+  "faqPage": {
+    "message": "Pàgina de Preguntes Freqüents"
+  },
+  "faqsDescription": {
+    "message": "Tens alguna pregunta? Hem recopilat respostes a preguntes freqüents, així que no dubtis a visitar la nostra pàgina de preguntes i respostes."
+  },
+  "faqsTitle": {
+    "message": "Preguntes freqüents"
+  },
+  "free": {
+    "message": "Gratis"
+  },
+  "imageTab": {
+    "message": "Imatge"
+  },
+  "images": {
+    "message": "Imatges"
+  },
+  "loading": {
+    "message": "Carregant..."
+  },
+  "loginWithGoogle": {
+    "message": "Inicia sessió amb Google"
+  },
+  "logout": {
+    "message": "Tancar sessió"
+  },
+  "main": {
+    "message": "Principal"
+  },
+  "manageSubscription": {
+    "message": "Gestiona la subscripció"
+  },
+  "moneyBackGuarantee": {
+    "message": "GARANTIA DE DEVOLUCIÓ DE DINERS DE 7 DIES"
+  },
+  "one_click_download_images": {
+    "message": "Descarregar imatges amb un sol clic"
+  },
+  "openProductPage": {
+    "message": "Si us plau, obre una pàgina de producte de Shopee per obtenir les imatges o actualitza la pàgina del producte"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Il·limitat"
+  },
+  "remaining": {
+    "message": "Restant"
+  },
+  "resumeSubscribe": {
+    "message": "REEMPREN SUBSCRIPCIÓ"
+  },
+  "subscribe": {
+    "message": "SUBSCRIU-TE"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Afanya't, la teva subscripció Pro està a punt de caducar! Fes clic aquí👇 per renovar ara i evitar perdre els teus beneficis exclusius."
+  },
+  "thanksForSubscribing": {
+    "message": "Gràcies per subscriure't!"
+  },
+  "times_per_day": {
+    "message": "vegades per dia"
+  },
+  "title": {
+    "message": "Descarregador d'Imatges de Shopee"
+  },
+  "upgrade": {
+    "message": "Actualitzar"
+  },
+  "upgradeMessage": {
+    "message": "Actualitza a Pro per a descàrregues il·limitades"
+  },
+  "usePaddle": {
+    "message": "Fem servir Paddle per processar compres i no coneixem les dades de la teva targeta."
+  },
+  "variants": {
+    "message": "Variants"
+  },
+  "videoTab": {
+    "message": "Vídeo"
+  },
+  "videos": {
+    "message": "Vídeos"
+  },
+  "single_image_limit_reached": {
+    "message": "Daily single image download limit (10) reached. Upgrade to Pro for unlimited downloads!"
+  },
+  "single_images": {
+    "message": "Single Images"
+  },
+  "remaining_today": {
+    "message": "Remaining today"
+  },
+  "bulk": {
+    "message": "Bulk"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Upgrade for Unlimited >>"
+  },
+  "usage": {
+    "message": "Usage"
+  },
+  "unlimited": {
+    "message": "Unlimited"
+  },
+  "individual_download": {
+    "message": "Descàrrega Individual"
+  },
+  "individual": {
+    "message": "Individual"
+  },
+  "plan": {
+    "message": "Pla"
+  },
+  "freeUser": {
+    "message": "Gratis"
+  }
+}

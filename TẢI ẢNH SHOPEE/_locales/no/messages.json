@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Du må godta vilkårene for bruk."
+  },
+  "cancelSubscription": {
+    "message": "Avbryt abonnementet når som helst"
+  },
+  "contactUs": {
+    "message": "Hvis du har spørsmål eller ideer, vennligst ikke nøl med å kontakte oss."
+  },
+  "desc": {
+    "message": "Last ned Shopee produktbilder og videoer enkelt med dette populære verktøyet!"
+  },
+  "description": {
+    "message": "Beskrivelse"
+  },
+  "download": {
+    "message": "Last ned"
+  },
+  "download_videos": {
+    "message": "Last ned videoer"
+  },
+  "enjoyProFeatures": {
+    "message": "Du nyter for øyeblikket våre Pro-versjonsfunksjoner."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Eksport"
+  },
+  "faqPage": {
+    "message": "FAQ-side"
+  },
+  "faqsDescription": {
+    "message": "Har du noen spørsmål? Vi har samlet svar på ofte stilte spørsmål, så besøk gjerne vår spørsmål og svar-side."
+  },
+  "faqsTitle": {
+    "message": "FAQ"
+  },
+  "free": {
+    "message": "Gratis"
+  },
+  "imageTab": {
+    "message": "Bilde"
+  },
+  "images": {
+    "message": "Bilder"
+  },
+  "loading": {
+    "message": "Laster..."
+  },
+  "loginWithGoogle": {
+    "message": "Logg inn med Google"
+  },
+  "logout": {
+    "message": "Logg ut"
+  },
+  "main": {
+    "message": "Hoved"
+  },
+  "manageSubscription": {
+    "message": "Administrer abonnement"
+  },
+  "moneyBackGuarantee": {
+    "message": "7-DAGERS PENGENE TILBAKE GARANTI"
+  },
+  "one_click_download_images": {
+    "message": "Én Klikk for å Laste Ned Bilder"
+  },
+  "openProductPage": {
+    "message": "Vennligst åpne en Shopee-produkt side for å hente bildene eller oppdater produktsiden"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Ubegrenset"
+  },
+  "remaining": {
+    "message": "Gjenstående"
+  },
+  "resumeSubscribe": {
+    "message": "GJENOPPTA ABONNEMENT"
+  },
+  "subscribe": {
+    "message": "ABONNER"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Skynd deg, Pro-abonnementet ditt utløper snart! Klikk her👇 for å fornye nå og unngå å miste dine eksklusive fordeler."
+  },
+  "thanksForSubscribing": {
+    "message": "Takk for at du abonnerer!"
+  },
+  "times_per_day": {
+    "message": "ganger per dag"
+  },
+  "title": {
+    "message": "Shopee Image Nedlasting"
+  },
+  "upgrade": {
+    "message": "Oppgrader"
+  },
+  "upgradeMessage": {
+    "message": "Oppgrader til Pro for ubegrenset nedlastinger"
+  },
+  "usePaddle": {
+    "message": "Vi bruker Paddle til å behandle kjøp og kjenner ikke til kortdetaljene dine."
+  },
+  "variants": {
+    "message": "Varianter"
+  },
+  "videoTab": {
+    "message": "Video"
+  },
+  "videos": {
+    "message": "Videoer"
+  },
+  "single_image_limit_reached": {
+    "message": "Daglig grense for nedlasting av enkeltbilder (10) nådd. Oppgrader til Pro for ubegrensede nedlastinger!"
+  },
+  "single_images": {
+    "message": "Enkeltbilder"
+  },
+  "remaining_today": {
+    "message": "Gjenstår i dag"
+  },
+  "bulk": {
+    "message": "Bulk"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Oppgrader for Ubegrenset >>"
+  },
+  "usage": {
+    "message": "Bruk"
+  },
+  "unlimited": {
+    "message": "Ubegrenset"
+  },
+  "individual_download": {
+    "message": "Individuell Nedlasting"
+  },
+  "individual": {
+    "message": "Individuell"
+  },
+  "plan": {
+    "message": "Plan"
+  },
+  "freeUser": {
+    "message": "Gratis"
+  }
+}

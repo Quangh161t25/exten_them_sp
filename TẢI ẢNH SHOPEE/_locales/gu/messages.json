@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "તમે સેવાના નિયમો માટે સંમતિ આપવી પડશે."
+  },
+  "cancelSubscription": {
+    "message": "સબ્સ્ક્રિપ્શન કોઈ પણ સમયે રદ્દ કરો"
+  },
+  "contactUs": {
+    "message": "જો તમારી પાસે કોઈ પ્રશ્નો અથવા વિચારો હોય, તો કૃપા કરીને અમારો સંપર્ક કરવામાં સંકોચશો નહીં."
+  },
+  "desc": {
+    "message": "આ લોકપ્રિય સાધનથી Shopee ના ઉત્પાદન છબીઓ અને વિડિઓઝ સરળતાથી ડાઉનલોડ કરો!"
+  },
+  "description": {
+    "message": "વર્ણન"
+  },
+  "download": {
+    "message": "ડાઉનલોડ"
+  },
+  "download_videos": {
+    "message": "વિડિઓઝ ડાઉનલોડ કરો"
+  },
+  "enjoyProFeatures": {
+    "message": "તમે હાલમાં અમારા પ્રો વર્ઝનની વિશેષતાઓનો આનંદ લો છો."
+  },
+  "excel": {
+    "message": "એક્સેલ"
+  },
+  "export": {
+    "message": "નિકાસ"
+  },
+  "faqPage": {
+    "message": "FAQ પૃષ્ઠ"
+  },
+  "faqsDescription": {
+    "message": "તમને કોઈ પ્રશ્નો છે? અમે સામાન્ય રીતે પૂછવામાં આવતા પ્રશ્નોના જવાબો એકત્રિત કર્યા છે, જેથી કૃપા કરીને અમારી Q&A પૃષ્ઠની મુલાકાત લો."
+  },
+  "faqsTitle": {
+    "message": "વારંવાર પૂછાતા પ્રશ્નો"
+  },
+  "free": {
+    "message": "મફત"
+  },
+  "imageTab": {
+    "message": "છબી"
+  },
+  "images": {
+    "message": "છબીઓ"
+  },
+  "loading": {
+    "message": "લોડ થઈ રહ્યું છે..."
+  },
+  "loginWithGoogle": {
+    "message": "ગૂગલ સાથે લોગિન કરો"
+  },
+  "logout": {
+    "message": "લૉગઆઉટ"
+  },
+  "main": {
+    "message": "મુખ્ય"
+  },
+  "manageSubscription": {
+    "message": "સબસ્ક્રિપ્શન મેનેજ કરો"
+  },
+  "moneyBackGuarantee": {
+    "message": "7-દિવસની મની બેક ગેરંટી"
+  },
+  "one_click_download_images": {
+    "message": "એક ક્લિકમાં છબીઓ ડાઉનલોડ કરો"
+  },
+  "openProductPage": {
+    "message": "કૃપા કરીને છબીઓ મેળવવા માટે અથવા ઉત્પાદન પેજને રિફ્રેશ કરવા માટે શોપી ઉત્પાદન પેજ ખોલો"
+  },
+  "pro": {
+    "message": "પ્રો"
+  },
+  "pro_function": {
+    "message": "અવિરત"
+  },
+  "remaining": {
+    "message": "બાકી"
+  },
+  "resumeSubscribe": {
+    "message": "ચેAllianceSub તવી સબ્સ્ક્રાઇબ કરો"
+  },
+  "subscribe": {
+    "message": "સબ્સ્ક્રાઇબ કરો"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ જલદી કરો, આપનું પ્રો સબ્સ્ક્રિપ્શન સમાપ્ત થતું છે! ક્લિક કરો અહીં👇 હવે પુનઃ શરૂ કરવા માટે અને તમારી વિશિષ્ટ લાક્ષણિકતાઓ ગુમાવવાનું ટાળો."
+  },
+  "thanksForSubscribing": {
+    "message": "સબ્સ્ક્રિપ્શન માટે આભાર!"
+  },
+  "times_per_day": {
+    "message": "દિવસમાં વાર"
+  },
+  "title": {
+    "message": "શોપી છબી ડાઉનલોડર"
+  },
+  "upgrade": {
+    "message": "અપગ્રેડ"
+  },
+  "upgradeMessage": {
+    "message": "અસીમિત ડાઉનલોડ માટે પ્રો પર અપગ્રેડ કરો"
+  },
+  "usePaddle": {
+    "message": "અમે Paddle નો ઉપયોગ ખરીદદારી પ્રક્રિયા કરવા માટે કરીએ છીએ અને અમને તમારા કાર્ડની વિગતો જાણ નથી."
+  },
+  "variants": {
+    "message": "પ્રકારો"
+  },
+  "videoTab": {
+    "message": "વિડિયો"
+  },
+  "videos": {
+    "message": "વિડિયો"
+  },
+  "single_image_limit_reached": {
+    "message": "Daily single image download limit (10) reached. Upgrade to Pro for unlimited downloads!"
+  },
+  "single_images": {
+    "message": "Single Images"
+  },
+  "remaining_today": {
+    "message": "Remaining today"
+  },
+  "bulk": {
+    "message": "Bulk"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Upgrade for Unlimited >>"
+  },
+  "usage": {
+    "message": "Usage"
+  },
+  "unlimited": {
+    "message": "Unlimited"
+  },
+  "individual_download": {
+    "message": "વ્યક્તિગત ડાઉનલોડ"
+  },
+  "individual": {
+    "message": "વ્યક્તિગત"
+  },
+  "plan": {
+    "message": "યોજન"
+  },
+  "freeUser": {
+    "message": "મફત"
+  }
+}

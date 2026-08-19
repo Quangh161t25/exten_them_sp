@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "Πρέπει να συμφωνήσετε με τους Όρους Χρήσης."
+  },
+  "cancelSubscription": {
+    "message": "Ακυρώστε τη συνδρομή οποιαδήποτε στιγμή"
+  },
+  "contactUs": {
+    "message": "Αν έχετε οποιεσδήποτε ερωτήσεις ή ιδέες, παρακαλούμε μην διστάσετε να επικοινωνήσετε μαζί μας."
+  },
+  "desc": {
+    "message": "Κατεβάστε εικόνες και βίντεο προϊόντων από το Shopee εύκολα με αυτό το δημοφιλές εργαλείο!"
+  },
+  "description": {
+    "message": "Περιγραφή"
+  },
+  "download": {
+    "message": "Λήψη"
+  },
+  "download_videos": {
+    "message": "Λήψη Βίντεο"
+  },
+  "enjoyProFeatures": {
+    "message": "Αυτήν τη στιγμή απολαμβάνετε τις δυνατότητες της έκδοσης Pro."
+  },
+  "excel": {
+    "message": "Excel"
+  },
+  "export": {
+    "message": "Εξαγωγή"
+  },
+  "faqPage": {
+    "message": "Σελίδα Συχνών Ερωτήσεων"
+  },
+  "faqsDescription": {
+    "message": "Έχετε απορίες; Έχουμε συγκεντρώσει απαντήσεις σε συχνές ερωτήσεις, οπότε μη διστάσετε να επισκεφθείτε τη σελίδα μας με τις Ερωτήσεις και Απαντήσεις."
+  },
+  "faqsTitle": {
+    "message": "Συχνές Ερωτήσεις"
+  },
+  "free": {
+    "message": "Δωρεάν"
+  },
+  "imageTab": {
+    "message": "Εικόνα"
+  },
+  "images": {
+    "message": "Εικόνες"
+  },
+  "loading": {
+    "message": "Φόρτωση..."
+  },
+  "loginWithGoogle": {
+    "message": "Σύνδεση με το Google"
+  },
+  "logout": {
+    "message": "Αποσύνδεση"
+  },
+  "main": {
+    "message": "Κύριο"
+  },
+  "manageSubscription": {
+    "message": "Διαχείριση Συνδρομής"
+  },
+  "moneyBackGuarantee": {
+    "message": "ΕΓΓΥΗΣΗ ΕΠΙΣΤΡΟΦΗΣ ΧΡΗΜΑΤΩΝ 7 ΗΜΕΡΩΝ"
+  },
+  "one_click_download_images": {
+    "message": "Λήψη εικόνων με ένα κλικ"
+  },
+  "openProductPage": {
+    "message": "Παρακαλώ ανοίξτε μια σελίδα προϊόντος στο Shopee για να λάβετε τις εικόνες ή ανανεώστε τη σελίδα προϊόντος"
+  },
+  "pro": {
+    "message": "PRO"
+  },
+  "pro_function": {
+    "message": "Απεριόριστο"
+  },
+  "remaining": {
+    "message": "Υπολειπόμενο"
+  },
+  "resumeSubscribe": {
+    "message": "ΣΥΝΕΧΙΣΗ ΣΥΝΔΡΟΜΗΣ"
+  },
+  "subscribe": {
+    "message": "ΕΓΓΡΑΦΕΙΤΕ"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ Βιαστείτε, η συνδρομή σας Pro λήγει! Κάντε κλικ εδώ👇 για να συνεχίσετε τώρα και να αποφύγετε την απώλεια των αποκλειστικών σας προνομίων."
+  },
+  "thanksForSubscribing": {
+    "message": "Ευχαριστούμε για την εγγραφή!"
+  },
+  "times_per_day": {
+    "message": "φορές την ημέρα"
+  },
+  "title": {
+    "message": "Λήψη Εικόνων Shopee"
+  },
+  "upgrade": {
+    "message": "Αναβάθμιση"
+  },
+  "upgradeMessage": {
+    "message": "Αναβάθμιση σε Pro για απεριόριστες λήψεις"
+  },
+  "usePaddle": {
+    "message": "Χρησιμοποιούμε το Paddle για να διεκπεραιώσουμε τις αγορές και δεν γνωρίζουμε τα στοιχεία της κάρτας σας."
+  },
+  "variants": {
+    "message": "Παραλλαγές"
+  },
+  "videoTab": {
+    "message": "Βίντεο"
+  },
+  "videos": {
+    "message": "Βίντεο"
+  },
+  "single_image_limit_reached": {
+    "message": "Επιτεύχθηκε το ημερήσιο όριο λήψης μεμονωμένων εικόνων (10). Αναβαθμίστε σε Pro για απεριόριστες λήψεις!"
+  },
+  "single_images": {
+    "message": "Μεμονωμένες εικόνες"
+  },
+  "remaining_today": {
+    "message": "Απομένει σήμερα"
+  },
+  "bulk": {
+    "message": "Ομαδικά"
+  },
+  "upgrade_for_unlimited": {
+    "message": "Αναβάθμιση για Απεριόριστο >>"
+  },
+  "usage": {
+    "message": "Χρήση"
+  },
+  "unlimited": {
+    "message": "Απεριόριστο"
+  },
+  "individual_download": {
+    "message": "Μεμονωμένη Λήψη"
+  },
+  "individual": {
+    "message": "Μεμονωμένο"
+  },
+  "plan": {
+    "message": "Πλάνο"
+  },
+  "freeUser": {
+    "message": "Δωρεάν"
+  }
+}

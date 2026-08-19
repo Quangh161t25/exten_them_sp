@@ -1,0 +1,152 @@
+{
+  "agreeTerms": {
+    "message": "आपल्याला सेवा अटींशी सहमत असणे आवश्यक आहे."
+  },
+  "cancelSubscription": {
+    "message": "कोणत्याही वेळी सदस्यता रद्द करा"
+  },
+  "contactUs": {
+    "message": "आपल्याला काही प्रश्न किंवा कल्पना असल्यास, कृपया आमच्याशी संपर्क साधण्यास मुळीच संकोच करू नका."
+  },
+  "desc": {
+    "message": "या लोकप्रिय साधनाने Shopee उत्पादने, प्रतिमा आणि व्हिडिओ सहज डाउनलोड करा!"
+  },
+  "description": {
+    "message": "वर्णन"
+  },
+  "download": {
+    "message": "डाउनलोड"
+  },
+  "download_videos": {
+    "message": "व्हिडिओ डाउनलोड करा"
+  },
+  "enjoyProFeatures": {
+    "message": "आपण सध्या आमच्या प्रो आवृत्तीच्या वैशिष्ट्यांचा आनंद घेत आहात."
+  },
+  "excel": {
+    "message": "एक्सेल"
+  },
+  "export": {
+    "message": "निर्यात"
+  },
+  "faqPage": {
+    "message": "FAQ पृष्ठ"
+  },
+  "faqsDescription": {
+    "message": "कोणतेही प्रश्न आहेत का? आम्ही वारंवार विचारल्या जाणाऱ्या प्रश्नांची उत्तरे संकलित केली आहेत, म्हणून आमच्या प्रश्नोत्तर पृष्ठाला भेट देण्यास मोकळे रहा."
+  },
+  "faqsTitle": {
+    "message": "वारंवार विचारले जाणारे प्रश्न"
+  },
+  "free": {
+    "message": "मोफत"
+  },
+  "imageTab": {
+    "message": "प्रतिमा"
+  },
+  "images": {
+    "message": "प्रतिमा"
+  },
+  "loading": {
+    "message": "लोड करत आहे..."
+  },
+  "loginWithGoogle": {
+    "message": "Google सह लॉगिन करा"
+  },
+  "logout": {
+    "message": "बाहेर पडणे"
+  },
+  "main": {
+    "message": "मुख्य"
+  },
+  "manageSubscription": {
+    "message": "सदस्यत्व व्यवस्थापित करा"
+  },
+  "moneyBackGuarantee": {
+    "message": "७-दिवसांची पैसे परत मिळण्याची हमी"
+  },
+  "one_click_download_images": {
+    "message": "एकाच क्लिकमध्ये प्रतिमा डाउनलोड करा"
+  },
+  "openProductPage": {
+    "message": "कृपया Shopee उत्पादन पृष्ठ उघडा किंवा उत्पादन पृष्ठ रीफ्रेश करा"
+  },
+  "pro": {
+    "message": "प्रो"
+  },
+  "pro_function": {
+    "message": "असीमित"
+  },
+  "remaining": {
+    "message": "उर्वरित"
+  },
+  "resumeSubscribe": {
+    "message": "सदस्यत्व पुन्हा सुरू करा"
+  },
+  "subscribe": {
+    "message": "सदस्यता घ्या"
+  },
+  "subscriptionExpiring": {
+    "message": "⚠️ लवकर करा, तुमची प्रो सदस्यता समाप्त होत आहे! तुमचे विशेष फायदे गमावण्याचे टाळण्यासाठी लगेच पुन्हा सुरू करण्यासाठी येथे क्लिक करा👇."
+  },
+  "thanksForSubscribing": {
+    "message": "सदस्यता घेतल्याबद्दल धन्यवाद!"
+  },
+  "times_per_day": {
+    "message": "दिवसामध्ये वेळा"
+  },
+  "title": {
+    "message": "Shopee प्रतिमा डाउनलोडर"
+  },
+  "upgrade": {
+    "message": "अपग्रेड करा"
+  },
+  "upgradeMessage": {
+    "message": "असीमित डाउनलोडसाठी प्रो मध्ये अपग्रेड करा"
+  },
+  "usePaddle": {
+    "message": "आम्ही खरेदी प्रक्रिया करण्यासाठी Paddle वापरतो आणि तुमच्या कार्डाची माहिती माहित नाही."
+  },
+  "variants": {
+    "message": "प्रकार"
+  },
+  "videoTab": {
+    "message": "व्हिडिओ"
+  },
+  "videos": {
+    "message": "व्हिडिओ"
+  },
+  "single_image_limit_reached": {
+    "message": "दैनिक एकल प्रतिमा डाउनलोड मर्यादा (10) गाठली. अमर्यादित डाउनलोडसाठी Pro मध्ये अपग्रेड करा!"
+  },
+  "single_images": {
+    "message": "एकल प्रतिमा"
+  },
+  "remaining_today": {
+    "message": "आज शिल्लक"
+  },
+  "bulk": {
+    "message": "मोठ्या प्रमाणात"
+  },
+  "upgrade_for_unlimited": {
+    "message": "अमर्यादितसाठी अपग्रेड करा >>"
+  },
+  "usage": {
+    "message": "वापर"
+  },
+  "unlimited": {
+    "message": "अमर्यादित"
+  },
+  "individual_download": {
+    "message": "वैयक्तिक डाउनलोड"
+  },
+  "individual": {
+    "message": "वैयक्तिक"
+  },
+  "plan": {
+    "message": "योजना"
+  },
+  "freeUser": {
+    "message": "मोफत"
+  }
+}
