@@ -560,13 +560,23 @@
         // Match gia_thap_nhat based on 4-char prefix of SKU
         if (!item.isParent && item.sku && dsRows && dsRows.length > 1 && dsGiaThapNhatIdx !== -1) {
           const skuPrefix = String(item.sku).trim().substring(0, 4).toUpperCase();
-          const matchRow = dsRows.find((r, idx) => idx > 0 && String(r[dsIdSpIdx] || "").trim().toUpperCase() === skuPrefix);
-          if (matchRow) {
-            // Extract numeric value from text
-            const rawVal = matchRow[dsGiaThapNhatIdx];
-            if (rawVal) {
-              const numericMatch = String(rawVal).replace(/[^\d]/g, '');
-              if (numericMatch) item.lowestPrice = numericMatch;
+          const matchRows = dsRows.filter((r, idx) => idx > 0 && String(r[dsIdSpIdx] || "").trim().toUpperCase() === skuPrefix);
+          
+          if (matchRows.length > 0) {
+            let minPrice = null;
+            for (const r of matchRows) {
+              const rawVal = r[dsGiaThapNhatIdx];
+              if (rawVal) {
+                const numericMatch = parseInt(String(rawVal).replace(/[^\d]/g, ''), 10);
+                if (!isNaN(numericMatch) && numericMatch > 0) {
+                  if (minPrice === null || numericMatch < minPrice) {
+                    minPrice = numericMatch;
+                  }
+                }
+              }
+            }
+            if (minPrice !== null) {
+              item.lowestPrice = minPrice;
             }
           }
         }
