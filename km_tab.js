@@ -15,6 +15,22 @@
 
   let allRows = [];
   let currentTabId = null;
+  let lastScrapedFingerprint = "";
+  let isScrapingInProgress = false;
+
+  function isShopeePromotionUrl(url) {
+    if (!url) return false;
+    const cleanUrl = url.toLowerCase();
+    return (
+      (cleanUrl.includes("shopee.vn") || cleanUrl.includes("banhang.shopee.vn") || cleanUrl.includes("seller.shopee.vn")) &&
+      (cleanUrl.includes("/portal/marketing/") || cleanUrl.includes("/portal/sale/") || cleanUrl.includes("discount") || cleanUrl.includes("flashsale") || cleanUrl.includes("promotion") || cleanUrl.includes("bundle") || cleanUrl.includes("add-on-deal") || cleanUrl.includes("voucher") || cleanUrl.includes("/datacenter/"))
+    );
+  }
+
+  function getItemsFingerprint(items) {
+    if (!items || !items.length) return "";
+    return items.map(it => `${it.name}||${it.variationName}||${it.originalPrice}||${it.discountPrice}||${it.stock}`).join("@@");
+  }
 
   // Load cached data from chrome.storage.local immediately on startup
   chrome.storage.local.get(['km_scanned_rows'], (res) => {
@@ -24,7 +40,6 @@
       renderTable();
       if (saveGroupSection) saveGroupSection.style.display = 'block';
 
-      // Re-inject SKU badges onto active tab if open
       getActiveTab().then(tab => {
         if (tab && tab.id) {
           injectSkusIntoShopeePage(tab.id, allRows);
@@ -32,22 +47,16 @@
       });
     }
 
-    // Tự động quét luôn không cần ấn nút
-    getActiveTab().then(tab => {
-      if (tab && tab.url && tab.url.includes('/portal/marketing/')) {
-        setStatus("🔄 Đang tự động đọc dữ liệu từ trang...");
-        // Đợi 500ms cho web ổn định rồi tự động đọc
-        setTimeout(() => {
-          readPromotionData();
-        }, 500);
-      }
-    });
+    // Tự động kiểm tra link & bắt đầu đọc realtime
+    setTimeout(() => {
+      autoSyncRealtime(true);
+    }, 400);
   });
 
   // Event Listeners
   if (readBtn) {
     readBtn.addEventListener('click', () => {
-      readPromotionData();
+      readPromotionData(false, true);
     });
   }
 
@@ -58,6 +67,14 @@
         return;
       }
       const tab = await getActiveTab();
+      if (tab && tab.id) {
+        await injectSkusIntoShopeePage(tab.id, allRows);
+        setStatus(`📌 Đã chèn nhãn SKU trực tiếp vào dưới tên các phân loại trên trang Shopee.`);
+      } else {
+        alert("Không tìm thấy tab Shopee đang mở!");
+      }
+    });
+  }
       if (tab && tab.id) {
         await injectSkusIntoShopeePage(tab.id, allRows);
         setStatus(`📌 Đã chèn nhãn SKU trực tiếp vào dưới tên các phân loại trên trang Shopee.`);
@@ -216,10 +233,15 @@
     return tab;
   }
 
-  async function readPromotionData() {
-    setStatus('<span style="color: #2563eb;">⏳ Đang đọc dữ liệu Tên, Phân Loại, SKU & Giá từ Shopee...</span>');
-    if (tbody && allRows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 25px; color: #64748b;"><div style="display: inline-block; width: 16px; height: 16px; border: 2px solid #cbd5e1; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 6px;"></div>Đang quét dữ liệu trên trang Shopee...</td></tr>';
+  async function readPromotionData(isSilent = false, force = false) {
+    if (isScrapingInProgress) return;
+    isScrapingInProgress = true;
+
+    if (!isSilent) {
+      setStatus('<span style="color: #2563eb;">⏳ Đang đọc dữ liệu Tên, Phân Loại, SKU & Giá từ Shopee...</span>');
+      if (tbody && allRows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 25px; color: #64748b;"><div style="display: inline-block; width: 16px; height: 16px; border: 2px solid #cbd5e1; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 6px;"></div>Đang quét dữ liệu trên trang Shopee...</td></tr>';
+      }
     }
 
     try {
@@ -229,8 +251,8 @@
       }
       currentTabId = tab.id;
 
-      if (!tab.url || (!tab.url.includes("shopee.vn") && !tab.url.includes("banhang.shopee.vn"))) {
-        throw new Error("Vui lòng mở trang Kênh Người Bán Shopee (Khuyến mãi / Giảm giá / Flash Sale) để quét.");
+      if (!isShopeePromotionUrl(tab.url)) {
+        throw new Error("Vui lòng mở đúng trang Khuyến Mãi / Giảm Giá Shopee (link có dạng /portal/marketing/...) để đọc dữ liệu.");
       }
 
       // 1. EXECUTE SCRAPING ON SHOPEE PAGE
@@ -517,21 +539,32 @@
         throw new Error("Không có dòng sản phẩm nào được tìm thấy trên trang.");
       }
 
+      const currentFingerprint = getItemsFingerprint(scrapedItems);
+      if (!force && isSilent && currentFingerprint === lastScrapedFingerprint && allRows.length > 0) {
+        // Dữ liệu trên web không đổi, không cần render lại làm giật lag
+        return;
+      }
+      lastScrapedFingerprint = currentFingerprint;
+
       allRows = scrapedItems;
       updateStats();
       renderTable();
       if (saveGroupSection) saveGroupSection.style.display = 'block';
 
       // 2. MATCH SKU FROM SHEET AND INJECT INTO SHOPEE WEB PAGE
-      await matchSkuFromSheetAndInject(scrapedItems, tab.id);
+      await matchSkuFromSheetAndInject(scrapedItems, tab.id, isSilent);
 
     } catch (err) {
-      console.error(err);
-      setStatus(`❌ ${err.message}`, true);
+      if (!isSilent) {
+        console.error(err);
+        setStatus(`❌ ${err.message}`, true);
+      }
+    } finally {
+      isScrapingInProgress = false;
     }
   }
 
-  async function matchSkuFromSheetAndInject(items, tabId) {
+  async function matchSkuFromSheetAndInject(items, tabId, isSilent = false) {
     try {
       const storage = await new Promise(resolve => chrome.storage.local.get(["maGian", "dhHoanTextValue", "sp_shopee_cache_data", "ds_sp_cache_data"], resolve));
       const currentMaGian = (storage.maGian || storage.dhHoanTextValue || "").trim().toLowerCase();
@@ -617,7 +650,8 @@
       const parentCount = allRows.filter(r => r.isParent).length;
       const varCount = allRows.filter(r => !r.isParent).length;
       const skuCount = allRows.filter(r => !r.isParent && r.sku).length;
-      setStatus(`✅ Đã đọc <b>${parentCount}</b> sản phẩm cha, <b>${varCount}</b> phân loại (Đã hiển thị <b>${skuCount}</b> SKU lên Shopee).`);
+      const now = new Date().toLocaleTimeString('vi-VN');
+      setStatus(`<span style="display:inline-flex; align-items:center; gap:4px; background:#ecfdf5; color:#059669; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:11px;">🟢 Realtime ${now}</span> Đã đọc <b>${parentCount}</b> SP, <b>${varCount}</b> phân loại (Đã gắn <b>${skuCount}</b> SKU lên Shopee).`);
 
     } catch (e) {
       console.warn("Lỗi đối chiếu & chèn SKU:", e);
@@ -975,4 +1009,56 @@
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
   }
+
+  // ==========================================
+  // REALTIME SYNC & LINK TRACKING MANAGER
+  // ==========================================
+  async function autoSyncRealtime(force = false) {
+    try {
+      const tab = await getActiveTab();
+      if (!tab || !tab.id || !tab.url) return;
+
+      if (!isShopeePromotionUrl(tab.url)) {
+        if (!allRows.length && statusEl) {
+          setStatus(`⚠️ Vui lòng mở đúng trang Khuyến Mãi / Giảm Giá Shopee (link có dạng <code>/portal/marketing/discount/...</code>) để tự động đọc realtime.`);
+        }
+        return;
+      }
+
+      await readPromotionData(true, force);
+    } catch (e) {
+      console.debug("autoSyncRealtime error:", e);
+    }
+  }
+
+  // Tự động quét realtime định kỳ mỗi 2 giây
+  setInterval(() => {
+    autoSyncRealtime(false);
+  }, 2000);
+
+  // Lắng nghe khi người dùng chuyển tab trình duyệt
+  if (chrome.tabs?.onActivated) {
+    chrome.tabs.onActivated.addListener(() => {
+      setTimeout(() => autoSyncRealtime(true), 300);
+    });
+  }
+
+  // Lắng nghe khi URL thay đổi (chuyển chương trình khuyến mãi, đổi trang...)
+  if (chrome.tabs?.onUpdated) {
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+      if (changeInfo.status === 'complete' || changeInfo.url) {
+        setTimeout(() => autoSyncRealtime(true), 300);
+      }
+    });
+  }
+
+  // Lắng nghe khi người dùng click vào Tab KM trong popup
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.getAttribute('data-tab') === 'tab-km') {
+        setTimeout(() => autoSyncRealtime(true), 200);
+      }
+    });
+  });
 })();
+
