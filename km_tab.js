@@ -136,11 +136,15 @@
 
   function findSkuForShopeeVariation(pName, vName, spRows, currentMaGian) {
     if (!spRows || spRows.length <= 1) return "";
-    const cleanP = cleanString(pName);
-    const cleanV = cleanString(vName);
+    const cleanStr = (val) => {
+      if (!val) return "";
+      return String(val).normalize("NFC").replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\.\.\.$/, '').replace(/\u2026$/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+    };
+    const cleanP = cleanStr(pName);
+    const cleanV = cleanStr(vName);
     if (!cleanV && !cleanP) return "";
 
-    const headers = spRows[0].map(v => cleanString(v));
+    const headers = spRows[0].map(v => cleanStr(v));
     let pIdx = headers.findIndex(col => col.includes('tên sản phẩm') || col === 'ten sp' || col === 'name');
     if (pIdx === -1) pIdx = 1;
     let vIdx = headers.findIndex(col => (col.includes('phân loại') || col.includes('variation')) && !col.includes('mã') && !col.includes('ma'));
@@ -150,52 +154,61 @@
     let gIdx = headers.findIndex(col => col === 'gian' || col === 'mã gian' || col === 'ma gian');
     if (gIdx === -1) gIdx = 11;
 
-    // Pass 1: Exact match on both Variation & Parent Name & Shop Code
+    const getOverlap = (s1, s2) => {
+      if (!s1 || !s2) return 0;
+      const w1 = s1.split(' ');
+      const w2 = s2.split(' ');
+      let overlap = 0;
+      for (const w of w1) {
+        if (w2.includes(w)) overlap++;
+      }
+      return overlap;
+    };
+
+    let bestMatchSku = "";
+    let bestScore = -1;
+
     for (let i = 1; i < spRows.length; i++) {
       const row = spRows[i];
-      const sV = cleanString(row[vIdx]);
-      const sP = cleanString(row[pIdx]);
-      const sG = String(row[gIdx] || "").trim().toLowerCase();
-      const gOk = !currentMaGian || (sG === currentMaGian);
+      const sV = cleanStr(row[vIdx]);
+      const sP = cleanStr(row[pIdx]);
+      const sG = cleanStr(row[gIdx]);
+      const sku = String(row[sIdx] || "").trim();
 
-      if (gOk && sV && sV === cleanV) {
-        if (!cleanP || !sP || sP === cleanP || sP.includes(cleanP) || cleanP.includes(sP)) {
-          const sku = String(row[sIdx] || "").trim();
-          if (sku) return sku;
+      if (!sku) continue;
+
+      const gOk = !currentMaGian || (sG === currentMaGian);
+      if (!gOk) continue;
+
+      let score = 0;
+
+      // Rule 1: Variation Name
+      if (cleanV) {
+        if (sV === cleanV) score += 100;
+        else if (sV.includes(cleanV) || cleanV.includes(sV)) score += 50;
+        else continue; // Variation mismatch, skip
+      } else {
+        if (!sV || sV === "-") score += 50;
+        else score -= 50;
+      }
+
+      // Rule 2: Parent Name
+      if (cleanP && sP) {
+        if (sP === cleanP) score += 1000;
+        else if (sP.includes(cleanP) || cleanP.includes(sP)) score += 500;
+        else {
+          const overlap = getOverlap(cleanP, sP);
+          if (overlap > 0) score += overlap * 10;
+          else continue; // ZERO overlap in parent names = different product, SKIP
         }
       }
-    }
 
-    // Pass 2: Variation name exact match
-    for (let i = 1; i < spRows.length; i++) {
-      const row = spRows[i];
-      const sV = cleanString(row[vIdx]);
-      const sG = String(row[gIdx] || "").trim().toLowerCase();
-      const gOk = !currentMaGian || (sG === currentMaGian);
-
-      if (gOk && sV && sV === cleanV) {
-        const sku = String(row[sIdx] || "").trim();
-        if (sku) return sku;
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatchSku = sku;
       }
     }
-
-    // Pass 3: Substring match on both
-    for (let i = 1; i < spRows.length; i++) {
-      const row = spRows[i];
-      const sV = cleanString(row[vIdx]);
-      const sP = cleanString(row[pIdx]);
-      const sG = String(row[gIdx] || "").trim().toLowerCase();
-      const gOk = !currentMaGian || (sG === currentMaGian);
-
-      if (gOk && sV && cleanV && (sV.includes(cleanV) || cleanV.includes(sV))) {
-        if (!cleanP || !sP || sP.includes(cleanP) || cleanP.includes(sP)) {
-          const sku = String(row[sIdx] || "").trim();
-          if (sku) return sku;
-        }
-      }
-    }
-
-    return "";
+    return bestMatchSku;
   }
 
   async function getActiveTab() {
