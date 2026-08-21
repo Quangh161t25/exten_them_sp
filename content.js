@@ -10787,39 +10787,41 @@ async function extractProductDataAndSave() {
       varCell.style.setProperty('overflow', 'visible', 'important');
 
       const minPrice = findMinPriceForSku(sku, autoShopeeDsCache);
+      const shortSku = String(sku || '').trim().substring(0, 14);
 
       const badge = document.createElement('div');
       badge.className = 'ext-km-injected-sku';
-      badge.setAttribute('data-sku', sku);
+      badge.setAttribute('data-sku', shortSku);
       badge.setAttribute('data-min-price', minPrice || '');
       badge.style.cssText = 'display: inline-flex !important; align-items: center !important; flex-wrap: wrap !important; gap: 4px !important; margin-top: 4px !important; font-family: monospace, Consolas, sans-serif !important; font-size: 11px !important; width: max-content !important; z-index: 10 !important;';
 
       const skuSpan = document.createElement('span');
       skuSpan.style.cssText = 'background: #e0f2fe !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important; padding: 2px 6px !important; font-weight: bold !important; color: #0284c7 !important; cursor: pointer !important;';
-      skuSpan.title = 'Bấm để copy SKU: ' + sku;
-      skuSpan.innerHTML = `<span style="color:#0369a1;font-weight:normal;margin-right:2px;">SKU:</span>${sku}`;
+      skuSpan.title = 'Bấm để copy: ' + shortSku;
+      skuSpan.innerText = shortSku;
       skuSpan.onclick = (e) => {
         e.preventDefault(); e.stopPropagation();
-        navigator.clipboard.writeText(sku).then(() => {
+        navigator.clipboard.writeText(shortSku).then(() => {
           skuSpan.innerHTML = `<span style="color:#15803d;font-weight:bold;">✓ Đã copy!</span>`;
           setTimeout(() => {
-            skuSpan.innerHTML = `<span style="color:#0369a1;font-weight:normal;margin-right:2px;">SKU:</span>${sku}`;
+            skuSpan.innerText = shortSku;
           }, 1200);
         });
       };
       badge.appendChild(skuSpan);
 
       if (minPrice) {
+        const formattedPriceStr = Number(minPrice).toLocaleString('vi-VN');
         const minSpan = document.createElement('span');
         minSpan.style.cssText = 'background: #16a34a !important; border: 1px solid #15803d !important; color: #ffffff !important; border-radius: 4px !important; padding: 2px 6px !important; font-weight: bold !important; font-size: 11px !important;';
-        minSpan.title = 'Giá Min từ Sheet DS_SP';
-        minSpan.innerHTML = `Min: ${Number(minPrice).toLocaleString('vi-VN')}₫`;
+        minSpan.title = 'Giá Min từ Sheet DS_SP: ' + formattedPriceStr;
+        minSpan.innerText = formattedPriceStr;
         badge.appendChild(minSpan);
 
         const fillBtn = document.createElement('button');
         fillBtn.type = 'button';
         fillBtn.style.cssText = 'background: #f97316 !important; border: 1px solid #ea580c !important; color: #ffffff !important; border-radius: 4px !important; padding: 2px 8px !important; font-weight: bold !important; font-size: 11px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; gap: 2px !important; box-shadow: 0 1px 2px rgba(0,0,0,0.12) !important; user-select: none !important;';
-        fillBtn.title = `Điền Giá Min (${Number(minPrice).toLocaleString('vi-VN')}₫) vào ô Giá sau giảm của dòng này`;
+        fillBtn.title = `Điền Giá Min (${formattedPriceStr}) vào ô Giá sau giảm của dòng này`;
         fillBtn.innerHTML = `⚡ Điền`;
 
         fillBtn.onclick = (e) => {
