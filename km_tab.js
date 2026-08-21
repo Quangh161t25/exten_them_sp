@@ -724,8 +724,9 @@
             }
 
             const finalSku = matchedItem?.sku;
+            const finalMinPrice = matchedItem?.lowestPrice;
 
-            if (varCell && finalSku) {
+            if (varCell && (finalSku || finalMinPrice)) {
               mEl.style.setProperty('height', 'auto', 'important');
               mEl.style.setProperty('min-height', '56px', 'important');
               mEl.style.setProperty('overflow', 'visible', 'important');
@@ -742,24 +743,27 @@
 
               const badge = document.createElement('div');
               badge.className = 'ext-km-injected-sku';
-              badge.title = 'Bấm để copy SKU: ' + finalSku;
-              badge.style.cssText = 'display: inline-block !important; margin-top: 4px !important; background: #e0f2fe !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important; padding: 2px 7px !important; font-family: monospace, Consolas, sans-serif !important; font-size: 11px !important; font-weight: bold !important; color: #0284c7 !important; width: max-content !important; cursor: pointer !important; user-select: all !important; z-index: 10 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;';
-              badge.innerHTML = `<span style="color: #0369a1; font-weight: normal; margin-right: 3px;">SKU:</span><b>${finalSku}</b>`;
-              badge.setAttribute('data-sku', finalSku);
+              badge.title = 'Bấm để copy SKU: ' + (finalSku || '');
+              badge.style.cssText = 'display: inline-flex !important; align-items: center !important; flex-wrap: wrap !important; gap: 4px !important; margin-top: 4px !important; font-family: monospace, Consolas, sans-serif !important; font-size: 11px !important; width: max-content !important; z-index: 10 !important;';
+
+              let badgeHtml = '';
+              if (finalSku) {
+                badgeHtml += `<span style="background: #e0f2fe !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important; padding: 2px 6px !important; font-weight: bold !important; color: #0284c7 !important; cursor: pointer !important;" title="Copy SKU: ${finalSku}"><span style="color: #0369a1; font-weight: normal; margin-right: 2px;">SKU:</span>${finalSku}</span>`;
+              }
+              if (finalMinPrice) {
+                badgeHtml += `<span style="background: #16a34a !important; border: 1px solid #15803d !important; color: #ffffff !important; border-radius: 4px !important; padding: 2px 6px !important; font-weight: bold !important; font-size: 11px !important;" title="Giá Min từ Sheet DS_SP">Min: ${Number(finalMinPrice).toLocaleString('vi-VN')}₫</span>`;
+              }
+
+              badge.innerHTML = badgeHtml;
+              badge.setAttribute('data-sku', finalSku || '');
+              badge.setAttribute('data-min-price', finalMinPrice || '');
 
               badge.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                navigator.clipboard.writeText(finalSku).then(() => {
-                  badge.innerHTML = `<span style="color: #15803d; font-weight: bold;">✓ Đã copy!</span>`;
-                  badge.style.background = '#dcfce7';
-                  badge.style.borderColor = '#86efac';
-                  setTimeout(() => {
-                    badge.innerHTML = `<span style="color: #0369a1; font-weight: normal; margin-right: 3px;">SKU:</span><b>${finalSku}</b>`;
-                    badge.style.background = '#e0f2fe';
-                    badge.style.borderColor = '#7dd3fc';
-                  }, 1200);
-                });
+                if (finalSku) {
+                  navigator.clipboard.writeText(finalSku);
+                }
               });
 
               varCell.appendChild(badge);
@@ -793,14 +797,14 @@
 
     let filtered = allRows.filter(r => {
       if (tokens.length > 0) {
-        const fullSearchStr = `${r.name || ''} ${r.variationName || ''} ${r.sku || ''} ${r.originalPrice || ''} ${r.discountPrice || ''} ${r.stock || ''}`.toLowerCase();
+        const fullSearchStr = `${r.name || ''} ${r.variationName || ''} ${r.sku || ''} ${r.originalPrice || ''} ${r.discountPrice || ''} ${r.lowestPrice || ''} ${r.stock || ''}`.toLowerCase();
         return tokens.every(token => fullSearchStr.includes(token));
       }
       return true;
     });
 
     if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #64748b;">Chưa có dữ liệu hoặc không có dòng nào phù hợp với bộ lọc tìm kiếm.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #64748b;">Chưa có dữ liệu hoặc không có dòng nào phù hợp với bộ lọc tìm kiếm.</td></tr>';
       return;
     }
 
@@ -813,8 +817,6 @@
       const borderTop = isParent ? '2px solid #cbd5e1' : '1px solid #f1f5f9';
       const nameStyle = isParent ? 'font-weight: bold; color: #0f172a; font-size: 12px;' : 'color: #475569; font-size: 11px;';
 
-      const formattedOrigPrice = row.originalPrice ? Number(row.originalPrice).toLocaleString('vi-VN') + ' đ' : '-';
-      const formattedDiscPrice = row.discountPrice ? `<b style="color: #dc2626; font-size: 12px;">${Number(row.discountPrice).toLocaleString('vi-VN')} đ</b>` : '-';
       const formattedMinPrice = row.lowestPrice ? `<b style="color: #059669; font-size: 12px;">${Number(row.lowestPrice).toLocaleString('vi-VN')} đ</b>` : '-';
       const formattedSku = row.sku ? `<b style="color: #0284c7;">${escapeHtml(row.sku)}</b>` : '<span style="color: #cbd5e1;">-</span>';
 
@@ -830,48 +832,14 @@
           <td style="padding: 6px; font-family: monospace; font-size: 11px;">
             ${formattedSku}
           </td>
-          <td style="padding: 6px; text-align: right; color: #64748b;">
-            ${formattedOrigPrice}
-          </td>
-          <td style="padding: 6px; text-align: right;">
-            ${formattedDiscPrice}
-          </td>
           <td style="padding: 6px; text-align: right; background-color: #ecfdf5;">
             ${formattedMinPrice}
-          </td>
-          <td style="padding: 6px; text-align: center; color: #334155; font-weight: 500;">
-            ${row.stock || '-'}
-          </td>
-          <td style="padding: 6px 4px; text-align: center;">
-            <button type="button" class="btn-single-copy" data-name="${escapeHtml(row.name)}" data-var="${escapeHtml(row.variationName || '')}" data-sku="${escapeHtml(row.sku || '')}" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 3px; padding: 2px 6px; font-size: 10px; cursor: pointer; width: auto;">Copy</button>
           </td>
         </tr>
       `;
     });
 
     tbody.innerHTML = html;
-
-    // Attach copy event listeners
-    tbody.querySelectorAll('.btn-single-copy').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const name = btn.getAttribute('data-name');
-        const varName = btn.getAttribute('data-var');
-        const sku = btn.getAttribute('data-sku');
-        let textToCopy = varName && varName !== '-' ? `${name} - ${varName}` : name;
-        if (sku) textToCopy += ` [${sku}]`;
-
-        navigator.clipboard.writeText(textToCopy).then(() => {
-          btn.innerText = '✓ Đã copy';
-          btn.style.background = '#22c55e';
-          btn.style.color = '#ffffff';
-          setTimeout(() => {
-            btn.innerText = 'Copy';
-            btn.style.background = '#f1f5f9';
-            btn.style.color = '#334155';
-          }, 1000);
-        });
-      });
-    });
   }
 
   function copyTableToTsv() {

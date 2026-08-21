@@ -10826,7 +10826,8 @@ async function extractProductDataAndSave() {
     // Chưa có data → load
     autoShopeeLoadingData = true;
     try {
-      chrome.storage.local.get(['sp_shopee_cache_data', 'maGian', 'dhHoanTextValue'], (res) => {
+      chrome.storage.local.get(['sp_shopee_cache_data', 'ds_sp_cache_data', 'maGian', 'dhHoanTextValue'], (res) => {
+        if (res && res.ds_sp_cache_data) autoShopeeDsCache = res.ds_sp_cache_data;
         autoShopeeMaGian = (res?.maGian || res?.dhHoanTextValue || "").trim().toLowerCase();
 
         if (res && res.sp_shopee_cache_data && res.sp_shopee_cache_data.length > 1) {
