@@ -8380,7 +8380,61 @@ if (oldFlashBtn) oldFlashBtn.remove();
         
         const priceMap = discountSkuMappingCache.priceMap || {};
 
-        // Find all rows across the table
+        // 1. Primary Handler: Shopee Discount Edit Model List (.discount-edit-item-model-list)
+        const modelLists = Array.from(document.querySelectorAll('.discount-edit-item-model-list'));
+        if (modelLists.length > 0) {
+            modelLists.forEach(modelList => {
+                // Find product title in container outside modelList
+                let productContainer = modelList.parentElement;
+                let pName = '';
+                while (productContainer && productContainer !== document.body) {
+                    const allEllipsis = Array.from(productContainer.querySelectorAll('.ellipsis-content.single, .ellipsis-content'));
+                    const outsideEllipsis = allEllipsis.filter(el => !modelList.contains(el));
+                    if (outsideEllipsis.length > 0) {
+                        pName = getElTitleOrText(outsideEllipsis[0]);
+                        break;
+                    }
+                    productContainer = productContainer.parentElement;
+                }
+
+                if (!pName) return;
+
+                const modelComponents = Array.from(modelList.querySelectorAll('.discount-edit-item-model-component'));
+                modelComponents.forEach(modelComp => {
+                    if (modelComp.querySelector('.injected-sku-info, .injected-sku-ct')) {
+                        updateCopyButtonColor(modelComp, modelComp.querySelector('.injected-sku-info, .injected-sku-ct'));
+                        return;
+                    }
+
+                    const vNameEl = modelComp.querySelector('.item-variation .ellipsis-content.single, .item-variation .ellipsis-content');
+                    const vName = vNameEl ? getElTitleOrText(vNameEl) : '';
+                    const sku = findSkuInCache(pName, vName);
+                    
+                    if (sku) {
+                        const minPrice = priceMap[cleanStr(sku)] || priceMap[sku] || null;
+                        const skuDiv = createSkuElement(sku, minPrice, modelComp);
+                        
+                        const popoverRef = modelComp.querySelector('.item-variation .eds-popover__ref') || 
+                                           modelComp.querySelector('.item-variation .ellipsis-text-wrapper') || 
+                                           vNameEl;
+                        if (popoverRef) {
+                            popoverRef.insertAdjacentElement('afterend', skuDiv);
+                        } else {
+                            const varContainer = modelComp.querySelector('.item-variation') || modelComp;
+                            varContainer.appendChild(skuDiv);
+                        }
+                    } else {
+                        const emptyDiv = document.createElement('div');
+                        emptyDiv.className = 'injected-sku-info';
+                        emptyDiv.style.display = 'none';
+                        modelComp.appendChild(emptyDiv);
+                    }
+                });
+            });
+            return;
+        }
+
+        // 2. Fallback Handler: Table rows
         const rows = Array.from(document.querySelectorAll('tr, .eds-table__row, .shopee-table-row, .discount-item-component'));
         let currentPName = '';
         let currentProductRow = null;
@@ -8401,7 +8455,6 @@ if (oldFlashBtn) oldFlashBtn.remove();
                 return;
             }
 
-            // Check .item-variation inside this row if card component
             const itemVariations = Array.from(row.querySelectorAll('.item-variation'));
             if (itemVariations.length > 0) {
                 itemVariations.forEach(v => {
@@ -8431,7 +8484,6 @@ if (oldFlashBtn) oldFlashBtn.remove();
                 const hasInput = !!row.querySelector('input.eds-input__input, input.ant-input-number-input, input[type="text"], input[type="number"]');
                 const vNameRef = row.querySelector('.eds-popover__ref') || row.querySelector('.ellipsis-content.single, .ellipsis-content');
                 
-                // If row is the header row of multi-variation product and has no input, skip header
                 if (row === currentProductRow && !hasInput) {
                     return;
                 }
