@@ -539,43 +539,43 @@
       }
 
       // Identify column indices in DS_SP
-      let dsGiaThapNhatIdx = -1;
+      let dsGiaThapNhatIdx = 6; // Default to Column G
       let dsIdSpIdx = 1; // Default to Column B
       if (dsRows && dsRows.length > 0) {
-        const dsHeaders = dsRows[0].map(h => cleanString(h));
-        // id_sp is usually index 1
-        const idCol = dsHeaders.findIndex(h => h.includes("id_sp") || h.includes("id sp"));
+        const dsHeaders = dsRows[0].map(h => String(h || "").normalize("NFC").trim().toLowerCase());
+        
+        // id_sp
+        const idCol = dsHeaders.findIndex(h => h === "id_sp" || h === "id sp" || h === "id_sp_ct");
         if (idCol !== -1) dsIdSpIdx = idCol;
         
         // gia_thap_nhat
-        dsGiaThapNhatIdx = dsHeaders.findIndex(h => h.includes("thap nhat") || h === "giathapnhat" || h.includes("gia thap nhat"));
+        const giaCol = dsHeaders.findIndex(h => h === "gia_thap_nhat" || h === "gia thap nhat" || h.includes("thấp nhất") || h.includes("giá min"));
+        if (giaCol !== -1) dsGiaThapNhatIdx = giaCol;
       }
 
-      if (spRows && spRows.length > 0) {
-        items.forEach(item => {
-          if (!item.isParent && !item.sku) {
-            item.sku = findSkuForShopeeVariation(item.name, item.variationName, spRows, currentMaGian);
-          }
-          // Match gia_thap_nhat based on 4-char prefix of SKU
-          if (!item.isParent && item.sku && dsRows && dsRows.length > 1 && dsGiaThapNhatIdx !== -1) {
-            const skuPrefix = String(item.sku).substring(0, 4).toUpperCase();
-            const matchRow = dsRows.find((r, idx) => idx > 0 && String(r[dsIdSpIdx] || "").trim().toUpperCase() === skuPrefix);
-            if (matchRow) {
-              // Extract numeric value from text
-              const rawVal = matchRow[dsGiaThapNhatIdx];
-              if (rawVal) {
-                const numericMatch = String(rawVal).replace(/[^\d]/g, '');
-                if (numericMatch) item.lowestPrice = numericMatch;
-              }
+      items.forEach(item => {
+        if (!item.isParent && !item.sku && spRows && spRows.length > 0) {
+          item.sku = findSkuForShopeeVariation(item.name, item.variationName, spRows, currentMaGian);
+        }
+        // Match gia_thap_nhat based on 4-char prefix of SKU
+        if (!item.isParent && item.sku && dsRows && dsRows.length > 1 && dsGiaThapNhatIdx !== -1) {
+          const skuPrefix = String(item.sku).trim().substring(0, 4).toUpperCase();
+          const matchRow = dsRows.find((r, idx) => idx > 0 && String(r[dsIdSpIdx] || "").trim().toUpperCase() === skuPrefix);
+          if (matchRow) {
+            // Extract numeric value from text
+            const rawVal = matchRow[dsGiaThapNhatIdx];
+            if (rawVal) {
+              const numericMatch = String(rawVal).replace(/[^\d]/g, '');
+              if (numericMatch) item.lowestPrice = numericMatch;
             }
           }
-        });
+        }
+      });
 
-        allRows = items;
-        chrome.storage.local.set({ km_scanned_rows: allRows });
-        updateStats();
-        renderTable();
-      }
+      allRows = items;
+      chrome.storage.local.set({ km_scanned_rows: allRows });
+      updateStats();
+      renderTable();
 
       // 3. INJECT SKU BADGE DIRECTLY ONTO SHOPEE WEB PAGE
       if (tabId) {
