@@ -405,10 +405,50 @@ async function uploadImageToFreeImageHost(imageUrl) {
     return true;
   }
 
-  if (message?.type === "FETCH_DON_HANG_MDH") {
-    getGoogleAccessToken().then(async token => {
+  if (message?.type === "CHECK_DH_ORDER_EXISTS") {
+    Promise.all([getGoogleAccessToken(), getSpreadsheetId()]).then(async ([token, sheetId]) => {
       try {
-        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}/values/${encodeURIComponent("DH!D:D")}`, {
+        await ensureSheetExists("DH", token);
+        const mdh = String(message.mdh || "").trim();
+        const mvd = String(message.mvd || "").trim();
+
+        if (!mdh && !mvd) {
+          sendResponse({ ok: true, exists: false, rowNums: [] });
+          return;
+        }
+
+        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!D:E")}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!res.ok) throw new Error(data.error?.message || "Không đọc được sheet DH.");
+        const rows = data.values || [];
+        const matchingRowNums = [];
+
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          const rowMdh = String(row[0] || "").trim();
+          const rowMvd = String(row[1] || "").trim();
+          const rowNum = i + 1; // 1-indexed trong Google Sheets
+
+          if ((mdh && rowMdh && rowMdh.toLowerCase() === mdh.toLowerCase()) || 
+              (mvd && rowMvd && rowMvd.toLowerCase() === mvd.toLowerCase())) {
+            matchingRowNums.push(rowNum);
+          }
+        }
+
+        sendResponse({ ok: true, exists: matchingRowNums.length > 0, rowNums: matchingRowNums });
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message, exists: false, rowNums: [] });
+      }
+    }).catch(err => sendResponse({ ok: false, error: err.message, exists: false, rowNums: [] }));
+    return true;
+  }
+
+  if (message?.type === "FETCH_DON_HANG_MDH") {
+    Promise.all([getGoogleAccessToken(), getSpreadsheetId()]).then(async ([token, sheetId]) => {
+      try {
+        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!D:D")}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) throw new Error(data.error?.message || "Khong doc duoc sheet DH.");
@@ -424,6 +464,86 @@ async function uploadImageToFreeImageHost(imageUrl) {
     Promise.all([getGoogleAccessToken(), getSpreadsheetId()]).then(async ([token, sheetId]) => {
       try {
         await ensureSheetExists("DH", token);
+        const newValues = message.values || [];
+        if (!newValues.length) throw new Error("Không có dữ liệu để lưu.");
+
+        // Lấy mdh và mvd từ tham số hoặc dòng dữ liệu đầu tiên
+        const sampleMdh = String(message.mdh || newValues[0]?.[3] || "").trim();
+        const sampleMvd = String(message.mvd || newValues[0]?.[4] || "").trim();
+
+        // 1. Quét tìm xem đơn hàng đã có trong Sheet DH chưa
+        const { res: readRes, data: readData } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!D:E")}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const rows = (readRes.ok && readData.values) ? readData.values : [];
+        const matchingRowNums = [];
+
+        if (sampleMdh || sampleMvd) {
+          for (let i = 1; i < rows.length; i++) {
+            const r = rows[i];
+            const rowMdh = String(r[0] || "").trim();
+            const rowMvd = String(r[1] || "").trim();
+            const rowNum = i + 1;
+
+            if ((sampleMdh && rowMdh && rowMdh.toLowerCase() === sampleMdh.toLowerCase()) ||
+                (sampleMvd && rowMvd && rowMvd.toLowerCase() === sampleMvd.toLowerCase())) {
+              matchingRowNums.push(rowNum);
+            }
+          }
+        }
+
+        // 2. Nếu ĐÃ TỒN TẠI -> CẬP NHẬT LẠI (UPDATE)
+        if (matchingRowNums.length > 0) {
+          const updateData = [];
+          for (let i = 0; i < newValues.length; i++) {
+            if (i < matchingRowNums.length) {
+              const rowNum = matchingRowNums[i];
+              updateData.push({
+                range: `DH!A${rowNum}:U${rowNum}`,
+                values: [newValues[i]]
+              });
+            }
+          }
+
+          if (updateData.length > 0) {
+            const { res: updateRes, data: updateResult } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                valueInputOption: "USER_ENTERED",
+                data: updateData
+              })
+            });
+            if (!updateRes.ok) throw new Error(updateResult.error?.message || "Không thể cập nhật dòng trong sheet DH");
+          }
+
+          // Nếu số dòng mới nhiều hơn số dòng cũ đã có, thêm các dòng còn lại vào cuối
+          const remainingValues = newValues.slice(matchingRowNums.length);
+          if (remainingValues.length > 0) {
+            await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:U")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ values: remainingValues })
+            });
+          }
+
+          sendResponse({
+            ok: true,
+            updated: true,
+            count: newValues.length,
+            rowNums: matchingRowNums
+          });
+          return;
+        }
+
+        // 3. Nếu CHƯA TỒN TẠI -> THÊM MỚI (APPEND)
         const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:U")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
           method: "POST",
           headers: {
@@ -431,11 +551,11 @@ async function uploadImageToFreeImageHost(imageUrl) {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            values: message.values
+            values: newValues
           })
         });
-        if (!res.ok) throw new Error(data.error?.message || "Khong thể ghi vao sheet DH");
-        sendResponse({ ok: true, count: message.values.length });
+        if (!res.ok) throw new Error(data.error?.message || "Không thể ghi vào sheet DH");
+        sendResponse({ ok: true, updated: false, count: newValues.length });
       } catch (err) {
         sendResponse({ ok: false, error: err.message });
       }
@@ -619,50 +739,22 @@ async function uploadImageToFreeImageHost(imageUrl) {
     return true;
   }
 
-  if (message?.type !== "DOWNLOAD_AWB_PDF") {
-    return false;
+  if (message?.type === "DOWNLOAD_AWB_PDF") {
+    chrome.downloads.download({
+      url: message.url,
+      filename: message.filename || "shopee-awb.pdf",
+      saveAs: false
+    }, (downloadId) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+      } else {
+        sendResponse({ ok: true, downloadId });
+      }
+    });
+    return true;
   }
 
-  let didRespond = false;
-  const timeoutId = setTimeout(() => {
-    if (didRespond) {
-      return;
-    }
-
-    didRespond = true;
-    sendResponse({
-      ok: false,
-      message: "Qua thoi gian cho tai PDF."
-    });
-  }, 10000);
-
-  chrome.downloads.download({
-    url: message.url,
-    filename: message.filename || "shopee-awb.pdf",
-    saveAs: false
-  }, (downloadId) => {
-    if (didRespond) {
-      return;
-    }
-
-    didRespond = true;
-    clearTimeout(timeoutId);
-
-    if (chrome.runtime.lastError) {
-      sendResponse({
-        ok: false,
-        message: chrome.runtime.lastError.message
-      });
-      return;
-    }
-
-    sendResponse({
-      ok: true,
-      downloadId
-    });
-  });
-
-  return true;
+  return false;
 });
 
 function normalizeText(text) {

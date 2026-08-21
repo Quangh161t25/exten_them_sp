@@ -90,9 +90,24 @@
     const html = escapeHtml(shownValue);
     return col.key === "capitalDetails" ? html.replace(/\s+\|\s+/g, "<br>") : html;
   }
-  function renderVerticalDetails(row) {
+  let currentOrderExistingInfo = { exists: false, rowNums: [] };
+
+  function renderVerticalDetails(row, isExisting = false, rowNums = []) {
     return `<div style="display: grid; min-width: 300px; border: 1px solid #d8dee8; border-bottom: 0; background: #fff;">${displayColumns.map((col) => {
-      return `<div style="display: grid; grid-template-columns: minmax(120px, 0.9fr) minmax(130px, 1.1fr); gap: 8px; align-items: center; min-height: 26px; padding: 4px 6px; border-bottom: 1px solid #d8dee8; line-height: 1.25;"><span style="color:#475569; font-size:11px; white-space: normal;">${escapeHtml(col.label)}</span><b style="text-align:right; color:#0f172a; font-size:13px; font-weight:700; white-space: normal; word-break: break-word;">${renderDisplayValue(row, col)}</b></div>`;
+      const isTracking = col.key === "tracking";
+      
+      let rowStyle = "display: grid; grid-template-columns: minmax(120px, 0.9fr) minmax(130px, 1.1fr); gap: 8px; align-items: center; min-height: 26px; padding: 4px 6px; border-bottom: 1px solid #d8dee8; line-height: 1.25;";
+      let valueStyle = "text-align:right; color:#0f172a; font-size:13px; font-weight:700; white-space: normal; word-break: break-word;";
+      let extraTag = "";
+
+      if (isExisting && isTracking) {
+        rowStyle = "display: grid; grid-template-columns: minmax(120px, 0.9fr) minmax(130px, 1.1fr); gap: 8px; align-items: center; min-height: 26px; padding: 6px 8px; border-bottom: 1px solid #d8dee8; line-height: 1.25; background: #fef08a; border-left: 4px solid #eab308;";
+        valueStyle = "text-align:right; color:#854d0e; font-size:13px; font-weight:bold; white-space: normal; word-break: break-word;";
+        const rowText = rowNums && rowNums.length > 0 ? ` (Dòng ${rowNums.join(", ")})` : "";
+        extraTag = `<div style="font-size:10px; color:#b45309; font-weight:bold; margin-top:2px;">⚠️ Đã có trong Sheet DH${rowText}</div>`;
+      }
+
+      return `<div style="${rowStyle}"><span style="color:#475569; font-size:11px; white-space: normal;">${escapeHtml(col.label)}</span><div style="text-align:right;"><b style="${valueStyle}">${renderDisplayValue(row, col)}</b>${extraTag}</div></div>`;
     }).join("")}</div>`;
   }
   function shortCell(value, max = 120) {
@@ -100,16 +115,19 @@
     return text.length > max ? `${text.slice(0, max)}...` : text;
   }
 
-  function renderRows(rows) {
+  function renderRows(rows, existingInfo = currentOrderExistingInfo) {
     latestRows = Array.isArray(rows) ? rows : [];
     if (!latestRows.length) {
       tbody.innerHTML = `<tr><td colspan="1" style="text-align: center; padding: 10px; color: #ef4444;">Khong co du lieu.</td></tr>`;
       return;
     }
 
+    const isExisting = !!existingInfo?.exists;
+    const rowNums = existingInfo?.rowNums || [];
+
     tbody.innerHTML = latestRows.map((row) => `
       <tr>
-        <td style="padding: 6px; border-bottom: 1px solid #edf2f7; vertical-align: top; white-space: normal;">${renderVerticalDetails(row)}</td>
+        <td style="padding: 6px; border-bottom: 1px solid #edf2f7; vertical-align: top; white-space: normal;">${renderVerticalDetails(row, isExisting, rowNums)}</td>
       </tr>
     `).join("");
   }
@@ -401,8 +419,44 @@
       }
 
       if (response.rows && response.rows.length > 0) {
-        renderRows(response.rows);
-        status.textContent = `Đã đọc dữ liệu đơn hàng. Mã đơn: ${response.orderId || ""}.`;
+        const orderId = response.orderId || response.rows[0]?.orderId || "";
+        const tracking = response.tracking || response.rows[0]?.tracking || "";
+
+        // Kiểm tra xem đơn hàng đã có trong Sheet DH chưa
+        let exists = false;
+        let rowNums = [];
+        try {
+          const checkRes = await sendRuntimeMessage({
+            type: "CHECK_DH_ORDER_EXISTS",
+            mdh: orderId,
+            mvd: tracking
+          });
+          if (checkRes?.ok && checkRes.exists) {
+            exists = true;
+            rowNums = checkRes.rowNums || [];
+          }
+        } catch (e) {
+          console.warn("Lỗi kiểm tra đơn hàng trong sheet:", e);
+        }
+
+        currentOrderExistingInfo = { exists, rowNums };
+        renderRows(response.rows, currentOrderExistingInfo);
+
+        if (exists) {
+          status.innerHTML = `<span style="color:#d97706; font-weight:bold;">⚠️ Đơn hàng ĐÃ CÓ trong Sheet DH (Dòng ${rowNums.join(", ")}). Bấm "Lưu ĐH" để cập nhật lại.</span>`;
+          if (saveDhButton) {
+            saveDhButton.textContent = "Cập nhật DH";
+            saveDhButton.style.background = "#d97706";
+            saveDhButton.style.borderColor = "#b45309";
+          }
+        } else {
+          status.textContent = `Đã đọc dữ liệu đơn hàng. Mã đơn: ${orderId || ""}. (Chưa có trong Sheet)`;
+          if (saveDhButton) {
+            saveDhButton.textContent = "Luu DH";
+            saveDhButton.style.background = "#16a34a";
+            saveDhButton.style.borderColor = "#15803d";
+          }
+        }
       } else if (!auto) {
         throw new Error("Không tìm thấy thông tin sản phẩm trong đơn hàng.");
       }
@@ -434,6 +488,7 @@
   window.setInterval(() => {
     if (isOrderTabActive()) readCurrentOrder({ auto: true });
   }, 3500);
+
   saveDhButton?.addEventListener("click", async () => {
     if (!latestRows.length) {
       status.textContent = "Chua co du lieu de luu DH.";
@@ -448,10 +503,34 @@
       if (!maGian) throw new Error("Chua co ma gian trong tab Cai dat.");
 
       const values = await rowsToDhValues(latestRows, maGian);
-      const response = await sendRuntimeMessage({ type: "SAVE_DH_ORDER", values });
+      const sampleMdh = latestRows[0]?.orderId || "";
+      const sampleMvd = latestRows[0]?.tracking || "";
+
+      const response = await sendRuntimeMessage({
+        type: "SAVE_DH_ORDER",
+        values,
+        mdh: sampleMdh,
+        mvd: sampleMvd
+      });
+
       if (!response?.ok) throw new Error(response?.error || "Khong luu duoc DH.");
 
-      status.textContent = `Da luu ${response.count || values.length} dong vao sheet DH.`;
+      if (response.updated) {
+        currentOrderExistingInfo = { exists: true, rowNums: response.rowNums || [] };
+        renderRows(latestRows, currentOrderExistingInfo);
+        const rowStr = response.rowNums && response.rowNums.length > 0 ? ` (Dòng ${response.rowNums.join(", ")})` : "";
+        status.innerHTML = `<span style="color:#16a34a; font-weight:bold;">✅ Đã CẬP NHẬT LẠI ${response.count || values.length} dòng vào sheet DH${rowStr}.</span>`;
+      } else {
+        currentOrderExistingInfo = { exists: true, rowNums: [] };
+        renderRows(latestRows, currentOrderExistingInfo);
+        status.innerHTML = `<span style="color:#16a34a; font-weight:bold;">✅ Đã LƯU MỚI ${response.count || values.length} dòng vào sheet DH.</span>`;
+      }
+
+      if (saveDhButton) {
+        saveDhButton.textContent = "Cập nhật DH";
+        saveDhButton.style.background = "#d97706";
+        saveDhButton.style.borderColor = "#b45309";
+      }
     } catch (error) {
       status.textContent = `Loi luu DH: ${error.message}`;
     } finally {

@@ -639,6 +639,108 @@ function downloadExcelFileBypass(wb, filename) {
       });
     });
 
+    async function handleFillMultiWarehousePopup(targetValue = '1000', triggerInput = null) {
+      let popup = document.querySelector('.multi-warehouse-stock-edit');
+      
+      if (!popup || !isVisible(popup)) {
+        if (triggerInput) {
+          const popoverRef = triggerInput.closest('.eds-popover__ref') || triggerInput.closest('.multi-warehouse-stock-input') || triggerInput.closest('.eds-input') || triggerInput;
+          triggerInput.focus();
+          triggerInput.click();
+          if (popoverRef && popoverRef !== triggerInput) {
+            popoverRef.click();
+            emitRealClick(popoverRef);
+          }
+        }
+        
+        for (let i = 0; i < 25; i++) {
+          await sleep(60);
+          popup = document.querySelector('.multi-warehouse-stock-edit');
+          if (popup && isVisible(popup)) break;
+        }
+      }
+
+      if (!popup) {
+        if (triggerInput && !triggerInput.readOnly && !triggerInput.disabled) {
+          fillInputLikeUser(triggerInput, targetValue);
+          return true;
+        }
+        return false;
+      }
+
+      const rows = Array.from(popup.querySelectorAll('.eds-table__body tr.eds-table__row, .stock-table tr, tr'));
+      let filledCount = 0;
+
+      for (const row of rows) {
+        const isPaused = row.textContent.includes('Chế độ tạm nghỉ') || row.querySelector('.eds-tag');
+        const input = row.querySelector('input.eds-input__input, input');
+        
+        if (input && !input.disabled && !input.readOnly) {
+          if (isPaused) {
+            continue;
+          }
+          fillInputLikeUser(input, targetValue);
+          filledCount++;
+          await sleep(40);
+        }
+      }
+
+      await sleep(150);
+
+      const confirmBtn = Array.from(popup.querySelectorAll('button')).find(btn => {
+        const txt = (btn.textContent || '').trim();
+        return (txt === 'Xác nhận' || txt.includes('Xác nhận')) && isVisible(btn);
+      }) || popup.querySelector('.stock-edit-fixed-right button.eds-button--primary');
+
+      if (confirmBtn) {
+        emitRealClick(confirmBtn);
+      }
+
+      return true;
+    }
+
+    async function handleFillAllWarehouses(targetValue = '1000') {
+      showTopNotification(`⏳ Đang bắt đầu điền ${targetValue} cho tất cả các kho...`);
+
+      // 1. Thử điền vào ô kho hàng loạt ở trên bảng trước
+      const batchInput = findStockBatchInput();
+      if (batchInput) {
+        const ok = await handleFillMultiWarehousePopup(targetValue, batchInput);
+        await sleep(250);
+        const applyBtn = findApplyToAllButton();
+        if (applyBtn) {
+          emitRealClick(applyBtn);
+          await sleep(300);
+          showTopNotification(`✅ Đã áp dụng ${targetValue} cho tất cả phân loại thành công!`);
+          return;
+        }
+      }
+
+      // 2. Quét tất cả các ô kho trong bảng phân loại
+      const stockInputs = Array.from(document.querySelectorAll('.two-tier-multi-warehouse-stock input, .multi-warehouse-stock-input input, .two-tier-stock input, .product-edit-input input[readonly]')).filter(isVisible);
+
+      if (stockInputs.length === 0) {
+        const allReadonly = Array.from(document.querySelectorAll('table input[readonly], .eds-table input[readonly], input[placeholder*="Input"][readonly]')).filter(isVisible);
+        stockInputs.push(...allReadonly);
+      }
+
+      if (stockInputs.length === 0) {
+        showTopNotification('Không tìm thấy ô kho hàng nào trên trang!', true);
+        return;
+      }
+
+      let successCount = 0;
+      for (let i = 0; i < stockInputs.length; i++) {
+        const inp = stockInputs[i];
+        showTopNotification(`⏳ Đang điền kho dòng ${i + 1}/${stockInputs.length}...`);
+        const ok = await handleFillMultiWarehousePopup(targetValue, inp);
+        if (ok) successCount++;
+        await sleep(250);
+      }
+
+      showTopNotification(`🎉 Đã điền ${targetValue} cho ${successCount}/${stockInputs.length} dòng thành công!`);
+    }
+
     const saveSheetBtn = document.createElement("button");
     saveSheetBtn.id = "btn-save-product-sheet-sidebar";
     saveSheetBtn.type = "button";
@@ -662,20 +764,64 @@ function downloadExcelFileBypass(wb, filename) {
       }
     });
 
-    wrap.append(topButton, upButton, downButton, bottomButton, bulkExcelBtn, saveSheetBtn);
+    const stock1000Btn = document.createElement("button");
+    stock1000Btn.id = "btn-fill-stock-1000-sidebar";
+    stock1000Btn.type = "button";
+    stock1000Btn.title = "Điền 1000 cho tất cả các kho của toàn bộ phân loại";
+    stock1000Btn.textContent = "1000";
+    stock1000Btn.style.backgroundColor = "#16a34a";
+    stock1000Btn.style.fontSize = "11px";
+    stock1000Btn.style.fontWeight = "bold";
+    stock1000Btn.style.setProperty("display", "none", "important");
+    stock1000Btn.addEventListener("click", async () => {
+      stock1000Btn.textContent = "⏳";
+      stock1000Btn.disabled = true;
+      try {
+        await handleFillAllWarehouses("1000");
+      } finally {
+        stock1000Btn.textContent = "1000";
+        stock1000Btn.disabled = false;
+      }
+    });
+
+    const stock0Btn = document.createElement("button");
+    stock0Btn.id = "btn-fill-stock-0-sidebar";
+    stock0Btn.type = "button";
+    stock0Btn.title = "Điền 0 cho tất cả các kho của toàn bộ phân loại";
+    stock0Btn.textContent = "Kho 0";
+    stock0Btn.style.backgroundColor = "#dc2626";
+    stock0Btn.style.fontSize = "11px";
+    stock0Btn.style.fontWeight = "bold";
+    stock0Btn.style.setProperty("display", "none", "important");
+    stock0Btn.addEventListener("click", async () => {
+      stock0Btn.textContent = "⏳";
+      stock0Btn.disabled = true;
+      try {
+        await handleFillAllWarehouses("0");
+      } finally {
+        stock0Btn.textContent = "Kho 0";
+        stock0Btn.disabled = false;
+      }
+    });
+
+    wrap.append(topButton, upButton, downButton, bottomButton, bulkExcelBtn, stock1000Btn, stock0Btn, saveSheetBtn);
     document.documentElement.append(wrap);
     toggleBulkExcelBtn();
     
     let lastCheckedMaSp = null;
     
-    // Toggle the Save SP button visibility based on URL
+    // Toggle the Save SP, 1000 and Kho 0 buttons visibility based on URL
     window.setInterval(() => {
         const path = window.location.pathname;
         const isEdit = path.startsWith("/portal/product/new") || (path.startsWith("/portal/product/") && !path.includes("/list"));
         if (isEdit) {
             saveSheetBtn.style.setProperty("display", "flex", "important");
+            stock1000Btn.style.setProperty("display", "flex", "important");
+            stock0Btn.style.setProperty("display", "flex", "important");
         } else {
             saveSheetBtn.style.setProperty("display", "none", "important");
+            stock1000Btn.style.setProperty("display", "none", "important");
+            stock0Btn.style.setProperty("display", "none", "important");
         }
         
         if (isEdit) {
@@ -740,6 +886,112 @@ function downloadExcelFileBypass(wb, filename) {
             lastCheckedMaSp = null;
         }
     }, 1000);
+
+    function injectRowStockQuickButtons() {
+      const path = window.location.pathname;
+      const isEdit = path.startsWith("/portal/product/new") || (path.startsWith("/portal/product/") && !path.includes("/list"));
+      if (!isEdit) return;
+
+      // 1. Quét các ô multi-warehouse stock của từng phân loại
+      const stockCells = Array.from(document.querySelectorAll('.two-tier-multi-warehouse-stock, .two-tier-stock, .multi-warehouse-stock-input, [data-product-edit-field-unique-id*="stockModel"], [class*="multi-warehouse-stock"]'));
+
+      stockCells.forEach(cell => {
+        if (cell.querySelector('.shopee-qlsp-row-stock-btns')) return;
+
+        const input = cell.querySelector('input');
+        if (!input) return;
+
+        const td = cell.closest('td, .eds-table__cell') || cell;
+        td.style.setProperty('overflow', 'visible', 'important');
+        td.style.setProperty('height', 'auto', 'important');
+        cell.style.setProperty('overflow', 'visible', 'important');
+
+        const btnWrap = document.createElement('div');
+        btnWrap.className = 'shopee-qlsp-row-stock-btns';
+        btnWrap.style.cssText = 'display: inline-flex !important; gap: 4px !important; margin-top: 4px !important; align-items: center !important; position: relative !important; z-index: 999 !important;';
+
+        const btn1000 = document.createElement('button');
+        btn1000.type = 'button';
+        btn1000.textContent = '1000';
+        btn1000.title = 'Điền 1000 vào từng kho của phân loại này';
+        btn1000.style.cssText = 'font-size: 11px !important; font-weight: bold !important; background: #16a34a !important; color: white !important; border: 1px solid #15803d !important; border-radius: 4px !important; padding: 2px 8px !important; cursor: pointer !important; line-height: 1.2 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;';
+        btn1000.onclick = async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          btn1000.textContent = '⏳';
+          btn1000.disabled = true;
+          try {
+            await handleFillMultiWarehousePopup('1000', input);
+          } finally {
+            btn1000.textContent = '1000';
+            btn1000.disabled = false;
+          }
+        };
+
+        const btn0 = document.createElement('button');
+        btn0.type = 'button';
+        btn0.textContent = '0';
+        btn0.title = 'Điền 0 vào từng kho của phân loại này';
+        btn0.style.cssText = 'font-size: 11px !important; font-weight: bold !important; background: #ef4444 !important; color: white !important; border: 1px solid #b91c1c !important; border-radius: 4px !important; padding: 2px 6px !important; cursor: pointer !important; line-height: 1.2 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;';
+        btn0.onclick = async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          btn0.textContent = '⏳';
+          btn0.disabled = true;
+          try {
+            await handleFillMultiWarehousePopup('0', input);
+          } finally {
+            btn0.textContent = '0';
+            btn0.disabled = false;
+          }
+        };
+
+        btnWrap.append(btn1000, btn0);
+
+        const helpDiv = cell.querySelector('.two-tier-basic-stock-container-help') || cell.querySelector('.stock-help-text');
+        if (helpDiv) {
+          helpDiv.appendChild(btnWrap);
+        } else {
+          const targetParent = cell.querySelector('.stock-content, .product-edit-form-item') || cell;
+          targetParent.appendChild(btnWrap);
+        }
+      });
+
+      // 2. Tiêu đề Popup
+      const popupTitle = document.querySelector('.multi-warehouse-stock-edit .stock-edit-title');
+      if (popupTitle && !popupTitle.querySelector('.shopee-qlsp-popup-fill-1000')) {
+        const popupBtnWrap = document.createElement('span');
+        popupBtnWrap.className = 'shopee-qlsp-popup-fill-1000';
+        popupBtnWrap.style.cssText = 'display: inline-flex !important; gap: 6px !important; margin-left: 12px !important; vertical-align: middle !important; font-size: 11px !important;';
+
+        const pBtn1000 = document.createElement('button');
+        pBtn1000.type = 'button';
+        pBtn1000.textContent = '⚡ Điền 1000';
+        pBtn1000.title = 'Điền 1000 cho tất cả các kho đang hoạt động';
+        pBtn1000.style.cssText = 'padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; background: #16a34a !important; color: white !important; border: 1px solid #15803d !important; border-radius: 3px !important; cursor: pointer !important;';
+        pBtn1000.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleFillMultiWarehousePopup('1000');
+        };
+
+        const pBtn0 = document.createElement('button');
+        pBtn0.type = 'button';
+        pBtn0.textContent = '⚡ Điền 0';
+        pBtn0.title = 'Điền 0 cho tất cả các kho đang hoạt động';
+        pBtn0.style.cssText = 'padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; background: #dc2626 !important; color: white !important; border: 1px solid #b91c1c !important; border-radius: 3px !important; cursor: pointer !important;';
+        pBtn0.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleFillMultiWarehousePopup('0');
+        };
+
+        popupBtnWrap.append(pBtn1000, pBtn0);
+        popupTitle.appendChild(popupBtnWrap);
+      }
+    }
+
+    window.setInterval(injectRowStockQuickButtons, 400);
     
     if (!window.scrollButtonKiller) {
         window.scrollButtonKiller = new MutationObserver(() => removeOldScrollButtons(true));
@@ -761,8 +1013,12 @@ function downloadExcelFileBypass(wb, filename) {
   }
   window.setInterval(toggleBulkExcelBtn, 500);
 
+
+
   function isAwbPrintPage() {
-    return window.location.href.startsWith("https://banhang.shopee.vn/awbprint");
+    return window.location.href.includes("awbprint") || 
+           window.location.href.includes("/waybill") || 
+           window.location.href.includes("/receipt");
   }
 
   function injectAwbDownloadStyle() {
@@ -771,7 +1027,6 @@ function downloadExcelFileBypass(wb, filename) {
     }
 
     const style = document.createElement("style");
-
     style.id = AWB_DOWNLOAD_STYLE_ID;
     style.textContent = `
       #${AWB_DOWNLOAD_BUTTON_ID} {
@@ -784,13 +1039,13 @@ function downloadExcelFileBypass(wb, filename) {
         justify-content: center !important;
         gap: 6px !important;
         min-width: 150px !important;
-        height: 50px !important;
-        padding: 0 20px !important;
+        height: 46px !important;
+        padding: 0 18px !important;
         border: 2px solid white !important;
         border-radius: 8px !important;
         color: #fff !important;
         background: #e11d48 !important;
-        font: bold 16px/1 Arial, sans-serif !important;
+        font: bold 14px/1 Arial, sans-serif !important;
         cursor: pointer !important;
         box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
         transition: all 0.2s ease !important;
@@ -798,114 +1053,68 @@ function downloadExcelFileBypass(wb, filename) {
 
       #${AWB_DOWNLOAD_BUTTON_ID}:hover {
         background: #be123c !important;
-        transform: scale(1.05) !important;
+        transform: scale(1.03) !important;
+      }
+
+      @media print {
+        #${AWB_DOWNLOAD_BUTTON_ID} {
+          display: none !important;
+        }
       }
     `;
     document.documentElement.append(style);
   }
 
-  function createCustomTextPng(text, fontSizePx, isBold) {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    
-    const lines = (text || "").split("\n");
-    const font = `${isBold ? "bold" : "normal"} ${fontSizePx * 2}px Arial, sans-serif`;
-    ctx.font = font;
-
-    let maxW = 0;
-    for (let l of lines) {
-      const w = ctx.measureText(l).width;
-      if (w > maxW) maxW = w;
-    }
-    const lineHeight = fontSizePx * 2 * 1.35;
-    const h = lines.length * lineHeight;
-
-    canvas.width = Math.max(10, Math.ceil(maxW + 20));
-    canvas.height = Math.max(10, Math.ceil(h + 20));
-
-    ctx.font = font;
-    ctx.fillStyle = "#0f172a";
-    ctx.textBaseline = "top";
-
-    lines.forEach((line, i) => {
-      ctx.fillText(line, 10, 10 + i * lineHeight);
-    });
-
-    return canvas.toDataURL("image/png");
-  }
-
-  async function addCustomTextToPdfBinary(existingPdfBytes, settings) {
-    const pdfLibObj = (typeof PDFLib !== "undefined") ? PDFLib : window.PDFLib;
-    if (!pdfLibObj) {
-      console.warn("PDFLib library is not loaded.");
-      return existingPdfBytes;
-    }
-
-    try {
-      const pdfDoc = await pdfLibObj.PDFDocument.load(existingPdfBytes);
-      const fontSizeNum = parseInt(settings.fontSize, 10) || 14;
-      const pngDataUrl = createCustomTextPng(settings.text, fontSizeNum, settings.bold);
-      const pngImage = await pdfDoc.embedPng(pngDataUrl);
-      const pngDims = pngImage.scale(0.5);
-
-      const pages = pdfDoc.getPages();
-      for (const page of pages) {
-        const { width, height } = page.getSize();
-
-        const x = ((settings.leftPercent || 5) / 100) * width;
-        const y = height - (((settings.topPercent || 35) / 100) * height) - pngDims.height;
-
-        page.drawImage(pngImage, {
-          x: Math.max(0, x),
-          y: Math.max(0, y),
-          width: pngDims.width,
-          height: pngDims.height
-        });
-      }
-
-      return await pdfDoc.save();
-    } catch (err) {
-      console.error("PDF-Lib binary modification failed:", err);
-      return existingPdfBytes;
-    }
-  }
-
   function getAwbDownloadUrl() {
-    const embeddedPdf = Array.from(document.querySelectorAll("iframe[src], embed[src], object[data], a[href]"))
-      .map((element) => element.getAttribute("src") || element.getAttribute("data") || element.getAttribute("href"))
-      .find((url) => {
-        return url && (/\.pdf(?:[?#]|$)/i.test(url) || url.startsWith("blob:"));
+    const docs = [document];
+    try {
+      document.querySelectorAll("iframe, frame").forEach(iframe => {
+        try {
+          if (iframe.contentDocument && iframe.contentDocument.body) {
+            docs.push(iframe.contentDocument);
+          }
+        } catch (e) {}
       });
+    } catch (e) {}
 
-    return embeddedPdf ? new URL(embeddedPdf, window.location.href).href : window.location.href;
+    for (const doc of docs) {
+      const embeddedPdf = Array.from(doc.querySelectorAll("iframe[src], embed[src], object[data], a[href]"))
+        .map((element) => element.getAttribute("src") || element.getAttribute("data") || element.getAttribute("href"))
+        .find((url) => {
+          return url && (/\.pdf(?:[?#]|$)/i.test(url) || url.startsWith("blob:"));
+        });
+      if (embeddedPdf) {
+        return new URL(embeddedPdf, window.location.href).href;
+      }
+    }
+    return window.location.href;
   }
 
   async function getAwbFileName() {
     return new Promise(resolve => {
-        chrome.storage.local.get(["dhHoanTextValue", "awbCounter", "awbDate"], (res) => {
-            const storeCode = (res.dhHoanTextValue || "").toLowerCase();
-            
-            const now = new Date();
-            const day = String(now.getDate()).padStart(2, '0');
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            
-            const dateStr = `${day}${month}`;
-            const timeStr = `${hours}${minutes}`;
-            
-            let counter = 1;
-            if (res.awbDate === dateStr) {
-                counter = (res.awbCounter || 0) + 1;
-            }
-            
-            chrome.storage.local.set({ awbDate: dateStr, awbCounter: counter });
-            
-            const storeStr = storeCode ? `-${storeCode}` : "";
-            const filename = `${dateStr}${storeStr}-${timeStr}-${counter}.pdf`;
-            
-            resolve(filename);
-        });
+      chrome.storage.local.get(["dhHoanTextValue", "maGian", "awbCounter", "awbDate"], (res) => {
+        const storeCode = (res.dhHoanTextValue || res.maGian || "gdd").toLowerCase();
+        
+        const now = new Date();
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        
+        const dateStr = `${day}${month}`;
+        const timeStr = `${hours}${minutes}`;
+        
+        let counter = 1;
+        if (res.awbDate === dateStr) {
+          counter = (res.awbCounter || 0) + 1;
+        }
+        
+        chrome.storage.local.set({ awbDate: dateStr, awbCounter: counter });
+        
+        const storeStr = storeCode ? `-${storeCode}` : "";
+        const filename = `${dateStr}${storeStr}-${timeStr}-${counter}.pdf`;
+        resolve(filename);
+      });
     });
   }
 
@@ -913,25 +1122,20 @@ function downloadExcelFileBypass(wb, filename) {
     button.textContent = text;
     window.setTimeout(() => {
       if (document.contains(button)) {
-        button.textContent = "Tải PDF (Theo Cài Đặt)";
+        button.textContent = "Tải PDF";
       }
     }, 1800);
   }
 
   function downloadAwbInPage(url, filename) {
     const link = document.createElement("a");
-
     link.href = url;
     link.download = filename;
     link.style.display = "none";
     document.documentElement.append(link);
     link.click();
     link.remove();
-
-    return {
-      ok: true,
-      method: "page-link"
-    };
+    return { ok: true, method: "page-link" };
   }
 
   function sendAwbDownloadMessage(url, filename) {
@@ -943,64 +1147,44 @@ function downloadExcelFileBypass(wb, filename) {
       }),
       new Promise((resolve) => {
         window.setTimeout(() => {
-          resolve({
-            ok: false,
-            message: "Qua thoi gian cho tai PDF."
-          });
+          resolve({ ok: false, message: "Qua thoi gian cho tai PDF." });
         }, 10000);
       })
     ]);
   }
 
   async function downloadAwbPdf() {
-    const url = getAwbDownloadUrl();
     const filename = await getAwbFileName();
+    const url = getAwbDownloadUrl();
 
-    let pdfBytes = null;
-    try {
-      const res = await fetch(url);
-      pdfBytes = await res.arrayBuffer();
-    } catch(e) {
-      console.error("Failed to fetch PDF binary directly:", e);
-    }
+    if (url && url !== window.location.href && (url.startsWith("blob:") || url.toLowerCase().includes(".pdf"))) {
+      if (url.startsWith("blob:")) {
+        return downloadAwbInPage(url, filename);
+      }
 
-    const settings = await new Promise(resolve => {
-      chrome.storage.local.get(["awbCustomTextSettings"], res => resolve(res.awbCustomTextSettings || null));
-    });
-
-    if (pdfBytes && settings && settings.enabled && settings.text) {
-      const modifiedBytes = await addCustomTextToPdfBinary(pdfBytes, settings);
-      const blob = new Blob([modifiedBytes], { type: "application/pdf" });
-      const blobUrl = URL.createObjectURL(blob);
-      return downloadAwbInPage(blobUrl, filename);
-    }
-
-    if (url.startsWith("blob:")) {
+      const response = await sendAwbDownloadMessage(url, filename);
+      if (response?.ok) {
+        return response;
+      }
       return downloadAwbInPage(url, filename);
     }
 
-    const response = await sendAwbDownloadMessage(url, filename);
-
-    if (response?.ok) {
-      return response;
-    }
-
-    return downloadAwbInPage(url, filename);
+    window.print();
+    return { ok: true, method: "print" };
   }
 
   function injectAwbDownloadButton() {
-    if (!isAwbPrintPage() || document.getElementById(AWB_DOWNLOAD_BUTTON_ID)) {
+    if (!isAwbPrintPage() || window !== window.top || document.getElementById(AWB_DOWNLOAD_BUTTON_ID)) {
       return;
     }
 
     injectAwbDownloadStyle();
 
     const button = document.createElement("button");
-
     button.id = AWB_DOWNLOAD_BUTTON_ID;
     button.type = "button";
-    button.title = "Tải file PDF trực tiếp về máy (Bao gồm chữ tùy chỉnh)";
-    button.textContent = "Tải PDF (Theo Cài Đặt)";
+    button.title = "Tải file PDF với tên tự động: {ddmm}-{gian}-{hhmm}-{stt}.pdf";
+    button.textContent = "Tải PDF";
     button.addEventListener("click", async () => {
       button.disabled = true;
       button.textContent = "Đang tải...";
@@ -1020,307 +1204,24 @@ function downloadExcelFileBypass(wb, filename) {
     });
 
     document.documentElement.append(button);
-  }
 
-  const AWB_CUSTOM_TEXT_ID = "shopee-qlsp-awb-custom-text";
-  const AWB_CONTROL_PANEL_ID = "shopee-qlsp-awb-control-panel";
-  const AWB_CUSTOM_TEXT_STYLE_ID = "shopee-qlsp-awb-custom-text-style";
-
-  function findAllWaybillContainers() {
-    const selectors = [
-      ".print-page", ".waybill-page", ".waybill-container", 
-      "[class*='waybill']", "[class*='page-content']", ".shopee-autowb-page"
-    ];
-    let found = [];
-    for (let s of selectors) {
-      const list = Array.from(document.querySelectorAll(s)).filter(el => el.id !== AWB_CONTROL_PANEL_ID);
-      if (list.length > 0) {
-        found = list;
-        break;
-      }
-    }
-
-    if (found.length === 0) {
-      const divs = Array.from(document.querySelectorAll("div"));
-      found = divs.filter(d => {
-        if (d.id === AWB_CONTROL_PANEL_ID || d.id === AWB_CUSTOM_TEXT_ID || d.classList.contains("shopee-qlsp-awb-custom-text-clone")) return false;
-        const rect = d.getBoundingClientRect();
-        return rect.width > 280 && rect.width < 900 && rect.height > 350 && getComputedStyle(d).position !== "fixed";
-      });
-    }
-
-    return found.length > 0 ? found : [document.body];
-  }
-
-  function syncClonesToAllPages(containers, settings) {
-    for (let i = 1; i < containers.length; i++) {
-      const c = containers[i];
-      if (getComputedStyle(c).position === "static") {
-        c.style.position = "relative";
-      }
-
-      let clone = c.querySelector(".shopee-qlsp-awb-custom-text-clone");
-      if (!clone) {
-        clone = document.createElement("div");
-        clone.className = "shopee-qlsp-awb-custom-text-clone";
-        c.appendChild(clone);
-      }
-
-      clone.style.cssText = `
-        position: absolute !important;
-        z-index: 2147483646 !important;
-        background: transparent !important;
-        color: #0f172a !important;
-        font-family: Arial, sans-serif !important;
-        white-space: pre-wrap !important;
-        word-break: break-word !important;
-        max-width: 80% !important;
-        line-height: 1.35 !important;
-        box-sizing: border-box !important;
-        pointer-events: none !important;
-        display: ${settings.enabled ? "block" : "none"} !important;
-        top: ${settings.topPercent}% !important;
-        left: ${settings.leftPercent}% !important;
-        font-size: ${settings.fontSize} !important;
-        font-weight: ${settings.bold ? "bold" : "normal"} !important;
-      `;
-      clone.textContent = settings.text;
-    }
-  }
-
-  function injectAwbCustomTextOverlay() {
-    if (!isAwbPrintPage()) {
-      return;
-    }
-
+    // Lắng nghe khi bấm vào nút "Tải PDF" mặc định của Shopee để tự động tải với tên chuẩn
     if (!window.__shopeeNativePdfIntercepted) {
       window.__shopeeNativePdfIntercepted = true;
       document.addEventListener("click", (e) => {
         const btn = e.target.closest("button, a, div");
-        if (btn && btn.textContent && btn.textContent.trim() === "Tải PDF") {
+        if (btn && btn.id !== AWB_DOWNLOAD_BUTTON_ID && btn.textContent && 
+            (btn.textContent.trim() === "Tải PDF" || btn.textContent.trim().includes("Tải PDF") || btn.textContent.trim().includes("Tải tập tin"))) {
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
-          downloadAwbPdfWithCustomText();
+          downloadAwbPdf();
         }
       }, true);
     }
-
-    if (document.getElementById(AWB_CUSTOM_TEXT_ID)) {
-      return;
-    }
-
-    const containers = findAllWaybillContainers();
-    const primaryContainer = containers[0];
-    if (!primaryContainer) return;
-
-    if (getComputedStyle(primaryContainer).position === "static") {
-      primaryContainer.style.position = "relative";
-    }
-
-    if (!document.getElementById(AWB_CUSTOM_TEXT_STYLE_ID)) {
-      const style = document.createElement("style");
-      style.id = AWB_CUSTOM_TEXT_STYLE_ID;
-      style.textContent = `
-        #${AWB_CUSTOM_TEXT_ID} {
-          position: absolute !important;
-          z-index: 2147483646 !important;
-          background: rgba(255, 255, 255, 0.95) !important;
-          border: 2px dashed #0284c7 !important;
-          border-radius: 4px !important;
-          padding: 4px 8px !important;
-          color: #0f172a !important;
-          font-family: Arial, sans-serif !important;
-          cursor: move !important;
-          user-select: none !important;
-          white-space: pre-wrap !important;
-          word-break: break-word !important;
-          max-width: 80% !important;
-          line-height: 1.35 !important;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
-          box-sizing: border-box !important;
-        }
-
-        #${AWB_CONTROL_PANEL_ID} {
-          position: fixed !important;
-          top: 120px !important;
-          right: 30px !important;
-          z-index: 2147483647 !important;
-          background: #ffffff !important;
-          border: 1px solid #cbd5e1 !important;
-          border-radius: 8px !important;
-          padding: 12px !important;
-          width: 260px !important;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.2) !important;
-          font-family: Arial, sans-serif !important;
-          font-size: 13px !important;
-          color: #1e293b !important;
-        }
-
-        #${AWB_CONTROL_PANEL_ID} label {
-          display: block !important;
-          margin-bottom: 6px !important;
-          font-weight: bold !important;
-        }
-
-        #${AWB_CONTROL_PANEL_ID} textarea {
-          width: 100% !important;
-          padding: 6px 8px !important;
-          border: 1px solid #94a3b8 !important;
-          border-radius: 4px !important;
-          margin-bottom: 8px !important;
-          box-sizing: border-box !important;
-          resize: vertical !important;
-          font-family: inherit !important;
-          font-size: 12px !important;
-        }
-
-        #${AWB_CONTROL_PANEL_ID} .range-group {
-          display: flex !important;
-          align-items: center !important;
-          gap: 8px !important;
-          margin-bottom: 8px !important;
-        }
-
-        @media print {
-          #${AWB_CONTROL_PANEL_ID}, #${AWB_DOWNLOAD_BUTTON_ID} {
-            display: none !important;
-          }
-          #${AWB_CUSTOM_TEXT_ID} {
-            border: none !important;
-            background: transparent !important;
-            box-shadow: none !important;
-          }
-        }
-      `;
-      document.documentElement.append(style);
-    }
-
-    const defaultSettings = {
-      enabled: true,
-      text: "Lưu ý: Vui lòng quay video quá trình mở hàng. Shop hỗ trợ đổi/trả hoặc xử lý khi có video mở hàng đầy đủ. Xin cảm ơn!",
-      topPercent: 35,
-      leftPercent: 5,
-      fontSize: "13px",
-      bold: true
-    };
-
-    chrome.storage.local.get(["awbCustomTextSettings"], (res) => {
-      const settings = Object.assign({}, defaultSettings, res.awbCustomTextSettings || {});
-
-      const textOverlay = document.createElement("div");
-      textOverlay.id = AWB_CUSTOM_TEXT_ID;
-      textOverlay.textContent = settings.text;
-      textOverlay.style.top = `${settings.topPercent}%`;
-      textOverlay.style.left = `${settings.leftPercent}%`;
-      textOverlay.style.fontSize = settings.fontSize;
-      textOverlay.style.fontWeight = settings.bold ? "bold" : "normal";
-      textOverlay.style.display = settings.enabled ? "block" : "none";
-
-      primaryContainer.appendChild(textOverlay);
-      syncClonesToAllPages(containers, settings);
-
-      let isDragging = false;
-      let offsetX = 0;
-      let offsetY = 0;
-
-      textOverlay.addEventListener("mousedown", (e) => {
-        isDragging = true;
-        const rect = textOverlay.getBoundingClientRect();
-        offsetX = e.clientX - rect.left;
-        offsetY = e.clientY - rect.top;
-        e.preventDefault();
-      });
-
-      window.addEventListener("mousemove", (e) => {
-        if (!isDragging) return;
-        const cRect = primaryContainer.getBoundingClientRect();
-        if (cRect.width === 0 || cRect.height === 0) return;
-
-        let leftPx = e.clientX - offsetX - cRect.left;
-        let topPx = e.clientY - offsetY - cRect.top;
-
-        let leftPercent = (leftPx / cRect.width) * 100;
-        let topPercent = (topPx / cRect.height) * 100;
-
-        leftPercent = Math.max(0, Math.min(leftPercent, 85));
-        topPercent = Math.max(0, Math.min(topPercent, 95));
-
-        textOverlay.style.left = `${leftPercent}%`;
-        textOverlay.style.top = `${topPercent}%`;
-
-        settings.leftPercent = leftPercent;
-        settings.topPercent = topPercent;
-
-        syncClonesToAllPages(containers, settings);
-      });
-
-      window.addEventListener("mouseup", () => {
-        if (isDragging) {
-          isDragging = false;
-          chrome.storage.local.set({ awbCustomTextSettings: settings });
-        }
-      });
-
-      const panel = document.createElement("div");
-      panel.id = AWB_CONTROL_PANEL_ID;
-      panel.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">
-          <span style="font-weight:bold; color:#0284c7;">📌 Sửa Chữ Vận Đơn</span>
-          <label style="margin:0; font-weight:normal; cursor:pointer;">
-            <input type="checkbox" id="awb-toggle-enable" ${settings.enabled ? "checked" : ""}> Hiện
-          </label>
-        </div>
-        <label for="awb-input-text">Nội dung chữ / Quầy hàng:</label>
-        <textarea id="awb-input-text" rows="3" placeholder="Nhập quầy hàng / chữ...">${settings.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
-        
-        <div class="range-group">
-          <span>Cỡ chữ:</span>
-          <input type="range" id="awb-range-size" min="10" max="36" value="${parseInt(settings.fontSize, 10) || 13}">
-          <span id="awb-size-val">${parseInt(settings.fontSize, 10) || 13}px</span>
-        </div>
-
-        <div style="display:flex; gap:10px; align-items:center;">
-          <label style="cursor:pointer; margin:0;">
-            <input type="checkbox" id="awb-toggle-bold" ${settings.bold ? "checked" : ""}> In đậm
-          </label>
-          <span style="font-size:11px; color:#64748b;">(Kéo trang 1 = áp dụng tất cả)</span>
-        </div>
-      `;
-
-      document.body.appendChild(panel);
-
-      const toggleEnable = panel.querySelector("#awb-toggle-enable");
-      const inputText = panel.querySelector("#awb-input-text");
-      const rangeSize = panel.querySelector("#awb-range-size");
-      const sizeVal = panel.querySelector("#awb-size-val");
-      const toggleBold = panel.querySelector("#awb-toggle-bold");
-
-      const updateAndSave = () => {
-        settings.enabled = toggleEnable.checked;
-        settings.text = inputText.value;
-        settings.fontSize = `${rangeSize.value}px`;
-        settings.bold = toggleBold.checked;
-
-        textOverlay.style.display = settings.enabled ? "block" : "none";
-        textOverlay.textContent = settings.text;
-        textOverlay.style.fontSize = settings.fontSize;
-        textOverlay.style.fontWeight = settings.bold ? "bold" : "normal";
-        sizeVal.textContent = settings.fontSize;
-
-        syncClonesToAllPages(containers, settings);
-        chrome.storage.local.set({ awbCustomTextSettings: settings });
-      };
-
-      toggleEnable.addEventListener("change", updateAndSave);
-      inputText.addEventListener("input", updateAndSave);
-      rangeSize.addEventListener("input", updateAndSave);
-      toggleBold.addEventListener("change", updateAndSave);
-    });
   }
 
   injectAwbDownloadButton();
-  injectAwbCustomTextOverlay();
 
   function isIncomePaidPage() {
     return window.location.href.startsWith("https://banhang.shopee.vn/portal/finance/income") &&
@@ -9759,128 +9660,535 @@ async function extractProductDataAndSave() {
     }
   }
 
-  function injectStockQuickButtons() {
+  // =========================================================================
+  // TÍNH NĂNG TỰ ĐỘNG ĐIỀN TỒN KHO 1000 CHO KHO HÀNG ĐA KHO (MULTI-WAREHOUSE)
+  // =========================================================================
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function isVisible(el) {
+    if (!el) return false;
+    const style = window.getComputedStyle(el);
+    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && el.offsetParent !== null;
+  }
+
+  function emitRealClick(element) {
+    if (!element) return;
+    element.focus?.();
+    ['mousedown', 'mouseup', 'click'].forEach(evtType => {
+      element.dispatchEvent(new MouseEvent(evtType, { bubbles: true, cancelable: true, view: window }));
+    });
+    element.click?.();
+  }
+
+  function fillInputLikeUser(input, value) {
+    if (!input) return;
+    input.focus();
+    input.value = value;
+    input.setAttribute('modelvalue', value);
+    input.setAttribute('value', value);
+    
+    if (input._value !== undefined) input._value = value;
+    
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+    if (nativeInputValueSetter) {
+      nativeInputValueSetter.call(input, value);
+    }
+
+    input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+  }
+
+  function showTopNotification(message, isError = false) {
+    const noti = document.createElement('div');
+    noti.style.cssText = `position: fixed !important; top: 20px !important; right: 20px !important; z-index: 9999999 !important; padding: 10px 18px !important; border-radius: 6px !important; color: white !important; font-weight: bold !important; font-size: 13px !important; box-shadow: 0 4px 14px rgba(0,0,0,0.25) !important; background: ${isError ? '#dc2626' : '#16a34a'} !important; transition: opacity 0.3s !important; font-family: sans-serif !important;`;
+    noti.textContent = message;
+    document.body.appendChild(noti);
+    setTimeout(() => {
+      noti.style.opacity = '0';
+      setTimeout(() => noti.remove(), 300);
+    }, 2800);
+  }
+
+  function findStockBatchInput() {
+    const inputs = Array.from(document.querySelectorAll("input.eds-input__input, input"));
+    const batchInput = inputs.find((input) => {
+      const placeholder = (input.placeholder || '').toLowerCase();
+      return (placeholder.includes("warehouse") || placeholder.includes("kho hàng(")) && isVisible(input);
+    });
+    if (batchInput) return batchInput;
+
+    return inputs.find((input) => {
+      const placeholder = (input.placeholder || '').toLowerCase();
+      return (placeholder === "kho hàng" || placeholder.includes("kho hàng")) && isVisible(input);
+    });
+  }
+
+  function findApplyToAllButton() {
+    const directButton = document.querySelector("button.batch-apply-button");
+    if (directButton && isVisible(directButton)) return directButton;
+
+    const buttons = Array.from(document.querySelectorAll("button"));
+    return buttons.find((button) => {
+      const txt = (button.textContent || '').toLowerCase();
+      return (txt.includes("áp dụng cho tất cả") || txt.includes("apply to all")) && isVisible(button);
+    });
+  }
+
+  async function fillMultiWarehouseStock(targetValue = '1000', triggerInput = null) {
+    let popup = document.querySelector('.multi-warehouse-stock-edit');
+    
+    // Nếu popup chưa mở, bấm vào triggerInput / popoverRef để mở
+    if (!popup || !isVisible(popup)) {
+      if (triggerInput) {
+        const popoverRef = triggerInput.closest('.eds-popover__ref') || triggerInput.closest('.multi-warehouse-stock-input') || triggerInput.closest('.eds-input') || triggerInput;
+        triggerInput.focus();
+        triggerInput.click();
+        if (popoverRef && popoverRef !== triggerInput) {
+          popoverRef.click();
+          emitRealClick(popoverRef);
+        }
+      }
+      
+      // Chờ popup xuất hiện tối đa 1.5 giây
+      for (let i = 0; i < 25; i++) {
+        await sleep(60);
+        popup = document.querySelector('.multi-warehouse-stock-edit');
+        if (popup && isVisible(popup)) break;
+      }
+    }
+
+    if (!popup) {
+      if (triggerInput && !triggerInput.readOnly && !triggerInput.disabled) {
+        fillInputLikeUser(triggerInput, targetValue);
+        showTopNotification(`Đã điền ${targetValue} vào ô Kho hàng!`);
+        return true;
+      }
+      showTopNotification('Không mở được bảng kho hàng', true);
+      return false;
+    }
+
+    // Tìm tất cả các dòng kho trong bảng popup
+    const rows = Array.from(popup.querySelectorAll('.eds-table__body tr.eds-table__row, .stock-table tr, tr'));
+    let filledCount = 0;
+
+    for (const row of rows) {
+      const isPaused = row.textContent.includes('Chế độ tạm nghỉ') || row.querySelector('.eds-tag');
+      const input = row.querySelector('input.eds-input__input, input');
+      
+      if (input && !input.disabled && !input.readOnly) {
+        if (isPaused) {
+          continue;
+        }
+        fillInputLikeUser(input, targetValue);
+        filledCount++;
+        await sleep(40);
+      }
+    }
+
+    await sleep(150);
+
+    // Tự động bấm nút Xác nhận
+    const confirmBtn = Array.from(popup.querySelectorAll('button')).find(btn => {
+      const txt = (btn.textContent || '').trim();
+      return (txt === 'Xác nhận' || txt.includes('Xác nhận')) && isVisible(btn);
+    }) || popup.querySelector('.stock-edit-fixed-right button.eds-button--primary');
+
+    if (confirmBtn) {
+      emitRealClick(confirmBtn);
+    }
+
+    showTopNotification(`Đã điền ${targetValue} cho ${filledCount} kho thành công!`);
+    return true;
+  }
+
+  let isBatchFilling = false;
+  async function fillAllVariationsStock(targetValue = '1000') {
+    if (isBatchFilling) return;
+    isBatchFilling = true;
+    showTopNotification(`⏳ Đang bắt đầu điền ${targetValue} cho tất cả các kho...`);
+
+    // 1. Thử điền qua ô Sửa hàng loạt trước
+    const batchInput = findStockBatchInput();
+    if (batchInput) {
+      await fillMultiWarehouseStock(targetValue, batchInput);
+      await sleep(250);
+      const applyBtn = findApplyToAllButton();
+      if (applyBtn) {
+        emitRealClick(applyBtn);
+        await sleep(300);
+        showTopNotification(`✅ Đã áp dụng ${targetValue} cho tất cả phân loại thành công!`);
+        isBatchFilling = false;
+        return;
+      }
+    }
+
+    // 2. Nếu không áp dụng được hàng loạt, quét và điền từng dòng trong bảng phân loại
+    const stockInputs = Array.from(document.querySelectorAll('.two-tier-multi-warehouse-stock input, .multi-warehouse-stock-input input, .two-tier-stock input, .product-edit-input input[readonly]')).filter(isVisible);
+    
+    if (stockInputs.length === 0) {
+      showTopNotification('Không tìm thấy ô kho hàng nào trong bảng!', true);
+      isBatchFilling = false;
+      return;
+    }
+
+    let successCount = 0;
+    for (let i = 0; i < stockInputs.length; i++) {
+      const inp = stockInputs[i];
+      showTopNotification(`⏳ Đang điền kho dòng ${i + 1}/${stockInputs.length}...`);
+      const ok = await fillMultiWarehouseStock(targetValue, inp);
+      if (ok) successCount++;
+      await sleep(300);
+    }
+
+    showTopNotification(`🎉 Đã hoàn tất điền ${targetValue} cho ${successCount}/${stockInputs.length} dòng phân loại!`);
+    isBatchFilling = false;
+  }
+
+  // 1. THANH CÔNG CỤ NỔI (Floating Panel)
+  function injectFloatingStockPanel() {
     if (!window.location.href.includes('banhang.shopee.vn/portal/product')) return;
+    if (document.getElementById('shopee-qlsp-floating-stock-panel')) return;
 
-    // 1. Nút 0 và 1000 hiển thị ngay cạnh "Danh sách phân loại hàng"
-    let batchLabel = null;
-    const allDivs = Array.from(document.querySelectorAll('div, label, span'));
-    batchLabel = allDivs.find(el => {
-      if (el.children.length > 1) return false; // Chỉ lấy element lá hoặc gần lá chứa text
-      const txt = (el.textContent || '').trim();
-      return txt === 'Danh sách phân loại hàng';
-    }) || allDivs.find(el => (el.textContent || '').trim().includes('Danh sách phân loại hàng'));
+    const panel = document.createElement('div');
+    panel.id = 'shopee-qlsp-floating-stock-panel';
+    panel.style.cssText = `
+      position: fixed !important;
+      right: 20px !important;
+      bottom: 90px !important;
+      z-index: 999999 !important;
+      background: #ffffff !important;
+      border: 2px solid #16a34a !important;
+      border-radius: 10px !important;
+      padding: 10px 14px !important;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.2) !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    `;
 
-    if (batchLabel && !document.getElementById('shopee-qlsp-stock-quick-btns-header')) {
-      const headerBtnWrap = document.createElement('span');
-      headerBtnWrap.id = 'shopee-qlsp-stock-quick-btns-header';
-      headerBtnWrap.style.cssText = 'display: inline-flex !important; gap: 6px !important; margin-left: 10px !important; vertical-align: middle !important; position: relative !important; z-index: 99999 !important;';
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size: 12px !important; font-weight: bold !important; color: #15803d !important; text-align: center !important; display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 6px !important; border-bottom: 1px solid #e5e7eb !important; padding-bottom: 4px !important;';
+    title.innerHTML = '<span>⚡ Điền Kho Nhanh</span><span style="font-size:10px; color:#6b7280; font-weight:normal;">Shopee</span>';
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display: flex !important; gap: 6px !important;';
+
+    const btn1000 = document.createElement('button');
+    btn1000.type = 'button';
+    btn1000.textContent = '⚡ Điền tất cả 1000';
+    btn1000.title = 'Tự động điền 1000 cho tất cả các kho của toàn bộ phân loại';
+    btn1000.style.cssText = 'padding: 6px 12px !important; font-size: 12px !important; font-weight: bold !important; background: #16a34a !important; color: white !important; border: none !important; border-radius: 6px !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(22,163,74,0.3) !important; white-space: nowrap !important; transition: all 0.2s !important;';
+    btn1000.onmouseover = () => btn1000.style.background = '#15803d';
+    btn1000.onmouseout = () => btn1000.style.background = '#16a34a';
+    btn1000.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      fillAllVariationsStock('1000');
+    };
+
+    const btn0 = document.createElement('button');
+    btn0.type = 'button';
+    btn0.textContent = '⚡ Điền 0';
+    btn0.title = 'Tự động điền 0 cho tất cả các kho của toàn bộ phân loại';
+    btn0.style.cssText = 'padding: 6px 10px !important; font-size: 12px !important; font-weight: bold !important; background: #dc2626 !important; color: white !important; border: none !important; border-radius: 6px !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(220,38,38,0.3) !important; white-space: nowrap !important; transition: all 0.2s !important;';
+    btn0.onmouseover = () => btn0.style.background = '#b91c1c';
+    btn0.onmouseout = () => btn0.style.background = '#dc2626';
+    btn0.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      fillAllVariationsStock('0');
+    };
+
+    btnRow.append(btn1000, btn0);
+    panel.append(title, btnRow);
+    document.body.appendChild(panel);
+  }
+
+  // 2. NÚT CẠNH "ÁP DỤNG CHO TẤT CẢ PHÂN LOẠI"
+  function injectBatchApplyButtons() {
+    const applyBtn = findApplyToAllButton();
+    if (applyBtn && applyBtn.parentElement && !applyBtn.parentElement.querySelector('.shopee-qlsp-batch-fill-1000-btn')) {
+      const wrap = document.createElement('span');
+      wrap.className = 'shopee-qlsp-batch-fill-1000-btn';
+      wrap.style.cssText = 'display: inline-flex !important; gap: 6px !important; margin-left: 8px !important; vertical-align: middle !important;';
+
+      const btn1000 = document.createElement('button');
+      btn1000.type = 'button';
+      btn1000.textContent = '⚡ Điền 1000';
+      btn1000.title = 'Điền 1000 cho tất cả kho của phân loại hàng loạt';
+      btn1000.style.cssText = 'padding: 6px 14px !important; font-size: 12px !important; font-weight: bold !important; background: #16a34a !important; color: white !important; border: 1px solid #15803d !important; border-radius: 4px !important; cursor: pointer !important;';
+      btn1000.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        fillAllVariationsStock('1000');
+      };
 
       const btn0 = document.createElement('button');
       btn0.type = 'button';
-      btn0.textContent = '0';
-      btn0.title = 'Điền 0 và bấm Áp dụng cho tất cả';
-      btn0.style.cssText = 'padding: 2px 10px !important; font-size: 11px !important; font-weight: bold !important; background: #ff4d4f !important; color: white !important; border: none !important; border-radius: 3px !important; cursor: pointer !important; height: 22px !important; line-height: 22px !important; display: inline-block !important;';
-      btn0.addEventListener('click', async (e) => {
+      btn0.textContent = '⚡ Điền 0';
+      btn0.title = 'Điền 0 cho tất cả kho của phân loại hàng loạt';
+      btn0.style.cssText = 'padding: 6px 10px !important; font-size: 12px !important; font-weight: bold !important; background: #ef4444 !important; color: white !important; border: 1px solid #b91c1c !important; border-radius: 4px !important; cursor: pointer !important;';
+      btn0.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const stockInput = findStockBatchInput();
-        if (stockInput) {
-          fillInputLikeUser(stockInput, '0');
-          await sleep(200);
-          const applyBtn = findApplyToAllButton();
-          if (applyBtn) emitRealClick(applyBtn);
-        }
-      });
+        fillAllVariationsStock('0');
+      };
+
+      wrap.append(btn1000, btn0);
+      applyBtn.parentElement.appendChild(wrap);
+    }
+  }
+
+  function processBatchInputs() {
+    const allLabels = Array.from(document.querySelectorAll('div, label, span, h2, h3, h4'));
+    const batchLabel = allLabels.find(el => {
+      const txt = (el.textContent || '').trim();
+      return txt.includes('Danh sách phân loại hàng') && el.children.length <= 4;
+    });
+
+    if (batchLabel) {
+      const existing = document.getElementById('shopee-qlsp-stock-quick-btns-header');
+      if (!existing || !document.contains(existing)) {
+        if (existing) existing.remove();
+
+        const headerBtnWrap = document.createElement('span');
+        headerBtnWrap.id = 'shopee-qlsp-stock-quick-btns-header';
+        headerBtnWrap.style.cssText = 'display: inline-flex !important; gap: 6px !important; margin-left: 10px !important; vertical-align: middle !important; position: relative !important; z-index: 99999 !important;';
+
+        const btn0 = document.createElement('button');
+        btn0.type = 'button';
+        btn0.textContent = '0';
+        btn0.title = 'Điền 0 và bấm Áp dụng cho tất cả';
+        btn0.style.cssText = 'padding: 2px 10px !important; font-size: 11px !important; font-weight: bold !important; background: #ff4d4f !important; color: white !important; border: 1px solid #b91c1c !important; border-radius: 3px !important; cursor: pointer !important; height: 22px !important; line-height: 22px !important; display: inline-block !important;';
+        btn0.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          fillAllVariationsStock('0');
+        };
+
+        const btn1000 = document.createElement('button');
+        btn1000.type = 'button';
+        btn1000.textContent = '1000';
+        btn1000.title = 'Điền 1000 và bấm Áp dụng cho tất cả';
+        btn1000.style.cssText = 'padding: 2px 10px !important; font-size: 11px !important; font-weight: bold !important; background: #52c41a !important; color: white !important; border: 1px solid #15803d !important; border-radius: 3px !important; cursor: pointer !important; height: 22px !important; line-height: 22px !important; display: inline-block !important;';
+        btn1000.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          fillAllVariationsStock('1000');
+        };
+
+        headerBtnWrap.append(btn0, btn1000);
+        batchLabel.appendChild(headerBtnWrap);
+      }
+    }
+  }
+
+  function processVariationTables() {
+    const multiContainers = Array.from(document.querySelectorAll('.two-tier-multi-warehouse-stock, .multi-warehouse-stock-input, .two-tier-stock, [class*="multi-warehouse-stock"]'));
+    
+    multiContainers.forEach(container => {
+      if (container.querySelector('.shopee-qlsp-inline-fill-stock-1000')) return;
+
+      const input = container.querySelector('input');
+      if (!input) return;
+
+      const btnWrap = document.createElement('div');
+      btnWrap.className = 'shopee-qlsp-inline-fill-stock-1000';
+      btnWrap.style.cssText = 'display: inline-flex !important; gap: 4px !important; margin-top: 4px !important; align-items: center !important; position: relative !important; z-index: 99999 !important;';
 
       const btn1000 = document.createElement('button');
       btn1000.type = 'button';
       btn1000.textContent = '1000';
-      btn1000.title = 'Điền 1000 và bấm Áp dụng cho tất cả';
-      btn1000.style.cssText = 'padding: 2px 10px !important; font-size: 11px !important; font-weight: bold !important; background: #52c41a !important; color: white !important; border: none !important; border-radius: 3px !important; cursor: pointer !important; height: 22px !important; line-height: 22px !important; display: inline-block !important;';
-      btn1000.addEventListener('click', async (e) => {
+      btn1000.title = 'Bấm để mở popup và điền 1000 cho từng kho';
+      btn1000.style.cssText = 'font-size: 11px !important; font-weight: bold !important; background: #16a34a !important; color: white !important; border: 1px solid #15803d !important; border-radius: 3px !important; padding: 2px 8px !important; cursor: pointer !important; line-height: 1.2 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;';
+      btn1000.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const stockInput = findStockBatchInput();
-        if (stockInput) {
-          fillInputLikeUser(stockInput, '1000');
-          await sleep(200);
-          const applyBtn = findApplyToAllButton();
-          if (applyBtn) emitRealClick(applyBtn);
-        }
-      });
+        fillMultiWarehouseStock('1000', input);
+      };
 
-      headerBtnWrap.append(btn0, btn1000);
-      batchLabel.appendChild(headerBtnWrap);
-    }
+      const btn0 = document.createElement('button');
+      btn0.type = 'button';
+      btn0.textContent = '0';
+      btn0.title = 'Bấm để mở popup và điền 0 cho từng kho';
+      btn0.style.cssText = 'font-size: 11px !important; font-weight: bold !important; background: #ef4444 !important; color: white !important; border: 1px solid #b91c1c !important; border-radius: 3px !important; padding: 2px 6px !important; cursor: pointer !important; line-height: 1.2 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;';
+      btn0.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        fillMultiWarehouseStock('0', input);
+      };
 
-    // 2. Nút "⚡ Điền giá" & "⚡ Điền SKU" bên dưới từng ô nhập trong bảng phân loại
-    // 2a. Điền giá (tìm ô Giá trong bảng)
-    const priceInputs = Array.from(document.querySelectorAll('.price-input input, .basic-price input, input[placeholder*="Giá"]')).filter(isVisible);
-    priceInputs.forEach((input) => {
-      // Bỏ qua ô nhập ở phần Sửa hàng loạt (Batch input)
-      if (input.placeholder && (input.placeholder.includes('Warehouse') || input.closest('.batch-container') || input.closest('.batch-edit-row'))) {
-        return;
-      }
-      const parent = input.closest('.eds-input, .product-edit-input, div') || input.parentElement;
-      if (parent && !parent.parentElement.querySelector('.shopee-qlsp-inline-fill-price')) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'shopee-qlsp-inline-fill-price';
-        btn.textContent = '⚡ Điền giá';
-        btn.title = 'Bấm để điền Giá từ Web bán SP';
-        btn.style.cssText = 'display: inline-block; margin-top: 4px; font-size: 10px; font-weight: bold; background: #ee4d2d; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; z-index: 10; position: relative;';
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          chrome.storage.local.get(['webSpLastPrice'], (res) => {
-            const val = res.webSpLastPrice || '306250';
-            fillInputLikeUser(input, val);
-            showTopNotification(`Đã điền giá: ${val}`);
-          });
-        });
-        parent.parentElement.appendChild(btn);
+      btnWrap.append(btn1000, btn0);
+
+      const helpContainer = container.querySelector('.two-tier-basic-stock-container-help') || container.querySelector('.stock-content') || container;
+      helpContainer.appendChild(btnWrap);
+    });
+
+    const allThs = Array.from(document.querySelectorAll('.eds-table__header th, thead th, th'));
+    let priceColIdx = -1;
+    let skuColIdx = -1;
+
+    allThs.forEach((th, idx) => {
+      const txt = (th.textContent || '').toLowerCase().replace(/\s+/g, ' ');
+      if (txt.includes('giá') || txt.includes('price')) {
+        if (priceColIdx === -1) priceColIdx = idx;
+      } else if (txt.includes('sku')) {
+        if (skuColIdx === -1) skuColIdx = idx;
       }
     });
 
-    // 2b. Điền SKU (tìm ô SKU trong bảng)
-    const skuInputs = Array.from(document.querySelectorAll('.sku-textarea textarea, .sku-textarea input, input[placeholder*="SKU"]')).filter(isVisible);
-    skuInputs.forEach((input) => {
-      // Bỏ qua ô nhập ở phần Sửa hàng loạt
-      if (input.placeholder && (input.placeholder.includes('Warehouse') || input.closest('.batch-container') || input.closest('.batch-edit-row'))) {
-        return;
-      }
-      const parent = input.closest('.eds-input, .sku-textarea, div') || input.parentElement;
-      if (parent && !parent.parentElement.querySelector('.shopee-qlsp-inline-fill-sku')) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'shopee-qlsp-inline-fill-sku';
-        btn.textContent = '⚡ Điền SKU';
-        btn.title = 'Bấm để điền SKU từ Web bán SP';
-        btn.style.cssText = 'display: inline-block; margin-top: 4px; font-size: 10px; font-weight: bold; background: #2563eb; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; z-index: 10; position: relative;';
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          chrome.storage.local.get(['webSpLastSku'], (res) => {
-            const val = res.webSpLastSku || '';
-            if (val) {
-              fillInputLikeUser(input, val);
-              showTopNotification(`Đã điền SKU: ${val}`);
-            } else {
-              showTopNotification('Hãy chọn 1 sản phẩm ở tab Web bán SP trước', true);
-            }
-          });
+    const rows = Array.from(document.querySelectorAll('.eds-table__body tr, tbody tr, tr.eds-table__row'));
+    
+    rows.forEach(row => {
+      if (row.closest('.multi-warehouse-stock-edit')) return;
+
+      const cells = Array.from(row.querySelectorAll('td, .eds-table__cell'));
+      if (cells.length === 0) return;
+
+      // Cột Giá
+      let priceCell = priceColIdx !== -1 ? cells[priceColIdx] : null;
+      if (!priceCell) {
+        priceCell = cells.find(c => {
+          const inp = c.querySelector('input');
+          if (!inp) return false;
+          const ph = (inp.placeholder || '').toLowerCase();
+          return ph.includes('giá') || ph.includes('price') || c.querySelector('.basic-price, .price-input') || c.textContent.includes('₫');
         });
-        parent.parentElement.appendChild(btn);
+      }
+
+      if (priceCell) {
+        const priceInput = priceCell.querySelector('input');
+        if (priceInput && !priceCell.querySelector('.shopee-qlsp-inline-fill-price')) {
+          priceCell.style.setProperty('overflow', 'visible', 'important');
+          priceCell.style.setProperty('height', 'auto', 'important');
+          priceCell.style.setProperty('min-height', '45px', 'important');
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'shopee-qlsp-inline-fill-price';
+          btn.textContent = '⚡ Điền giá';
+          btn.title = 'Bấm để điền Giá từ Web bán SP';
+          btn.style.cssText = 'display: inline-block !important; margin-top: 4px !important; font-size: 10px !important; font-weight: bold !important; background: #ee4d2d !important; color: white !important; border: 1px solid #c2410c !important; border-radius: 3px !important; padding: 2px 6px !important; cursor: pointer !important; z-index: 9999 !important; position: relative !important; line-height: 1.2 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;';
+          btn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            chrome.storage.local.get(['webSpLastPrice'], (res) => {
+              const val = res.webSpLastPrice || '306250';
+              fillInputLikeUser(priceInput, val);
+              showTopNotification(`Đã điền giá: ${val}`);
+            });
+          };
+
+          const inputWrapper = priceInput.closest('.eds-input, .product-edit-input') || priceInput.parentElement || priceCell;
+          if (inputWrapper && inputWrapper.parentElement) {
+            inputWrapper.parentElement.appendChild(btn);
+          } else {
+            priceCell.appendChild(btn);
+          }
+        }
+      }
+
+      // Cột SKU
+      let skuCell = skuColIdx !== -1 ? cells[skuColIdx] : null;
+      if (!skuCell) {
+        skuCell = cells.find(c => {
+          const inp = c.querySelector('input, textarea');
+          if (!inp) return false;
+          const ph = (inp.placeholder || '').toLowerCase();
+          return ph.includes('sku') || ph.includes('nhập vào') || c.querySelector('.sku-textarea');
+        });
+      }
+
+      if (skuCell) {
+        const skuInput = skuCell.querySelector('input, textarea');
+        if (skuInput && !skuCell.querySelector('.shopee-qlsp-inline-fill-sku')) {
+          skuCell.style.setProperty('overflow', 'visible', 'important');
+          skuCell.style.setProperty('height', 'auto', 'important');
+          skuCell.style.setProperty('min-height', '45px', 'important');
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'shopee-qlsp-inline-fill-sku';
+          btn.textContent = '⚡ Điền SKU';
+          btn.title = 'Bấm để điền SKU từ Web bán SP';
+          btn.style.cssText = 'display: inline-block !important; margin-top: 4px !important; font-size: 10px !important; font-weight: bold !important; background: #2563eb !important; color: white !important; border: 1px solid #1d4ed8 !important; border-radius: 3px !important; padding: 2px 6px !important; cursor: pointer !important; z-index: 9999 !important; position: relative !important; line-height: 1.2 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;';
+          btn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            chrome.storage.local.get(['webSpLastSku'], (res) => {
+              const val = res.webSpLastSku || '';
+              if (val) {
+                fillInputLikeUser(skuInput, val);
+                showTopNotification(`Đã điền SKU: ${val}`);
+              } else {
+                showTopNotification('Hãy chọn 1 sản phẩm ở tab Web bán SP trước', true);
+              }
+            });
+          };
+
+          const inputWrapper = skuInput.closest('.eds-input, .sku-textarea, .product-edit-input') || skuInput.parentElement || skuCell;
+          if (inputWrapper && inputWrapper.parentElement) {
+            inputWrapper.parentElement.appendChild(btn);
+          } else {
+            skuCell.appendChild(btn);
+          }
+        }
       }
     });
   }
 
-  // Chạy định kỳ để gắn nút
+  function processPopupInputs() {
+    const popupTitle = document.querySelector('.multi-warehouse-stock-edit .stock-edit-title');
+    if (popupTitle && !popupTitle.querySelector('.shopee-qlsp-popup-fill-1000')) {
+      const popupBtnWrap = document.createElement('span');
+      popupBtnWrap.className = 'shopee-qlsp-popup-fill-1000';
+      popupBtnWrap.style.cssText = 'display: inline-flex !important; gap: 6px !important; margin-left: 12px !important; vertical-align: middle !important; font-size: 11px !important;';
+      
+      const pBtn1000 = document.createElement('button');
+      pBtn1000.type = 'button';
+      pBtn1000.textContent = '⚡ Điền 1000';
+      pBtn1000.title = 'Điền 1000 cho tất cả các kho đang hoạt động';
+      pBtn1000.style.cssText = 'padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; background: #16a34a !important; color: white !important; border: 1px solid #15803d !important; border-radius: 3px !important; cursor: pointer !important;';
+      pBtn1000.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        fillMultiWarehouseStock('1000');
+      };
+
+      const pBtn0 = document.createElement('button');
+      pBtn0.type = 'button';
+      pBtn0.textContent = '⚡ Điền 0';
+      pBtn0.title = 'Điền 0 cho tất cả các kho đang hoạt động';
+      pBtn0.style.cssText = 'padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; background: #dc2626 !important; color: white !important; border: 1px solid #b91c1c !important; border-radius: 3px !important; cursor: pointer !important;';
+      pBtn0.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        fillMultiWarehouseStock('0');
+      };
+
+      popupBtnWrap.append(pBtn1000, pBtn0);
+      popupTitle.appendChild(popupBtnWrap);
+    }
+  }
+
+  function injectStockQuickButtons() {
+    if (!window.location.href.includes('banhang.shopee.vn/portal/product')) return;
+    injectFloatingStockPanel();
+    injectBatchApplyButtons();
+    processBatchInputs();
+    processVariationTables();
+    processPopupInputs();
+  }
+
+  // Chạy định kỳ 600ms để gắn nút nhanh chóng ngay khi load bảng
   setInterval(() => {
     injectAiDescriptionButton();
     injectStockQuickButtons();
-  }, 2000);
+  }, 600);
 })();
 
 window.addEventListener('message', (e) => { if (e.data && e.data.action === 'RELOAD_PAGE') { window.location.reload(); } });
