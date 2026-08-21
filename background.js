@@ -288,6 +288,21 @@ async function uploadImageToFreeImageHost(imageUrl) {
     return true;
   }
 
+  if (message?.type === "GET_AUTH_TOKEN") {
+    getGoogleAccessToken()
+      .then(token => sendResponse({ ok: true, token }))
+      .catch(error => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message?.type === "SAVE_FLASH_SALE") {
+    Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
+      .then(([token, sheetId]) => appendSheetValues("FLASH_SALE!A:C", message.values, token, GOOGLE_REQUEST_TIMEOUT_MS, sheetId))
+      .then(res => sendResponse({ ok: true, res }))
+      .catch(error => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   if (message?.type === "FETCH_UD_CT") {
     getGoogleAccessToken()
       .then(token => fetchUdCtCompactValues(token))

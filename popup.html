@@ -27,6 +27,7 @@
 <button class="tab-btn" data-tab="tab-sp-shopee">Web Shopee</button>
 <button class="tab-btn" data-tab="tab-sheet-sp-shopee">SP Shopee</button>
 <button class="tab-btn" data-tab="tab-sp-giam-gia">SP Giảm Giá</button>
+<button class="tab-btn" data-tab="tab-km">KM</button>
 <button class="tab-btn" data-tab="tab-hang-hoan">Hàng Hoàn</button>
 <button class="tab-btn" data-tab="tab-test">Test</button>
 <button class="tab-btn" data-tab="tab-settings">Cài đặt</button>
@@ -662,6 +663,67 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 </div>
 </div>
 
+<div id="tab-km" class="tab-content" hidden>
+  <header class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <h1>Khuyến Mãi (KM) - Hiển Thị Tên & Phân Loại</h1>
+  </header>
+
+  <div class="panel-section">
+    <!-- Toolbar buttons -->
+    <div style="display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;">
+      <button id="btn-km-read" type="button" class="primary-action" style="flex: 2; min-width: 130px; background-color: #ee4d2d; color: white; font-weight: bold; padding: 8px 6px; font-size: 12px;">⚡ Đọc KM từ Shopee</button>
+      <button id="btn-km-inject-sku" type="button" class="secondary" style="flex: 1.5; min-width: 115px; background-color: #0284c7; color: white; border: none; font-weight: bold; padding: 8px 6px; font-size: 11px;" title="Chèn trực tiếp nhãn SKU vào dưới tên phân loại trên Shopee">📌 Hiện SKU lên Web</button>
+      <button id="btn-km-copy-tsv" type="button" class="ghost" style="flex: 1; min-width: 70px; padding: 8px 4px; font-size: 11px; border: 1px solid #cbd5e1; background: #f8fafc; color: #1e293b; font-weight: bold;">📋 Copy TSV</button>
+      <button id="btn-km-export-excel" type="button" class="ghost" style="flex: 1; min-width: 70px; padding: 8px 4px; font-size: 11px; border: 1px solid #cbd5e1; background: #f8fafc; color: #15803d; font-weight: bold;">📊 Xuất Excel</button>
+      <button id="btn-km-clear" type="button" class="ghost" style="flex: 0 0 auto; padding: 8px 8px; font-size: 11px; border: 1px solid #fecaca; background: #fff5f5; color: #dc2626; font-weight: bold;" title="Xóa dữ liệu đã lưu">🗑️</button>
+    </div>
+
+    <!-- Stats summary -->
+    <div id="km-stats" style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px; font-size: 11px; flex-wrap: wrap;"></div>
+
+    <!-- Group save section (FLASH_SALE) -->
+    <div id="km-save-group-section" style="display: none; background: #fffbe6; border: 1px solid #ffe58f; border-radius: 6px; padding: 8px; margin-bottom: 8px;">
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <input type="text" id="km-sheet-group-name" placeholder="Tên nhóm / Đợt (ví dụ: Đợt 1)..." style="flex: 1; min-width: 0; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; box-sizing: border-box;">
+        <button id="btn-km-save-sheet" type="button" class="secondary" style="width: auto; white-space: nowrap; padding: 6px 12px; background: #d97706; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px;">💾 Lưu Sheet FLASH_SALE</button>
+      </div>
+    </div>
+
+    <!-- Status message -->
+    <p id="km-status" style="margin: 0 0 8px; font-size: 12px; color: #64748b; line-height: 1.4;"></p>
+
+    <!-- Search filter -->
+    <div style="margin-bottom: 8px;">
+      <input type="text" id="km-search-input" placeholder="🔍 Tìm kiếm theo Tên SP, Phân Loại, Giá..." style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; box-sizing: border-box;">
+    </div>
+
+    <!-- Data Table -->
+    <div class="table-responsive" style="max-height: calc(100vh - 200px); min-height: 300px; overflow-y: auto; border: 1px solid #d8dee8; border-radius: 4px; background: white;">
+      <table id="table-km" style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
+        <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 2; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+          <tr>
+            <th style="padding: 8px 4px; border-bottom: 1px solid #cbd5e1; width: 30px; text-align: center; color: #475569;">#</th>
+            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; color: #475569; width: 32%;">Tên sản phẩm</th>
+            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; color: #475569; width: 18%;">Phân loại hàng</th>
+            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; color: #0284c7; width: 18%;">SKU / SKU_CT</th>
+            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #475569; width: 11%;">Giá gốc</th>
+            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #dc2626; width: 11%;">Giá KM</th>
+            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; text-align: center; color: #475569; width: 10%;">Tồn kho</th>
+            <th style="padding: 8px 4px; border-bottom: 1px solid #cbd5e1; text-align: center; color: #475569; width: 45px;">Copy</th>
+          </tr>
+        </thead>
+        <tbody id="km-tbody">
+          <tr>
+            <td colspan="8" style="padding: 20px; text-align: center; color: #64748b;">
+              Mở trang Shopee (Khuyến mãi / Flash sale / Giảm giá) và nhấn nút <b>"⚡ Đọc KM từ Shopee"</b>.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <div id="tab-web-sp" class="tab-content active">
   <header class="panel-header">
     <h1>Web Bán Sản Phẩm (Sheet WEB_SP)</h1>
@@ -969,6 +1031,7 @@ Kết quả trả về sẽ tự động định dạng bằng HTML cơ bản (&
 <script src="test_tab.js"></script>
 <script src="sheet_sp_shopee_tab.js"></script>
 <script src="sp_giam_gia_tab.js"></script>
+<script src="km_tab.js"></script>
 <script src="web_sp_tab.js"></script>
 <script src="hang_hoan_tab.js"></script>
 <script src="hieu_qua_sp_tab.js"></script>

@@ -6644,6 +6644,8 @@ const CAI_DAT_TAB_NAME_TO_ID = {
   "web shopee": "tab-sp-shopee",
   "sp shopee": "tab-sheet-sp-shopee",
   "sp giam gia": "tab-sp-giam-gia",
+  "km": "tab-km",
+  "khuyen mai": "tab-km",
   "test": "tab-test",
   "tien ich": "tab-tools",
   "flash sale": "tab-flash-sale",
