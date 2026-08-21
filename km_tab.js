@@ -75,14 +75,6 @@
       }
     });
   }
-      if (tab && tab.id) {
-        await injectSkusIntoShopeePage(tab.id, allRows);
-        setStatus(`📌 Đã chèn nhãn SKU trực tiếp vào dưới tên các phân loại trên trang Shopee.`);
-      } else {
-        alert("Không tìm thấy tab Shopee đang mở!");
-      }
-    });
-  }
 
   if (searchInput) {
     searchInput.addEventListener('input', () => {
