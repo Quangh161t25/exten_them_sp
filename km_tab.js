@@ -877,25 +877,68 @@
               badge.title = 'Bấm để copy SKU: ' + (finalSku || '');
               badge.style.cssText = 'display: inline-flex !important; align-items: center !important; flex-wrap: wrap !important; gap: 4px !important; margin-top: 4px !important; font-family: monospace, Consolas, sans-serif !important; font-size: 11px !important; width: max-content !important; z-index: 10 !important;';
 
-              let badgeHtml = '';
-              if (finalSku) {
-                badgeHtml += `<span style="background: #e0f2fe !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important; padding: 2px 6px !important; font-weight: bold !important; color: #0284c7 !important; cursor: pointer !important;" title="Copy SKU: ${finalSku}"><span style="color: #0369a1; font-weight: normal; margin-right: 2px;">SKU:</span>${finalSku}</span>`;
-              }
-              if (finalMinPrice) {
-                badgeHtml += `<span style="background: #16a34a !important; border: 1px solid #15803d !important; color: #ffffff !important; border-radius: 4px !important; padding: 2px 6px !important; font-weight: bold !important; font-size: 11px !important;" title="Giá Min từ Sheet DS_SP">Min: ${Number(finalMinPrice).toLocaleString('vi-VN')}₫</span>`;
-              }
-
-              badge.innerHTML = badgeHtml;
               badge.setAttribute('data-sku', finalSku || '');
               badge.setAttribute('data-min-price', finalMinPrice || '');
 
-              badge.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (finalSku) {
-                  navigator.clipboard.writeText(finalSku);
-                }
-              });
+              if (finalSku) {
+                const skuSpan = document.createElement('span');
+                skuSpan.style.cssText = 'background: #e0f2fe !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important; padding: 2px 6px !important; font-weight: bold !important; color: #0284c7 !important; cursor: pointer !important;';
+                skuSpan.title = 'Bấm để copy SKU: ' + finalSku;
+                skuSpan.innerHTML = `<span style="color: #0369a1; font-weight: normal; margin-right: 2px;">SKU:</span>${finalSku}`;
+                skuSpan.onclick = (e) => {
+                  e.preventDefault(); e.stopPropagation();
+                  navigator.clipboard.writeText(finalSku).then(() => {
+                    skuSpan.innerHTML = `<span style="color: #15803d; font-weight: bold;">✓ Đã copy!</span>`;
+                    setTimeout(() => {
+                      skuSpan.innerHTML = `<span style="color: #0369a1; font-weight: normal; margin-right: 2px;">SKU:</span>${finalSku}`;
+                    }, 1200);
+                  });
+                };
+                badge.appendChild(skuSpan);
+              }
+
+              if (finalMinPrice) {
+                const minSpan = document.createElement('span');
+                minSpan.style.cssText = 'background: #16a34a !important; border: 1px solid #15803d !important; color: #ffffff !important; border-radius: 4px !important; padding: 2px 6px !important; font-weight: bold !important; font-size: 11px !important;';
+                minSpan.title = 'Giá Min từ Sheet DS_SP';
+                minSpan.innerHTML = `Min: ${Number(finalMinPrice).toLocaleString('vi-VN')}₫`;
+                badge.appendChild(minSpan);
+
+                const fillBtn = document.createElement('button');
+                fillBtn.type = 'button';
+                fillBtn.style.cssText = 'background: #f97316 !important; border: 1px solid #ea580c !important; color: #ffffff !important; border-radius: 4px !important; padding: 2px 8px !important; font-weight: bold !important; font-size: 11px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; gap: 2px !important; box-shadow: 0 1px 2px rgba(0,0,0,0.12) !important; user-select: none !important;';
+                fillBtn.title = `Điền Giá Min (${Number(finalMinPrice).toLocaleString('vi-VN')}₫) vào ô Giá sau giảm của dòng này`;
+                fillBtn.innerHTML = `⚡ Điền`;
+
+                fillBtn.onclick = (e) => {
+                  e.preventDefault(); e.stopPropagation();
+                  const discInput = mEl.querySelector('.item-discounted-price input, input.eds-input__input, input[restrictiontype="value"], input');
+                  if (discInput && !discInput.disabled) {
+                    discInput.focus();
+                    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                    if (nativeSetter) nativeSetter.call(discInput, String(finalMinPrice));
+                    else discInput.value = String(finalMinPrice);
+                    discInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    discInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    discInput.dispatchEvent(new Event('blur', { bubbles: true }));
+
+                    fillBtn.innerHTML = `✓ Đã điền`;
+                    fillBtn.style.background = '#059669';
+                    fillBtn.style.borderColor = '#047857';
+
+                    discInput.style.border = '2px solid #16a34a';
+                    discInput.style.backgroundColor = '#f0fdf4';
+                    setTimeout(() => {
+                      fillBtn.innerHTML = `⚡ Điền`;
+                      fillBtn.style.background = '#f97316';
+                      fillBtn.style.borderColor = '#ea580c';
+                      discInput.style.border = '';
+                      discInput.style.backgroundColor = '';
+                    }, 1500);
+                  }
+                };
+                badge.appendChild(fillBtn);
+              }
 
               varCell.appendChild(badge);
             }

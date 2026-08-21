@@ -10811,11 +10811,18 @@ async function extractProductDataAndSave() {
 
       if (minPrice) {
         const minSpan = document.createElement('span');
-        minSpan.style.cssText = 'background: #16a34a !important; border: 1px solid #15803d !important; color: #ffffff !important; border-radius: 4px !important; padding: 2px 6px !important; font-weight: bold !important; font-size: 11px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; gap: 2px !important;';
-        minSpan.title = `Bấm vào đây để tự động điền Giá Min (${Number(minPrice).toLocaleString('vi-VN')}₫) vào ô Giá sau giảm`;
-        minSpan.innerHTML = `Min: ${Number(minPrice).toLocaleString('vi-VN')}₫ <span style="font-size:10px;">⚡ Điền</span>`;
-        
-        minSpan.onclick = (e) => {
+        minSpan.style.cssText = 'background: #16a34a !important; border: 1px solid #15803d !important; color: #ffffff !important; border-radius: 4px !important; padding: 2px 6px !important; font-weight: bold !important; font-size: 11px !important;';
+        minSpan.title = 'Giá Min từ Sheet DS_SP';
+        minSpan.innerHTML = `Min: ${Number(minPrice).toLocaleString('vi-VN')}₫`;
+        badge.appendChild(minSpan);
+
+        const fillBtn = document.createElement('button');
+        fillBtn.type = 'button';
+        fillBtn.style.cssText = 'background: #f97316 !important; border: 1px solid #ea580c !important; color: #ffffff !important; border-radius: 4px !important; padding: 2px 8px !important; font-weight: bold !important; font-size: 11px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; gap: 2px !important; box-shadow: 0 1px 2px rgba(0,0,0,0.12) !important; user-select: none !important;';
+        fillBtn.title = `Điền Giá Min (${Number(minPrice).toLocaleString('vi-VN')}₫) vào ô Giá sau giảm của dòng này`;
+        fillBtn.innerHTML = `⚡ Điền`;
+
+        fillBtn.onclick = (e) => {
           e.preventDefault(); e.stopPropagation();
           const discInput = mEl.querySelector('.item-discounted-price input, input.eds-input__input, input[restrictiontype="value"], input');
           if (discInput && !discInput.disabled) {
@@ -10827,15 +10834,22 @@ async function extractProductDataAndSave() {
             discInput.dispatchEvent(new Event('change', { bubbles: true }));
             discInput.dispatchEvent(new Event('blur', { bubbles: true }));
 
-            minSpan.innerHTML = `✓ Đã điền!`;
-            minSpan.style.background = '#059669';
+            fillBtn.innerHTML = `✓ Đã điền`;
+            fillBtn.style.background = '#059669';
+            fillBtn.style.borderColor = '#047857';
+
+            discInput.style.border = '2px solid #16a34a';
+            discInput.style.backgroundColor = '#f0fdf4';
             setTimeout(() => {
-              minSpan.innerHTML = `Min: ${Number(minPrice).toLocaleString('vi-VN')}₫ <span style="font-size:10px;">⚡ Điền</span>`;
-              minSpan.style.background = '#16a34a';
+              fillBtn.innerHTML = `⚡ Điền`;
+              fillBtn.style.background = '#f97316';
+              fillBtn.style.borderColor = '#ea580c';
+              discInput.style.border = '';
+              discInput.style.backgroundColor = '';
             }, 1500);
           }
         };
-        badge.appendChild(minSpan);
+        badge.appendChild(fillBtn);
       }
 
       varCell.appendChild(badge);
