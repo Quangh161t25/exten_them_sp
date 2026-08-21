@@ -248,8 +248,8 @@
             // =========================================================================
             // 1. SHOPEE MARKETING / DISCOUNT PAGE
             // =========================================================================
-            let productCards = Array.from(document.querySelectorAll('.discount-view-item-component, .discount-item-component'));
-            const allModelsDirect = Array.from(document.querySelectorAll('.discount-view-item-model-component, .discount-item-model-component'));
+            let productCards = Array.from(document.querySelectorAll('.discount-view-item-component, .discount-item-component, .discount-edit-item-component'));
+            const allModelsDirect = Array.from(document.querySelectorAll('.discount-view-item-model-component, .discount-item-model-component, .discount-edit-item-model-component'));
 
             if (productCards.length > 0 || allModelsDirect.length > 0) {
               if (productCards.length === 0) {
@@ -317,7 +317,7 @@
 
               productCards.forEach((card) => {
                 const parentName = getProductName(card);
-                const models = Array.from(card.querySelectorAll('.discount-view-item-model-component, .discount-item-model-component'));
+                const models = Array.from(card.querySelectorAll('.discount-view-item-model-component, .discount-item-model-component, .discount-edit-item-model-component'));
 
                 if (models.length > 0) {
                   items.push({
@@ -574,7 +574,7 @@
           const childProducts = (productsData || []).filter(p => !p.isParent);
 
           // 1. Discount View Model Components (.discount-view-item-model-component)
-          const discountModels = Array.from(document.querySelectorAll('.discount-view-item-model-component, .discount-item-model-component'));
+          const discountModels = Array.from(document.querySelectorAll('.discount-view-item-model-component, .discount-item-model-component, .discount-edit-item-model-component'));
           
           discountModels.forEach((mEl, idx) => {
             const varCell = mEl.querySelector('.item-content.item-variation, .item-variation') || mEl;
@@ -593,7 +593,7 @@
             }
 
             // Extract Parent Name from surrounding card
-            const parentBlock = mEl.closest('.discount-view-item-component, .discount-item-component') || mEl.parentElement?.parentElement;
+            const parentBlock = mEl.closest('.discount-view-item-component, .discount-item-component, .discount-edit-item-component') || mEl.parentElement?.parentElement;
             let cleanParent = "";
             if (parentBlock) {
               const pEl = parentBlock.querySelector('a[href*="/portal/product/"]');

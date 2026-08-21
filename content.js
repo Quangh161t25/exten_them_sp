@@ -10710,7 +10710,7 @@ async function extractProductDataAndSave() {
   }
 
   function doInjectBadges() {
-    const models = Array.from(document.querySelectorAll('.discount-view-item-model-component, .discount-item-model-component'));
+    const models = Array.from(document.querySelectorAll('.discount-view-item-model-component, .discount-item-model-component, .discount-edit-item-model-component'));
     models.forEach((mEl) => {
       const varCell = mEl.querySelector('.item-content.item-variation, .item-variation') || mEl;
       if (!varCell) return;
@@ -10732,7 +10732,7 @@ async function extractProductDataAndSave() {
       }
       if (!varName) return;
 
-      const parentCard = mEl.closest('.discount-view-item-component, .discount-item-component') || mEl.parentElement?.parentElement;
+      const parentCard = mEl.closest('.discount-view-item-component, .discount-item-component, .discount-edit-item-component') || mEl.parentElement?.parentElement;
       let parentName = "";
       if (parentCard) {
         const pEl = parentCard.querySelector('a[href*="/portal/product/"]');
