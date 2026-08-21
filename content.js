@@ -8404,8 +8404,9 @@ if (oldFlashBtn) oldFlashBtn.remove();
     }
 
     async function renderDiscountSkuCt() {
-        if (!window.location.href.includes('banhang.shopee.vn/portal/marketing/discount') &&
-            !window.location.href.includes('/marketing/discount')) return;
+        const hasDiscountDom = document.querySelector('.discount-edit-item-model-component, .item-content.item-variation, .item-variation, .discount-edit-item-model-list');
+        const isDiscountUrl = window.location.href.includes('discount');
+        if (!hasDiscountDom && !isDiscountUrl) return;
         
         // Find all variation containers on page
         const variations = Array.from(document.querySelectorAll('.item-variation, .item-content.item-variation, [class*="item-variation"]'));
@@ -8419,6 +8420,21 @@ if (oldFlashBtn) oldFlashBtn.remove();
         const priceMap = discountSkuMappingCache ? (discountSkuMappingCache.priceMap || {}) : {};
 
         variations.forEach(v => {
+            const row = v.closest('.discount-edit-item-model-component, tr, .eds-table__row') || v.parentElement;
+            
+            // Fix CSS clipping on all levels
+            if (row) {
+                row.style.setProperty('height', 'auto', 'important');
+                row.style.setProperty('min-height', '60px', 'important');
+                row.style.setProperty('overflow', 'visible', 'important');
+                if (row.parentElement) {
+                    row.parentElement.style.setProperty('height', 'auto', 'important');
+                    row.parentElement.style.setProperty('overflow', 'visible', 'important');
+                }
+            }
+            v.style.setProperty('overflow', 'visible', 'important');
+            v.style.setProperty('height', 'auto', 'important');
+
             const injected = v.querySelector('.injected-sku-ct');
             
             // 1. Get Variation Name from inside v
@@ -8444,7 +8460,7 @@ if (oldFlashBtn) oldFlashBtn.remove();
             }
 
             // 3. Find SKU
-            const sku = (pName && vName) ? findSkuInCache(pName, vName) : null;
+            const sku = (pName && vName) ? findSkuInCache(pName, vName) : (vName ? findSkuInCache(vName, '') : null);
             const minPrice = sku ? (priceMap[cleanStr(sku)] || priceMap[sku] || null) : null;
 
             if (injected) {
@@ -8459,14 +8475,55 @@ if (oldFlashBtn) oldFlashBtn.remove();
                     }
                 }
                 updateCopyButtonColor(v, injected);
-                return;
+            } else {
+                const skuDiv = createSkuElement(sku, minPrice, v);
+                v.appendChild(skuDiv);
             }
 
-            v.style.setProperty('overflow', 'visible', 'important');
-            v.style.setProperty('height', 'auto', 'important');
-            
-            const skuDiv = createSkuElement(sku, minPrice, v);
-            v.appendChild(skuDiv);
+            // 4. Also inject helper into Price Form (Column 3) for quick filling
+            if (row) {
+                const priceForm = row.querySelector('.price-discount-form, .price-and-discount-wrapper, .item-price');
+                if (priceForm && !priceForm.querySelector('.injected-sku-price-helper')) {
+                    priceForm.style.setProperty('overflow', 'visible', 'important');
+                    priceForm.style.setProperty('height', 'auto', 'important');
+                    const priceHelper = document.createElement('div');
+                    priceHelper.className = 'injected-sku-price-helper';
+                    priceHelper.style.cssText = 'display: block !important; margin-top: 3px !important; font-size: 11px !important; line-height: 1.3 !important; clear: both !important; z-index: 9999 !important; position: relative !important;';
+                    
+                    let priceBtnHtml = '';
+                    const priceNum = minPrice ? String(minPrice).replace(/[^\d]/g, '') : '';
+                    if (priceNum) {
+                        priceBtnHtml = `<button type="button" class="btn-fill-price-quick" data-price="${priceNum}" style="background: #dc2626 !important; color: white !important; font-weight: bold !important; font-size: 10px !important; padding: 2px 7px !important; border: none !important; border-radius: 3px !important; cursor: pointer !important; margin-left: 5px !important;">⚡ Điền: ${minPrice}</button>`;
+                    }
+                    
+                    priceHelper.innerHTML = `
+                        <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">
+                            <span style="color: #dc2626; font-weight: 800; font-size: 11px; background: #fef08a; border: 1px solid #eab308; border-radius: 3px; padding: 1px 4px;">h161</span>
+                            <span style="color: #1d4ed8; font-weight: 700; font-size: 11px;">SKU: ${sku || '...'}</span>
+                            ${priceBtnHtml}
+                        </div>
+                    `;
+
+                    const btn = priceHelper.querySelector('.btn-fill-price-quick');
+                    if (btn) {
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const input = row.querySelector('input.eds-input__input, input[type="text"]');
+                            if (input) {
+                                const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                                setter.call(input, priceNum);
+                                input.dispatchEvent(new Event('input', { bubbles: true }));
+                                input.dispatchEvent(new Event('change', { bubbles: true }));
+                                btn.innerText = 'Đã điền!';
+                                setTimeout(() => { btn.innerText = `⚡ Điền: ${minPrice}`; }, 1200);
+                            }
+                        });
+                    }
+
+                    priceForm.appendChild(priceHelper);
+                }
+            }
         });
     }
 
