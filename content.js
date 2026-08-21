@@ -8064,8 +8064,8 @@ if (oldFlashBtn) oldFlashBtn.remove();
         return String(s || "")
             .normalize("NFC")
             .toLowerCase()
-            .replace(/[\.…]+$/g, '')
-            .replace(/\s+/g, ' ')
+            .replace(/[\.…\u2026]+$/g, '')
+            .replace(/[\s\-_,]+/g, ' ')
             .trim();
     }
 
@@ -8085,11 +8085,41 @@ if (oldFlashBtn) oldFlashBtn.remove();
         return text;
     }
 
-    function isProductHeaderRow(row) {
-        return !!(
-            row.querySelector('img[src*="susercontent.com"], img[src*="shopee.vn"], img.image, .product-image, [class*="product-image"], .discount-item-product-name') ||
-            row.querySelector('a[href*="/product/"], a[href*="item_id"]')
-        );
+    function cleanWords(s) {
+        return cleanStr(s).split(/\s+/).filter(w => w.length > 1);
+    }
+
+    function wordOverlapRatio(str1, str2) {
+        const w1 = cleanWords(str1);
+        const w2 = cleanWords(str2);
+        if (!w1.length || !w2.length) return 0;
+        const set2 = new Set(w2);
+        const matches = w1.filter(w => set2.has(w)).length;
+        return matches / Math.min(w1.length, w2.length);
+    }
+
+    function sendMessageWithTimeout(msg, timeoutMs = 10000) {
+        return new Promise(resolve => {
+            let timer = setTimeout(() => {
+                console.warn('[Shopee Discount SKU] Request timed out:', msg);
+                resolve({ ok: false, error: 'Timeout' });
+            }, timeoutMs);
+            try {
+                chrome.runtime.sendMessage(msg, res => {
+                    clearTimeout(timer);
+                    if (chrome.runtime.lastError) {
+                        console.warn('[Shopee Discount SKU] Runtime error:', chrome.runtime.lastError);
+                        resolve({ ok: false, error: chrome.runtime.lastError.message });
+                    } else {
+                        resolve(res || { ok: false });
+                    }
+                });
+            } catch (err) {
+                clearTimeout(timer);
+                console.warn('[Shopee Discount SKU] SendMessage exception:', err);
+                resolve({ ok: false, error: err.message });
+            }
+        });
     }
 
     async function fetchDiscountMappings() {
@@ -8104,11 +8134,18 @@ if (oldFlashBtn) oldFlashBtn.remove();
             cachedMaGian = currentMaGian;
 
             // 2. Fetch SP_SHOPEE!A:Z
-            const shopeeRes = await new Promise(resolve => {
-                chrome.runtime.sendMessage({ type: "FETCH_SP_SHOPEE" }, resolve);
-            });
-            if (!shopeeRes || !shopeeRes.ok) throw new Error("Could not fetch SP_SHOPEE");
-            const rowsSP = shopeeRes.values || [];
+            let rowsSP = [];
+            const shopeeRes = await sendMessageWithTimeout({ type: "FETCH_SP_SHOPEE" }, 15000);
+            if (shopeeRes && shopeeRes.ok && shopeeRes.values && shopeeRes.values.length > 0) {
+                rowsSP = shopeeRes.values;
+            } else if (window.cachedSpShopee && window.cachedSpShopee.length > 0) {
+                rowsSP = window.cachedSpShopee;
+            }
+
+            if (!rowsSP || rowsSP.length === 0) {
+                console.warn('[Shopee Discount SKU] Could not load SP_SHOPEE data.');
+                return;
+            }
             
             // Resolve columns dynamically:
             // Cột B (1): Tên Sản phẩm
@@ -8187,7 +8224,7 @@ if (oldFlashBtn) oldFlashBtn.remove();
             // 3. Fetch DS_SP (for min price if available)
             const priceMap = {};
             try {
-                const dsSpRes = await new Promise(resolve => chrome.runtime.sendMessage({ type: "FETCH_DS_SP" }, resolve));
+                const dsSpRes = await sendMessageWithTimeout({ type: "FETCH_DS_SP" }, 10000);
                 if (dsSpRes && dsSpRes.ok && dsSpRes.values && dsSpRes.values.length > 0) {
                     const rowsDS = dsSpRes.values;
                     const headers = rowsDS[0].map(h => cleanStr(h));
@@ -8215,9 +8252,9 @@ if (oldFlashBtn) oldFlashBtn.remove();
                 rawAllRows,
                 maGian: currentMaGian
             };
-            console.log('[Shopee Discount SKU] Loaded mappings: filtered =', rawFilteredRows.length, ', total =', rawAllRows.length, ', gian =', currentMaGian);
+            console.log('[Shopee Discount SKU] Loaded mappings successfully: filtered =', rawFilteredRows.length, ', total =', rawAllRows.length, ', gian =', currentMaGian);
         } catch(e) {
-            console.error('Error fetching discount mappings:', e);
+            console.error('[Shopee Discount SKU] Error fetching discount mappings:', e);
         } finally {
             isFetchingDiscountSkuMapping = false;
         }
@@ -8256,9 +8293,21 @@ if (oldFlashBtn) oldFlashBtn.remove();
             }
         }
 
-        // 4. If cleanV is empty and only 1 match for this product
+        // 4. Word overlap ratio >= 50%
+        for (const item of rows) {
+            if (wordOverlapRatio(item.pName, cleanP) >= 0.5) {
+                if (!cleanV && !item.vName) {
+                    return item.targetSku;
+                }
+                if (cleanV && item.vName && (item.vName === cleanV || item.vName.includes(cleanV) || cleanV.includes(item.vName))) {
+                    return item.targetSku;
+                }
+            }
+        }
+
+        // 5. If cleanV is empty and only 1 match for this product
         if (!cleanV) {
-            const matches = rows.filter(item => item.pName.includes(cleanP) || cleanP.includes(item.pName));
+            const matches = rows.filter(item => item.pName.includes(cleanP) || cleanP.includes(item.pName) || wordOverlapRatio(item.pName, cleanP) >= 0.5);
             if (matches.length === 1) {
                 return matches[0].targetSku;
             }
@@ -8303,20 +8352,20 @@ if (oldFlashBtn) oldFlashBtn.remove();
     function createSkuElement(sku, minPrice, rowContainer) {
         const skuDiv = document.createElement('div');
         skuDiv.className = 'injected-sku-ct injected-sku-info';
-        skuDiv.style.cssText = 'margin-top: 4px; font-size: 11px; line-height: 1.3; display: block; clear: both; text-align: left;';
+        skuDiv.style.cssText = 'margin-top: 5px; font-size: 11px; line-height: 1.3; display: block; clear: both; text-align: left; z-index: 10; position: relative; width: 100%;';
         
         let priceHtml = '';
         const priceNumberStr = minPrice ? String(minPrice).replace(/[^\d]/g, '') : '';
         if (minPrice && priceNumberStr) {
             priceHtml = `
-            <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+            <div style="display: flex; align-items: center; gap: 4px; margin-top: 3px;">
                 <span style="color:#dc2626; font-weight: bold; font-size: 10px;">Giá min: <b>${minPrice}</b></span>
                 <button type="button" class="btn-copy-price" data-min-price="${priceNumberStr}" style="background:#dc2626; color:white; border:none; border-radius:3px; padding:1px 5px; font-size:9px; cursor:pointer; font-weight: bold;">Điền</button>
             </div>`;
         }
         
         skuDiv.innerHTML = `
-        <div style="display: inline-block; color: #1d4ed8; font-weight: 700; font-size: 11px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 3px; padding: 2px 6px;">
+        <div style="display: inline-block; color: #1d4ed8; font-weight: 700; font-size: 11px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 3px; padding: 2px 6px; white-space: nowrap;">
             SKU: <span>${sku}</span>
         </div>
         ${priceHtml}`;
@@ -8328,7 +8377,7 @@ if (oldFlashBtn) oldFlashBtn.remove();
                 e.stopPropagation();
                 if (!priceNumberStr) return;
                 
-                const input = findInputForRow(rowContainer);
+                const input = rowContainer.querySelector('input.eds-input__input, input.ant-input-number-input, input[type="text"], input[type="number"]') || findInputForRow(rowContainer);
                 if (input) {
                     const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
                     nativeInputValueSetter.call(input, priceNumberStr);
@@ -8368,6 +8417,35 @@ if (oldFlashBtn) oldFlashBtn.remove();
         }
     }
 
+    function getProductNameForModelList(modelList) {
+        // Method 1: Look in previous siblings
+        let prev = modelList.previousElementSibling;
+        while (prev) {
+            const el = prev.querySelector('.ellipsis-content.single, .ellipsis-content, [class*="product-name"], [class*="item-title"]');
+            if (el) {
+                const txt = getElTitleOrText(el);
+                if (txt && txt.length > 3) return txt;
+            }
+            prev = prev.previousElementSibling;
+        }
+
+        // Method 2: Look in parent element (the product card/component)
+        let parent = modelList.parentElement;
+        while (parent && parent !== document.body) {
+            const allEllipsis = Array.from(parent.querySelectorAll('.ellipsis-content.single, .ellipsis-content, [class*="product-name"], [class*="item-title"]'));
+            const outside = allEllipsis.filter(el => !modelList.contains(el));
+            if (outside.length > 0) {
+                const txt = getElTitleOrText(outside[0]);
+                if (txt && txt.length > 3) return txt;
+            }
+            if (parent.querySelectorAll('.discount-edit-item-model-list').length > 1) {
+                break;
+            }
+            parent = parent.parentElement;
+        }
+        return '';
+    }
+
     async function renderDiscountSkuCt() {
         const isDiscountPage = window.location.href.includes('banhang.shopee.vn/portal/marketing/discount') || 
                                window.location.href.includes('/marketing/discount');
@@ -8384,19 +8462,7 @@ if (oldFlashBtn) oldFlashBtn.remove();
         const modelLists = Array.from(document.querySelectorAll('.discount-edit-item-model-list'));
         if (modelLists.length > 0) {
             modelLists.forEach(modelList => {
-                // Find product title in container outside modelList
-                let productContainer = modelList.parentElement;
-                let pName = '';
-                while (productContainer && productContainer !== document.body) {
-                    const allEllipsis = Array.from(productContainer.querySelectorAll('.ellipsis-content.single, .ellipsis-content'));
-                    const outsideEllipsis = allEllipsis.filter(el => !modelList.contains(el));
-                    if (outsideEllipsis.length > 0) {
-                        pName = getElTitleOrText(outsideEllipsis[0]);
-                        break;
-                    }
-                    productContainer = productContainer.parentElement;
-                }
-
+                const pName = getProductNameForModelList(modelList);
                 if (!pName) return;
 
                 const modelComponents = Array.from(modelList.querySelectorAll('.discount-edit-item-model-component'));
@@ -8414,15 +8480,8 @@ if (oldFlashBtn) oldFlashBtn.remove();
                         const minPrice = priceMap[cleanStr(sku)] || priceMap[sku] || null;
                         const skuDiv = createSkuElement(sku, minPrice, modelComp);
                         
-                        const popoverRef = modelComp.querySelector('.item-variation .eds-popover__ref') || 
-                                           modelComp.querySelector('.item-variation .ellipsis-text-wrapper') || 
-                                           vNameEl;
-                        if (popoverRef) {
-                            popoverRef.insertAdjacentElement('afterend', skuDiv);
-                        } else {
-                            const varContainer = modelComp.querySelector('.item-variation') || modelComp;
-                            varContainer.appendChild(skuDiv);
-                        }
+                        const itemVariation = modelComp.querySelector('.item-content.item-variation, .item-variation') || modelComp;
+                        itemVariation.appendChild(skuDiv);
                     } else {
                         const emptyDiv = document.createElement('div');
                         emptyDiv.className = 'injected-sku-info';
@@ -8440,7 +8499,8 @@ if (oldFlashBtn) oldFlashBtn.remove();
         let currentProductRow = null;
 
         rows.forEach(row => {
-            if (isProductHeaderRow(row)) {
+            const isHeader = !!(row.querySelector('img[src*="susercontent"], img[src*="shopee"], img.image, .product-image, [class*="product-image"]') || row.querySelector('a[href*="/product/"]'));
+            if (isHeader) {
                 const pNameEl = row.querySelector('.eds-popover__ref .ellipsis-content, .eds-popover__ref, .ellipsis-content.single, .ellipsis-content, [class*="product-name"], a[title], div[title]');
                 if (pNameEl) {
                     currentPName = getElTitleOrText(pNameEl);
@@ -8455,63 +8515,32 @@ if (oldFlashBtn) oldFlashBtn.remove();
                 return;
             }
 
-            const itemVariations = Array.from(row.querySelectorAll('.item-variation'));
-            if (itemVariations.length > 0) {
-                itemVariations.forEach(v => {
-                    if (v.querySelector('.injected-sku-info, .injected-sku-ct')) {
-                        updateCopyButtonColor(v, v.querySelector('.injected-sku-info, .injected-sku-ct'));
-                        return;
-                    }
-                    const vNameRef = v.querySelector('.eds-popover__ref') || v.querySelector('.ellipsis-content.single, .ellipsis-content');
-                    const vName = vNameRef ? getElTitleOrText(vNameRef) : '';
-                    const sku = findSkuInCache(currentPName, vName);
-                    if (sku) {
-                        const minPrice = priceMap[cleanStr(sku)] || priceMap[sku] || null;
-                        const skuDiv = createSkuElement(sku, minPrice, v);
-                        if (vNameRef) {
-                            vNameRef.insertAdjacentElement('afterend', skuDiv);
-                        } else {
-                            v.appendChild(skuDiv);
-                        }
-                    } else {
-                        const emptyDiv = document.createElement('div');
-                        emptyDiv.className = 'injected-sku-info';
-                        emptyDiv.style.display = 'none';
-                        v.appendChild(emptyDiv);
-                    }
-                });
+            const hasInput = !!row.querySelector('input.eds-input__input, input.ant-input-number-input, input[type="text"], input[type="number"]');
+            const vNameRef = row.querySelector('.eds-popover__ref') || row.querySelector('.ellipsis-content.single, .ellipsis-content');
+            
+            if (row === currentProductRow && !hasInput) {
+                return;
+            }
+
+            let vName = '';
+            if (vNameRef) {
+                const rawV = getElTitleOrText(vNameRef);
+                if (cleanStr(rawV) !== cleanStr(currentPName)) {
+                    vName = rawV;
+                }
+            }
+
+            const sku = findSkuInCache(currentPName, vName);
+            if (sku) {
+                const minPrice = priceMap[cleanStr(sku)] || priceMap[sku] || null;
+                const skuDiv = createSkuElement(sku, minPrice, row);
+                const targetCell = (vNameRef ? vNameRef.closest('td, .eds-table__cell, .item-variation') : null) || row.querySelector('td:nth-child(2), td:first-child, .eds-table__cell') || row;
+                targetCell.appendChild(skuDiv);
             } else {
-                const hasInput = !!row.querySelector('input.eds-input__input, input.ant-input-number-input, input[type="text"], input[type="number"]');
-                const vNameRef = row.querySelector('.eds-popover__ref') || row.querySelector('.ellipsis-content.single, .ellipsis-content');
-                
-                if (row === currentProductRow && !hasInput) {
-                    return;
-                }
-
-                let vName = '';
-                if (vNameRef) {
-                    const rawV = getElTitleOrText(vNameRef);
-                    if (cleanStr(rawV) !== cleanStr(currentPName)) {
-                        vName = rawV;
-                    }
-                }
-
-                const sku = findSkuInCache(currentPName, vName);
-                if (sku) {
-                    const minPrice = priceMap[cleanStr(sku)] || priceMap[sku] || null;
-                    const skuDiv = createSkuElement(sku, minPrice, row);
-                    if (vNameRef) {
-                        vNameRef.insertAdjacentElement('afterend', skuDiv);
-                    } else {
-                        const targetCell = row.querySelector('td:nth-child(2), td:first-child, .eds-table__cell') || row;
-                        targetCell.appendChild(skuDiv);
-                    }
-                } else {
-                    const emptyDiv = document.createElement('div');
-                    emptyDiv.className = 'injected-sku-info';
-                    emptyDiv.style.display = 'none';
-                    row.appendChild(emptyDiv);
-                }
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'injected-sku-info';
+                emptyDiv.style.display = 'none';
+                row.appendChild(emptyDiv);
             }
         });
     }
