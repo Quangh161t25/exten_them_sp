@@ -298,7 +298,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
 
   if (message?.type === "FETCH_SP_SHOPEE_SKU_MAPPING") {
     Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
-      .then(([token, sheetId]) => fetchSheetValues("SP_SHOPEE!B:P", token, GOOGLE_REQUEST_TIMEOUT_MS, sheetId))
+      .then(([token, sheetId]) => fetchSheetValues("SP_SHOPEE!A:Z", token, GOOGLE_REQUEST_TIMEOUT_MS, sheetId))
       .then(values => sendResponse({ ok: true, values }))
       .catch(error => sendResponse({ ok: false, error: error.message }));
     return true;
