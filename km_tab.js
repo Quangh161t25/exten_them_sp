@@ -1,6 +1,7 @@
 (function () {
   // DOM Elements
   const readBtn = document.getElementById('btn-km-read');
+  const fillMinBtn = document.getElementById('btn-km-fill-min-price');
   const injectSkuBtn = document.getElementById('btn-km-inject-sku');
   const copyTsvBtn = document.getElementById('btn-km-copy-tsv');
   const exportExcelBtn = document.getElementById('btn-km-export-excel');
@@ -57,6 +58,21 @@
   if (readBtn) {
     readBtn.addEventListener('click', () => {
       readPromotionData(false, true);
+    });
+  }
+
+  if (fillMinBtn) {
+    fillMinBtn.addEventListener('click', async () => {
+      if (allRows.length === 0) {
+        alert("Chưa có dữ liệu. Vui lòng đợi quét xong hoặc mở đúng trang Khuyến Mãi Shopee!");
+        return;
+      }
+      const tab = await getActiveTab();
+      if (!tab || !tab.id) {
+        alert("Không tìm thấy tab Shopee đang mở!");
+        return;
+      }
+      await fillMinPricesIntoShopeePage(tab.id, allRows);
     });
   }
 
@@ -649,6 +665,121 @@
       console.warn("Lỗi đối chiếu & chèn SKU:", e);
       chrome.storage.local.set({ km_scanned_rows: allRows });
       renderTable();
+    }
+  }
+
+
+  // =========================================================================
+  // TỰ ĐỘNG ĐIỀN GIÁ MIN VÀO CỘT "GIÁ SAU GIẢM" TRÊN TRANG WEB SHOPEE
+  // =========================================================================
+  async function fillMinPricesIntoShopeePage(tabId, items) {
+    if (!tabId || !items || items.length === 0) return;
+
+    setStatus('<span style="color: #16a34a; font-weight: bold;">⏳ Đang tự động điền Giá Min vào các ô Giá sau giảm...</span>');
+
+    try {
+      const [result] = await chrome.scripting.executeScript({
+        target: { tabId },
+        args: [items],
+        func: (productsData) => {
+          const childProducts = (productsData || []).filter(p => !p.isParent && p.lowestPrice);
+          if (childProducts.length === 0) {
+            return { ok: false, message: "Không tìm thấy Giá Min nào cho các sản phẩm trên trang." };
+          }
+
+          const cleanStr = (val) => {
+            if (!val) return "";
+            return String(val).normalize("NFC").replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+          };
+
+          const discountModels = Array.from(document.querySelectorAll('.discount-view-item-model-component, .discount-item-model-component, .discount-edit-item-model-component'));
+          let filledCount = 0;
+          let skippedCount = 0;
+
+          discountModels.forEach((mEl, idx) => {
+            const varCell = mEl.querySelector('.item-content.item-variation, .item-variation') || mEl;
+            let cleanVar = "";
+            if (varCell) {
+              const singleEl = varCell.querySelector('.ellipsis-content.single');
+              if (singleEl) {
+                cleanVar = cleanStr(singleEl.innerText || singleEl.textContent || "");
+              } else {
+                const clone = varCell.cloneNode(true);
+                clone.querySelectorAll('.eds-popper, .eds-popover__popper, .eds-tooltip__popper, [class*="popper"], [class*="tooltip"], .ext-km-injected-sku').forEach(p => p.remove());
+                cleanVar = cleanStr(clone.innerText || clone.textContent || "");
+              }
+            }
+
+            const parentBlock = mEl.closest('.discount-view-item-component, .discount-item-component, .discount-edit-item-component') || mEl.parentElement?.parentElement;
+            let cleanParent = "";
+            if (parentBlock) {
+              const titleCandidates = Array.from(parentBlock.querySelectorAll('.discount-view-item-header .ellipsis-content.single, .discount-edit-item-header .ellipsis-content.single, .item-header .ellipsis-content, .ellipsis-content.single'));
+              for (const hEl of titleCandidates) {
+                if (!hEl.closest('.discount-view-item-model-component, .discount-edit-item-model-component, .discount-item-model-component')) {
+                  const text = (hEl.getAttribute('title') || hEl.innerText || "").replace(/\s+/g, ' ').trim();
+                  if (text && text.toLowerCase() !== "sản phẩm" && text.toLowerCase() !== "product" && text !== cleanVar) {
+                    cleanParent = cleanStr(text);
+                    break;
+                  }
+                }
+              }
+            }
+
+            // Match item from productsData
+            let matched = null;
+            if (cleanVar) {
+              matched = childProducts.find(p => p.variationName && cleanStr(p.variationName) === cleanVar && (!cleanParent || !p.name || cleanStr(p.name).includes(cleanParent) || cleanParent.includes(cleanStr(p.name))));
+              if (!matched) {
+                matched = childProducts.find(p => p.variationName && cleanStr(p.variationName) === cleanVar);
+              }
+            }
+            if (!matched && childProducts[idx]) {
+              matched = childProducts[idx];
+            }
+
+            if (matched && matched.lowestPrice) {
+              const minPrice = String(matched.lowestPrice);
+              // Tìm ô input Giá Sau Giảm
+              const discInput = mEl.querySelector('.item-discounted-price input, input.eds-input__input, input[restrictiontype="value"], input');
+              if (discInput && !discInput.disabled) {
+                discInput.focus();
+                const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                if (nativeSetter) {
+                  nativeSetter.call(discInput, minPrice);
+                } else {
+                  discInput.value = minPrice;
+                }
+                discInput.dispatchEvent(new Event('input', { bubbles: true }));
+                discInput.dispatchEvent(new Event('change', { bubbles: true }));
+                discInput.dispatchEvent(new Event('blur', { bubbles: true }));
+                
+                // Hiệu ứng viền xanh xác nhận
+                discInput.style.border = '2px solid #16a34a';
+                discInput.style.backgroundColor = '#f0fdf4';
+                setTimeout(() => {
+                  discInput.style.border = '';
+                  discInput.style.backgroundColor = '';
+                }, 2000);
+
+                filledCount++;
+              } else {
+                skippedCount++;
+              }
+            }
+          });
+
+          return { ok: true, filledCount, skippedCount };
+        }
+      });
+
+      if (result && result.result && result.result.ok) {
+        setStatus(`🎉 <b style="color:#16a34a;">Đã tự động điền Giá Min cho ${result.result.filledCount} phân loại!</b> (Kiểm tra lại và bấm nút Xác nhận trên Shopee).`);
+      } else {
+        setStatus(`⚠️ ${result?.result?.message || "Không thể điền giá vào trang Shopee."}`, true);
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus(`❌ Lỗi điền giá: ${err.message}`, true);
     }
   }
 

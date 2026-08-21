@@ -10786,25 +10786,58 @@ async function extractProductDataAndSave() {
       varCell.style.setProperty('justify-content', 'center', 'important');
       varCell.style.setProperty('overflow', 'visible', 'important');
 
+      const minPrice = findMinPriceForSku(sku, autoShopeeDsCache);
+
       const badge = document.createElement('div');
       badge.className = 'ext-km-injected-sku';
       badge.setAttribute('data-sku', sku);
-      badge.title = 'Bấm để copy: ' + sku;
-      badge.style.cssText = 'display: inline-block !important; margin-top: 4px !important; background: #e0f2fe !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important; padding: 2px 7px !important; font-family: monospace, Consolas, sans-serif !important; font-size: 11px !important; font-weight: bold !important; color: #0284c7 !important; width: max-content !important; cursor: pointer !important; user-select: all !important; z-index: 10 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;';
-      badge.innerHTML = `<span style="color:#0369a1;font-weight:normal;margin-right:3px;">SKU:</span><b>${sku}</b>`;
-      badge.addEventListener('click', (e) => {
+      badge.setAttribute('data-min-price', minPrice || '');
+      badge.style.cssText = 'display: inline-flex !important; align-items: center !important; flex-wrap: wrap !important; gap: 4px !important; margin-top: 4px !important; font-family: monospace, Consolas, sans-serif !important; font-size: 11px !important; width: max-content !important; z-index: 10 !important;';
+
+      const skuSpan = document.createElement('span');
+      skuSpan.style.cssText = 'background: #e0f2fe !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important; padding: 2px 6px !important; font-weight: bold !important; color: #0284c7 !important; cursor: pointer !important;';
+      skuSpan.title = 'Bấm để copy SKU: ' + sku;
+      skuSpan.innerHTML = `<span style="color:#0369a1;font-weight:normal;margin-right:2px;">SKU:</span>${sku}`;
+      skuSpan.onclick = (e) => {
         e.preventDefault(); e.stopPropagation();
         navigator.clipboard.writeText(sku).then(() => {
-          badge.innerHTML = `<span style="color:#15803d;font-weight:bold;">✓ Đã copy!</span>`;
-          badge.style.background = '#dcfce7';
-          badge.style.borderColor = '#86efac';
+          skuSpan.innerHTML = `<span style="color:#15803d;font-weight:bold;">✓ Đã copy!</span>`;
           setTimeout(() => {
-            badge.innerHTML = `<span style="color:#0369a1;font-weight:normal;margin-right:3px;">SKU:</span><b>${sku}</b>`;
-            badge.style.background = '#e0f2fe';
-            badge.style.borderColor = '#7dd3fc';
+            skuSpan.innerHTML = `<span style="color:#0369a1;font-weight:normal;margin-right:2px;">SKU:</span>${sku}`;
           }, 1200);
         });
-      });
+      };
+      badge.appendChild(skuSpan);
+
+      if (minPrice) {
+        const minSpan = document.createElement('span');
+        minSpan.style.cssText = 'background: #16a34a !important; border: 1px solid #15803d !important; color: #ffffff !important; border-radius: 4px !important; padding: 2px 6px !important; font-weight: bold !important; font-size: 11px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; gap: 2px !important;';
+        minSpan.title = `Bấm vào đây để tự động điền Giá Min (${Number(minPrice).toLocaleString('vi-VN')}₫) vào ô Giá sau giảm`;
+        minSpan.innerHTML = `Min: ${Number(minPrice).toLocaleString('vi-VN')}₫ <span style="font-size:10px;">⚡ Điền</span>`;
+        
+        minSpan.onclick = (e) => {
+          e.preventDefault(); e.stopPropagation();
+          const discInput = mEl.querySelector('.item-discounted-price input, input.eds-input__input, input[restrictiontype="value"], input');
+          if (discInput && !discInput.disabled) {
+            discInput.focus();
+            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+            if (nativeSetter) nativeSetter.call(discInput, String(minPrice));
+            else discInput.value = String(minPrice);
+            discInput.dispatchEvent(new Event('input', { bubbles: true }));
+            discInput.dispatchEvent(new Event('change', { bubbles: true }));
+            discInput.dispatchEvent(new Event('blur', { bubbles: true }));
+
+            minSpan.innerHTML = `✓ Đã điền!`;
+            minSpan.style.background = '#059669';
+            setTimeout(() => {
+              minSpan.innerHTML = `Min: ${Number(minPrice).toLocaleString('vi-VN')}₫ <span style="font-size:10px;">⚡ Điền</span>`;
+              minSpan.style.background = '#16a34a';
+            }, 1500);
+          }
+        };
+        badge.appendChild(minSpan);
+      }
+
       varCell.appendChild(badge);
     });
   }
