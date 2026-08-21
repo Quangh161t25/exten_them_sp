@@ -22,7 +22,6 @@
       allRows = res.km_scanned_rows;
       updateStats();
       renderTable();
-      setStatus(`📁 Đã nạp lại <b>${allRows.filter(r => r.isParent).length}</b> sản phẩm và <b>${allRows.filter(r => !r.isParent).length}</b> phân loại từ bộ nhớ.`);
       if (saveGroupSection) saveGroupSection.style.display = 'block';
 
       // Re-inject SKU badges onto active tab if open
@@ -32,6 +31,17 @@
         }
       });
     }
+
+    // Tự động quét luôn không cần ấn nút
+    getActiveTab().then(tab => {
+      if (tab && tab.url && tab.url.includes('/portal/marketing/')) {
+        setStatus("🔄 Đang tự động đọc dữ liệu từ trang...");
+        // Đợi 500ms cho web ổn định rồi tự động đọc
+        setTimeout(() => {
+          readPromotionData();
+        }, 500);
+      }
+    });
   });
 
   // Event Listeners
