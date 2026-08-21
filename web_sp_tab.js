@@ -108,25 +108,49 @@
         });
     }
 
+    function parseSearchTokens(rawQuery) {
+        if (!rawQuery) return [];
+        let text = String(rawQuery).trim();
+        if (!text) return [];
+
+        if (/[,;|\n]/.test(text)) {
+            return text.split(/[,;|\n]+/).map(t => t.trim().toLowerCase()).filter(Boolean);
+        }
+
+        if (/\s+(?:và|hoặc|and|or|\+)\s+/i.test(text)) {
+            return text.split(/\s+(?:và|hoặc|and|or|\+)\s+/i).map(t => t.trim().toLowerCase()).filter(Boolean);
+        }
+
+        return text.split(/\s+/).map(t => t.trim().toLowerCase()).filter(Boolean);
+    }
+
     function filterAndRender() {
         if (!dataLoaded) return;
-        const searchSku = (skuInput.value || "").trim().toLowerCase();
+        const searchVal = (skuInput.value || "").trim();
+        const tokens = parseSearchTokens(searchVal);
+        const filterMode = document.querySelector('input[name="web-sp-filter-mode"]:checked')?.value || 'OR';
         
         let filtered = [];
 
-        if (searchSku.length > 0) {
-            filtered = allRows.filter(row => {
+        if (tokens.length > 0) {
+            const checkMatch = (row, token) => {
                 const rowSku = String(row[colIndices.sku] || "").trim().toLowerCase();
-                if (!rowSku) return false;
+                const rowTen = String(row[colIndices.ten_sp] || "").trim().toLowerCase();
+                const rowPhanLoai = String(row[colIndices.phan_loai] || "").trim().toLowerCase();
+                const rowGian = String(row[colIndices.gian] || "").trim().toLowerCase();
                 
-                if (searchSku.length >= 4) {
-                    const searchPrefix = searchSku.substring(0, 4);
-                    const rowSkuPrefix = rowSku.substring(0, 4);
-                    return rowSkuPrefix === searchPrefix || rowSku.includes(searchSku);
+                if (rowSku.includes(token) || rowTen.includes(token) || rowPhanLoai.includes(token) || rowGian.includes(token)) {
+                    return true;
                 }
-                
-                return rowSku.includes(searchSku);
-            });
+                return row.some(cell => String(cell || '').toLowerCase().includes(token));
+            };
+
+            if (filterMode === 'AND') {
+                filtered = allRows.filter(row => tokens.every(token => checkMatch(row, token)));
+            } else {
+                // OR mode
+                filtered = allRows.filter(row => tokens.some(token => checkMatch(row, token)));
+            }
         } else {
             // Mặc định chưa gõ SKU: Hiển thị 10 sản phẩm cuối cùng (mới nhất)
             filtered = allRows.slice(0, 10);
@@ -221,6 +245,12 @@
             updateSkuMotaAndPricesFromInput();
         });
     }
+
+    document.querySelectorAll('input[name="web-sp-filter-mode"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            filterAndRender();
+        });
+    });
 
     // Handle view row click (con mắt 👁️)
     tbody.addEventListener('click', (e) => {

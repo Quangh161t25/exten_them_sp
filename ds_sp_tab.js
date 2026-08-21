@@ -332,6 +332,22 @@
         return escapeHtml(value);
     }
 
+    function parseSearchTokens(rawQuery) {
+        if (!rawQuery) return [];
+        let text = String(rawQuery).trim();
+        if (!text) return [];
+
+        if (/[,;|\n]/.test(text)) {
+            return text.split(/[,;|\n]+/).map(t => t.trim().toLowerCase()).filter(Boolean);
+        }
+
+        if (/\s+(?:và|hoặc|and|or|\+)\s+/i.test(text)) {
+            return text.split(/\s+(?:và|hoặc|and|or|\+)\s+/i).map(t => t.trim().toLowerCase()).filter(Boolean);
+        }
+
+        return text.split(/\s+/).map(t => t.trim().toLowerCase()).filter(Boolean);
+    }
+
     function renderTable() {
         if (!dataLoaded || !tbody) return;
 
@@ -342,12 +358,25 @@
             filtered = filtered.filter(item => item.id_sp_con.toUpperCase().startsWith(activeFilter1));
         }
 
-        const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
-        if (query) {
-            filtered = filtered.filter(item =>
-                item.virtual_sku.toLowerCase().includes(query) ||
-                item.row_values.some(value => String(value || '').toLowerCase().includes(query))
-            );
+        const rawQuery = searchInput ? searchInput.value : '';
+        const tokens = parseSearchTokens(rawQuery);
+        const filterMode = document.querySelector('input[name="ds-sp-filter-mode"]:checked')?.value || 'OR';
+
+        if (tokens.length > 0) {
+            const checkMatch = (item, token) => {
+                const idCon = String(item.id_sp_con || '').toLowerCase();
+                const idCha = String(item.id_sp || '').toLowerCase();
+                const vSku = String(item.virtual_sku || '').toLowerCase();
+                if (idCon.includes(token) || idCha.includes(token) || vSku.includes(token)) return true;
+                return (item.row_values || []).some(value => String(value || '').toLowerCase().includes(token));
+            };
+
+            if (filterMode === 'AND') {
+                filtered = filtered.filter(item => tokens.every(token => checkMatch(item, token)));
+            } else {
+                // OR mode
+                filtered = filtered.filter(item => tokens.some(token => checkMatch(item, token)));
+            }
         }
 
         filtered.sort((a, b) => b.id_sp_con.localeCompare(a.id_sp_con));
@@ -376,6 +405,10 @@
     if (searchInput) {
         searchInput.addEventListener('input', renderTable);
     }
+
+    document.querySelectorAll('input[name="ds-sp-filter-mode"]').forEach(radio => {
+        radio.addEventListener('change', renderTable);
+    });
 
     if (tbody) {
         tbody.addEventListener('click', (e) => {

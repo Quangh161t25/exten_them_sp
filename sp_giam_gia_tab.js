@@ -78,17 +78,42 @@
         });
     }
 
+    function parseSearchTokens(rawQuery) {
+        if (!rawQuery) return [];
+        let text = String(rawQuery).trim();
+        if (!text) return [];
+
+        if (/[,;|\n]/.test(text)) {
+            return text.split(/[,;|\n]+/).map(t => t.trim().toLowerCase()).filter(Boolean);
+        }
+
+        if (/\s+(?:và|hoặc|and|or|\+)\s+/i.test(text)) {
+            return text.split(/\s+(?:và|hoặc|and|or|\+)\s+/i).map(t => t.trim().toLowerCase()).filter(Boolean);
+        }
+
+        return text.split(/\s+/).map(t => t.trim().toLowerCase()).filter(Boolean);
+    }
+
     function renderTable() {
         if (!dataLoaded) return;
 
         let filtered = allData;
 
-        const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
-        if (query) {
-            filtered = filtered.filter(row => {
-                // Search across all columns
-                return row.some(cellValue => cellValue.toLowerCase().includes(query));
-            });
+        const rawQuery = searchInput ? searchInput.value : '';
+        const tokens = parseSearchTokens(rawQuery);
+        const filterMode = document.querySelector('input[name="sp-giam-gia-filter-mode"]:checked')?.value || 'OR';
+
+        if (tokens.length > 0) {
+            const checkMatch = (row, token) => {
+                return row.some(cellValue => String(cellValue || '').toLowerCase().includes(token));
+            };
+
+            if (filterMode === 'AND') {
+                filtered = filtered.filter(row => tokens.every(token => checkMatch(row, token)));
+            } else {
+                // OR mode
+                filtered = filtered.filter(row => tokens.some(token => checkMatch(row, token)));
+            }
         }
 
         tbody.innerHTML = '';
@@ -137,6 +162,10 @@
     if (searchInput) {
         searchInput.addEventListener('input', renderTable);
     }
+
+    document.querySelectorAll('input[name="sp-giam-gia-filter-mode"]').forEach(radio => {
+        radio.addEventListener('change', renderTable);
+    });
 
     tbody.addEventListener('click', (e) => {
         const btn = e.target.closest('.copy-cell-btn');

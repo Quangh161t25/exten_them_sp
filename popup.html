@@ -428,6 +428,14 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 <div class="search-container" style="flex: 1;">
 <input id="ds-sp-search" class="brand-input" placeholder="Tìm kiếm mã hoặc tên sản phẩm..." style="width: 100%;">
 </div>
+<div class="filter-mode-group" style="display: inline-flex; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 6px; gap: 6px; font-size: 11px; align-items: center; white-space: nowrap;">
+  <label style="cursor: pointer; display: flex; align-items: center; gap: 3px; margin: 0; font-weight: 600; color: #1e293b;">
+    <input type="radio" name="ds-sp-filter-mode" value="OR" checked style="cursor: pointer; margin: 0;"> Hoặc (OR)
+  </label>
+  <label style="cursor: pointer; display: flex; align-items: center; gap: 3px; margin: 0; font-weight: 600; color: #1e293b;">
+    <input type="radio" name="ds-sp-filter-mode" value="AND" style="cursor: pointer; margin: 0;"> Và (AND)
+  </label>
+</div>
 </div>
 
 <div class="filter-row-container" style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;" id="filter-1-char-container">
@@ -593,7 +601,17 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 <h1>Dữ Liệu SP_SHOPEE</h1>
 </header>
 <div class="panel-section">
-<input type="text" id="sheet-sp-shopee-search" placeholder="Tìm kiếm dữ liệu..." style="width: 100%; padding: 6px; margin-bottom: 10px; border: 1px solid #cbd5e1; border-radius: 4px;">
+<div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: center;">
+<input type="text" id="sheet-sp-shopee-search" placeholder="Tìm kiếm dữ liệu..." style="flex: 1; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
+<div class="filter-mode-group" style="display: inline-flex; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 6px; gap: 6px; font-size: 11px; align-items: center; white-space: nowrap;">
+  <label style="cursor: pointer; display: flex; align-items: center; gap: 3px; margin: 0; font-weight: 600; color: #1e293b;">
+    <input type="radio" name="sheet-sp-shopee-filter-mode" value="OR" checked style="cursor: pointer; margin: 0;"> Hoặc (OR)
+  </label>
+  <label style="cursor: pointer; display: flex; align-items: center; gap: 3px; margin: 0; font-weight: 600; color: #1e293b;">
+    <input type="radio" name="sheet-sp-shopee-filter-mode" value="AND" style="cursor: pointer; margin: 0;"> Và (AND)
+  </label>
+</div>
+</div>
 <div class="table-responsive" style="max-height: calc(100vh - 140px); overflow-y: auto; border: 1px solid #d8dee8; border-radius: 4px;">
 <table id="table-sheet-sp-shopee" style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
 <thead id="sheet-sp-shopee-thead" style="position: sticky; top: 0; background: #f8fafc; z-index: 1;">
@@ -616,7 +634,17 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 <h1>Dữ Liệu SP_GIAM_GIA</h1>
 </header>
 <div class="panel-section">
-<input type="text" id="sp-giam-gia-search" placeholder="Tìm kiếm dữ liệu..." style="width: 100%; padding: 6px; margin-bottom: 10px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
+<div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: center;">
+<input type="text" id="sp-giam-gia-search" placeholder="Tìm kiếm dữ liệu..." style="flex: 1; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
+<div class="filter-mode-group" style="display: inline-flex; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 6px; gap: 6px; font-size: 11px; align-items: center; white-space: nowrap;">
+  <label style="cursor: pointer; display: flex; align-items: center; gap: 3px; margin: 0; font-weight: 600; color: #1e293b;">
+    <input type="radio" name="sp-giam-gia-filter-mode" value="OR" checked style="cursor: pointer; margin: 0;"> Hoặc (OR)
+  </label>
+  <label style="cursor: pointer; display: flex; align-items: center; gap: 3px; margin: 0; font-weight: 600; color: #1e293b;">
+    <input type="radio" name="sp-giam-gia-filter-mode" value="AND" style="cursor: pointer; margin: 0;"> Và (AND)
+  </label>
+</div>
+</div>
 <div class="table-responsive" style="max-height: calc(100vh - 140px); overflow-y: auto; border: 1px solid #d8dee8; border-radius: 4px;">
 <table id="table-sp-giam-gia" style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
 <thead id="sp-giam-gia-thead" style="position: sticky; top: 0; background: #f8fafc; z-index: 1;">
@@ -641,7 +669,17 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
   <div class="panel-section">
     <!-- Tìm kiếm SKU -->
     <div style="margin-bottom: 8px;">
-      <label style="font-weight: 600; font-size: 11px; color: #475569; display: block; margin-bottom: 4px;">Nhập SKU (So sánh 4 ký tự đầu cột C):</label>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <label style="font-weight: 600; font-size: 11px; color: #475569;">Nhập SKU (So sánh 4 ký tự đầu cột C):</label>
+        <div class="filter-mode-group" style="display: inline-flex; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 2px 6px; gap: 6px; font-size: 11px; align-items: center; white-space: nowrap;">
+          <label style="cursor: pointer; display: flex; align-items: center; gap: 3px; margin: 0; font-weight: 600; color: #1e293b;">
+            <input type="radio" name="web-sp-filter-mode" value="OR" checked style="cursor: pointer; margin: 0;"> Hoặc (OR)
+          </label>
+          <label style="cursor: pointer; display: flex; align-items: center; gap: 3px; margin: 0; font-weight: 600; color: #1e293b;">
+            <input type="radio" name="web-sp-filter-mode" value="AND" style="cursor: pointer; margin: 0;"> Và (AND)
+          </label>
+        </div>
+      </div>
       <input type="text" id="web-sp-sku-input" placeholder="Nhập mã SKU..." style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-size: 12px;">
     </div>
 
