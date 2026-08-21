@@ -161,15 +161,13 @@
 
   function findSkuForShopeeVariation(pName, vName, spRows, currentMaGian) {
     if (!spRows || spRows.length <= 1) return "";
-    const cleanStr = (val) => {
-      if (!val) return "";
-      return String(val).normalize("NFC").replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\.\.\.$/, '').replace(/\u2026$/, '').replace(/\s+/g, ' ').trim().toLowerCase();
-    };
-    const cleanP = cleanStr(pName);
-    const cleanV = cleanStr(vName);
+    
+    const cleanP = cleanString(pName);
+    const cleanV = cleanString(vName);
     if (!cleanV && !cleanP) return "";
 
-    const headers = spRows[0].map(v => cleanStr(v));
+    // 1. Xác định vị trí các cột
+    const headers = spRows[0].map(v => cleanString(v));
     let pIdx = headers.findIndex(col => col.includes('tên sản phẩm') || col === 'ten sp' || col === 'name');
     if (pIdx === -1) pIdx = 1;
     let vIdx = headers.findIndex(col => (col.includes('phân loại') || col.includes('variation')) && !col.includes('mã') && !col.includes('ma'));
@@ -179,61 +177,130 @@
     let gIdx = headers.findIndex(col => col === 'gian' || col === 'mã gian' || col === 'ma gian');
     if (gIdx === -1) gIdx = 11;
 
-    const getOverlap = (s1, s2) => {
-      if (!s1 || !s2) return 0;
-      const w1 = s1.split(' ');
-      const w2 = s2.split(' ');
-      let overlap = 0;
-      for (const w of w1) {
-        if (w2.includes(w)) overlap++;
+    // BƯỚC 1: LỌC MÃ GIAN HÀNG TRƯỚC TIÊN (Shop Code Filtering)
+    let candidateRows = [];
+    const targetGian = cleanString(currentMaGian);
+
+    if (targetGian) {
+      for (let i = 1; i < spRows.length; i++) {
+        const row = spRows[i];
+        const sG = cleanString(row[gIdx]);
+        if (sG === targetGian || sG.includes(targetGian) || targetGian.includes(sG)) {
+          candidateRows.push(row);
+        }
       }
-      return overlap;
+    }
+
+    // Nếu không lọc được theo gian hoặc chưa chọn gian, dùng toàn bộ dữ liệu
+    if (candidateRows.length === 0) {
+      candidateRows = spRows.slice(1);
+    }
+
+    // BƯỚC 2: TÌM SẢN PHẨM CHA (Parent Product Matching)
+    const getWordOverlap = (s1, s2) => {
+      if (!s1 || !s2) return 0;
+      const w1 = s1.split(' ').filter(w => w.length > 1);
+      const w2 = s2.split(' ').filter(w => w.length > 1);
+      let count = 0;
+      for (const w of w1) {
+        if (w2.includes(w)) count++;
+      }
+      return count;
     };
 
-    let bestMatchSku = "";
-    let bestScore = -1;
+    const extractCodes = (str) => {
+      const matches = str.match(/[a-z0-9]+[0-9]+[a-z0-9]*/gi) || [];
+      return matches.map(m => m.toLowerCase());
+    };
 
-    for (let i = 1; i < spRows.length; i++) {
-      const row = spRows[i];
-      const sV = cleanStr(row[vIdx]);
-      const sP = cleanStr(row[pIdx]);
-      const sG = cleanStr(row[gIdx]);
-      const sku = String(row[sIdx] || "").trim();
+    const pCodes = extractCodes(cleanP);
 
-      if (!sku) continue;
-
-      const gOk = !currentMaGian || (sG === currentMaGian);
-      if (!gOk) continue;
-
-      let score = 0;
-
-      // Rule 1: Variation Name
-      if (cleanV) {
-        if (sV === cleanV) score += 100;
-        else if (sV.includes(cleanV) || cleanV.includes(sV)) score += 50;
-        else continue; // Variation mismatch, skip
-      } else {
-        if (!sV || sV === "-") score += 50;
-        else score -= 50;
+    let bestParentScore = -1;
+    let bestParentRows = [];
+    
+    // Gom nhóm các dòng theo Tên sản phẩm cha trong sheet
+    const productGroups = new Map();
+    for (const row of candidateRows) {
+      const sP = cleanString(row[pIdx]);
+      if (!sP) continue;
+      if (!productGroups.has(sP)) {
+        productGroups.set(sP, []);
       }
+      productGroups.get(sP).push(row);
+    }
 
-      // Rule 2: Parent Name
-      if (cleanP && sP) {
-        if (sP === cleanP) score += 1000;
-        else if (sP.includes(cleanP) || cleanP.includes(sP)) score += 500;
-        else {
-          const overlap = getOverlap(cleanP, sP);
-          if (overlap > 0) score += overlap * 10;
-          else continue; // ZERO overlap in parent names = different product, SKIP
+    for (const [sheetParentName, rows] of productGroups.entries()) {
+      let pScore = 0;
+
+      if (sheetParentName === cleanP) {
+        pScore += 10000;
+      } else if (sheetParentName.startsWith(cleanP) || cleanP.startsWith(sheetParentName)) {
+        pScore += 5000;
+      } else if (sheetParentName.includes(cleanP) || cleanP.includes(sheetParentName)) {
+        pScore += 3000;
+      } else {
+        // Kiểm tra trùng mã model (ví dụ CIM382, SK-09, PA516...)
+        const sheetCodes = extractCodes(sheetParentName);
+        let codeMatch = false;
+        for (const c of pCodes) {
+          if (c.length >= 3 && sheetCodes.includes(c)) {
+            pScore += 2000;
+            codeMatch = true;
+          }
+        }
+
+        const overlap = getWordOverlap(cleanP, sheetParentName);
+        if (overlap >= 2 || codeMatch) {
+          pScore += overlap * 100;
         }
       }
 
-      if (score > bestScore) {
-        bestScore = score;
-        bestMatchSku = sku;
+      if (pScore > bestParentScore && pScore > 0) {
+        bestParentScore = pScore;
+        bestParentRows = rows;
       }
     }
-    return bestMatchSku;
+
+    if (bestParentRows.length === 0) {
+      bestParentRows = candidateRows;
+    }
+
+    // BƯỚC 3: TÌM PHÂN LOẠI CON TRONG ĐÚNG NHÓM SẢN PHẨM CHA ĐÃ KHỚP (Variation Matching)
+    let bestVarScore = -1;
+    let bestSku = "";
+
+    for (const row of bestParentRows) {
+      const sV = cleanString(row[vIdx]);
+      const sku = String(row[sIdx] || "").trim();
+      if (!sku) continue;
+
+      let vScore = 0;
+      if (cleanV) {
+        if (sV === cleanV) {
+          vScore += 1000;
+        } else if (sV.startsWith(cleanV) || cleanV.startsWith(sV)) {
+          vScore += 500;
+        } else if (sV.includes(cleanV) || cleanV.includes(sV)) {
+          vScore += 300;
+        } else {
+          const overlap = getWordOverlap(cleanV, sV);
+          if (overlap > 0) vScore += overlap * 50;
+        }
+      } else {
+        if (!sV || sV === "-") vScore += 100;
+      }
+
+      if (vScore > bestVarScore) {
+        bestVarScore = vScore;
+        bestSku = sku;
+      }
+    }
+
+    if (!bestSku && bestParentRows.length > 0) {
+      bestSku = String(bestParentRows[0][sIdx] || "").trim();
+    }
+
+    return bestSku;
   }
 
   async function getActiveTab() {
