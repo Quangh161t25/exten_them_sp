@@ -8351,22 +8351,28 @@ if (oldFlashBtn) oldFlashBtn.remove();
 
     function createSkuElement(sku, minPrice, rowContainer) {
         const skuDiv = document.createElement('div');
-        skuDiv.className = 'injected-sku-ct injected-sku-info';
-        skuDiv.style.cssText = 'margin-top: 5px; font-size: 11px; line-height: 1.3; display: block; clear: both; text-align: left; z-index: 10; position: relative; width: 100%;';
+        skuDiv.className = 'injected-sku-ct';
+        skuDiv.style.cssText = 'margin-top: 4px; font-size: 11px; line-height: 1.3; display: block !important; clear: both !important; text-align: left !important; z-index: 9999 !important; position: relative !important; width: 100% !important;';
         
         let priceHtml = '';
         const priceNumberStr = minPrice ? String(minPrice).replace(/[^\d]/g, '') : '';
         if (minPrice && priceNumberStr) {
             priceHtml = `
-            <div style="display: flex; align-items: center; gap: 4px; margin-top: 3px;">
+            <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
                 <span style="color:#dc2626; font-weight: bold; font-size: 10px;">Giá min: <b>${minPrice}</b></span>
                 <button type="button" class="btn-copy-price" data-min-price="${priceNumberStr}" style="background:#dc2626; color:white; border:none; border-radius:3px; padding:1px 5px; font-size:9px; cursor:pointer; font-weight: bold;">Điền</button>
             </div>`;
         }
         
+        let skuHtml = '';
+        if (sku && sku !== 'h161') {
+            skuHtml = `<div class="injected-sku-badge-text" style="display: inline-block; color: #1d4ed8; font-weight: 700; font-size: 11px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 3px; padding: 1px 6px; white-space: nowrap; margin-left: 4px;">SKU: <span>${sku}</span></div>`;
+        }
+        
         skuDiv.innerHTML = `
-        <div style="display: inline-block; color: #1d4ed8; font-weight: 700; font-size: 11px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 3px; padding: 2px 6px; white-space: nowrap;">
-            SKU: <span>${sku}</span>
+        <div class="badge-row" style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px;">
+            <span style="color: #dc2626; font-weight: 800; font-size: 11px; background: #fef08a; border: 1px solid #eab308; border-radius: 3px; padding: 1px 5px;">h161</span>
+            ${skuHtml}
         </div>
         ${priceHtml}`;
         
@@ -8377,7 +8383,7 @@ if (oldFlashBtn) oldFlashBtn.remove();
                 e.stopPropagation();
                 if (!priceNumberStr) return;
                 
-                const input = rowContainer.querySelector('input.eds-input__input, input.ant-input-number-input, input[type="text"], input[type="number"]') || findInputForRow(rowContainer);
+                const input = findInputForRow(rowContainer);
                 if (input) {
                     const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
                     nativeInputValueSetter.call(input, priceNumberStr);
@@ -8397,156 +8403,71 @@ if (oldFlashBtn) oldFlashBtn.remove();
         return skuDiv;
     }
 
-    function updateCopyButtonColor(rowContainer, injectedEl) {
-        const copyBtn = injectedEl.querySelector('.btn-copy-price');
-        if (!copyBtn) return;
-        const minPriceNum = parseInt(copyBtn.dataset.minPrice, 10);
-        const input = findInputForRow(rowContainer);
-        if (input && !isNaN(minPriceNum)) {
-            const currentInputVal = parseInt(input.value.replace(/[^\d]/g, ''), 10) || 0;
-            if (minPriceNum < currentInputVal) {
-                copyBtn.style.background = '#16a34a'; // Green
-                copyBtn.style.color = 'white';
-            } else if (minPriceNum === currentInputVal) {
-                copyBtn.style.background = '#94a3b8'; // Gray
-                copyBtn.style.color = 'white';
-            } else {
-                copyBtn.style.background = '#dc2626'; // Red
-                copyBtn.style.color = 'white';
-            }
-        }
-    }
-
-    function getProductNameForModelList(modelList) {
-        // Method 1: Look in previous siblings
-        let prev = modelList.previousElementSibling;
-        while (prev) {
-            const el = prev.querySelector('.ellipsis-content.single, .ellipsis-content, [class*="product-name"], [class*="item-title"]');
-            if (el) {
-                const txt = getElTitleOrText(el);
-                if (txt && txt.length > 3) return txt;
-            }
-            prev = prev.previousElementSibling;
-        }
-
-        // Method 2: Look in parent element (the product card/component)
-        let parent = modelList.parentElement;
-        while (parent && parent !== document.body) {
-            const allEllipsis = Array.from(parent.querySelectorAll('.ellipsis-content.single, .ellipsis-content, [class*="product-name"], [class*="item-title"]'));
-            const outside = allEllipsis.filter(el => !modelList.contains(el));
-            if (outside.length > 0) {
-                const txt = getElTitleOrText(outside[0]);
-                if (txt && txt.length > 3) return txt;
-            }
-            if (parent.querySelectorAll('.discount-edit-item-model-list').length > 1) {
-                break;
-            }
-            parent = parent.parentElement;
-        }
-        return '';
-    }
-
     async function renderDiscountSkuCt() {
-        const isDiscountPage = window.location.href.includes('banhang.shopee.vn/portal/marketing/discount') || 
-                               window.location.href.includes('/marketing/discount');
-        if (!isDiscountPage) return;
+        if (!window.location.href.includes('banhang.shopee.vn/portal/marketing/discount') &&
+            !window.location.href.includes('/marketing/discount')) return;
         
-        // Trigger fetch if not loaded yet
+        // Find all variation containers on page
+        const variations = Array.from(document.querySelectorAll('.item-variation, .item-content.item-variation, [class*="item-variation"]'));
+        if (!variations.length) return;
+        
+        // Trigger fetch if not loaded
         if (!discountSkuMappingCache && !isFetchingDiscountSkuMapping) {
             fetchDiscountMappings();
         }
         
         const priceMap = discountSkuMappingCache ? (discountSkuMappingCache.priceMap || {}) : {};
 
-        // 1. Scan all model components / item-variation on page
-        const modelComponents = Array.from(document.querySelectorAll('.discount-edit-item-model-component, .item-content.item-variation, .item-variation'));
-        
-        if (modelComponents.length > 0) {
-            modelComponents.forEach(comp => {
-                const itemVariation = comp.classList.contains('item-variation') ? comp : (comp.querySelector('.item-content.item-variation, .item-variation') || comp);
-                
-                const existingBadge = itemVariation.querySelector('.test-h161-badge');
-                
-                // Get variation name
-                const vNameEl = itemVariation.querySelector('.ellipsis-content.single, .ellipsis-content');
-                const vName = vNameEl ? getElTitleOrText(vNameEl) : '';
+        variations.forEach(v => {
+            const injected = v.querySelector('.injected-sku-ct');
+            
+            // 1. Get Variation Name from inside v
+            const vNameEl = v.querySelector('.ellipsis-content.single, .ellipsis-content');
+            const vName = vNameEl ? getElTitleOrText(vNameEl) : '';
+            
+            // 2. Get Product Name from ancestor
+            let pName = '';
+            let ancestor = v.parentElement;
+            while (ancestor && ancestor !== document.body) {
+                const pEl = ancestor.querySelector('.discount-item-product-name .ellipsis-content, .discount-item-product-name, [class*="product-name"] .ellipsis-content, [class*="product-name"], [class*="item-title"]');
+                if (pEl && !v.contains(pEl)) {
+                    pName = getElTitleOrText(pEl);
+                    if (pName) break;
+                }
+                const allEllipsis = Array.from(ancestor.querySelectorAll('.ellipsis-content.single, .ellipsis-content'));
+                const outside = allEllipsis.filter(el => !el.closest('.item-variation'));
+                if (outside.length > 0) {
+                    pName = getElTitleOrText(outside[0]);
+                    if (pName) break;
+                }
+                ancestor = ancestor.parentElement;
+            }
 
-                // Get product name
-                const modelList = comp.closest('.discount-edit-item-model-list');
-                const pName = modelList ? getProductNameForModelList(modelList) : '';
+            // 3. Find SKU
+            const sku = (pName && vName) ? findSkuInCache(pName, vName) : null;
+            const minPrice = sku ? (priceMap[cleanStr(sku)] || priceMap[sku] || null) : null;
 
-                // Look up SKU
-                const sku = (pName && vName) ? findSkuInCache(pName, vName) : null;
-                const minPrice = sku ? (priceMap[cleanStr(sku)] || priceMap[sku] || null) : null;
-
-                if (existingBadge) {
-                    // Update SKU if it just loaded
-                    if (sku && !existingBadge.querySelector('.injected-sku-badge-text')) {
-                        const badgeContainer = existingBadge.querySelector('.badge-row');
-                        if (badgeContainer) {
-                            badgeContainer.innerHTML = `
-                                <span style="color: #dc2626; font-weight: 800; font-size: 11px; background: #fef08a; border: 1px solid #eab308; border-radius: 3px; padding: 1px 5px;">h161</span>
-                                <div class="injected-sku-badge-text" style="display:inline-block; color:#1d4ed8; font-weight:700; font-size:11px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:3px; padding:1px 6px; margin-left:4px;">SKU: ${sku}</div>
-                            `;
-                        }
+            if (injected) {
+                // Update SKU badge if sheet just finished loading
+                if (sku && !injected.querySelector('.injected-sku-badge-text')) {
+                    const badgeRow = injected.querySelector('.badge-row');
+                    if (badgeRow) {
+                        badgeRow.innerHTML = `
+                            <span style="color: #dc2626; font-weight: 800; font-size: 11px; background: #fef08a; border: 1px solid #eab308; border-radius: 3px; padding: 1px 5px;">h161</span>
+                            <div class="injected-sku-badge-text" style="display: inline-block; color: #1d4ed8; font-weight: 700; font-size: 11px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 3px; padding: 1px 6px; white-space: nowrap; margin-left: 4px;">SKU: <span>${sku}</span></div>
+                        `;
                     }
-                    updateCopyButtonColor(comp, existingBadge);
-                    return;
                 }
+                updateCopyButtonColor(v, injected);
+                return;
+            }
 
-                // Create visible element with "h161"
-                let skuBadgeHtml = '';
-                if (sku) {
-                    skuBadgeHtml = `<div class="injected-sku-badge-text" style="display:inline-block; color:#1d4ed8; font-weight:700; font-size:11px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:3px; padding:1px 6px; margin-left:4px;">SKU: ${sku}</div>`;
-                }
-                
-                let priceHtml = '';
-                const priceNumberStr = minPrice ? String(minPrice).replace(/[^\d]/g, '') : '';
-                if (minPrice && priceNumberStr) {
-                    priceHtml = `
-                    <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
-                        <span style="color:#dc2626; font-weight: bold; font-size: 10px;">Giá min: <b>${minPrice}</b></span>
-                        <button type="button" class="btn-copy-price" data-min-price="${priceNumberStr}" style="background:#dc2626; color:white; border:none; border-radius:3px; padding:1px 5px; font-size:9px; cursor:pointer; font-weight: bold;">Điền</button>
-                    </div>`;
-                }
-
-                const testDiv = document.createElement('div');
-                testDiv.className = 'injected-sku-ct injected-sku-info test-h161-badge';
-                testDiv.style.cssText = 'margin-top: 4px; margin-bottom: 2px; font-size: 11px; line-height: 1.3; display: block; clear: both; text-align: left; z-index: 99; position: relative;';
-                testDiv.innerHTML = `
-                <div class="badge-row" style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px;">
-                    <span style="color: #dc2626; font-weight: 800; font-size: 11px; background: #fef08a; border: 1px solid #eab308; border-radius: 3px; padding: 1px 5px;">h161</span>
-                    ${skuBadgeHtml}
-                </div>
-                ${priceHtml}`;
-
-                const copyBtn = testDiv.querySelector('.btn-copy-price');
-                if (copyBtn) {
-                    copyBtn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (!priceNumberStr) return;
-                        
-                        const input = comp.querySelector('input.eds-input__input, input.ant-input-number-input, input[type="text"], input[type="number"]') || findInputForRow(comp);
-                        if (input) {
-                            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-                            nativeInputValueSetter.call(input, priceNumberStr);
-                            input.dispatchEvent(new Event('input', { bubbles: true }));
-                            input.dispatchEvent(new Event('change', { bubbles: true }));
-                            
-                            copyBtn.innerText = 'Đã điền!';
-                            setTimeout(() => {
-                                copyBtn.innerText = 'Điền';
-                            }, 1500);
-                        } else {
-                            alert('Không tìm thấy ô nhập giá.');
-                        }
-                    });
-                }
-
-                itemVariation.appendChild(testDiv);
-            });
-        }
+            v.style.setProperty('overflow', 'visible', 'important');
+            v.style.setProperty('height', 'auto', 'important');
+            
+            const skuDiv = createSkuElement(sku, minPrice, v);
+            v.appendChild(skuDiv);
+        });
     }
 
     async function renderFlashSaleSkuCt() {
