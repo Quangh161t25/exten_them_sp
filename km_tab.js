@@ -511,10 +511,11 @@
 
   async function matchSkuFromSheetAndInject(items, tabId) {
     try {
-      const storage = await new Promise(resolve => chrome.storage.local.get(["maGian", "dhHoanTextValue", "sp_shopee_cache_data"], resolve));
+      const storage = await new Promise(resolve => chrome.storage.local.get(["maGian", "dhHoanTextValue", "sp_shopee_cache_data", "ds_sp_cache_data"], resolve));
       const currentMaGian = (storage.maGian || storage.dhHoanTextValue || "").trim().toLowerCase();
 
       let spRows = storage.sp_shopee_cache_data;
+      let dsRows = storage.ds_sp_cache_data;
 
       // If cache is empty, fetch fresh from Google Sheets
       if (!spRows || !Array.isArray(spRows) || spRows.length === 0) {
@@ -527,10 +528,46 @@
         }
       }
 
+      if (!dsRows || !Array.isArray(dsRows) || dsRows.length === 0) {
+        const resDs = await new Promise(resolve => {
+          chrome.runtime.sendMessage({ type: "FETCH_DS_SP" }, resolve);
+        });
+        if (resDs && resDs.ok && resDs.values) {
+          dsRows = resDs.values;
+          chrome.storage.local.set({ ds_sp_cache_data: dsRows });
+        }
+      }
+
+      // Identify column indices in DS_SP
+      let dsGiaThapNhatIdx = -1;
+      let dsIdSpIdx = 1; // Default to Column B
+      if (dsRows && dsRows.length > 0) {
+        const dsHeaders = dsRows[0].map(h => cleanString(h));
+        // id_sp is usually index 1
+        const idCol = dsHeaders.findIndex(h => h.includes("id_sp") || h.includes("id sp"));
+        if (idCol !== -1) dsIdSpIdx = idCol;
+        
+        // gia_thap_nhat
+        dsGiaThapNhatIdx = dsHeaders.findIndex(h => h.includes("thap nhat") || h === "giathapnhat" || h.includes("gia thap nhat"));
+      }
+
       if (spRows && spRows.length > 0) {
         items.forEach(item => {
           if (!item.isParent && !item.sku) {
             item.sku = findSkuForShopeeVariation(item.name, item.variationName, spRows, currentMaGian);
+          }
+          // Match gia_thap_nhat based on 4-char prefix of SKU
+          if (!item.isParent && item.sku && dsRows && dsRows.length > 1 && dsGiaThapNhatIdx !== -1) {
+            const skuPrefix = String(item.sku).substring(0, 4).toUpperCase();
+            const matchRow = dsRows.find((r, idx) => idx > 0 && String(r[dsIdSpIdx] || "").trim().toUpperCase() === skuPrefix);
+            if (matchRow) {
+              // Extract numeric value from text
+              const rawVal = matchRow[dsGiaThapNhatIdx];
+              if (rawVal) {
+                const numericMatch = String(rawVal).replace(/[^\d]/g, '');
+                if (numericMatch) item.lowestPrice = numericMatch;
+              }
+            }
           }
         });
 
@@ -714,6 +751,7 @@
 
       const formattedOrigPrice = row.originalPrice ? Number(row.originalPrice).toLocaleString('vi-VN') + ' đ' : '-';
       const formattedDiscPrice = row.discountPrice ? `<b style="color: #dc2626; font-size: 12px;">${Number(row.discountPrice).toLocaleString('vi-VN')} đ</b>` : '-';
+      const formattedMinPrice = row.lowestPrice ? `<b style="color: #059669; font-size: 12px;">${Number(row.lowestPrice).toLocaleString('vi-VN')} đ</b>` : '-';
       const formattedSku = row.sku ? `<b style="color: #0284c7;">${escapeHtml(row.sku)}</b>` : '<span style="color: #cbd5e1;">-</span>';
 
       html += `
@@ -733,6 +771,9 @@
           </td>
           <td style="padding: 6px; text-align: right;">
             ${formattedDiscPrice}
+          </td>
+          <td style="padding: 6px; text-align: right; background-color: #ecfdf5;">
+            ${formattedMinPrice}
           </td>
           <td style="padding: 6px; text-align: center; color: #334155; font-weight: 500;">
             ${row.stock || '-'}
@@ -775,7 +816,7 @@
       return;
     }
 
-    const headers = ["STT", "Tên sản phẩm", "Phân loại hàng", "SKU / SKU_CT", "Giá gốc", "Giá khuyến mãi", "Tồn kho"];
+    const headers = ["STT", "Tên sản phẩm", "Phân loại hàng", "SKU / SKU_CT", "Giá gốc", "Giá khuyến mãi", "Giá thấp nhất", "Tồn kho"];
     const lines = [headers.join("\t")];
 
     let stt = 1;
@@ -787,6 +828,7 @@
         (row.sku || "").replace(/[\t\n\r]/g, " "),
         row.originalPrice || "",
         row.discountPrice || "",
+        row.lowestPrice || "",
         row.stock || ""
       ].join("\t"));
     });
