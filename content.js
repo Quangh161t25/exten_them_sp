@@ -10755,9 +10755,17 @@ async function extractProductDataAndSave() {
         const pEl = parentCard.querySelector('a[href*="/portal/product/"]');
         if (pEl) parentName = (pEl.getAttribute('title') || pEl.innerText || "").replace(/\s+/g,' ').trim();
         if (!parentName) {
-          const hEl = parentCard.querySelector('.discount-view-item-header .ellipsis-content.single, .item-header .ellipsis-content');
-          if (hEl) parentName = (hEl.innerText || "").replace(/\s+/g,' ').trim();
-        }
+            const titleCandidates = Array.from(parentCard.querySelectorAll('.discount-view-item-header .ellipsis-content.single, .discount-edit-item-header .ellipsis-content.single, .item-header .ellipsis-content, .ellipsis-content.single'));
+            for (const hEl of titleCandidates) {
+              if (!hEl.closest('.discount-view-item-model-component, .discount-edit-item-model-component, .discount-item-model-component')) {
+                const text = (hEl.getAttribute('title') || hEl.innerText || "").replace(/\s+/g, ' ').trim();
+                if (text && text.toLowerCase() !== "sản phẩm" && text.toLowerCase() !== "product" && text !== varName) {
+                  parentName = text;
+                  break;
+                }
+              }
+            }
+          }
       }
 
       const sku = findSkuForShopeeVariation(parentName, varName, autoShopeeSpCache, autoShopeeMaGian);

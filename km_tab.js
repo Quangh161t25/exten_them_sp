@@ -277,8 +277,8 @@
                   const t = (linkEl.getAttribute('title') || linkEl.innerText || "").replace(/\s+/g,' ').trim();
                   if (t && t.length > 1) return t;
                 }
-                // Cách 2: ellipsis-content trong phần header (loại trừ model rows)
-                const headerArea = card.querySelector('.discount-view-item-header, .item-header, .item-info');
+                // Cách 2: ellipsis-content trong phần header
+                const headerArea = card.querySelector('.discount-view-item-header, .discount-edit-item-header, .item-header, .item-info');
                 if (headerArea) {
                   const ec = headerArea.querySelector('.ellipsis-content');
                   if (ec) {
@@ -289,15 +289,24 @@
                   }
                   // innerText của toàn header (bỏ model rows)
                   const headerClone = headerArea.cloneNode(true);
-                  headerClone.querySelectorAll('.discount-view-item-model-component,.discount-item-model-component,.eds-popper,.ext-km-injected-sku').forEach(x=>x.remove());
+                  headerClone.querySelectorAll('.discount-view-item-model-component,.discount-edit-item-model-component,.discount-item-model-component,.eds-popper,.ext-km-injected-sku').forEach(x=>x.remove());
                   const t2 = (headerClone.innerText || "").replace(/\s+/g,' ').trim();
                   if (t2 && t2.length > 1) return t2;
                 }
-                // Cách 3: title attribute bất kỳ
+                // Cách 3: fallback lấy ellipsis-content đầu tiên không thuộc variation
+                const allEllipsis = Array.from(card.querySelectorAll('.ellipsis-content.single, .ellipsis-content'));
+                for (const el of allEllipsis) {
+                  // Đảm bảo không nằm trong dòng model
+                  if (!el.closest('.discount-view-item-model-component, .discount-edit-item-model-component, .discount-item-model-component')) {
+                    const t = (el.getAttribute('title') || el.innerText || "").replace(/\s+/g,' ').trim();
+                    if (t && t.toLowerCase() !== "sản phẩm" && t.length > 1) return t;
+                  }
+                }
+                // Cách 4: title attribute bất kỳ
                 const titleEl = card.querySelector('[title]:not(.ext-km-injected-sku)');
                 if (titleEl) {
                   const t = titleEl.getAttribute('title').trim();
-                  if (t && t.length > 1) return t;
+                  if (t && t.toLowerCase() !== "sản phẩm" && t.length > 1) return t;
                 }
                 return "";
               };
@@ -660,8 +669,14 @@
               if (pEl) {
                 cleanParent = cleanString(pEl.getAttribute('title') || pEl.innerText || "");
               } else {
-                const hEl = parentBlock.querySelector('.discount-view-item-header .ellipsis-content.single, .item-header .ellipsis-content');
-                if (hEl) cleanParent = cleanString(hEl.innerText || "");
+                const titleCandidates = Array.from(parentBlock.querySelectorAll('.discount-view-item-header .ellipsis-content.single, .item-header .ellipsis-content, .ellipsis-content.single'));
+                for (const hEl of titleCandidates) {
+                  const text = (hEl.getAttribute('title') || hEl.innerText || "").replace(/\s+/g, ' ').trim();
+                  if (text && text.toLowerCase() !== "sản phẩm" && text.toLowerCase() !== "product" && text !== cleanVar) {
+                    cleanParent = cleanString(text);
+                    break;
+                  }
+                }
               }
             }
 
