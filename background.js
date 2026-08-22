@@ -522,14 +522,17 @@ async function uploadImageToFreeImageHost(imageUrl) {
 
             // Chuyển toàn bộ các giá trị thành số DƯƠNG theo yêu cầu người dùng
             const tienSpVal = Math.abs(Number(item.tienSanPham) || 0);
+            const maGiamGiaVal = 0;
             const phiVcVal = Math.abs(Number(item.phiVanChuyen) || 0);
             const phuPhiVal = Math.abs(Number(item.phuPhi) || 0);
             const thueVal = Math.abs(Number(item.thue) || 0);
-            const doanhThuVal = Math.abs(Number(item.amount || item.doanhThu) || 0);
+
+            // Công thức Doanh Thu: doanh_thu = tong_tien - ma_giam_gia - phi_vc - phu_phi - thue
+            const doanhThuVal = tienSpVal - maGiamGiaVal - phiVcVal - phuPhiVal - thueVal;
 
             // Tính lại lợi nhuận: doanh_thu - phi_khac - tien_sp
-            const phiKhacVal = Number(String(row[phiKhacIdx] || "").replace(/[^0-9-]/g, "")) || 0;
-            const tienSpGoc = Number(String(row[tienSpIdx] || "").replace(/[^0-9-]/g, "")) || 0;
+            const phiKhacVal = Math.abs(Number(String(row[phiKhacIdx] || "").replace(/[^0-9-]/g, "")) || 0);
+            const tienSpGoc = Math.abs(Number(String(row[tienSpIdx] || "").replace(/[^0-9-]/g, "")) || 0);
             const loiNhuanVal = doanhThuVal - phiKhacVal - tienSpGoc;
 
             // Cập nhật dải F -> N (hoặc F -> K)

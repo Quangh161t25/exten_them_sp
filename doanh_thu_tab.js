@@ -370,7 +370,12 @@
               }
             });
 
-            if (orderId || rawAmount || doanhThu) {
+            // Công thức Doanh Thu: tong_tien - ma_giam_gia (0) - phi_vc - phu_phi - thue
+            const calculatedDoanhThu = (tienSanPham > 0 || phuPhi > 0 || thue > 0)
+              ? (tienSanPham - phiVanChuyen - phuPhi - thue)
+              : doanhThu;
+
+            if (orderId || rawAmount || calculatedDoanhThu) {
               extractedRows.push({
                 orderId,
                 buyer,
@@ -380,12 +385,12 @@
                 status: statusStr,
                 paymentMethod: methodStr,
                 rawAmount,
-                amount: doanhThu,
+                amount: calculatedDoanhThu,
                 tienSanPham,
                 phiVanChuyen,
                 phuPhi,
                 thue,
-                doanhThu
+                doanhThu: calculatedDoanhThu
               });
             }
           }
