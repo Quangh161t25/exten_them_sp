@@ -288,7 +288,7 @@ style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); bo
     </thead>
     <tbody id="api-img-tbody">
       <tr>
-        <td colspan="10" style="text-align: center; padding: 15px; color: #94a3b8;">Chưa có ảnh nào được tải lên trong phiên này.</td>
+        <td colspan="11" style="text-align: center; padding: 15px; color: #94a3b8;">Chưa có ảnh nào được tải lên trong phiên này.</td>
       </tr>
     </tbody>
   </table>
@@ -884,8 +884,9 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
     <!-- Toolbar buttons -->
     <div style="display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;">
       <button id="btn-dt-read" type="button" class="primary-action" style="flex: 2; min-width: 130px; background-color: #ee4d2d; color: white; font-weight: bold; padding: 8px 6px; font-size: 11px;">⚡ Đọc Doanh Thu Shopee</button>
-      <button id="btn-dt-copy-tsv" type="button" class="ghost" style="flex: 1; min-width: 70px; padding: 8px 4px; font-size: 11px; border: 1px solid #cbd5e1; background: #f8fafc; color: #1e293b; font-weight: bold;">📋 Copy TSV</button>
-      <button id="btn-dt-export-excel" type="button" class="ghost" style="flex: 1; min-width: 70px; padding: 8px 4px; font-size: 11px; border: 1px solid #cbd5e1; background: #f8fafc; color: #15803d; font-weight: bold;">📊 Xuất Excel</button>
+      <button id="btn-dt-sync-all-dh" type="button" class="primary-action" style="flex: 2; min-width: 140px; background-color: #059669; color: white; font-weight: bold; padding: 8px 6px; font-size: 11px;">☁️ Cập Nhật Tất Cả Lên Sheet ĐH</button>
+      <button id="btn-dt-copy-tsv" type="button" class="ghost" style="flex: 1; min-width: 65px; padding: 8px 4px; font-size: 11px; border: 1px solid #cbd5e1; background: #f8fafc; color: #1e293b; font-weight: bold;">📋 Copy TSV</button>
+      <button id="btn-dt-export-excel" type="button" class="ghost" style="flex: 1; min-width: 65px; padding: 8px 4px; font-size: 11px; border: 1px solid #cbd5e1; background: #f8fafc; color: #15803d; font-weight: bold;">📊 Xuất Excel</button>
       <button id="btn-dt-clear" type="button" class="ghost" style="flex: 0 0 auto; padding: 8px 8px; font-size: 11px; border: 1px solid #fecaca; background: #fff5f5; color: #dc2626; font-weight: bold;" title="Xóa dữ liệu đã đọc">🗑️</button>
     </div>
 
@@ -905,16 +906,17 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
       <table id="table-doanh-thu" style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
         <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 2; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
           <tr>
-            <th style="padding: 8px 4px; border-bottom: 1px solid #cbd5e1; width: 24px; text-align: center; color: #475569;">#</th>
-            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; color: #475569; width: 16%;">Đơn hàng</th>
-            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; color: #0284c7; width: 12%;">Link đơn</th>
-            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; color: #475569; width: 10%;">Ngày chuyển</th>
-            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #1e293b; width: 11%;">Tiền SP</th>
-            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #1e293b; width: 9%;">Phí VC</th>
-            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #dc2626; width: 10%;">Phụ phí</th>
-            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #dc2626; width: 9%;">Thuế</th>
-            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #059669; width: 13%;">Doanh thu</th>
-            <th style="padding: 8px 6px; border-bottom: 1px solid #cbd5e1; color: #475569; width: 10%;">Trạng thái</th>
+            <th style="padding: 8px 4px; border-bottom: 1px solid #cbd5e1; width: 22px; text-align: center; color: #475569;">#</th>
+            <th style="padding: 8px 4px; border-bottom: 1px solid #cbd5e1; color: #475569; width: 15%;">Đơn hàng</th>
+            <th style="padding: 8px 4px; border-bottom: 1px solid #cbd5e1; color: #0284c7; width: 11%;">Link đơn</th>
+            <th style="padding: 8px 4px; border-bottom: 1px solid #cbd5e1; color: #475569; width: 9%;">Ngày chuyển</th>
+            <th style="padding: 8px 4px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #1e293b; width: 10%;">Tiền SP</th>
+            <th style="padding: 8px 4px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #1e293b; width: 8%;">Phí VC</th>
+            <th style="padding: 8px 4px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #dc2626; width: 9%;">Phụ phí</th>
+            <th style="padding: 8px 4px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #dc2626; width: 8%;">Thuế</th>
+            <th style="padding: 8px 4px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #059669; width: 11%;">Doanh thu</th>
+            <th style="padding: 8px 4px; border-bottom: 1px solid #cbd5e1; text-align: center; color: #059669; width: 11%;">Cập nhật ĐH</th>
+            <th style="padding: 8px 4px; border-bottom: 1px solid #cbd5e1; color: #475569; width: 8%;">Trạng thái</th>
           </tr>
         </thead>
         <tbody id="dt-tbody">

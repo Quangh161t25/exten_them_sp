@@ -420,6 +420,180 @@ async function uploadImageToFreeImageHost(imageUrl) {
     return true;
   }
 
+
+  if (message?.type === "UPDATE_DH_INCOME_FINANCIALS") {
+    Promise.all([getGoogleAccessToken(), getSpreadsheetId()]).then(async ([token, sheetId]) => {
+      try {
+        const targetSheetName = "DH";
+        await ensureSheetExists(targetSheetName, token);
+        const items = message.items || [];
+        if (!items.length) throw new Error("Không có dữ liệu đơn hàng để cập nhật.");
+
+        const currentMaGian = String(message.maGian || "").trim().toLowerCase();
+
+        // 1. Đọc Header và các cột từ A đến U của sheet DH
+        const { res: readRes, data: readData } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(targetSheetName + "!A:U")}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!readRes.ok) throw new Error(readData.error?.message || "Không đọc được sheet DH.");
+        const rows = readData.values || [];
+        if (rows.length <= 1) throw new Error("Sheet DH chưa có dữ liệu đơn hàng.");
+
+        const headers = rows[0].map(h => String(h || "").trim().toLowerCase());
+        
+        // Vị trí các cột trong sheet DH
+        // Cột A (0): gian
+        // Cột D (3): mdh
+        // Cột F (5): tong_tien (Tiền SP)
+        // Cột G (6): ma_giam_gia (0)
+        // Cột H (7): phi_vc (Phí VC)
+        // Cột I (8): phu_phi (Phụ phí)
+        // Cột J (9): thue (Thuế)
+        // Cột K (10): doanh_thu (Doanh thu)
+        // Cột L (11): phi_khac
+        // Cột M (12): tien_sp
+        // Cột N (13): loi_nhuan
+        let gianIdx = 0;
+        let mdhIdx = 3;
+        
+        let tongTienIdx = headers.findIndex(h => h === "tong_tien" || h === "tong tien" || h === "tổng tiền" || h.includes("tong_tien"));
+        if (tongTienIdx === -1) tongTienIdx = 5;
+
+        let maGiamGiaIdx = headers.findIndex(h => h === "ma_giam_gia" || h === "mã giảm giá" || h.includes("ma_giam_gia"));
+        if (maGiamGiaIdx === -1) maGiamGiaIdx = 6;
+
+        let phiVcIdx = headers.findIndex(h => h === "phi_vc" || h === "phí vc" || h === "phí vận chuyển" || h.includes("phi_vc"));
+        if (phiVcIdx === -1) phiVcIdx = 7;
+
+        let phuPhiIdx = headers.findIndex(h => h === "phu_phi" || h === "phụ phí" || h.includes("phu_phi"));
+        if (phuPhiIdx === -1) phuPhiIdx = 8;
+
+        let thueIdx = headers.findIndex(h => h === "thue" || h === "thuế" || h.includes("thue"));
+        if (thueIdx === -1) thueIdx = 9;
+
+        let doanhThuIdx = headers.findIndex(h => h === "doanh_thu" || h === "doanh thu" || h.includes("doanh_thu"));
+        if (doanhThuIdx === -1) doanhThuIdx = 10;
+
+        let phiKhacIdx = headers.findIndex(h => h === "phi_khac" || h === "phí khác" || h.includes("phi_khac"));
+        if (phiKhacIdx === -1) phiKhacIdx = 11;
+
+        let tienSpIdx = headers.findIndex(h => h === "tien_sp" || h === "tiền sp" || h.includes("tien_sp"));
+        if (tienSpIdx === -1) tienSpIdx = 12;
+
+        let loiNhuanIdx = headers.findIndex(h => h === "loi_nhuan" || h === "lợi nhuận" || h.includes("loi_nhuan"));
+        if (loiNhuanIdx === -1) loiNhuanIdx = 13;
+
+        const getColLetter = (colIndex) => {
+          let temp, letter = '';
+          while (colIndex >= 0) {
+            temp = colIndex % 26;
+            letter = String.fromCharCode(temp + 65) + letter;
+            colIndex = (colIndex - temp) / 26 - 1;
+          }
+          return letter;
+        };
+
+        const updateData = [];
+        let matchedCount = 0;
+        const matchedRowNumbers = [];
+        const matchedOrders = new Set();
+
+        const itemMap = new Map();
+        items.forEach(item => {
+          if (item.orderId) {
+            itemMap.set(item.orderId.trim().toLowerCase(), item);
+          }
+        });
+
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          const rowGian = String(row[gianIdx] || "").trim().toLowerCase();
+          const rowMdh = String(row[mdhIdx] || "").trim().toLowerCase();
+          const rowNum = i + 1;
+
+          // So sánh mã gian và mã đơn hàng (Cột D)
+          const isGianMatch = !currentMaGian || (rowGian === currentMaGian);
+          if (isGianMatch && itemMap.has(rowMdh)) {
+            const item = itemMap.get(rowMdh);
+            matchedCount++;
+            matchedRowNumbers.push(rowNum);
+            matchedOrders.add(rowMdh);
+
+            const tienSpVal = Number(item.tienSanPham) || 0;
+            const phiVcVal = Number(item.phiVanChuyen) || 0;
+            const phuPhiVal = Number(item.phuPhi) || 0;
+            const thueVal = Number(item.thue) || 0;
+            const doanhThuVal = Number(item.amount || item.doanhThu) || 0;
+
+            // Tính lại lợi nhuận: doanh_thu - phi_khac - tien_sp
+            const phiKhacVal = Number(String(row[phiKhacIdx] || "").replace(/[^0-9-]/g, "")) || 0;
+            const tienSpGoc = Number(String(row[tienSpIdx] || "").replace(/[^0-9-]/g, "")) || 0;
+            const loiNhuanVal = doanhThuVal - phiKhacVal - tienSpGoc;
+
+            // Cập nhật dải F -> N (hoặc F -> K)
+            // F: tong_tien, G: ma_giam_gia, H: phi_vc, I: phu_phi, J: thue, K: doanh_thu, L: phi_khac, M: tien_sp, N: loi_nhuan
+            const startCol = tongTienIdx;
+            const endCol = Math.max(doanhThuIdx, loiNhuanIdx);
+
+            const rowValues = [];
+            for (let c = startCol; c <= endCol; c++) {
+              if (c === tongTienIdx) rowValues.push(tienSpVal);
+              else if (c === maGiamGiaIdx) rowValues.push(0);
+              else if (c === phiVcIdx) rowValues.push(phiVcVal);
+              else if (c === phuPhiIdx) rowValues.push(phuPhiVal);
+              else if (c === thueIdx) rowValues.push(thueVal);
+              else if (c === doanhThuIdx) rowValues.push(doanhThuVal);
+              else if (c === loiNhuanIdx) rowValues.push(loiNhuanVal);
+              else rowValues.push(row[c] !== undefined ? row[c] : "");
+            }
+
+            updateData.push({
+              range: `${targetSheetName}!${getColLetter(startCol)}${rowNum}:${getColLetter(endCol)}${rowNum}`,
+              values: [rowValues]
+            });
+          }
+        }
+
+        if (updateData.length === 0) {
+          sendResponse({
+            ok: false,
+            message: `Không tìm thấy mã đơn hàng nào khớp trong Sheet DH (Mã gian: "${currentMaGian || 'Tất cả'}").`
+          });
+          return;
+        }
+
+        // Thực hiện batchUpdate
+        const { res: batchRes, data: batchResult } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            valueInputOption: "USER_ENTERED",
+            data: updateData
+          })
+        });
+
+        if (!batchRes.ok) {
+          throw new Error(batchResult.error?.message || "Không thể cập nhật sheet DH.");
+        }
+
+        sendResponse({
+          ok: true,
+          matchedCount,
+          matchedOrders: Array.from(matchedOrders),
+          rowNums: matchedRowNumbers,
+          message: `Đã cập nhật thành công ${matchedCount} dòng (${matchedOrders.size} đơn hàng) trong Sheet DH!`
+        });
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message });
+      }
+    }).catch(err => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
   if (message?.type === "CHECK_DH_ORDER_EXISTS") {
     Promise.all([getGoogleAccessToken(), getSpreadsheetId()]).then(async ([token, sheetId]) => {
       try {
