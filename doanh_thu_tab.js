@@ -160,10 +160,25 @@
             console.warn("Could not change page size to 50:", e);
           }
 
-          // 2. CLICK CHÍNH XÁC VÀO THẺ SỐ TIỀN (.transaction-amount) ĐỂ MỞ RỘNG
-          const triggerClickAmount = (el) => {
+          // 2. KÍCH HOẠT MỞ RỘNG BẰNG CLICK CHÂN THỰC TRÊN TỪNG DÒNG
+          const simulateHumanClick = (el) => {
             if (!el || el.tagName === 'A' || el.closest('a')) return;
-            const opts = { bubbles: true, cancelable: true, view: window };
+            const rect = el.getBoundingClientRect();
+            const clientX = rect.left + rect.width / 2;
+            const clientY = rect.top + rect.height / 2;
+
+            const opts = {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+              clientX: clientX,
+              clientY: clientY,
+              screenX: clientX,
+              screenY: clientY,
+              button: 0,
+              buttons: 1
+            };
+
             el.dispatchEvent(new PointerEvent('pointerdown', opts));
             el.dispatchEvent(new MouseEvent('mousedown', opts));
             el.dispatchEvent(new PointerEvent('pointerup', opts));
@@ -173,15 +188,21 @@
           };
 
           try {
-            const amountEls = Array.from(document.querySelectorAll('.grid-table-body .transaction-amount, .transaction-table .transaction-amount, [class*="transaction-amount"]'));
-            amountEls.forEach(amountDiv => {
-              triggerClickAmount(amountDiv);
+            const rows = Array.from(document.querySelectorAll('.grid-table-body .grid-table-row, .transaction-table .grid-table-row, .grid-table-row'));
+            rows.forEach(r => {
+              const amountDiv = r.querySelector('.transaction-amount') || r.querySelector('.transaction-amount-wrapper') || r;
+              const icon = r.querySelector('i.eds-icon, i');
+              const svg = r.querySelector('svg');
+              const wrapper = r.querySelector('.transaction-amount-wrapper');
+              const popoverRef = wrapper?.closest('.eds-popover__ref') || wrapper?.parentElement;
+
+              [amountDiv, icon, svg, wrapper, popoverRef].filter(Boolean).forEach(t => simulateHumanClick(t));
             });
 
             // Chờ 800ms để toàn bộ các chi tiết đơn hàng mở rộng và render xong vào DOM
             await new Promise(r => setTimeout(r, 800));
           } catch (e) {
-            console.warn("Lỗi khi mở rộng số tiền:", e);
+            console.warn("Lỗi khi mở rộng dòng:", e);
           }
 
           // 3. Quét tất cả các dòng giao dịch trong bảng

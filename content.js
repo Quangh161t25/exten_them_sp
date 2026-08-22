@@ -6711,70 +6711,140 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
 
+
   // =========================================================================
-  // AUTO-INJECT EXPAND & SCRAPE BUTTON ON SHOPEE FINANCE PAGE
+  // NÂNG CẤP BẤM MỞ RỘNG ĐƠN TRÊN TRANG SHOPEE FINANCE
   // =========================================================================
-  function injectFinanceExpandButton() {
-    if (!window.location.href.includes('/portal/finance/income')) return;
-    if (document.getElementById('ext-btn-expand-all-finance')) return;
+  function simulateHumanClick(el) {
+    if (!el) return;
+    if (el.tagName === 'A' || el.closest('a')) return; // Chặn tuyệt đối không bấm link
 
-    // Tìm header hoặc thanh công cụ trên Shopee Finance
-    const toolbar = document.querySelector('.income-header, .portal-header, .grid-table-header, .cursor-pagination') || document.body;
-    if (!toolbar) return;
+    const rect = el.getBoundingClientRect();
+    const clientX = rect.left + rect.width / 2;
+    const clientY = rect.top + rect.height / 2;
 
-    const btn = document.createElement('button');
-    btn.id = 'ext-btn-expand-all-finance';
-    btn.type = 'button';
-    btn.innerHTML = '⚡ Mở Rộng 50 Đơn Hàng';
-    btn.title = 'Bấm để tự động mở rộng toàn bộ 50 đơn hàng trên trang này';
-    btn.style.cssText = 'position: fixed !important; bottom: 20px !important; right: 20px !important; z-index: 999999 !important; background: #ee4d2d !important; color: #ffffff !important; border: 2px solid #ffffff !important; border-radius: 20px !important; padding: 10px 18px !important; font-size: 13px !important; font-weight: bold !important; cursor: pointer !important; box-shadow: 0 4px 14px rgba(238, 77, 45, 0.4) !important; font-family: Arial, sans-serif !important; display: flex !important; align-items: center !important; gap: 6px !important;';
-
-    btn.onclick = async (e) => {
-      e.preventDefault(); e.stopPropagation();
-      btn.innerHTML = '⏳ Đang mở rộng...';
-      btn.style.background = '#0284c7';
-
-      // 1. Chuyển sang 50 / page nếu cần
-      try {
-        const sizeSpan = document.querySelector('.eds-pagination-sizes__content');
-        if (sizeSpan && !sizeSpan.innerText.includes('50')) {
-          sizeSpan.click();
-          await new Promise(r => setTimeout(r, 400));
-          const items = Array.from(document.querySelectorAll('.eds-dropdown-item, .eds-dropdown-menu li'));
-          const item50 = items.find(el => el.innerText.trim() === '50' || el.textContent.trim() === '50');
-          if (item50) {
-            item50.click();
-            await new Promise(r => setTimeout(r, 1200));
-          }
-        }
-      } catch (_) {}
-
-      // 2. Click CHÍNH XÁC vào thẻ div số tiền (.transaction-amount) để mở rộng dòng mà không bao giờ chạm vào link
-      const triggerClickAmount = (el) => {
-        if (!el || el.tagName === 'A' || el.closest('a')) return;
-        const opts = { bubbles: true, cancelable: true, view: window };
-        el.dispatchEvent(new PointerEvent('pointerdown', opts));
-        el.dispatchEvent(new MouseEvent('mousedown', opts));
-        el.dispatchEvent(new PointerEvent('pointerup', opts));
-        el.dispatchEvent(new MouseEvent('mouseup', opts));
-        el.dispatchEvent(new MouseEvent('click', opts));
-        if (typeof el.click === 'function' && el.tagName !== 'A') el.click();
-      };
-
-      const amountEls = Array.from(document.querySelectorAll('.grid-table-body .transaction-amount, .transaction-table .transaction-amount'));
-      amountEls.forEach(amountDiv => {
-        triggerClickAmount(amountDiv);
-      });
-
-      btn.innerHTML = '✓ Đã mở rộng 50 đơn!';
-      btn.style.background = '#16a34a';
-      setTimeout(() => {
-        btn.innerHTML = '⚡ Mở Rộng 50 Đơn Hàng';
-        btn.style.background = '#ee4d2d';
-      }, 3000);
+    const opts = {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX: clientX,
+      clientY: clientY,
+      screenX: clientX,
+      screenY: clientY,
+      button: 0,
+      buttons: 1
     };
 
-    document.body.appendChild(btn);
+    el.dispatchEvent(new PointerEvent('pointerdown', opts));
+    el.dispatchEvent(new MouseEvent('mousedown', opts));
+    el.dispatchEvent(new PointerEvent('pointerup', opts));
+    el.dispatchEvent(new MouseEvent('mouseup', opts));
+    el.dispatchEvent(new MouseEvent('click', opts));
+    if (typeof el.click === 'function' && el.tagName !== 'A') el.click();
+  }
+
+  function expandSingleIncomeRow(rowOrCell) {
+    if (!rowOrCell) return;
+    const amountDiv = rowOrCell.querySelector('.transaction-amount') || rowOrCell;
+    const wrapper = rowOrCell.querySelector('.transaction-amount-wrapper') || amountDiv.parentElement;
+    const icon = rowOrCell.querySelector('i.eds-icon, i') || wrapper?.querySelector('i');
+    const svg = rowOrCell.querySelector('svg') || wrapper?.querySelector('svg');
+    const popoverRef = wrapper?.closest('.eds-popover__ref') || wrapper?.parentElement;
+
+    // Kích hoạt click chân thực lên các phần tử mở rộng
+    [amountDiv, icon, svg, wrapper, popoverRef].filter(Boolean).forEach(target => {
+      simulateHumanClick(target);
+    });
+  }
+
+  function injectFinanceExpandButtons() {
+    if (!window.location.href.includes('/portal/finance/income')) return;
+
+    // 1. Nút nổi cố định ở góc dưới bên phải màn hình
+    if (!document.getElementById('ext-btn-expand-all-finance')) {
+      const floatBtn = document.createElement('button');
+      floatBtn.id = 'ext-btn-expand-all-finance';
+      floatBtn.type = 'button';
+      floatBtn.innerHTML = '⚡ Mở Rộng Tất Cả Đơn';
+      floatBtn.title = 'Bấm để tự động mở rộng toàn bộ các dòng đơn hàng trên trang này';
+      floatBtn.style.cssText = 'position: fixed !important; bottom: 20px !important; right: 20px !important; z-index: 999999 !important; background: #ee4d2d !important; color: #ffffff !important; border: 2px solid #ffffff !important; border-radius: 20px !important; padding: 10px 18px !important; font-size: 13px !important; font-weight: bold !important; cursor: pointer !important; box-shadow: 0 4px 14px rgba(238, 77, 45, 0.4) !important; font-family: Arial, sans-serif !important; display: flex !important; align-items: center !important; gap: 6px !important;';
+
+      floatBtn.onclick = async (e) => {
+        e.preventDefault(); e.stopPropagation();
+        floatBtn.innerHTML = '⏳ Đang mở rộng...';
+        floatBtn.style.background = '#0284c7';
+
+        // Tự động chuyển 50 đơn/trang nếu cần
+        try {
+          const sizeSpan = document.querySelector('.eds-pagination-sizes__content');
+          if (sizeSpan && !sizeSpan.innerText.includes('50')) {
+            sizeSpan.click();
+            await new Promise(r => setTimeout(r, 400));
+            const item50 = Array.from(document.querySelectorAll('.eds-dropdown-item, .eds-dropdown-menu li')).find(el => el.innerText.trim() === '50' || el.textContent.trim() === '50');
+            if (item50) {
+              item50.click();
+              await new Promise(r => setTimeout(r, 1200));
+            }
+          }
+        } catch (_) {}
+
+        // Mở rộng tất cả các dòng
+        const rows = Array.from(document.querySelectorAll('.grid-table-body .grid-table-row, .transaction-table .grid-table-row, .grid-table-row'));
+        rows.forEach(r => expandSingleIncomeRow(r));
+
+        floatBtn.innerHTML = '✓ Đã mở rộng ' + rows.length + ' đơn!';
+        floatBtn.style.background = '#16a34a';
+        setTimeout(() => {
+          floatBtn.innerHTML = '⚡ Mở Rộng Tất Cả Đơn';
+          floatBtn.style.background = '#ee4d2d';
+        }, 3000);
+      };
+
+      document.body.appendChild(floatBtn);
+    }
+
+    // 2. Thêm nút [⚡ Mở rộng] trực tiếp vào từng dòng cạnh số tiền
+    const rows = Array.from(document.querySelectorAll('.grid-table-body .grid-table-row, .transaction-table .grid-table-row'));
+    rows.forEach(r => {
+      const cells = Array.from(r.children);
+      if (cells.length < 5) return;
+      const amountCell = cells[4];
+      if (!amountCell || amountCell.querySelector('.ext-btn-row-expand')) return;
+
+      const wrapper = amountCell.querySelector('.transaction-amount-wrapper') || amountCell;
+      const rowBtn = document.createElement('button');
+      rowBtn.className = 'ext-btn-row-expand';
+      rowBtn.type = 'button';
+      rowBtn.innerHTML = '⚡ Mở rộng';
+      rowBtn.title = 'Bấm để mở rộng chi tiết đơn này';
+      rowBtn.style.cssText = 'background: #0284c7 !important; color: #ffffff !important; font-size: 10px !important; font-weight: bold !important; padding: 2px 6px !important; border-radius: 4px !important; border: none !important; cursor: pointer !important; margin-left: 6px !important; display: inline-block !important; vertical-align: middle !important;';
+
+      rowBtn.onclick = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        expandSingleIncomeRow(r);
+        rowBtn.innerHTML = '✓ Đã mở';
+        rowBtn.style.background = '#16a34a';
+      };
+
+      wrapper.appendChild(rowBtn);
+    });
+
+    // 3. Thêm nút trên thanh công cụ gần nút [Xuất]
+    const xuanBtn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim() === 'Xuất' || b.textContent.trim() === 'Xuất');
+    if (xuanBtn && !document.getElementById('ext-btn-toolbar-expand')) {
+      const topBtn = document.createElement('button');
+      topBtn.id = 'ext-btn-toolbar-expand';
+      topBtn.type = 'button';
+      topBtn.innerHTML = '⚡ Mở Rộng Tất Cả Đơn';
+      topBtn.style.cssText = 'background: #ee4d2d !important; color: #ffffff !important; font-weight: bold !important; padding: 5px 12px !important; border-radius: 4px !important; border: none !important; cursor: pointer !important; font-size: 12px !important; margin-left: 8px !important; display: inline-flex !important; align-items: center !important;';
+
+      topBtn.onclick = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        document.getElementById('ext-btn-expand-all-finance')?.click();
+      };
+
+      xuanBtn.parentElement.insertBefore(topBtn, xuanBtn.nextSibling);
+    }
   }
 
   async function renderOrderProfit() {
@@ -8305,7 +8375,7 @@ function downloadExcelFileBypass(wb, filename) {
   window.setTimeout(renderOrderProfit, 1200);
   window.setTimeout(renderOrderDetailProductEnhancements, 1000);
   window.setInterval(renderOrderDetailProductEnhancements, 1200);
-  window.setInterval(injectFinanceExpandButton, 1000);
+  window.setInterval(injectFinanceExpandButtons, 1000);
   window.setTimeout(renderReturnInfoCopyButtons, 1200);
   window.setInterval(renderProductListQuickActions, 1500);
   window.setInterval(renderOrderSnCopyButtons, 1500);
