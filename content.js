@@ -7169,14 +7169,22 @@ function downloadExcelFileBypass(wb, filename) {
 
 
   function extractReturnRowData(orderIdEl) {
-    const orderIdContentEl = orderIdEl.querySelector('.id-content');
-    const orderId = orderIdContentEl ? orderIdContentEl.textContent.trim() : "";
+    let orderId = "";
+    const orderIdContentEl = orderIdEl.querySelector(".id-content, a, span, b");
+    if (orderIdContentEl) {
+      const m = orderIdContentEl.textContent.match(/([0-9]{6}[A-Z0-9]{8,16})/i);
+      if (m) orderId = m[1].toUpperCase();
+    }
+    if (!orderId) {
+      const m = orderIdEl.textContent.match(/([0-9]{6}[A-Z0-9]{8,16})/i);
+      if (m) orderId = m[1].toUpperCase();
+    }
 
     let current = orderIdEl;
     let rowContainer = orderIdEl;
     while(current && current.parentElement && current.parentElement !== document.body) {
-        if (current.parentElement.querySelectorAll('.id.order-id').length > 1) {
-            break; 
+        if (current.parentElement.querySelectorAll(".id.order-id").length > 1) {
+            break;
         }
         current = current.parentElement;
         rowContainer = current;
@@ -7184,39 +7192,44 @@ function downloadExcelFileBypass(wb, filename) {
 
     if (!rowContainer) return { orderId, reason: "", returnId: "", tracking: "" };
 
-    const returnIdEl_ = rowContainer.querySelector('.id.return-id .id-content');
-    const returnId = returnIdEl_ ? returnIdEl_.textContent.trim() : "";
+    let returnId = "";
+    const returnIdEl_ = rowContainer.querySelector(".id.return-id .id-content, .return-id, [class*=\"return-id\"]");
+    if (returnIdEl_) {
+      const m = returnIdEl_.textContent.match(/([0-9]{6}[A-Z0-9]{8,16})/i);
+      if (m) returnId = m[1].toUpperCase();
+      else returnId = returnIdEl_.textContent.replace(/Mã yêu cầu trả hàng:?/i, "").trim();
+    }
 
     let tracking = "";
-    const trackingEl = rowContainer.querySelector('.item-return-logistic .tracking-number');
+    const trackingEl = rowContainer.querySelector(".item-return-logistic .tracking-number, .tracking-number, [class*=\"tracking\"]");
     if (trackingEl) {
-      tracking = trackingEl.textContent.trim();
+      tracking = trackingEl.textContent.replace(/#\s*/, "").trim();
     } else {
-      const logisticHint = rowContainer.querySelector('.logistics-hint-text');
+      const logisticHint = rowContainer.querySelector(".logistics-hint-text");
       if (logisticHint && logisticHint.parentElement) {
-         const tEl = logisticHint.parentElement.querySelector('.tracking-number');
-         if (tEl) tracking = tEl.textContent.trim();
+         const tEl = logisticHint.parentElement.querySelector(".tracking-number");
+         if (tEl) tracking = tEl.textContent.replace(/#\s*/, "").trim();
       }
     }
 
     let reason = "";
-    const rowText = rowContainer.innerText;
+    const rowText = rowContainer.innerText || rowContainer.textContent || "";
     const commonReasons = [
-      "KhÃ¡c vá»›i mÃ´ táº£", "TÃ´i muá»‘n thay Ä‘á»•i sáº£n pháº©m", "Thiáº¿u hÃ ng", "HÃ ng lá»—i",
-      "KhÃ´ng hoáº¡t Ä‘á»™ng", "HÆ° há»ng", "Giao sai", "HÃ ng giáº£", "ChÆ°a nháº­n Ä‘Æ°á»£c hÃ ng",
-      "hÃ ng khÃ´ng nguyÃªn váº¹n", "Bá»ƒ vá»¡", "Háº¿t háº¡n sá»­ dá»¥ng"
+      "Khác với mô tả", "Tôi muốn thay đổi sản phẩm", "Thiếu hàng", "Hàng lỗi",
+      "Không hoạt động", "Hư hỏng", "Giao sai", "Hàng giả", "Chưa nhận được hàng",
+      "hàng không nguyên vẹn", "Bể vỡ", "Hết hạn sử dụng", "Tôi muốn cập nhật địa chỉ/sđt nhận hàng", "Tôi muốn thêm/thay đổi Mã giảm giá"
     ];
     for (const cr of commonReasons) {
        if (rowText.includes(cr)) {
-           const match = rowText.match(new RegExp(cr.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + "[^\\n]*"));
-           if (match) { reason = match[0].trim(); break; }
+           reason = cr;
+           break;
        }
     }
     if (!reason) {
-        const allDivs = Array.from(rowContainer.querySelectorAll('div'));
+        const allDivs = Array.from(rowContainer.querySelectorAll("div"));
         const reasonDiv = allDivs.find(div => {
             const txt = div.textContent.trim();
-            return txt && !div.children.length && txt.length > 5 && txt.length < 100 && !txt.includes('MÃ£') && !txt.includes('Ä‘Æ¡n hÃ ng') && !txt.includes('NgÃ y') && !txt.includes('Giao') && !txt.includes('hoÃ n') && !txt.includes('yÃªu cáº§u');
+            return txt && !div.children.length && txt.length > 5 && txt.length < 100 && !txt.includes("Mã") && !txt.includes("đơn hàng") && !txt.includes("Ngày") && !txt.includes("Giao") && !txt.includes("hoàn") && !txt.includes("yêu cầu");
         });
         if (reasonDiv) reason = reasonDiv.textContent.trim();
     }
@@ -7224,7 +7237,7 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function updateCopyButtonColors() {
-      document.querySelectorAll('.btn-copy-return-data-check').forEach(btn => {
+      document.querySelectorAll(".btn-copy-return-data-check").forEach(btn => {
           const id = btn.dataset.shopeeQlspCopyReturnOrderId;
           if (id && cachedDhHoanIds.has(id)) {
               btn.style.backgroundColor = "#22c55e";
@@ -7237,13 +7250,21 @@ function downloadExcelFileBypass(wb, filename) {
   function handleDhHoanAction(action, orderIdEl, btn) {
       const data = extractReturnRowData(orderIdEl);
       if (!data || !data.orderId) {
-          alert("Không tìm thấy Mã đơn hàng!");
+          alert("Không tìm thấy Mã đơn hàng trên dòng này!");
           return;
       }
       
-      const originalText = btn.textContent;
+      const originalText = btn.dataset.originalText || btn.textContent;
+      btn.dataset.originalText = originalText;
       btn.textContent = "⏳...";
       btn.disabled = true;
+
+      const timer = setTimeout(() => {
+          if (btn.disabled) {
+              btn.disabled = false;
+              btn.textContent = originalText;
+          }
+      }, 10000);
 
       chrome.storage.local.get(["maGian", "dhHoanTextValue"], (result) => {
           const maGian = (result.maGian || result.dhHoanTextValue || "").trim();
@@ -7257,6 +7278,7 @@ function downloadExcelFileBypass(wb, filename) {
               tracking: data.tracking,
               maGian: maGian
           }, (response) => {
+              clearTimeout(timer);
               btn.disabled = false;
               if (response && response.ok) {
                   cachedDhHoanIds.add(data.orderId);
@@ -7265,8 +7287,8 @@ function downloadExcelFileBypass(wb, filename) {
                   setTimeout(() => { btn.textContent = originalText; }, 1500);
               } else {
                   btn.textContent = "Lỗi!";
-                  setTimeout(() => { btn.textContent = originalText; }, 2000);
-                  alert("Lỗi: " + (response?.error || "Không xác định"));
+                  setTimeout(() => { btn.textContent = originalText; }, 2500);
+                  alert("Lỗi cập nhật: " + (response?.error || "Không có phản hồi từ Background Service"));
               }
           });
       });

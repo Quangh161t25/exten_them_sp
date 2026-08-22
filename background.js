@@ -1297,20 +1297,20 @@ async function updateSheetValues(sheetRange, values, token) {
   return data;
 }
 
-async function fetchSpreadsheetMetadata(token) {
-  const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}?fields=sheets.properties.title`, {
+async function fetchSpreadsheetMetadata(token, spreadsheetId = GOOGLE_SHEET_CONFIG.spreadsheetId) {
+  const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`, {
     headers: { Authorization: `Bearer ${token}` }
   });
 
   if (!res.ok) {
-    throw new Error(data.error?.message || "Khong doc duoc danh sach sheet.");
+    throw new Error(data.error?.message || "Không đọc được danh sách sheet.");
   }
 
   return data;
 }
 
-async function addSheet(sheetName, token) {
-  const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}:batchUpdate`, {
+async function addSheet(sheetName, token, spreadsheetId = GOOGLE_SHEET_CONFIG.spreadsheetId) {
+  const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -1321,7 +1321,10 @@ async function addSheet(sheetName, token) {
         {
           addSheet: {
             properties: {
-              title: sheetName
+              title: sheetName,
+              gridProperties: {
+                columnCount: 35
+              }
             }
           }
         }
@@ -1330,18 +1333,41 @@ async function addSheet(sheetName, token) {
   });
 
   if (!res.ok) {
-    throw new Error(data.error?.message || `Khong tao duoc sheet ${sheetName}.`);
+    throw new Error(data.error?.message || `Không tạo được sheet ${sheetName}.`);
   }
 
   return data;
 }
 
-async function ensureSheetExists(sheetName, token) {
-  const metadata = await fetchSpreadsheetMetadata(token);
-  const hasSheet = (metadata.sheets || []).some((sheet) => sheet.properties?.title === sheetName);
+async function ensureSheetExists(sheetName, token, spreadsheetId = GOOGLE_SHEET_CONFIG.spreadsheetId) {
+  const metadata = await fetchSpreadsheetMetadata(token, spreadsheetId);
+  const targetSheet = (metadata.sheets || []).find((sheet) => sheet.properties?.title === sheetName);
 
-  if (!hasSheet) {
-    await addSheet(sheetName, token);
+  if (!targetSheet) {
+    await addSheet(sheetName, token, spreadsheetId);
+  } else if ((targetSheet.properties?.gridProperties?.columnCount || 0) < 30) {
+    await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            updateSheetProperties: {
+              properties: {
+                sheetId: targetSheet.properties.sheetId,
+                gridProperties: {
+                  columnCount: 35
+                }
+              },
+              fields: "gridProperties.columnCount"
+            }
+          }
+        ]
+      })
+    }).catch(err => console.warn("Lỗi mở rộng cột Sheet:", err));
   }
 }
 
