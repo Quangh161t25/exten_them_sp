@@ -6750,7 +6750,11 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function injectFinanceExpandButtons() {
-    if (!window.location.href.includes('/portal/finance/income')) return;
+    if (!window.location.href.includes('/portal/finance/income')) {
+      const floatBtn = document.getElementById('ext-btn-expand-all-finance');
+      if (floatBtn) floatBtn.remove();
+      return;
+    }
 
     // 1. Nút nổi ở góc dưới bên phải màn hình
     if (!document.getElementById('ext-btn-expand-all-finance')) {
@@ -8091,185 +8095,174 @@ function downloadExcelFileBypass(wb, filename) {
     }
   }
 
+  function isSellerOrderDetailPage() {
+    const path = (window.location.pathname || "").toLowerCase();
+    if (!path.startsWith('/portal/sale/order') && !path.startsWith('/portal/sale/return')) {
+      return false;
+    }
+
+    const search = window.location.search || "";
+    const queryMatch = search.match(/[?&](?:order_sn|orderId|order_id|ordersn)=([0-9]{6}[A-Z0-9]{6,16})/i);
+    if (queryMatch && queryMatch[1]) {
+      return true;
+    }
+
+    const cleanPath = path.replace(/^\/portal\/sale\/(?:order|return)\/?/i, '').replace(/^detail\/?/i, '');
+    const segments = cleanPath.split('/').filter(Boolean);
+    if (!segments.length) {
+      return false;
+    }
+
+    const lastSeg = segments[segments.length - 1].trim();
+    if (/^(order|list|mass|shipping|return|setting|batch|all|unprocessed|toship|completed|cancelled)$/i.test(lastSeg)) {
+      return false;
+    }
+
+    if (/^[0-9]{6}[A-Z0-9]{6,16}$/i.test(lastSeg) || /^[0-9]{10,24}$/i.test(lastSeg)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function removeDonHangButtons() {
+    const btnContainer = document.getElementById('shopee-ext-donhang-btns');
+    if (btnContainer) btnContainer.remove();
+    const btnAdd = document.getElementById('btn-add-don-hang');
+    if (btnAdd && btnAdd.parentElement) btnAdd.remove();
+    const floatingBtn = document.getElementById('shopee-ext-floating-dh-btn');
+    if (floatingBtn) floatingBtn.remove();
+  }
+
   function renderDonHangButtons() {
-      // 1. Kiểm tra linh hoạt mọi định dạng URL chi tiết đơn hàng Shopee
-      if (!window.location.pathname.includes('/portal/sale/')) {
+      // 1. Chỉ chạy khi đang ở trang chi tiết đơn hàng
+      if (!isSellerOrderDetailPage()) {
+          removeDonHangButtons();
           return;
       }
-      
-      updateDonHangMdhCache();
 
-      // 2. Tìm Mã đơn hàng (orderId) từ URL hoặc từ DOM
-      let orderId = "";
-      const urlMatch = window.location.pathname.match(/\/portal\/sale\/(?:order\/)?([A-Z0-9]+)/i);
-      if (urlMatch && urlMatch[1]) {
-          orderId = urlMatch[1].trim();
+      // 2. Tìm Mã đơn hàng (orderId) từ URL hoặc DOM
+      const orderId = extractSellerOrderIdFromPage();
+      if (!orderId || /^(order|detail|list|all)$/i.test(orderId)) {
+          removeDonHangButtons();
+          return;
       }
 
+      // Luôn dọn dẹp nút nổi thừa ở góc màn hình để không có 2 nút trùng lặp
+      const floatingBtn = document.getElementById('shopee-ext-floating-dh-btn');
+      if (floatingBtn) floatingBtn.remove();
+
+      updateDonHangMdhCache();
+
+      // 3. Tự động kiểm tra và đồng bộ (auto-add khi chưa có, auto-update khi phí/thuế sai)
+      checkAndAutoSyncDonHang(orderId);
+
+      // 4. Gắn duy nhất 1 nút bấm trực tiếp cạnh Mã đơn hàng (Top inline button)
       let orderIdDiv = null;
-      const candidateDivs = document.querySelectorAll('.body, .order-id, .order-sn, .order-sn-text, .order-number, [class*="order-sn"], [class*="order-id"]');
+      const candidateDivs = document.querySelectorAll('.order-sn, .order-sn-text, .order-number, [class*="order-sn"], [class*="order-id"], .order-panel-header, .order-detail-header');
       for (const div of candidateDivs) {
-          let text = "";
-          for (let node of div.childNodes) {
-              if (node.nodeType === Node.TEXT_NODE) {
-                  text += node.textContent;
-              }
-          }
-          text = text.trim();
-          if (/^[0-9]{6}[A-Z0-9]{6,16}$/i.test(text)) {
-              if (!orderId) orderId = text;
+          const txt = (div.textContent || "").trim();
+          if (txt.includes(orderId)) {
               orderIdDiv = div;
               break;
           }
       }
 
-      // Nếu chưa tìm thấy vị trí gắn, tìm các khung header của Shopee
       if (!orderIdDiv) {
-          orderIdDiv = document.querySelector('.order-panel-header, .order-detail-header, .portal-panel-header, .eds-breadcrumb, .page-header, .header-container, header');
+          orderIdDiv = document.querySelector('.order-panel-header, .order-detail-header');
       }
 
-      if (!orderId) return;
+      if (!orderIdDiv) return;
 
-      // 3. Tự động kiểm tra và đồng bộ (auto-add khi chưa có, auto-update khi phí/thuế sai)
-      checkAndAutoSyncDonHang(orderId);
+      let btnContainer = document.getElementById('shopee-ext-donhang-btns');
+      if (!btnContainer) {
+          btnContainer = document.createElement('div');
+          btnContainer.id = 'shopee-ext-donhang-btns';
+          btnContainer.style.cssText = 'display: inline-flex; align-items: center; gap: 8px; margin-left: 14px; vertical-align: middle; z-index: 999;';
+          orderIdDiv.appendChild(btnContainer);
+      }
 
-      // 4. Gắn Nút bấm trực tiếp cạnh Mã đơn hàng (Top inline button)
-      if (orderIdDiv) {
-          let btnContainer = document.getElementById('shopee-ext-donhang-btns');
-          if (!btnContainer) {
-              btnContainer = document.createElement('div');
-              btnContainer.id = 'shopee-ext-donhang-btns';
-              btnContainer.style.cssText = 'display: inline-flex; align-items: center; gap: 8px; margin-left: 14px; vertical-align: middle; z-index: 999;';
-              orderIdDiv.appendChild(btnContainer);
-          }
+      let btnAdd = document.getElementById('btn-add-don-hang');
+      if (!btnAdd) {
+          btnAdd = document.createElement('button');
+          btnAdd.id = 'btn-add-don-hang';
+          btnAdd.className = "eds-btn eds-btn--primary";
+          btnAdd.style.cssText = "padding: 4px 12px; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; border: 1px solid #ee4d2d; background-color: #ee4d2d; color: white; transition: all 0.2s;";
+          
+          btnAdd.addEventListener('click', async () => {
+              const originalText = btnAdd.textContent;
+              btnAdd.textContent = '⏳ Đang tính toán...';
+              btnAdd.disabled = true;
 
-          let btnAdd = document.getElementById('btn-add-don-hang');
-          if (!btnAdd) {
-              btnAdd = document.createElement('button');
-              btnAdd.id = 'btn-add-don-hang';
-              btnAdd.className = "eds-btn eds-btn--primary";
-              btnAdd.style.cssText = "padding: 4px 12px; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; border: 1px solid #ee4d2d; background-color: #ee4d2d; color: white; transition: all 0.2s;";
-              
-              btnAdd.addEventListener('click', async () => {
-                  const originalText = btnAdd.textContent;
-                  btnAdd.textContent = '⏳ Đang tính toán...';
-                  btnAdd.disabled = true;
-
-                  try {
-                      const orderDetail = await extractSellerOrderDetailFullData();
-                      if (!orderDetail || !orderDetail.ok || !orderDetail.rows || orderDetail.rows.length === 0) {
-                          alert('Không tìm thấy thông tin chi tiết đơn hàng! Vui lòng cuộn trang xuống để tải hết dữ liệu.');
-                          btnAdd.textContent = originalText;
-                          btnAdd.disabled = false;
-                          return;
-                      }
-
-                      const storage = await new Promise(r => chrome.storage.local.get(["maGian", "dhHoanTextValue"], r));
-                      const maGian = (storage?.maGian || storage?.dhHoanTextValue || "").trim();
-                      if (!maGian) {
-                          alert('Vui lòng vào Popup Extension cài đặt Mã Gian trước khi lưu!');
-                          btnAdd.textContent = originalText;
-                          btnAdd.disabled = false;
-                          return;
-                      }
-
-                      const dhValues = await buildDhValuesFromDetail(orderDetail.rows, maGian);
-                      const sampleMdh = orderDetail.orderId || orderDetail.rows[0]?.orderId || "";
-                      const sampleMvd = orderDetail.packageInfo?.tracking || orderDetail.rows[0]?.tracking || "";
-
-                      btnAdd.textContent = '⏳ Đang đẩy...';
-
-                      chrome.runtime.sendMessage({
-                          type: "SAVE_DH_ORDER",
-                          values: dhValues,
-                          mdh: sampleMdh,
-                          mvd: sampleMvd
-                      }, (response) => {
-                          btnAdd.disabled = false;
-                          if (response && response.ok) {
-                              btnAdd.textContent = 'OK!';
-                              lastFetchDonHangMdhTime = 0;
-                              updateDonHangMdhCache(true);
-                              setTimeout(() => { 
-                                  btnAdd.textContent = 'Đã có trong DH'; 
-                                  btnAdd.style.backgroundColor = '#00bfa5';
-                                  btnAdd.style.borderColor = '#00bfa5';
-                              }, 1500);
-                          } else {
-                              btnAdd.textContent = 'Lỗi!';
-                              alert('Lỗi: ' + (response?.error || 'Unknown'));
-                              setTimeout(() => { btnAdd.textContent = originalText; }, 2000);
-                          }
-                      });
-                  } catch (err) {
-                      console.error(err);
-                      alert('Lỗi: ' + err.message);
+              try {
+                  const orderDetail = await extractSellerOrderDetailFullData();
+                  if (!orderDetail || !orderDetail.ok || !orderDetail.rows || orderDetail.rows.length === 0) {
+                      alert('Không tìm thấy thông tin chi tiết đơn hàng! Vui lòng cuộn trang xuống để tải hết dữ liệu.');
                       btnAdd.textContent = originalText;
                       btnAdd.disabled = false;
+                      return;
                   }
-              });
 
-              btnContainer.appendChild(btnAdd);
-          }
+                  const storage = await new Promise(r => chrome.storage.local.get(["maGian", "dhHoanTextValue"], r));
+                  const maGian = (storage?.maGian || storage?.dhHoanTextValue || "").trim();
+                  if (!maGian) {
+                      alert('Vui lòng vào Popup Extension cài đặt Mã Gian trước khi lưu!');
+                      btnAdd.textContent = originalText;
+                      btnAdd.disabled = false;
+                      return;
+                  }
 
-          if (orderId && cachedDonHangMdhIndices.has(orderId) && cachedDonHangMdhIndices.get(orderId).length > 0) {
-              if (!btnAdd.textContent.startsWith('⚡')) {
-                  btnAdd.textContent = 'Đã có trong DH';
-                  btnAdd.style.backgroundColor = '#00bfa5';
-                  btnAdd.style.borderColor = '#00bfa5';
-              }
-          } else {
-              if (!btnAdd.textContent.startsWith('⚡')) {
-                  btnAdd.textContent = 'Thêm mới vào DH';
-                  btnAdd.style.backgroundColor = '#ee4d2d';
-                  btnAdd.style.borderColor = '#ee4d2d';
-              }
-          }
-      }
+                  const dhValues = await buildDhValuesFromDetail(orderDetail.rows, maGian);
+                  const sampleMdh = orderDetail.orderId || orderDetail.rows[0]?.orderId || "";
+                  const sampleMvd = orderDetail.packageInfo?.tracking || orderDetail.rows[0]?.tracking || "";
 
-      // 5. Nút bấm nổi cố định góc dưới bên phải (Floating Action Button) để luôn luôn hiển thị 100%
-      let floatingBtn = document.getElementById('shopee-ext-floating-dh-btn');
-      if (!floatingBtn) {
-          floatingBtn = document.createElement('button');
-          floatingBtn.id = 'shopee-ext-floating-dh-btn';
-          floatingBtn.style.cssText = `
-              position: fixed;
-              bottom: 24px;
-              right: 24px;
-              z-index: 999999;
-              background-color: #ee4d2d;
-              color: #ffffff;
-              border: 2px solid #ffffff;
-              box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
-              border-radius: 24px;
-              padding: 10px 18px;
-              font-size: 13px;
-              font-weight: bold;
-              cursor: pointer;
-              display: flex;
-              align-items: center;
-              gap: 6px;
-              transition: all 0.2s ease;
-          `;
-          floatingBtn.addEventListener('mouseenter', () => { floatingBtn.style.transform = 'scale(1.05)'; });
-          floatingBtn.addEventListener('mouseleave', () => { floatingBtn.style.transform = 'scale(1)'; });
+                  btnAdd.textContent = '⏳ Đang đẩy...';
 
-          floatingBtn.addEventListener('click', () => {
-              const topBtn = document.getElementById('btn-add-don-hang');
-              if (topBtn) {
-                  topBtn.click();
+                  chrome.runtime.sendMessage({
+                      type: "SAVE_DH_ORDER",
+                      values: dhValues,
+                      mdh: sampleMdh,
+                      mvd: sampleMvd
+                  }, (response) => {
+                      btnAdd.disabled = false;
+                      if (response && response.ok) {
+                          btnAdd.textContent = 'OK!';
+                          lastFetchDonHangMdhTime = 0;
+                          updateDonHangMdhCache(true);
+                          setTimeout(() => { 
+                              btnAdd.textContent = 'Đã có trong DH'; 
+                              btnAdd.style.backgroundColor = '#00bfa5';
+                              btnAdd.style.borderColor = '#00bfa5';
+                          }, 1500);
+                      } else {
+                          btnAdd.textContent = 'Lỗi!';
+                          alert('Lỗi: ' + (response?.error || 'Unknown'));
+                          setTimeout(() => { btnAdd.textContent = originalText; }, 2000);
+                      }
+                  });
+              } catch (err) {
+                  console.error(err);
+                  alert('Lỗi: ' + err.message);
+                  btnAdd.textContent = originalText;
+                  btnAdd.disabled = false;
               }
           });
 
-          document.body.appendChild(floatingBtn);
+          btnContainer.appendChild(btnAdd);
       }
 
       if (orderId && cachedDonHangMdhIndices.has(orderId) && cachedDonHangMdhIndices.get(orderId).length > 0) {
-          floatingBtn.innerHTML = '✓ Đã có trong DH';
-          floatingBtn.style.backgroundColor = '#00bfa5';
+          if (!btnAdd.textContent.startsWith('⚡')) {
+              btnAdd.textContent = 'Đã có trong DH';
+              btnAdd.style.backgroundColor = '#00bfa5';
+              btnAdd.style.borderColor = '#00bfa5';
+          }
       } else {
-          floatingBtn.innerHTML = '⚡ Thêm mới vào DH';
-          floatingBtn.style.backgroundColor = '#ee4d2d';
+          if (!btnAdd.textContent.startsWith('⚡')) {
+              btnAdd.textContent = 'Thêm mới vào DH';
+              btnAdd.style.backgroundColor = '#ee4d2d';
+              btnAdd.style.borderColor = '#ee4d2d';
+          }
       }
   }
   // Injected interceptor for FORCE_DOWNLOAD
@@ -8559,8 +8552,6 @@ function downloadExcelFileBypass(wb, filename) {
   window.setInterval(renderOrderProfit, 1500);
   window.setInterval(renderReturnInfoCopyButtons, 1500);
   window.setInterval(renderDonHangButtons, 600);
-  window.setInterval(renderUdCtStatus, 1500);
-  window.setInterval(renderSaveToSheetButton, 1500);
 
   // ===== BACKGROUND AUTO-FILL =====
   // Listens for autoFillText saved to chrome.storage by popup.js
