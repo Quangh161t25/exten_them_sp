@@ -7933,6 +7933,164 @@ function downloadExcelFileBypass(wb, filename) {
     });
   }
 
+
+  let lastAutoProcessedOrderId = "";
+  let isAutoProcessingOrder = false;
+
+  async function checkAndAutoSyncDonHang(orderId) {
+    if (!orderId || isAutoProcessingOrder) return;
+    if (lastAutoProcessedOrderId === orderId) return;
+
+    // Chờ khi trang Shopee đã load xong thông tin thanh toán
+    const incomeItems = document.querySelectorAll('.income-item');
+    if (incomeItems.length === 0) return;
+
+    isAutoProcessingOrder = true;
+
+    try {
+      const storage = await new Promise(r => chrome.storage.local.get(["maGian", "dhHoanTextValue"], r));
+      const maGian = (storage?.maGian || storage?.dhHoanTextValue || "").trim();
+      if (!maGian) {
+        isAutoProcessingOrder = false;
+        return;
+      }
+
+      const orderDetail = await extractSellerOrderDetailFullData();
+      if (!orderDetail || !orderDetail.ok || !orderDetail.rows || orderDetail.rows.length === 0) {
+        isAutoProcessingOrder = false;
+        return;
+      }
+
+      const checkResponse = await new Promise(resolve => {
+        chrome.runtime.sendMessage({
+          type: "CHECK_AND_GET_DH_ORDER",
+          mdh: orderId,
+          maGian: maGian
+        }, resolve);
+      });
+
+      const parseMoneyNumber = (val) => {
+        if (val === null || val === undefined) return 0;
+        const digits = String(val).replace(/[^0-9]/g, "");
+        return digits ? Number(digits) : 0;
+      };
+
+      const pageTongTien = parseMoneyNumber(orderDetail.payments?.totalProductAmount);
+      const pagePhiVc = parseMoneyNumber(orderDetail.payments?.estimatedShippingTotal);
+      const pagePhuPhi = parseMoneyNumber(orderDetail.payments?.surcharge);
+      const pageThue = parseMoneyNumber(orderDetail.payments?.tax);
+
+      const btnAdd = document.getElementById('btn-add-don-hang');
+
+      if (!checkResponse || !checkResponse.exists || checkResponse.rows.length === 0) {
+        // TỰ ĐỘNG THÊM MỚI KHI CHƯA CÓ
+        if (btnAdd) {
+          btnAdd.textContent = '⚡ Đang tự động thêm vào DH...';
+          btnAdd.disabled = true;
+        }
+
+        const dhValues = await buildDhValuesFromDetail(orderDetail.rows, maGian);
+        const sampleMdh = orderDetail.orderId || orderDetail.rows[0]?.orderId || "";
+        const sampleMvd = orderDetail.packageInfo?.tracking || orderDetail.rows[0]?.tracking || "";
+
+        const saveRes = await new Promise(resolve => {
+          chrome.runtime.sendMessage({
+            type: "SAVE_DH_ORDER",
+            values: dhValues,
+            mdh: sampleMdh,
+            mvd: sampleMvd
+          }, resolve);
+        });
+
+        lastAutoProcessedOrderId = orderId;
+
+        if (saveRes && saveRes.ok) {
+          lastFetchDonHangMdhTime = 0;
+          updateDonHangMdhCache(true);
+          if (btnAdd) {
+            btnAdd.disabled = false;
+            btnAdd.textContent = '✓ Đã tự động thêm vào DH';
+            btnAdd.style.backgroundColor = '#00bfa5';
+            btnAdd.style.borderColor = '#00bfa5';
+          }
+          console.log(`[Shopee Ext] Đã tự động thêm mới đơn hàng ${orderId} vào Sheet DH`);
+        } else {
+          if (btnAdd) {
+            btnAdd.disabled = false;
+            btnAdd.textContent = 'Thêm mới vào DH';
+          }
+        }
+      } else {
+        // TỰ ĐỘNG CẬP NHẬT KHI PHÍ VC, PHỤ PHÍ, THUẾ BỊ SAI
+        let isFinancialMismatch = false;
+
+        for (const r of checkResponse.rows) {
+          const sheetTongTien = parseMoneyNumber(r.tongTien);
+          const sheetPhiVc = parseMoneyNumber(r.phiVc);
+          const sheetPhuPhi = parseMoneyNumber(r.phuPhi);
+          const sheetThue = parseMoneyNumber(r.thue);
+
+          if (sheetPhiVc !== pagePhiVc || sheetPhuPhi !== pagePhuPhi || sheetThue !== pageThue || sheetTongTien !== pageTongTien) {
+            isFinancialMismatch = true;
+            break;
+          }
+        }
+
+        if (isFinancialMismatch) {
+          if (btnAdd) {
+            btnAdd.textContent = '⚡ Đang tự động cập nhật phí...';
+            btnAdd.disabled = true;
+          }
+
+          const dhValues = await buildDhValuesFromDetail(orderDetail.rows, maGian);
+          const sampleMdh = orderDetail.orderId || orderDetail.rows[0]?.orderId || "";
+          const sampleMvd = orderDetail.packageInfo?.tracking || orderDetail.rows[0]?.tracking || "";
+
+          const saveRes = await new Promise(resolve => {
+            chrome.runtime.sendMessage({
+              type: "SAVE_DH_ORDER",
+              values: dhValues,
+              mdh: sampleMdh,
+              mvd: sampleMvd
+            }, resolve);
+          });
+
+          lastAutoProcessedOrderId = orderId;
+
+          if (saveRes && saveRes.ok) {
+            lastFetchDonHangMdhTime = 0;
+            updateDonHangMdhCache(true);
+            if (btnAdd) {
+              btnAdd.disabled = false;
+              btnAdd.textContent = '✓ Đã cập nhật lại phí vào DH';
+              btnAdd.style.backgroundColor = '#00bfa5';
+              btnAdd.style.borderColor = '#00bfa5';
+            }
+            console.log(`[Shopee Ext] Đã tự động cập nhật phí & thuế đơn ${orderId} vào Sheet DH`);
+          } else {
+            if (btnAdd) {
+              btnAdd.disabled = false;
+              btnAdd.textContent = 'Đã có trong DH';
+              btnAdd.style.backgroundColor = '#00bfa5';
+            }
+          }
+        } else {
+          lastAutoProcessedOrderId = orderId;
+          if (btnAdd) {
+            btnAdd.disabled = false;
+            btnAdd.textContent = 'Đã có trong DH';
+            btnAdd.style.backgroundColor = '#00bfa5';
+            btnAdd.style.borderColor = '#00bfa5';
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Lỗi auto-sync đơn hàng:", err);
+    } finally {
+      isAutoProcessingOrder = false;
+    }
+  }
+
   function renderDonHangButtons() {
       if (!window.location.pathname.match(/^\/portal\/sale\/(?:order\/)?[A-Z0-9]+$/)) {
           return;
@@ -8048,6 +8206,8 @@ function downloadExcelFileBypass(wb, filename) {
 
           btnContainer.appendChild(btnAdd);
       }
+
+      checkAndAutoSyncDonHang(orderId);
 
       if (orderId && cachedDonHangMdhIndices.has(orderId) && cachedDonHangMdhIndices.get(orderId).length > 0) {
           btnAdd.textContent = 'Đã có trong DH';

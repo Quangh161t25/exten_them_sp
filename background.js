@@ -609,6 +609,72 @@ async function uploadImageToFreeImageHost(imageUrl) {
     return true;
   }
 
+
+  if (message?.type === "CHECK_AND_GET_DH_ORDER") {
+    Promise.all([getGoogleAccessToken(), getSpreadsheetId()]).then(async ([token, sheetId]) => {
+      try {
+        await ensureSheetExists("DH", token);
+        const mdh = String(message.mdh || "").trim().toLowerCase();
+        const currentMaGian = String(message.maGian || "").trim().toLowerCase();
+
+        if (!mdh) {
+          sendResponse({ ok: true, exists: false, rows: [] });
+          return;
+        }
+
+        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:U")}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!res.ok) throw new Error(data.error?.message || "Không đọc được sheet DH.");
+        const values = data.values || [];
+        if (values.length <= 1) {
+          sendResponse({ ok: true, exists: false, rows: [] });
+          return;
+        }
+
+        const headers = values[0].map(h => String(h || "").trim().toLowerCase());
+        let gianIdx = 0;
+        let mdhIdx = 3;
+        let tongTienIdx = headers.findIndex(h => h.includes("tong_tien") || h.includes("tổng tiền"));
+        if (tongTienIdx === -1) tongTienIdx = 5;
+        let phiVcIdx = headers.findIndex(h => h.includes("phi_vc") || h.includes("phí vc"));
+        if (phiVcIdx === -1) phiVcIdx = 7;
+        let phuPhiIdx = headers.findIndex(h => h.includes("phu_phi") || h.includes("phụ phí"));
+        if (phuPhiIdx === -1) phuPhiIdx = 8;
+        let thueIdx = headers.findIndex(h => h.includes("thue") || h.includes("thuế"));
+        if (thueIdx === -1) thueIdx = 9;
+
+        const matchingRows = [];
+        for (let i = 1; i < values.length; i++) {
+          const r = values[i];
+          const rowGian = String(r[gianIdx] || "").trim().toLowerCase();
+          const rowMdh = String(r[mdhIdx] || "").trim().toLowerCase();
+
+          const isGianMatch = !currentMaGian || (rowGian === currentMaGian);
+          if (isGianMatch && rowMdh === mdh) {
+            matchingRows.push({
+              rowNum: i + 1,
+              tongTien: r[tongTienIdx] || "",
+              phiVc: r[phiVcIdx] || "",
+              phuPhi: r[phuPhiIdx] || "",
+              thue: r[thueIdx] || ""
+            });
+          }
+        }
+
+        sendResponse({
+          ok: true,
+          exists: matchingRows.length > 0,
+          rows: matchingRows
+        });
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message, exists: false, rows: [] });
+      }
+    }).catch(err => sendResponse({ ok: false, error: err.message, exists: false, rows: [] }));
+    return true;
+  }
+
   if (message?.type === "CHECK_DH_ORDER_EXISTS") {
     Promise.all([getGoogleAccessToken(), getSpreadsheetId()]).then(async ([token, sheetId]) => {
       try {
