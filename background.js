@@ -520,11 +520,12 @@ async function uploadImageToFreeImageHost(imageUrl) {
             matchedRowNumbers.push(rowNum);
             matchedOrders.add(rowMdh);
 
-            const tienSpVal = Number(item.tienSanPham) || 0;
-            const phiVcVal = Number(item.phiVanChuyen) || 0;
-            const phuPhiVal = Number(item.phuPhi) || 0;
-            const thueVal = Number(item.thue) || 0;
-            const doanhThuVal = Number(item.amount || item.doanhThu) || 0;
+            // Chuyển toàn bộ các giá trị thành số DƯƠNG theo yêu cầu người dùng
+            const tienSpVal = Math.abs(Number(item.tienSanPham) || 0);
+            const phiVcVal = Math.abs(Number(item.phiVanChuyen) || 0);
+            const phuPhiVal = Math.abs(Number(item.phuPhi) || 0);
+            const thueVal = Math.abs(Number(item.thue) || 0);
+            const doanhThuVal = Math.abs(Number(item.amount || item.doanhThu) || 0);
 
             // Tính lại lợi nhuận: doanh_thu - phi_khac - tien_sp
             const phiKhacVal = Number(String(row[phiKhacIdx] || "").replace(/[^0-9-]/g, "")) || 0;

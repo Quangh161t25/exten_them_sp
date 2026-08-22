@@ -212,14 +212,13 @@
             window.removeEventListener('click', preventLinkClicks, true);
           }
 
-          // 3. Hàm phân tích số tiền VND
+          // 3. Hàm phân tích số tiền VND (Luôn lấy giá trị DƯƠNG)
           const parseVND = (rawStr) => {
             if (!rawStr) return 0;
             const str = String(rawStr).trim();
-            const isNeg = str.includes('-');
             const digits = str.replace(/[^0-9]/g, '');
             if (!digits) return 0;
-            return isNeg ? -parseInt(digits, 10) : parseInt(digits, 10);
+            return parseInt(digits, 10);
           };
 
           // 4. Quét tất cả các dòng giao dịch trong bảng
@@ -432,10 +431,20 @@
 
     try {
       const maGian = await getCurrentMaGian();
+      const positiveItems = allRows.map(r => ({
+        ...r,
+        tienSanPham: Math.abs(Number(r.tienSanPham) || 0),
+        phiVanChuyen: Math.abs(Number(r.phiVanChuyen) || 0),
+        phuPhi: Math.abs(Number(r.phuPhi) || 0),
+        thue: Math.abs(Number(r.thue) || 0),
+        doanhThu: Math.abs(Number(r.amount || r.doanhThu) || 0),
+        amount: Math.abs(Number(r.amount || r.doanhThu) || 0)
+      }));
+
       const response = await new Promise(resolve => {
         chrome.runtime.sendMessage({
           type: "UPDATE_DH_INCOME_FINANCIALS",
-          items: allRows,
+          items: positiveItems,
           maGian
         }, resolve);
       });
@@ -486,10 +495,20 @@
 
     try {
       const maGian = await getCurrentMaGian();
+      const positiveItem = {
+        ...item,
+        tienSanPham: Math.abs(Number(item.tienSanPham) || 0),
+        phiVanChuyen: Math.abs(Number(item.phiVanChuyen) || 0),
+        phuPhi: Math.abs(Number(item.phuPhi) || 0),
+        thue: Math.abs(Number(item.thue) || 0),
+        doanhThu: Math.abs(Number(item.amount || item.doanhThu) || 0),
+        amount: Math.abs(Number(item.amount || item.doanhThu) || 0)
+      };
+
       const response = await new Promise(resolve => {
         chrome.runtime.sendMessage({
           type: "UPDATE_DH_INCOME_FINANCIALS",
-          items: [item],
+          items: [positiveItem],
           maGian
         }, resolve);
       });
