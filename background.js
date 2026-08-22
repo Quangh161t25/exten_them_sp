@@ -1026,7 +1026,8 @@ async function uploadImageToFreeImageHost(imageUrl) {
       throw new Error("Sheet DH chưa có dữ liệu đơn hàng nào để cập nhật.");
     }
 
-    const reqOrderId = String(message.orderId || "").trim().toLowerCase();
+    let reqOrderId = String(message.orderId || "").trim().toLowerCase();
+    reqOrderId = reqOrderId.replace(/copy|sao\s*ch[eé]p/gi, "").trim();
     const reqGian = String(message.maGian || message.noidung || "").trim().toLowerCase();
 
     if (!reqOrderId) {
@@ -1039,7 +1040,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i];
       const rowGian = String(r[0] || "").trim().toLowerCase();
-      const rowMdh = String(r[3] || "").trim().toLowerCase();
+      const rowMdh = String(r[3] || "").trim().toLowerCase().replace(/copy|sao\s*ch[eé]p/gi, "").trim();
       const rowNum = i + 1;
 
       if (rowMdh === reqOrderId) {
@@ -1053,7 +1054,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
     if (matchingRowNums.length === 0) {
       for (let i = 1; i < rows.length; i++) {
         const r = rows[i];
-        const rowMdh = String(r[3] || "").trim().toLowerCase();
+        const rowMdh = String(r[3] || "").trim().toLowerCase().replace(/copy|sao\s*ch[eé]p/gi, "").trim();
         const rowNum = i + 1;
         if (rowMdh === reqOrderId) {
           matchingRowNums.push(rowNum);
@@ -1062,7 +1063,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
     }
 
     if (matchingRowNums.length === 0) {
-      throw new Error(`Không tìm thấy Mã đơn hàng "${message.orderId}"${reqGian ? ` (Gian: ${reqGian})` : ''} trong Sheet DH.`);
+      throw new Error(`Không tìm thấy Mã đơn hàng "${reqOrderId.toUpperCase()}"${reqGian ? ` (Gian: ${reqGian})` : ''} trong Sheet DH.`);
     }
 
     // 4. Cập nhật Cột P (Trạng thái) và Cột Z (Mã yêu cầu trả hàng), Cột AA (Vận chuyển hàng hoàn)

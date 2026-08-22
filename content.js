@@ -7168,16 +7168,22 @@ function downloadExcelFileBypass(wb, filename) {
 
 
 
+  function cleanShopeeOrderIdOrReturnId(str) {
+    if (!str) return "";
+    let clean = String(str).replace(/copy|sao\s*ch[eé]p/gi, " ").trim();
+    const m = clean.match(/([0-9]{6}[A-Z0-9]{8,14})/i);
+    if (m) return m[1].toUpperCase();
+    return clean.replace(/\s+/g, "").toUpperCase();
+  }
+
   function extractReturnRowData(orderIdEl) {
     let orderId = "";
     const orderIdContentEl = orderIdEl.querySelector(".id-content, a, span, b");
     if (orderIdContentEl) {
-      const m = orderIdContentEl.textContent.match(/([0-9]{6}[A-Z0-9]{8,16})/i);
-      if (m) orderId = m[1].toUpperCase();
+      orderId = cleanShopeeOrderIdOrReturnId(orderIdContentEl.textContent);
     }
     if (!orderId) {
-      const m = orderIdEl.textContent.match(/([0-9]{6}[A-Z0-9]{8,16})/i);
-      if (m) orderId = m[1].toUpperCase();
+      orderId = cleanShopeeOrderIdOrReturnId(orderIdEl.textContent);
     }
 
     let current = orderIdEl;
@@ -7195,20 +7201,18 @@ function downloadExcelFileBypass(wb, filename) {
     let returnId = "";
     const returnIdEl_ = rowContainer.querySelector(".id.return-id .id-content, .return-id, [class*=\"return-id\"]");
     if (returnIdEl_) {
-      const m = returnIdEl_.textContent.match(/([0-9]{6}[A-Z0-9]{8,16})/i);
-      if (m) returnId = m[1].toUpperCase();
-      else returnId = returnIdEl_.textContent.replace(/Mã yêu cầu trả hàng:?/i, "").trim();
+      returnId = cleanShopeeOrderIdOrReturnId(returnIdEl_.textContent);
     }
 
     let tracking = "";
     const trackingEl = rowContainer.querySelector(".item-return-logistic .tracking-number, .tracking-number, [class*=\"tracking\"]");
     if (trackingEl) {
-      tracking = trackingEl.textContent.replace(/#\s*/, "").trim();
+      tracking = trackingEl.textContent.replace(/#\s*/, "").replace(/copy|sao\s*ch[eé]p/gi, "").trim();
     } else {
       const logisticHint = rowContainer.querySelector(".logistics-hint-text");
       if (logisticHint && logisticHint.parentElement) {
          const tEl = logisticHint.parentElement.querySelector(".tracking-number");
-         if (tEl) tracking = tEl.textContent.replace(/#\s*/, "").trim();
+         if (tEl) tracking = tEl.textContent.replace(/#\s*/, "").replace(/copy|sao\s*ch[eé]p/gi, "").trim();
       }
     }
 
@@ -7363,7 +7367,7 @@ function downloadExcelFileBypass(wb, filename) {
       });
       
       const orderIdContentEl = orderIdEl.querySelector('.id-content');
-      const directOrderId = orderIdContentEl ? orderIdContentEl.textContent.trim() : "";
+      const directOrderId = cleanShopeeOrderIdOrReturnId(orderIdContentEl ? orderIdContentEl.textContent : orderIdEl.textContent);
       btnCopy.dataset.shopeeQlspCopyReturnOrderId = directOrderId;
       btnCopy.classList.add("btn-copy-return-data-check");
       
