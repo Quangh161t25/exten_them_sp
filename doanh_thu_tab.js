@@ -160,7 +160,7 @@
             console.warn("Could not change page size to 50:", e);
           }
 
-          // 2. CHỈ CLICK DUY NHẤT VÀO ICON MŨI TÊN (CHẶN MỞ TAB TUYỆT ĐỐI)
+          // 2. BẤM MỞ RỘNG TẤT CẢ CÁC ĐƠN BẰNG ICON MŨI TÊN (CHỐNG MỞ TAB)
           const preventLinkClicks = (e) => {
             if (e.target.closest('a') || e.target.tagName === 'A') {
               e.preventDefault();
@@ -186,15 +186,15 @@
               }
             });
 
-            // Chờ 800ms để toàn bộ các chi tiết đơn hàng mở rộng và render xong vào DOM
-            await new Promise(r => setTimeout(r, 800));
+            // Chờ 1.2s để Shopee mở rộng xong và render đầy đủ nút "Xem thông tin đơn hàng"
+            await new Promise(r => setTimeout(r, 1200));
           } catch (e) {
             console.warn("Lỗi khi mở rộng dòng:", e);
           } finally {
             window.removeEventListener('click', preventLinkClicks, true);
           }
 
-          // 3. Quét tất cả các dòng giao dịch trong bảng
+          // 3. Quét tất cả các dòng giao dịch và lấy chính xác link từ nút "Xem thông tin đơn hàng"
           const rowElements = Array.from(document.querySelectorAll('.grid-table.transaction-table .grid-table-body .grid-table-row, .transaction-table .grid-table-body .grid-table-row, .grid-table-body .grid-table-row'));
           
           if (rowElements.length === 0) {
@@ -252,22 +252,38 @@
             const digits = rawAmount.replace(/[^0-9]/g, '');
             const numAmount = digits ? (isNegative ? -parseInt(digits, 10) : parseInt(digits, 10)) : 0;
 
-            // Tìm Link đơn hàng từ nút 'Xem thông tin đơn hàng' (a[href*="/portal/sale/"])
+            // Lấy chính xác Link đơn hàng từ nút "Xem thông tin đơn hàng" (<a href="/portal/sale/...">)
             let orderLink = "";
-            
-            // Tìm trong chính dòng hoặc next sibling (vùng mở rộng)
-            let linkEl = rEl.querySelector('a[href*="/portal/sale/"], a[href*="/portal/sale/order/"]');
+
+            // 1. Tìm trong rEl (chính dòng này)
+            let linkEl = Array.from(rEl.querySelectorAll('a[href*="/portal/sale/"]')).find(a => 
+              a.textContent.includes('Xem thông tin') || /\/portal\/sale\/\d+/.test(a.getAttribute('href') || '')
+            );
+
+            // 2. Tìm trong phần mở rộng (next sibling / sub-row của dòng này)
             if (!linkEl && rEl.nextElementSibling) {
-              linkEl = rEl.nextElementSibling.querySelector('a[href*="/portal/sale/"], a[href*="/portal/sale/order/"]');
+              let nextEl = rEl.nextElementSibling;
+              while (nextEl && !nextEl.classList.contains('grid-table-row')) {
+                const found = Array.from(nextEl.querySelectorAll('a[href*="/portal/sale/"]')).find(a =>
+                  a.textContent.includes('Xem thông tin') || /\/portal\/sale\/\d+/.test(a.getAttribute('href') || '')
+                );
+                if (found) {
+                  linkEl = found;
+                  break;
+                }
+                nextEl = nextEl.nextElementSibling;
+              }
             }
 
-            // Tìm trong các popover/popper/modal
+            // 3. Tìm trong toàn bộ các nút "Xem thông tin đơn hàng" vừa mở
             if (!linkEl) {
-              const allOpenLinks = Array.from(document.querySelectorAll('a[href*="/portal/sale/"], a[href*="/portal/sale/order/"]'));
-              if (allOpenLinks.length > i) {
-                linkEl = allOpenLinks[i];
-              } else if (allOpenLinks.length > 0) {
-                linkEl = allOpenLinks[allOpenLinks.length - 1];
+              const allSaleLinks = Array.from(document.querySelectorAll('a[href*="/portal/sale/"]')).filter(a =>
+                /\/portal\/sale\/\d+/.test(a.getAttribute('href') || '')
+              );
+              if (allSaleLinks.length > i) {
+                linkEl = allSaleLinks[i];
+              } else if (allSaleLinks.length > 0) {
+                linkEl = allSaleLinks[allSaleLinks.length - 1];
               }
             }
 
@@ -278,7 +294,7 @@
               }
             }
 
-            // Fallback nếu không có link sale: dùng mã đơn hàng
+            // Fallback nếu không bắt được nút mở rộng: dùng link mã đơn
             if (!orderLink && orderId) {
               orderLink = `https://banhang.shopee.vn/portal/sale/order/${orderId}`;
             }
@@ -296,9 +312,7 @@
                 amount: numAmount
               });
             }
-          }
-
-          return { ok: true, rows: extractedRows, url: window.location.href };
+          }          return { ok: true, rows: extractedRows, url: window.location.href };
         }
       });
 
