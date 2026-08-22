@@ -6710,6 +6710,76 @@ function downloadExcelFileBypass(wb, filename) {
     });
   }
 
+
+  // =========================================================================
+  // AUTO-INJECT EXPAND & SCRAPE BUTTON ON SHOPEE FINANCE PAGE
+  // =========================================================================
+  function injectFinanceExpandButton() {
+    if (!window.location.href.includes('/portal/finance/income')) return;
+    if (document.getElementById('ext-btn-expand-all-finance')) return;
+
+    // Tìm header hoặc thanh công cụ trên Shopee Finance
+    const toolbar = document.querySelector('.income-header, .portal-header, .grid-table-header, .cursor-pagination') || document.body;
+    if (!toolbar) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'ext-btn-expand-all-finance';
+    btn.type = 'button';
+    btn.innerHTML = '⚡ Mở Rộng 50 Đơn Hàng';
+    btn.title = 'Bấm để tự động mở rộng toàn bộ 50 đơn hàng trên trang này';
+    btn.style.cssText = 'position: fixed !important; bottom: 20px !important; right: 20px !important; z-index: 999999 !important; background: #ee4d2d !important; color: #ffffff !important; border: 2px solid #ffffff !important; border-radius: 20px !important; padding: 10px 18px !important; font-size: 13px !important; font-weight: bold !important; cursor: pointer !important; box-shadow: 0 4px 14px rgba(238, 77, 45, 0.4) !important; font-family: Arial, sans-serif !important; display: flex !important; align-items: center !important; gap: 6px !important;';
+
+    btn.onclick = async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      btn.innerHTML = '⏳ Đang mở rộng...';
+      btn.style.background = '#0284c7';
+
+      // 1. Chuyển sang 50 / page nếu cần
+      try {
+        const sizeSpan = document.querySelector('.eds-pagination-sizes__content');
+        if (sizeSpan && !sizeSpan.innerText.includes('50')) {
+          sizeSpan.click();
+          await new Promise(r => setTimeout(r, 400));
+          const items = Array.from(document.querySelectorAll('.eds-dropdown-item, .eds-dropdown-menu li'));
+          const item50 = items.find(el => el.innerText.trim() === '50' || el.textContent.trim() === '50');
+          if (item50) {
+            item50.click();
+            await new Promise(r => setTimeout(r, 1200));
+          }
+        }
+      } catch (_) {}
+
+      // 2. Click tất cả các mũi tên
+      const triggerDeepClick = (el) => {
+        if (!el) return;
+        const opts = { bubbles: true, cancelable: true, view: window, buttons: 1 };
+        el.dispatchEvent(new PointerEvent('pointerdown', opts));
+        el.dispatchEvent(new MouseEvent('mousedown', opts));
+        el.dispatchEvent(new PointerEvent('pointerup', opts));
+        el.dispatchEvent(new MouseEvent('mouseup', opts));
+        el.dispatchEvent(new MouseEvent('click', opts));
+        if (typeof el.click === 'function') el.click();
+      };
+
+      const wrappers = Array.from(document.querySelectorAll('.grid-table-body .transaction-amount-wrapper, .transaction-amount-wrapper, [class*="transaction-amount-wrapper"]'));
+      wrappers.forEach(w => {
+        const icon = w.querySelector('i.eds-icon') || w.querySelector('i');
+        const svg = w.querySelector('svg');
+        const popoverRef = w.closest('.eds-popover__ref') || w.parentElement;
+        [icon, svg, w, popoverRef].filter(Boolean).forEach(t => triggerDeepClick(t));
+      });
+
+      btn.innerHTML = '✓ Đã mở rộng 50 đơn!';
+      btn.style.background = '#16a34a';
+      setTimeout(() => {
+        btn.innerHTML = '⚡ Mở Rộng 50 Đơn Hàng';
+        btn.style.background = '#ee4d2d';
+      }, 3000);
+    };
+
+    document.body.appendChild(btn);
+  }
+
   async function renderOrderProfit() {
     if (!window.location.href.includes('/portal/sale/order/')) return;
     
@@ -8238,6 +8308,7 @@ function downloadExcelFileBypass(wb, filename) {
   window.setTimeout(renderOrderProfit, 1200);
   window.setTimeout(renderOrderDetailProductEnhancements, 1000);
   window.setInterval(renderOrderDetailProductEnhancements, 1200);
+  window.setInterval(injectFinanceExpandButton, 1000);
   window.setTimeout(renderReturnInfoCopyButtons, 1200);
   window.setInterval(renderProductListQuickActions, 1500);
   window.setInterval(renderOrderSnCopyButtons, 1500);
