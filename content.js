@@ -7292,7 +7292,8 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function renderReturnInfoCopyButtons() {
-    if (!window.location.href.includes('/portal/sale/returnrefundcancel')) {
+    const href = (window.location.href || "").toLowerCase();
+    if (!href.includes('/portal/sale/returnrefundcancel') && !href.includes('/portal/sale/return')) {
       return;
     }
 
