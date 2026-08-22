@@ -7744,6 +7744,95 @@ function downloadExcelFileBypass(wb, filename) {
           capitalProductCount: totalQuantity ? String(totalQuantity) : ""
       };
   }
+
+  function extractSellerOrderCustomerInfo() {
+    let tenKhach = "";
+    let ngNhan = "";
+    let diaChi = "";
+    let linkDon = window.location.href || "";
+
+    // 1. LẤY TÊN KHÁCH (username người mua)
+    // Shopee DOM: <div class="username text-overflow">...</div>
+    const usernameEl = document.querySelector(".username, [class*='username'], .buyer-name, [class*='buyer-name'], .user-name");
+    if (usernameEl && usernameEl.textContent) {
+      tenKhach = cleanOrderDetailText(usernameEl.textContent).trim();
+    }
+    if (!tenKhach) {
+      const chatBtn = Array.from(document.querySelectorAll('button, a, span, div')).find(el => {
+        const t = (el.textContent || "").trim().toLowerCase();
+        return t === "chat ngay" || t.includes("chat ngay");
+      });
+      if (chatBtn) {
+        const parent = chatBtn.closest('.buyer-info, .order-panel, .panel, div') || chatBtn.parentElement?.parentElement;
+        if (parent) {
+          const directDivs = Array.from(parent.querySelectorAll('div, span, p'))
+            .map(e => cleanOrderDetailText(e.textContent).trim())
+            .filter(t => t && !/chat ngay|theo d[oõ]i/i.test(t) && t.length < 50 && !t.includes('http'));
+          if (directDivs.length > 0) {
+            tenKhach = directDivs[0];
+          }
+        }
+      }
+    }
+
+    // 2. LẤY ĐỊA CHỈ NHẬN HÀNG VÀ NGƯỜI NHẬN
+    // Shopee DOM: <div class="ship-address">...</div>
+    const shipAddressEl = document.querySelector(".ship-address, [class*='ship-address'], [class*='delivery-address'], [class*='shipping-address']");
+    if (shipAddressEl && shipAddressEl.textContent) {
+      diaChi = cleanOrderDetailText(shipAddressEl.textContent).trim();
+      const prev = shipAddressEl.previousElementSibling;
+      if (prev && prev.textContent && !normalizeOrderDetailText(prev.textContent).includes("dia chi")) {
+        ngNhan = cleanOrderDetailText(prev.textContent).trim();
+      }
+    }
+
+    // Fallback: Quét các dòng văn bản quanh "Địa chỉ nhận hàng"
+    if (!diaChi || !ngNhan) {
+      const lines = getOrderDetailLines();
+      for (let i = 0; i < lines.length; i++) {
+        const norm = normalizeOrderDetailText(lines[i]);
+        if (norm.includes("dia chi nhan hang") || norm.includes("dia chi giao hang")) {
+          if (!ngNhan && lines[i + 1]) {
+            const l1 = cleanOrderDetailText(lines[i + 1]).trim();
+            if (!normalizeOrderDetailText(l1).includes("thong tin van chuyen") && !normalizeOrderDetailText(l1).includes("kien hang")) {
+              ngNhan = l1;
+            }
+          }
+          if (!diaChi && lines[i + 2]) {
+            const l2 = cleanOrderDetailText(lines[i + 2]).trim();
+            if (!normalizeOrderDetailText(l2).includes("thong tin van chuyen") && !normalizeOrderDetailText(l2).includes("kien hang")) {
+              diaChi = l2;
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    // Fallback 2: Quét khối container chứa "Địa chỉ nhận hàng"
+    if (!diaChi || !ngNhan) {
+      const addressHeaders = Array.from(document.querySelectorAll('div, span, p, h3, h4')).filter(el => {
+        const t = normalizeOrderDetailText(el.textContent || "");
+        return t === "dia chi nhan hang" || t.includes("dia chi nhan hang");
+      });
+      for (const header of addressHeaders) {
+        const box = header.closest('.address-panel, .panel, .card, div') || header.parentElement;
+        if (box) {
+          const texts = Array.from(box.querySelectorAll('div, p, span'))
+            .map(e => cleanOrderDetailText(e.textContent).trim())
+            .filter(t => t && !normalizeOrderDetailText(t).includes("dia chi nhan hang") && !normalizeOrderDetailText(t).includes("thong tin van chuyen") && t.length > 2);
+          if (texts.length >= 2) {
+            if (!ngNhan) ngNhan = texts[0];
+            if (!diaChi) diaChi = texts[1];
+            break;
+          }
+        }
+      }
+    }
+
+    return { tenKhach, ngNhan, diaChi, linkDon };
+  }
+
   async function extractSellerOrderDetailFullData() {
       if (!location.pathname.startsWith("/portal/sale/order")) {
           return { ok: false, error: "Hãy mở trang chi tiết đơn hàng Shopee trước." };
@@ -7752,6 +7841,7 @@ function downloadExcelFileBypass(wb, filename) {
       const orderId = extractSellerOrderIdFromPage();
       const packageInfo = extractSellerOrderPackageInfo();
       const orderCreatedAt = extractSellerOrderCreatedAt();
+      const customerInfo = extractSellerOrderCustomerInfo();
       const paymentItems = collectSellerOrderPaymentItems();
       const products = extractSellerOrderProducts();
       const payments = {
@@ -7779,6 +7869,10 @@ function downloadExcelFileBypass(wb, filename) {
           shippingType: packageInfo.shippingType,
           carrier: packageInfo.carrier,
           tracking: packageInfo.tracking,
+          tenKhach: customerInfo.tenKhach,
+          ngNhan: customerInfo.ngNhan,
+          diaChi: customerInfo.diaChi,
+          linkDon: customerInfo.linkDon,
           sku: product.sku,
           idSp: product.idSp || String(product.sku || "").trim().substring(0, 10),
           quantity: product.quantity,
@@ -7803,7 +7897,7 @@ function downloadExcelFileBypass(wb, filename) {
           profit: profitData.profit
       }));
 
-      return { ok: true, orderId, orderCreatedAt, packageInfo, payments, products, profitData, rows, url: location.href };
+      return { ok: true, orderId, orderCreatedAt, packageInfo, customerInfo, payments, products, profitData, rows, url: location.href };
   }
   async function buildDhValuesFromDetail(rows, maGian) {
     let dsSpMap = new Map();
@@ -7893,7 +7987,7 @@ function downloadExcelFileBypass(wb, filename) {
       return timeStr;
     };
 
-    // 21 CỘT CHUẨN XÁC 100% VỚI SHEET DH
+    // 25 CỘT CHUẨN XÁC 100% VỚI SHEET DH
     return processedRows.map((item) => {
       const { row, mdh, sku, idSp, slg, donGia, thanhTien } = item;
       const tienSp = tienSpMap.get(mdh || "__order__") || 0;
@@ -7932,7 +8026,11 @@ function downloadExcelFileBypass(wb, filename) {
         idSp,                                     // Col R (18): id_sp
         slg,                                      // Col S (19): slg
         donGia,                                   // Col T (20): don_gia
-        thanhTien                                 // Col U (21): thanh_tien
+        thanhTien,                                // Col U (21): thanh_tien
+        String(row.tenKhach || "").trim(),        // Col V (22): ten_khach
+        String(row.ngNhan || "").trim(),          // Col W (23): ng_nhan
+        String(row.diaChi || "").trim(),          // Col X (24): dia_chi
+        String(row.linkDon || location.href || "").trim() // Col Y (25): link_don
       ];
     });
   }

@@ -11,6 +11,10 @@
     { key: "orderCreatedAt", label: "Don hang moi" },
     { key: "orderId", label: "Ma don hang" },
     { key: "tracking", label: "Ma van don" },
+    { key: "tenKhach", label: "Ten khach" },
+    { key: "ngNhan", label: "Nguoi nhan" },
+    { key: "diaChi", label: "Dia chi" },
+    { key: "linkDon", label: "Link don" },
     { key: "totalProductAmount", label: "Tong tien SP" },
     { key: "productPrice", label: "Gia SP" },
     { key: "estimatedShippingTotal", label: "Tong phi VC uoc tinh" },
@@ -87,6 +91,9 @@
   }
   function renderDisplayValue(row, col) {
     const shownValue = normalizeCellForExport(row, col.key);
+    if (col.key === "linkDon" && shownValue) {
+      return `<a href="${escapeHtml(shownValue)}" target="_blank" style="color: #2563eb; text-decoration: underline; word-break: break-all; font-weight: normal; font-size: 11px;">${escapeHtml(shownValue)}</a>`;
+    }
     const html = escapeHtml(shownValue);
     return col.key === "capitalDetails" ? html.replace(/\s+\|\s+/g, "<br>") : html;
   }
@@ -365,7 +372,11 @@
         idSp,                                     // Col R (18): id_sp (left sku 10)
         slg,                                      // Col S (19): slg
         donGia,                                   // Col T (20): don_gia (lấy gia_ban từ DS_SP)
-        thanhTien                                 // Col U (21): thanh_tien (slg * don_gia)
+        thanhTien,                                // Col U (21): thanh_tien (slg * don_gia)
+        normalizeCell(row.tenKhach),              // Col V (22): ten_khach
+        normalizeCell(row.ngNhan),                // Col W (23): ng_nhan
+        normalizeCell(row.diaChi),                // Col X (24): dia_chi
+        normalizeCell(row.linkDon)                // Col Y (25): link_don
       ];
     });
   }

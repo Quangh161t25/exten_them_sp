@@ -622,7 +622,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
           return;
         }
 
-        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:U")}`, {
+        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:Y")}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -770,7 +770,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
             if (i < matchingRowNums.length) {
               const rowNum = matchingRowNums[i];
               updateData.push({
-                range: `DH!A${rowNum}:U${rowNum}`,
+                range: `DH!A${rowNum}:Y${rowNum}`,
                 values: [newValues[i]]
               });
             }
@@ -794,7 +794,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
           // Nếu số dòng mới nhiều hơn số dòng cũ đã có, thêm các dòng còn lại vào cuối
           const remainingValues = newValues.slice(matchingRowNums.length);
           if (remainingValues.length > 0) {
-            await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:U")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
+            await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:Y")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
               method: "POST",
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -814,7 +814,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
         }
 
         // 3. Nếu CHƯA TỒN TẠI -> THÊM MỚI (APPEND)
-        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:U")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
+        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:Y")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -837,7 +837,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
     Promise.all([getGoogleAccessToken(), getSpreadsheetId()]).then(async ([token, sheetId]) => {
       try {
         await ensureSheetExists("DH", token);
-        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:U")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
+        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:Y")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
