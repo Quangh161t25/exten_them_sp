@@ -160,24 +160,41 @@
             console.warn("Could not change page size to 50:", e);
           }
 
-          // 2. Tìm tất cả các dòng giao dịch trong bảng
+          // 2. BẤM VÀO TẤT CẢ CÁC NÚT MŨI TÊN TRÊN TOÀN BỘ BẢNG ĐỂ MỞ RỘNG TẤT CẢ ĐƠN
+          const triggerRealClick = (el) => {
+            if (!el) return;
+            el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+            el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+            if (typeof el.click === 'function') el.click();
+          };
+
+          try {
+            const allArrowWrappers = Array.from(document.querySelectorAll('.grid-table-body .transaction-amount-wrapper, .grid-table-body i.eds-icon, .grid-table-body [data-v-15d423d6] i'));
+            allArrowWrappers.forEach(arrow => {
+              const icon = arrow.tagName === 'I' ? arrow : arrow.querySelector('i');
+              // Chỉ click những nút chưa active (chưa mở rộng)
+              if (!icon || !icon.classList.contains('active')) {
+                const target = arrow.closest('.transaction-amount-wrapper') || arrow;
+                triggerRealClick(target);
+              }
+            });
+
+            // Chờ 1 giây để toàn bộ các chi tiết đơn hàng mở rộng và render xong vào DOM
+            await new Promise(r => setTimeout(r, 1000));
+          } catch (e) {
+            console.warn("Lỗi khi mở rộng toàn bộ mũi tên:", e);
+          }
+
+          // 3. Quét tất cả các dòng giao dịch trong bảng
           const rowElements = Array.from(document.querySelectorAll('.grid-table.transaction-table .grid-table-body .grid-table-row, .transaction-table .grid-table-body .grid-table-row, .grid-table-body .grid-table-row'));
           
           if (rowElements.length === 0) {
             return { ok: false, message: "Không tìm thấy dòng giao dịch nào trong bảng." };
           }
 
-          const triggerRealClick = (el) => {
-            if (!el) return;
-            el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-            el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
-            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-            if (typeof el.click === 'function') el.click();
-          };
-
           const extractedRows = [];
 
-          // 3. Duyệt qua từng dòng và bấm mũi tên mở rộng để lấy chính xác link "Xem thông tin đơn hàng"
           for (let i = 0; i < rowElements.length; i++) {
             const rEl = rowElements[i];
             const cells = Array.from(rEl.children);
@@ -227,28 +244,22 @@
             const digits = rawAmount.replace(/[^0-9]/g, '');
             const numAmount = digits ? (isNegative ? -parseInt(digits, 10) : parseInt(digits, 10)) : 0;
 
-            // Bấm vào nút mũi tên của dòng này để mở chi tiết
-            const arrowBtn = amountCell.querySelector('.transaction-amount-wrapper, i.eds-icon, svg, .transaction-amount') || amountCell;
-            if (arrowBtn) {
-              triggerRealClick(arrowBtn);
-              // Chờ một chút để Shopee render popover/drawer chứa link
-              await new Promise(r => setTimeout(r, 120));
-            }
-
             // Tìm Link đơn hàng từ nút 'Xem thông tin đơn hàng' (a[href*="/portal/sale/"])
             let orderLink = "";
             
-            // Tìm trong chính dòng hoặc next sibling
+            // Tìm trong chính dòng hoặc next sibling (vùng mở rộng)
             let linkEl = rEl.querySelector('a[href*="/portal/sale/"], a[href*="/portal/sale/order/"]');
             if (!linkEl && rEl.nextElementSibling) {
               linkEl = rEl.nextElementSibling.querySelector('a[href*="/portal/sale/"], a[href*="/portal/sale/order/"]');
             }
 
-            // Tìm trong các popover/popper đang hiển thị trên toàn trang
+            // Tìm trong các popover/popper/modal
             if (!linkEl) {
-              const allOpenLinks = Array.from(document.querySelectorAll('a[href*="/portal/sale/"], a[href*="/portal/sale/order/"], .eds-popover__content a, .eds-popper a, .eds-dropdown a'));
-              if (allOpenLinks.length > 0) {
-                linkEl = allOpenLinks[allOpenLinks.length - 1]; // Lấy link ở popover vừa mở
+              const allOpenLinks = Array.from(document.querySelectorAll('a[href*="/portal/sale/"], a[href*="/portal/sale/order/"]'));
+              if (allOpenLinks.length > i) {
+                linkEl = allOpenLinks[i];
+              } else if (allOpenLinks.length > 0) {
+                linkEl = allOpenLinks[allOpenLinks.length - 1];
               }
             }
 
@@ -259,7 +270,7 @@
               }
             }
 
-            // Fallback nếu không bắt được qua popover: dùng mã đơn hàng
+            // Fallback nếu không có link sale: dùng mã đơn hàng
             if (!orderLink && orderId) {
               orderLink = `https://banhang.shopee.vn/portal/sale/order/${orderId}`;
             }
