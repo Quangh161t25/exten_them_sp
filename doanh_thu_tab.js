@@ -160,28 +160,28 @@
             console.warn("Could not change page size to 50:", e);
           }
 
-          // 2. CHỈ CLICK DUY NHẤT VÀO ICON MŨI TÊN (i.eds-icon) ĐỂ MỞ RỘNG (TUYỆT ĐỐI KHÔNG MỞ LINK)
-          const triggerIconClickOnly = (icon) => {
-            if (!icon || icon.tagName === 'A' || icon.closest('a')) return;
+          // 2. CLICK CHÍNH XÁC VÀO THẺ SỐ TIỀN (.transaction-amount) ĐỂ MỞ RỘNG
+          const triggerClickAmount = (el) => {
+            if (!el || el.tagName === 'A' || el.closest('a')) return;
             const opts = { bubbles: true, cancelable: true, view: window };
-            icon.dispatchEvent(new MouseEvent('mousedown', opts));
-            icon.dispatchEvent(new MouseEvent('mouseup', opts));
-            icon.dispatchEvent(new MouseEvent('click', opts));
-            if (typeof icon.click === 'function' && icon.tagName !== 'A') icon.click();
+            el.dispatchEvent(new PointerEvent('pointerdown', opts));
+            el.dispatchEvent(new MouseEvent('mousedown', opts));
+            el.dispatchEvent(new PointerEvent('pointerup', opts));
+            el.dispatchEvent(new MouseEvent('mouseup', opts));
+            el.dispatchEvent(new MouseEvent('click', opts));
+            if (typeof el.click === 'function' && el.tagName !== 'A') el.click();
           };
 
           try {
-            const icons = Array.from(document.querySelectorAll('.grid-table-body .transaction-amount-wrapper i, .grid-table-body i.eds-icon, .transaction-amount-wrapper i'));
-            icons.forEach(icon => {
-              if (!icon.classList.contains('active')) {
-                triggerIconClickOnly(icon);
-              }
+            const amountEls = Array.from(document.querySelectorAll('.grid-table-body .transaction-amount, .transaction-table .transaction-amount, [class*="transaction-amount"]'));
+            amountEls.forEach(amountDiv => {
+              triggerClickAmount(amountDiv);
             });
 
             // Chờ 800ms để toàn bộ các chi tiết đơn hàng mở rộng và render xong vào DOM
             await new Promise(r => setTimeout(r, 800));
           } catch (e) {
-            console.warn("Lỗi khi mở rộng mũi tên:", e);
+            console.warn("Lỗi khi mở rộng số tiền:", e);
           }
 
           // 3. Quét tất cả các dòng giao dịch trong bảng

@@ -6749,21 +6749,21 @@ function downloadExcelFileBypass(wb, filename) {
         }
       } catch (_) {}
 
-      // 2. Chỉ click duy nhất vào icon mũi tên (i.eds-icon) để mở rộng, TUYỆT ĐỐI KHÔNG CLICK VÀO LINK
-      const triggerIconClickOnly = (icon) => {
-        if (!icon || icon.tagName === 'A' || icon.closest('a')) return;
+      // 2. Click CHÍNH XÁC vào thẻ div số tiền (.transaction-amount) để mở rộng dòng mà không bao giờ chạm vào link
+      const triggerClickAmount = (el) => {
+        if (!el || el.tagName === 'A' || el.closest('a')) return;
         const opts = { bubbles: true, cancelable: true, view: window };
-        icon.dispatchEvent(new MouseEvent('mousedown', opts));
-        icon.dispatchEvent(new MouseEvent('mouseup', opts));
-        icon.dispatchEvent(new MouseEvent('click', opts));
-        if (typeof icon.click === 'function' && icon.tagName !== 'A') icon.click();
+        el.dispatchEvent(new PointerEvent('pointerdown', opts));
+        el.dispatchEvent(new MouseEvent('mousedown', opts));
+        el.dispatchEvent(new PointerEvent('pointerup', opts));
+        el.dispatchEvent(new MouseEvent('mouseup', opts));
+        el.dispatchEvent(new MouseEvent('click', opts));
+        if (typeof el.click === 'function' && el.tagName !== 'A') el.click();
       };
 
-      const icons = Array.from(document.querySelectorAll('.grid-table-body .transaction-amount-wrapper i, .grid-table-body i.eds-icon, .transaction-amount-wrapper i'));
-      icons.forEach(icon => {
-        if (!icon.classList.contains('active')) {
-          triggerIconClickOnly(icon);
-        }
+      const amountEls = Array.from(document.querySelectorAll('.grid-table-body .transaction-amount, .transaction-table .transaction-amount'));
+      amountEls.forEach(amountDiv => {
+        triggerClickAmount(amountDiv);
       });
 
       btn.innerHTML = '✓ Đã mở rộng 50 đơn!';
