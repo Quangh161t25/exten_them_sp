@@ -53,7 +53,7 @@
     return url.includes('banhang.shopee.vn/portal/finance/income') || url.includes('banhang.shopee.vn/portal/finance');
   }
 
-  // Khôi phục dữ liệu đã lưu
+  // Khôi phục dữ liệu đã lưu trong storage
   chrome.storage.local.get(['doanh_thu_cache_data'], (res) => {
     if (res && res.doanh_thu_cache_data && res.doanh_thu_cache_data.length > 0) {
       allRows = res.doanh_thu_cache_data;
@@ -63,7 +63,7 @@
     }
   });
 
-  // Tự động quét khi mở tab
+  // Tự động quét khi mở tab nếu đang ở đúng trang
   if (tabBtn) {
     tabBtn.addEventListener('click', async () => {
       const activeTab = await getActiveTab();
@@ -110,7 +110,7 @@
   }
 
   // =========================================================================
-  // ĐỌC DỮ LIỆU TỪ TRANG SHOPEE FINANCE
+  // ĐỌC DỮ LIỆU TỪ TRANG SHOPEE FINANCE (TỰ ĐỘNG CHỌN 50 + MỞ RỘNG TẤT CẢ LINK)
   // =========================================================================
   async function readDoanhThuData(isAuto = false) {
     if (isReading) return;
@@ -134,7 +134,7 @@
         return;
       }
 
-      setStatus('<span style="color: #ee4d2d; font-weight: bold;">⏳ Đang chuyển sang 50 đơn/trang & quét bảng doanh thu...</span>');
+      setStatus('<span style="color: #ee4d2d; font-weight: bold;">⏳ Đang chuyển 50 đơn/trang & mở rộng toàn bộ để lấy Link đơn hàng...</span>');
 
       const [result] = await chrome.scripting.executeScript({
         target: { tabId: targetTab.id },
@@ -160,11 +160,24 @@
             console.warn("Could not change page size to 50:", e);
           }
 
-          // 2. Tìm các dòng giao dịch trong bảng
+          // 2. Tự động click vào toàn bộ các nút mũi tên / transaction-amount-wrapper để mở rộng chi tiết
+          try {
+            const amountWrappers = Array.from(document.querySelectorAll('.transaction-amount-wrapper, .grid-table-body .transaction-amount-wrapper, .transaction-amount-wrapper i, .grid-table-body .eds-icon'));
+            for (const wrapper of amountWrappers) {
+              const el = wrapper.closest('.transaction-amount-wrapper') || wrapper;
+              el.click();
+            }
+            // Đợi 800ms để Shopee render các link chi tiết vào DOM
+            await new Promise(r => setTimeout(r, 800));
+          } catch (e) {
+            console.warn("Could not click expand triggers:", e);
+          }
+
+          // 3. Quét các dòng giao dịch trong bảng
           const rowElements = Array.from(document.querySelectorAll('.grid-table.transaction-table .grid-table-body .grid-table-row, .transaction-table .grid-table-body .grid-table-row, .grid-table-body .grid-table-row'));
           
           if (rowElements.length === 0) {
-            return { ok: false, message: "Không tìm thấy dòng giao dịch nào. Hãy kiểm tra lại bộ lọc ngày hoặc đảm bảo bảng đã tải xong." };
+            return { ok: false, message: "Không tìm thấy dòng giao dịch nào trong bảng." };
           }
 
           const extractedRows = [];
@@ -216,11 +229,33 @@
             const digits = rawAmount.replace(/[^0-9]/g, '');
             const numAmount = digits ? (isNegative ? -parseInt(digits, 10) : parseInt(digits, 10)) : 0;
 
+            // Tìm Link đơn hàng từ nút 'Xem thông tin đơn hàng' (a[href*="/portal/sale/"])
+            let orderLink = "";
+            const linkCandidates = Array.from(rEl.querySelectorAll('a[href*="/portal/sale/"], a[href*="/portal/sale/order/"]'));
+            
+            // Tìm trong next sibling (nếu phần mở rộng nằm ở dòng liền sau)
+            let nextEl = rEl.nextElementSibling;
+            while (nextEl && !nextEl.classList.contains('grid-table-row')) {
+              linkCandidates.push(...Array.from(nextEl.querySelectorAll('a[href*="/portal/sale/"], a[href*="/portal/sale/order/"]')));
+              nextEl = nextEl.nextElementSibling;
+            }
+
+            if (linkCandidates.length > 0) {
+              const href = linkCandidates[0].getAttribute('href') || "";
+              orderLink = href.startsWith('http') ? href : `https://banhang.shopee.vn${href}`;
+            }
+
+            // Nếu không bắt được qua popup mở rộng, tạo link mặc định theo mã đơn
+            if (!orderLink && orderId) {
+              orderLink = `https://banhang.shopee.vn/portal/sale/order/${orderId}`;
+            }
+
             if (orderId || rawAmount) {
               extractedRows.push({
                 orderId,
                 buyer,
                 imgUrl,
+                orderLink,
                 date: dateStr,
                 status: statusStr,
                 paymentMethod: methodStr,
@@ -240,7 +275,7 @@
         updateStats();
         renderTable();
         const now = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        setStatus(`✅ <b>Thành công:</b> Đã đọc <b>${allRows.length}</b> giao dịch lúc ${now}.`);
+        setStatus(`✅ <b>Thành công:</b> Đã đọc <b>${allRows.length}</b> giao dịch (kèm Link đơn hàng) lúc ${now}.`);
       } else {
         setStatus(`⚠️ ${result?.result?.message || "Không thể đọc dữ liệu từ trang Shopee Finance."}`, true);
       }
@@ -287,14 +322,14 @@
 
     let filtered = allRows.filter(r => {
       if (tokens.length > 0) {
-        const fullSearchStr = `${r.orderId || ''} ${r.buyer || ''} ${r.date || ''} ${r.status || ''} ${r.paymentMethod || ''} ${r.rawAmount || ''} ${r.amount || ''}`.toLowerCase();
+        const fullSearchStr = `${r.orderId || ''} ${r.buyer || ''} ${r.orderLink || ''} ${r.date || ''} ${r.status || ''} ${r.paymentMethod || ''} ${r.rawAmount || ''} ${r.amount || ''}`.toLowerCase();
         return tokens.every(token => fullSearchStr.includes(token));
       }
       return true;
     });
 
     if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #64748b;">Chưa có dữ liệu hoặc không có dòng nào phù hợp với tìm kiếm.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #64748b;">Chưa có dữ liệu hoặc không có dòng nào phù hợp với tìm kiếm.</td></tr>';
       return;
     }
 
@@ -304,7 +339,9 @@
       const amountColor = isNeg ? '#dc2626' : '#059669';
       const amountBg = isNeg ? '#fef2f2' : '#f0fdf4';
 
-      const orderLink = row.orderId ? `https://banhang.shopee.vn/portal/sale/order/${row.orderId}` : '#';
+      const saleLink = row.orderLink || `https://banhang.shopee.vn/portal/sale/order/${row.orderId || ''}`;
+      const saleIdMatch = saleLink.match(/\/portal\/sale\/(\d+)/);
+      const saleLabel = saleIdMatch ? `Đơn ${saleIdMatch[1]}` : (row.orderId ? `Đơn ${row.orderId}` : 'Mở đơn');
 
       html += `
         <tr style="border-top: 1px solid #f1f5f9; background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
@@ -314,11 +351,19 @@
               ${row.imgUrl ? `<img src="${escapeHtml(row.imgUrl)}" style="width: 28px; height: 28px; border-radius: 4px; object-fit: cover; border: 1px solid #e2e8f0; flex-shrink: 0;">` : ''}
               <div>
                 <div style="display: flex; align-items: center; gap: 4px;">
-                  <a href="${orderLink}" target="_blank" style="font-weight: bold; color: #0284c7; text-decoration: none; font-family: monospace; font-size: 11px;" title="Mở chi tiết đơn hàng">${escapeHtml(row.orderId)} ↗</a>
+                  <span style="font-weight: bold; color: #1e293b; font-family: monospace; font-size: 11px;">${escapeHtml(row.orderId)}</span>
                   <button type="button" class="btn-dt-copy-order" data-order="${escapeHtml(row.orderId)}" style="background: none; border: none; cursor: pointer; padding: 0; font-size: 11px;" title="Copy mã đơn">📋</button>
                 </div>
                 ${row.buyer ? `<div style="font-size: 10px; color: #64748b;">Người mua: <b style="color: #334155;">${escapeHtml(row.buyer)}</b></div>` : ''}
               </div>
+            </div>
+          </td>
+          <td style="padding: 6px;">
+            <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+              <a href="${saleLink}" target="_blank" style="display: inline-flex; align-items: center; gap: 2px; background: #fff1f0; color: #ee4d2d; border: 1px solid #ffccc7; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold; text-decoration: none;" title="${escapeHtml(saleLink)}">
+                🔗 ${escapeHtml(saleLabel)} ↗
+              </a>
+              <button type="button" class="btn-dt-copy-link" data-link="${escapeHtml(saleLink)}" style="background: none; border: none; cursor: pointer; padding: 0; font-size: 11px;" title="Copy link đơn hàng">📋</button>
             </div>
           </td>
           <td style="padding: 6px; color: #475569; font-size: 11px; white-space: nowrap;">
@@ -339,7 +384,7 @@
 
     tbody.innerHTML = html;
 
-    // Attach copy order buttons
+    // Gắn sự kiện copy mã đơn
     tbody.querySelectorAll('.btn-dt-copy-order').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -347,6 +392,22 @@
         const orderId = btn.getAttribute('data-order');
         if (orderId) {
           navigator.clipboard.writeText(orderId).then(() => {
+            const orig = btn.innerText;
+            btn.innerText = '✓';
+            setTimeout(() => { btn.innerText = orig; }, 1000);
+          });
+        }
+      });
+    });
+
+    // Gắn sự kiện copy link đơn hàng
+    tbody.querySelectorAll('.btn-dt-copy-link').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const link = btn.getAttribute('data-link');
+        if (link) {
+          navigator.clipboard.writeText(link).then(() => {
             const orig = btn.innerText;
             btn.innerText = '✓';
             setTimeout(() => { btn.innerText = orig; }, 1000);
@@ -362,13 +423,14 @@
       return;
     }
 
-    const headers = ["STT", "Mã đơn hàng", "Người mua", "Ngày chuyển", "Trạng thái", "Phương thức thanh toán", "Số tiền thanh toán", "Số tiền (số)"];
+    const headers = ["STT", "Mã đơn hàng", "Link đơn hàng", "Người mua", "Ngày chuyển", "Trạng thái", "Phương thức thanh toán", "Số tiền thanh toán", "Số tiền (số)"];
     const lines = [headers.join("\t")];
 
     allRows.forEach((row, idx) => {
       lines.push([
         idx + 1,
         row.orderId || "",
+        row.orderLink || "",
         row.buyer || "",
         row.date || "",
         row.status || "",
@@ -380,7 +442,7 @@
 
     const tsvContent = lines.join("\r\n");
     navigator.clipboard.writeText(tsvContent).then(() => {
-      setStatus(`📋 <b style="color:#16a34a;">Đã copy ${allRows.length} dòng dạng TSV vào Clipboard!</b> Bạn có thể dán (Ctrl+V) vào Google Sheets hoặc Excel.`);
+      setStatus(`📋 <b style="color:#16a34a;">Đã copy ${allRows.length} dòng (kèm Link đơn) dạng TSV vào Clipboard!</b> Bạn có thể dán (Ctrl+V) vào Google Sheets hoặc Excel.`);
     }).catch(err => {
       alert("Lỗi khi copy: " + err.message);
     });
@@ -397,13 +459,14 @@
       return;
     }
 
-    const headers = ["STT", "Mã đơn hàng", "Người mua", "Ngày chuyển", "Trạng thái", "Phương thức thanh toán", "Số tiền thanh toán", "Số tiền (số)"];
+    const headers = ["STT", "Mã đơn hàng", "Link đơn hàng", "Người mua", "Ngày chuyển", "Trạng thái", "Phương thức thanh toán", "Số tiền thanh toán", "Số tiền (số)"];
     const data = [headers];
 
     allRows.forEach((row, idx) => {
       data.push([
         idx + 1,
         row.orderId || "",
+        row.orderLink || "",
         row.buyer || "",
         row.date || "",
         row.status || "",
