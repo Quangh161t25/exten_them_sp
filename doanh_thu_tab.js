@@ -29,8 +29,9 @@
 
   function formatMoneyVND(val) {
     if (val === null || val === undefined || isNaN(val)) return "0 đ";
-    const isNeg = val < 0;
-    const absVal = Math.abs(val);
+    const num = Number(val);
+    const isNeg = num < 0;
+    const absVal = Math.abs(num);
     const formatted = absVal.toLocaleString('vi-VN');
     return isNeg ? `-${formatted} đ` : `${formatted} đ`;
   }
@@ -110,7 +111,7 @@
   }
 
   // =========================================================================
-  // ĐỌC DỮ LIỆU TỪ TRANG SHOPEE FINANCE (TỰ ĐỘNG CHỌN 50 + MỞ RỘNG TẤT CẢ LINK)
+  // ĐỌC DỮ LIỆU TỪ TRANG SHOPEE FINANCE (MỞ RỘNG VÀ ĐỌC CHI TIẾT 5 CỘT TÀI CHÍNH)
   // =========================================================================
   async function readDoanhThuData(isAuto = false) {
     if (isReading) return;
@@ -134,7 +135,7 @@
         return;
       }
 
-      setStatus('<span style="color: #ee4d2d; font-weight: bold;">⏳ Đang chuyển 50 đơn/trang & mở rộng toàn bộ để lấy Link đơn hàng...</span>');
+      setStatus('<span style="color: #ee4d2d; font-weight: bold;">⏳ Đang mở rộng & đọc chi tiết doanh thu (Tiền SP, Phí VC, Phụ phí, Thuế, Doanh thu)...</span>');
 
       const [result] = await chrome.scripting.executeScript({
         target: { tabId: targetTab.id },
@@ -160,7 +161,7 @@
             console.warn("Could not change page size to 50:", e);
           }
 
-          // 2. BẤM MỞ RỘNG TẤT CẢ CÁC ĐƠN BẰNG ICON MŨI TÊN (CHỐNG MỞ TAB)
+          // 2. BẤM MỞ RỘNG TẤT CẢ CÁC ĐƠN BẰNG ICON MŨI TÊN (CHỐNG MỞ TAB TUYỆT ĐỐI)
           const preventLinkClicks = (e) => {
             if (e.target.closest('a') || e.target.tagName === 'A') {
               e.preventDefault();
@@ -186,15 +187,25 @@
               }
             });
 
-            // Chờ 1.2s để Shopee mở rộng xong và render đầy đủ nút "Xem thông tin đơn hàng"
-            await new Promise(r => setTimeout(r, 1200));
+            // Chờ 1.5s để toàn bộ các chi tiết đơn hàng mở rộng và render xong vào DOM
+            await new Promise(r => setTimeout(r, 1500));
           } catch (e) {
             console.warn("Lỗi khi mở rộng dòng:", e);
           } finally {
             window.removeEventListener('click', preventLinkClicks, true);
           }
 
-          // 3. Quét tất cả các dòng giao dịch và lấy chính xác link từ nút "Xem thông tin đơn hàng"
+          // 3. Hàm phân tích số tiền VND
+          const parseVND = (rawStr) => {
+            if (!rawStr) return 0;
+            const str = String(rawStr).trim();
+            const isNeg = str.includes('-');
+            const digits = str.replace(/[^0-9]/g, '');
+            if (!digits) return 0;
+            return isNeg ? -parseInt(digits, 10) : parseInt(digits, 10);
+          };
+
+          // 4. Quét tất cả các dòng giao dịch trong bảng
           const rowElements = Array.from(document.querySelectorAll('.grid-table.transaction-table .grid-table-body .grid-table-row, .transaction-table .grid-table-body .grid-table-row, .grid-table-body .grid-table-row'));
           
           if (rowElements.length === 0) {
@@ -243,63 +254,110 @@
             const methodCell = cells[3];
             const methodStr = (methodCell.innerText || methodCell.textContent || "").trim();
 
-            // Cột 5: Số tiền thanh toán
+            // Cột 5: Số tiền thanh toán (Doanh thu mặc định từ cột chính)
             const amountCell = cells[4];
             const amountEl = amountCell.querySelector('.transaction-amount') || amountCell;
             const rawAmount = (amountEl.innerText || amountEl.textContent || "").trim();
-            
-            const isNegative = rawAmount.includes('-');
-            const digits = rawAmount.replace(/[^0-9]/g, '');
-            const numAmount = digits ? (isNegative ? -parseInt(digits, 10) : parseInt(digits, 10)) : 0;
+            let defaultAmount = parseVND(rawAmount);
 
-            // Lấy chính xác Link đơn hàng từ nút "Xem thông tin đơn hàng" (<a href="/portal/sale/...">)
+            // Tìm vùng mở rộng chi tiết của dòng này (trong chính dòng hoặc sibling liền sau)
+            let detailContainer = rEl;
+            let nextEl = rEl.nextElementSibling;
+            const combinedElements = [rEl];
+            while (nextEl && !nextEl.classList.contains('grid-table-row')) {
+              combinedElements.push(nextEl);
+              nextEl = nextEl.nextElementSibling;
+            }
+
+            // 5. Trích xuất Link đơn hàng từ nút "Xem thông tin đơn hàng"
             let orderLink = "";
-
-            // 1. Tìm trong rEl (chính dòng này)
-            let linkEl = Array.from(rEl.querySelectorAll('a[href*="/portal/sale/"]')).find(a => 
-              a.textContent.includes('Xem thông tin') || /\/portal\/sale\/\d+/.test(a.getAttribute('href') || '')
-            );
-
-            // 2. Tìm trong phần mở rộng (next sibling / sub-row của dòng này)
-            if (!linkEl && rEl.nextElementSibling) {
-              let nextEl = rEl.nextElementSibling;
-              while (nextEl && !nextEl.classList.contains('grid-table-row')) {
-                const found = Array.from(nextEl.querySelectorAll('a[href*="/portal/sale/"]')).find(a =>
-                  a.textContent.includes('Xem thông tin') || /\/portal\/sale\/\d+/.test(a.getAttribute('href') || '')
-                );
-                if (found) {
-                  linkEl = found;
-                  break;
-                }
-                nextEl = nextEl.nextElementSibling;
+            for (const el of combinedElements) {
+              const found = Array.from(el.querySelectorAll('a[href*="/portal/sale/"]')).find(a =>
+                a.textContent.includes('Xem thông tin') || /\/portal\/sale\/\d+/.test(a.getAttribute('href') || '')
+              );
+              if (found) {
+                const href = found.getAttribute('href') || "";
+                orderLink = href.startsWith('http') ? href : `https://banhang.shopee.vn${href}`;
+                break;
               }
             }
 
-            // 3. Tìm trong toàn bộ các nút "Xem thông tin đơn hàng" vừa mở
-            if (!linkEl) {
+            if (!orderLink) {
               const allSaleLinks = Array.from(document.querySelectorAll('a[href*="/portal/sale/"]')).filter(a =>
                 /\/portal\/sale\/\d+/.test(a.getAttribute('href') || '')
               );
               if (allSaleLinks.length > i) {
-                linkEl = allSaleLinks[i];
-              } else if (allSaleLinks.length > 0) {
-                linkEl = allSaleLinks[allSaleLinks.length - 1];
-              }
-            }
-
-            if (linkEl) {
-              const href = linkEl.getAttribute('href') || "";
-              if (href) {
+                const href = allSaleLinks[i].getAttribute('href') || "";
                 orderLink = href.startsWith('http') ? href : `https://banhang.shopee.vn${href}`;
               }
             }
 
-            // Fallback nếu không bắt được nút mở rộng: dùng link mã đơn
             if (!orderLink && orderId) {
               orderLink = `https://banhang.shopee.vn/portal/sale/order/${orderId}`;
             }
 
-            if (orderId || rawAmount) {
+            // 6. Trích xuất 5 cột tài chính chi tiết từ vùng mở rộng
+            let tienSanPham = 0;
+            let phiVanChuyen = 0;
+            let phuPhi = 0;
+            let thue = 0;
+            let doanhThu = defaultAmount;
+
+            let foundBreakdown = false;
+
+            combinedElements.forEach(el => {
+              // Quét các cặp nhãn - giá trị
+              const textRows = Array.from(el.querySelectorAll('div, tr, li, p'));
+              textRows.forEach(trEl => {
+                const children = Array.from(trEl.children);
+                if (children.length >= 2) {
+                  const lbl = children[0].innerText.trim().toLowerCase();
+                  const val = children[children.length - 1].innerText.trim();
+
+                  if (lbl === 'tổng tiền sản phẩm' || lbl.startsWith('tổng tiền sản phẩm')) {
+                    tienSanPham = parseVND(val);
+                    foundBreakdown = true;
+                  } else if (lbl === 'tổng phí vận chuyển' || lbl.startsWith('tổng phí vận chuyển')) {
+                    phiVanChuyen = parseVND(val);
+                    foundBreakdown = true;
+                  } else if (lbl === 'phụ phí' || lbl.startsWith('phụ phí')) {
+                    phuPhi = parseVND(val);
+                    foundBreakdown = true;
+                  } else if (lbl === 'thuế' || (lbl.startsWith('thuế') && !lbl.includes('gtgt') && !lbl.includes('tncn'))) {
+                    thue = parseVND(val);
+                    foundBreakdown = true;
+                  } else if (lbl === 'doanh thu đơn hàng' || lbl.includes('doanh thu đơn hàng')) {
+                    doanhThu = parseVND(val);
+                    foundBreakdown = true;
+                  }
+                }
+              });
+
+              // Quét bổ sung bằng Regex nếu chưa bắt đủ
+              const fullText = el.innerText || "";
+              if (!foundBreakdown || tienSanPham === 0) {
+                const m1 = fullText.match(/tổng tiền sản phẩm\s*[:\n\t]*([^\n]+)/i);
+                if (m1) tienSanPham = parseVND(m1[1]);
+              }
+              if (!foundBreakdown || phiVanChuyen === 0) {
+                const m2 = fullText.match(/tổng phí vận chuyển\s*[:\n\t]*([^\n]+)/i);
+                if (m2) phiVanChuyen = parseVND(m2[1]);
+              }
+              if (!foundBreakdown || phuPhi === 0) {
+                const m3 = fullText.match(/phụ phí\s*[:\n\t]*([^\n]+)/i);
+                if (m3) phuPhi = parseVND(m3[1]);
+              }
+              if (!foundBreakdown || thue === 0) {
+                const m4 = fullText.match(/(?:^|\n)\s*thuế\s*[:\n\t]*([^\n]+)/im);
+                if (m4) thue = parseVND(m4[1]);
+              }
+              if (!foundBreakdown || doanhThu === 0) {
+                const m5 = fullText.match(/doanh thu đơn hàng\s*[:\n\t]*([^\n]+)/i);
+                if (m5) doanhThu = parseVND(m5[1]);
+              }
+            });
+
+            if (orderId || rawAmount || doanhThu) {
               extractedRows.push({
                 orderId,
                 buyer,
@@ -309,10 +367,17 @@
                 status: statusStr,
                 paymentMethod: methodStr,
                 rawAmount,
-                amount: numAmount
+                amount: doanhThu,
+                tienSanPham,
+                phiVanChuyen,
+                phuPhi,
+                thue,
+                doanhThu
               });
             }
-          }          return { ok: true, rows: extractedRows, url: window.location.href };
+          }
+
+          return { ok: true, rows: extractedRows, url: window.location.href };
         }
       });
 
@@ -322,7 +387,7 @@
         updateStats();
         renderTable();
         const now = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        setStatus(`✅ <b>Thành công:</b> Đã đọc <b>${allRows.length}</b> giao dịch (kèm Link đơn hàng) lúc ${now}.`);
+        setStatus(`✅ <b>Thành công:</b> Đã đọc <b>${allRows.length}</b> đơn (kèm đầy đủ Tiền SP, Phí VC, Phụ phí, Thuế, Doanh thu) lúc ${now}.`);
       } else {
         setStatus(`⚠️ ${result?.result?.message || "Không thể đọc dữ liệu từ trang Shopee Finance."}`, true);
       }
@@ -342,22 +407,26 @@
     }
 
     const totalCount = allRows.length;
-    let totalPositive = 0;
-    let totalNegative = 0;
-    let netTotal = 0;
+    let sumTienSP = 0;
+    let sumPhiVC = 0;
+    let sumPhuPhi = 0;
+    let sumThue = 0;
+    let sumDoanhThu = 0;
 
     allRows.forEach(r => {
-      const val = Number(r.amount) || 0;
-      netTotal += val;
-      if (val > 0) totalPositive += val;
-      else if (val < 0) totalNegative += val;
+      sumTienSP += Number(r.tienSanPham) || 0;
+      sumPhiVC += Number(r.phiVanChuyen) || 0;
+      sumPhuPhi += Number(r.phuPhi) || 0;
+      sumThue += Number(r.thue) || 0;
+      sumDoanhThu += Number(r.amount || r.doanhThu) || 0;
     });
 
     statsEl.innerHTML = `
       <span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-weight: 600;">Số đơn: ${totalCount}</span>
-      <span style="background: #ecfdf5; color: #047857; padding: 2px 8px; border-radius: 12px; font-weight: bold;" title="Tổng doanh thu thực nhận">Thực nhận: ${formatMoneyVND(netTotal)}</span>
-      <span style="background: #f0fdf4; color: #15803d; padding: 2px 8px; border-radius: 12px; font-size: 10px;" title="Tổng tiền dương">+${totalPositive.toLocaleString('vi-VN')}₫</span>
-      ${totalNegative < 0 ? `<span style="background: #fef2f2; color: #dc2626; padding: 2px 8px; border-radius: 12px; font-size: 10px;" title="Tổng trừ / hoàn tiền">${totalNegative.toLocaleString('vi-VN')}₫</span>` : ''}
+      <span style="background: #ecfdf5; color: #047857; padding: 2px 8px; border-radius: 12px; font-weight: bold;" title="Tổng doanh thu thực nhận">Doanh thu: ${formatMoneyVND(sumDoanhThu)}</span>
+      <span style="background: #f1f5f9; color: #334155; padding: 2px 6px; border-radius: 12px; font-size: 10px;" title="Tổng tiền sản phẩm">Tiền SP: ${formatMoneyVND(sumTienSP)}</span>
+      <span style="background: #fef2f2; color: #dc2626; padding: 2px 6px; border-radius: 12px; font-size: 10px;" title="Tổng phụ phí (sàn, dịch vụ,...)">Phụ phí: ${formatMoneyVND(sumPhuPhi)}</span>
+      <span style="background: #fef2f2; color: #b91c1c; padding: 2px 6px; border-radius: 12px; font-size: 10px;" title="Tổng thuế">Thuế: ${formatMoneyVND(sumThue)}</span>
     `;
   }
 
@@ -369,20 +438,20 @@
 
     let filtered = allRows.filter(r => {
       if (tokens.length > 0) {
-        const fullSearchStr = `${r.orderId || ''} ${r.buyer || ''} ${r.orderLink || ''} ${r.date || ''} ${r.status || ''} ${r.paymentMethod || ''} ${r.rawAmount || ''} ${r.amount || ''}`.toLowerCase();
+        const fullSearchStr = `${r.orderId || ''} ${r.buyer || ''} ${r.orderLink || ''} ${r.date || ''} ${r.status || ''} ${r.paymentMethod || ''} ${r.tienSanPham || ''} ${r.phuPhi || ''} ${r.thue || ''} ${r.doanhThu || ''} ${r.amount || ''}`.toLowerCase();
         return tokens.every(token => fullSearchStr.includes(token));
       }
       return true;
     });
 
     if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #64748b;">Chưa có dữ liệu hoặc không có dòng nào phù hợp với tìm kiếm.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px; color: #64748b;">Chưa có dữ liệu hoặc không có dòng nào phù hợp với tìm kiếm.</td></tr>';
       return;
     }
 
     let html = '';
     filtered.forEach((row, idx) => {
-      const isNeg = (row.amount || 0) < 0;
+      const isNeg = (row.amount || row.doanhThu || 0) < 0;
       const amountColor = isNeg ? '#dc2626' : '#059669';
       const amountBg = isNeg ? '#fef2f2' : '#f0fdf4';
 
@@ -394,36 +463,45 @@
         <tr style="border-top: 1px solid #f1f5f9; background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
           <td style="padding: 6px 4px; text-align: center; color: #64748b; font-weight: 600;">${idx + 1}</td>
           <td style="padding: 6px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              ${row.imgUrl ? `<img src="${escapeHtml(row.imgUrl)}" style="width: 28px; height: 28px; border-radius: 4px; object-fit: cover; border: 1px solid #e2e8f0; flex-shrink: 0;">` : ''}
+            <div style="display: flex; align-items: center; gap: 4px;">
+              ${row.imgUrl ? `<img src="${escapeHtml(row.imgUrl)}" style="width: 24px; height: 24px; border-radius: 4px; object-fit: cover; border: 1px solid #e2e8f0; flex-shrink: 0;">` : ''}
               <div>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                  <span style="font-weight: bold; color: #1e293b; font-family: monospace; font-size: 11px;">${escapeHtml(row.orderId)}</span>
-                  <button type="button" class="btn-dt-copy-order" data-order="${escapeHtml(row.orderId)}" style="background: none; border: none; cursor: pointer; padding: 0; font-size: 11px;" title="Copy mã đơn">📋</button>
+                <div style="display: flex; align-items: center; gap: 2px;">
+                  <span style="font-weight: bold; color: #1e293b; font-family: monospace; font-size: 10px;">${escapeHtml(row.orderId)}</span>
+                  <button type="button" class="btn-dt-copy-order" data-order="${escapeHtml(row.orderId)}" style="background: none; border: none; cursor: pointer; padding: 0; font-size: 10px;" title="Copy mã đơn">📋</button>
                 </div>
-                ${row.buyer ? `<div style="font-size: 10px; color: #64748b;">Người mua: <b style="color: #334155;">${escapeHtml(row.buyer)}</b></div>` : ''}
+                ${row.buyer ? `<div style="font-size: 9px; color: #64748b;">${escapeHtml(row.buyer)}</div>` : ''}
               </div>
             </div>
           </td>
           <td style="padding: 6px;">
-            <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-              <a href="${saleLink}" target="_blank" style="display: inline-flex; align-items: center; gap: 2px; background: #fff1f0; color: #ee4d2d; border: 1px solid #ffccc7; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold; text-decoration: none;" title="${escapeHtml(saleLink)}">
+            <div style="display: flex; align-items: center; gap: 2px;">
+              <a href="${saleLink}" target="_blank" style="display: inline-flex; align-items: center; background: #fff1f0; color: #ee4d2d; border: 1px solid #ffccc7; border-radius: 4px; padding: 1px 4px; font-size: 9px; font-weight: bold; text-decoration: none;" title="${escapeHtml(saleLink)}">
                 🔗 ${escapeHtml(saleLabel)} ↗
               </a>
-              <button type="button" class="btn-dt-copy-link" data-link="${escapeHtml(saleLink)}" style="background: none; border: none; cursor: pointer; padding: 0; font-size: 11px;" title="Copy link đơn hàng">📋</button>
+              <button type="button" class="btn-dt-copy-link" data-link="${escapeHtml(saleLink)}" style="background: none; border: none; cursor: pointer; padding: 0; font-size: 10px;" title="Copy link đơn hàng">📋</button>
             </div>
           </td>
-          <td style="padding: 6px; color: #475569; font-size: 11px; white-space: nowrap;">
+          <td style="padding: 6px; color: #475569; font-size: 10px; white-space: nowrap;">
             ${escapeHtml(row.date)}
           </td>
-          <td style="padding: 6px; font-size: 11px;">
-            <span style="background: #ecfdf5; color: #047857; padding: 2px 6px; border-radius: 4px; font-weight: 500; font-size: 10px;">${escapeHtml(row.status)}</span>
+          <td style="padding: 6px; text-align: right; color: #1e293b; font-size: 10px; font-family: monospace;">
+            ${formatMoneyVND(row.tienSanPham)}
           </td>
-          <td style="padding: 6px; color: #334155; font-size: 11px;">
-            ${escapeHtml(row.paymentMethod)}
+          <td style="padding: 6px; text-align: right; color: #475569; font-size: 10px; font-family: monospace;">
+            ${formatMoneyVND(row.phiVanChuyen)}
+          </td>
+          <td style="padding: 6px; text-align: right; color: #dc2626; font-size: 10px; font-family: monospace; background-color: #fff5f5;">
+            ${formatMoneyVND(row.phuPhi)}
+          </td>
+          <td style="padding: 6px; text-align: right; color: #b91c1c; font-size: 10px; font-family: monospace; background-color: #fff5f5;">
+            ${formatMoneyVND(row.thue)}
           </td>
           <td style="padding: 6px; text-align: right; background-color: ${amountBg};">
-            <b style="color: ${amountColor}; font-size: 12px; font-family: monospace;">${formatMoneyVND(row.amount)}</b>
+            <b style="color: ${amountColor}; font-size: 11px; font-family: monospace;">${formatMoneyVND(row.amount || row.doanhThu)}</b>
+          </td>
+          <td style="padding: 6px; font-size: 10px;">
+            <span style="background: #ecfdf5; color: #047857; padding: 1px 4px; border-radius: 4px; font-weight: 500; font-size: 9px;">${escapeHtml(row.status)}</span>
           </td>
         </tr>
       `;
@@ -470,7 +548,20 @@
       return;
     }
 
-    const headers = ["STT", "Mã đơn hàng", "Link đơn hàng", "Người mua", "Ngày chuyển", "Trạng thái", "Phương thức thanh toán", "Số tiền thanh toán", "Số tiền (số)"];
+    const headers = [
+      "STT",
+      "Mã đơn hàng",
+      "Link đơn hàng",
+      "Người mua",
+      "Ngày chuyển",
+      "Tổng tiền sản phẩm",
+      "Tổng phí vận chuyển",
+      "Phụ phí",
+      "Thuế",
+      "Doanh thu đơn hàng",
+      "Trạng thái",
+      "Phương thức thanh toán"
+    ];
     const lines = [headers.join("\t")];
 
     allRows.forEach((row, idx) => {
@@ -480,16 +571,19 @@
         row.orderLink || "",
         row.buyer || "",
         row.date || "",
+        formatMoneyVND(row.tienSanPham),
+        formatMoneyVND(row.phiVanChuyen),
+        formatMoneyVND(row.phuPhi),
+        formatMoneyVND(row.thue),
+        formatMoneyVND(row.amount || row.doanhThu),
         row.status || "",
-        row.paymentMethod || "",
-        formatMoneyVND(row.amount),
-        row.amount || 0
+        row.paymentMethod || ""
       ].join("\t"));
     });
 
     const tsvContent = lines.join("\r\n");
     navigator.clipboard.writeText(tsvContent).then(() => {
-      setStatus(`📋 <b style="color:#16a34a;">Đã copy ${allRows.length} dòng (kèm Link đơn) dạng TSV vào Clipboard!</b> Bạn có thể dán (Ctrl+V) vào Google Sheets hoặc Excel.`);
+      setStatus(`📋 <b style="color:#16a34a;">Đã copy ${allRows.length} dòng (kèm chi tiết 5 cột tài chính) vào Clipboard!</b> Bạn có thể dán (Ctrl+V) vào Google Sheets hoặc Excel.`);
     }).catch(err => {
       alert("Lỗi khi copy: " + err.message);
     });
@@ -506,7 +600,20 @@
       return;
     }
 
-    const headers = ["STT", "Mã đơn hàng", "Link đơn hàng", "Người mua", "Ngày chuyển", "Trạng thái", "Phương thức thanh toán", "Số tiền thanh toán", "Số tiền (số)"];
+    const headers = [
+      "STT",
+      "Mã đơn hàng",
+      "Link đơn hàng",
+      "Người mua",
+      "Ngày chuyển",
+      "Tổng tiền sản phẩm (Số)",
+      "Tổng phí vận chuyển (Số)",
+      "Phụ phí (Số)",
+      "Thuế (Số)",
+      "Doanh thu đơn hàng (Số)",
+      "Trạng thái",
+      "Phương thức thanh toán"
+    ];
     const data = [headers];
 
     allRows.forEach((row, idx) => {
@@ -516,16 +623,19 @@
         row.orderLink || "",
         row.buyer || "",
         row.date || "",
+        Number(row.tienSanPham) || 0,
+        Number(row.phiVanChuyen) || 0,
+        Number(row.phuPhi) || 0,
+        Number(row.thue) || 0,
+        Number(row.amount || row.doanhThu) || 0,
         row.status || "",
-        row.paymentMethod || "",
-        formatMoneyVND(row.amount),
-        Number(row.amount) || 0
+        row.paymentMethod || ""
       ]);
     });
 
     const ws = XLSX.utils.aoa_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "DoanhThu_Shopee");
+    XLSX.utils.book_append_sheet(wb, ws, "DoanhThu_ChiTiet");
 
     const now = new Date();
     const dateStr = now.getFullYear() +
@@ -534,7 +644,7 @@
       String(now.getHours()).padStart(2, '0') +
       String(now.getMinutes()).padStart(2, '0');
 
-    XLSX.writeFile(wb, `DoanhThu_Shopee_${dateStr}.xlsx`);
-    setStatus(`📊 <b style="color:#16a34a;">Đã xuất file DoanhThu_Shopee_${dateStr}.xlsx thành công!</b>`);
+    XLSX.writeFile(wb, `DoanhThu_ChiTiet_Shopee_${dateStr}.xlsx`);
+    setStatus(`📊 <b style="color:#16a34a;">Đã xuất file DoanhThu_ChiTiet_Shopee_${dateStr}.xlsx thành công!</b>`);
   }
 })();
