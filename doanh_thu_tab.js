@@ -160,48 +160,28 @@
             console.warn("Could not change page size to 50:", e);
           }
 
-          // 2. BẤM VÀO TẤT CẢ CÁC NÚT MŨI TÊN TRÊN TOÀN BỘ BẢNG ĐỂ MỞ RỘNG TẤT CẢ ĐƠN
-          const triggerDeepClick = (el) => {
-            if (!el) return;
-            const opts = { bubbles: true, cancelable: true, view: window, buttons: 1 };
-            el.dispatchEvent(new PointerEvent('pointerdown', opts));
-            el.dispatchEvent(new MouseEvent('mousedown', opts));
-            el.dispatchEvent(new PointerEvent('pointerup', opts));
-            el.dispatchEvent(new MouseEvent('mouseup', opts));
-            el.dispatchEvent(new MouseEvent('click', opts));
-            if (typeof el.click === 'function') el.click();
+          // 2. CHỈ CLICK DUY NHẤT VÀO ICON MŨI TÊN (i.eds-icon) ĐỂ MỞ RỘNG (TUYỆT ĐỐI KHÔNG MỞ LINK)
+          const triggerIconClickOnly = (icon) => {
+            if (!icon || icon.tagName === 'A' || icon.closest('a')) return;
+            const opts = { bubbles: true, cancelable: true, view: window };
+            icon.dispatchEvent(new MouseEvent('mousedown', opts));
+            icon.dispatchEvent(new MouseEvent('mouseup', opts));
+            icon.dispatchEvent(new MouseEvent('click', opts));
+            if (typeof icon.click === 'function' && icon.tagName !== 'A') icon.click();
           };
 
-          let expandCount = 0;
           try {
-            const amountWrappers = Array.from(document.querySelectorAll('.grid-table-body .transaction-amount-wrapper, .transaction-amount-wrapper, [class*="transaction-amount-wrapper"]'));
-            
-            amountWrappers.forEach(wrapper => {
-              const icon = wrapper.querySelector('i.eds-icon') || wrapper.querySelector('i');
-              const svg = wrapper.querySelector('svg');
-              const popoverRef = wrapper.closest('.eds-popover__ref') || wrapper.parentElement;
-
-              // Bắn sự kiện click sâu vào tất cả các tầng (icon, svg, wrapper, popoverRef)
-              [icon, svg, wrapper, popoverRef].filter(Boolean).forEach(target => {
-                triggerDeepClick(target);
-              });
-              expandCount++;
+            const icons = Array.from(document.querySelectorAll('.grid-table-body .transaction-amount-wrapper i, .grid-table-body i.eds-icon, .transaction-amount-wrapper i'));
+            icons.forEach(icon => {
+              if (!icon.classList.contains('active')) {
+                triggerIconClickOnly(icon);
+              }
             });
 
-            // Nếu không tìm thấy bằng wrapper, tìm trực tiếp qua thẻ i có svg mũi tên
-            if (expandCount === 0) {
-              const allIcons = Array.from(document.querySelectorAll('.grid-table-body i.eds-icon, .grid-table-body [class*="icon"]'));
-              allIcons.forEach(icon => {
-                triggerDeepClick(icon);
-                triggerDeepClick(icon.parentElement);
-                expandCount++;
-              });
-            }
-
-            // Chờ 1.2 giây để toàn bộ các chi tiết đơn hàng mở rộng và render xong vào DOM
-            await new Promise(r => setTimeout(r, 1200));
+            // Chờ 800ms để toàn bộ các chi tiết đơn hàng mở rộng và render xong vào DOM
+            await new Promise(r => setTimeout(r, 800));
           } catch (e) {
-            console.warn("Lỗi khi mở rộng toàn bộ mũi tên:", e);
+            console.warn("Lỗi khi mở rộng mũi tên:", e);
           }
 
           // 3. Quét tất cả các dòng giao dịch trong bảng

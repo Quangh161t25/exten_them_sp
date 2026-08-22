@@ -6749,24 +6749,21 @@ function downloadExcelFileBypass(wb, filename) {
         }
       } catch (_) {}
 
-      // 2. Click tất cả các mũi tên
-      const triggerDeepClick = (el) => {
-        if (!el) return;
-        const opts = { bubbles: true, cancelable: true, view: window, buttons: 1 };
-        el.dispatchEvent(new PointerEvent('pointerdown', opts));
-        el.dispatchEvent(new MouseEvent('mousedown', opts));
-        el.dispatchEvent(new PointerEvent('pointerup', opts));
-        el.dispatchEvent(new MouseEvent('mouseup', opts));
-        el.dispatchEvent(new MouseEvent('click', opts));
-        if (typeof el.click === 'function') el.click();
+      // 2. Chỉ click duy nhất vào icon mũi tên (i.eds-icon) để mở rộng, TUYỆT ĐỐI KHÔNG CLICK VÀO LINK
+      const triggerIconClickOnly = (icon) => {
+        if (!icon || icon.tagName === 'A' || icon.closest('a')) return;
+        const opts = { bubbles: true, cancelable: true, view: window };
+        icon.dispatchEvent(new MouseEvent('mousedown', opts));
+        icon.dispatchEvent(new MouseEvent('mouseup', opts));
+        icon.dispatchEvent(new MouseEvent('click', opts));
+        if (typeof icon.click === 'function' && icon.tagName !== 'A') icon.click();
       };
 
-      const wrappers = Array.from(document.querySelectorAll('.grid-table-body .transaction-amount-wrapper, .transaction-amount-wrapper, [class*="transaction-amount-wrapper"]'));
-      wrappers.forEach(w => {
-        const icon = w.querySelector('i.eds-icon') || w.querySelector('i');
-        const svg = w.querySelector('svg');
-        const popoverRef = w.closest('.eds-popover__ref') || w.parentElement;
-        [icon, svg, w, popoverRef].filter(Boolean).forEach(t => triggerDeepClick(t));
+      const icons = Array.from(document.querySelectorAll('.grid-table-body .transaction-amount-wrapper i, .grid-table-body i.eds-icon, .transaction-amount-wrapper i'));
+      icons.forEach(icon => {
+        if (!icon.classList.contains('active')) {
+          triggerIconClickOnly(icon);
+        }
       });
 
       btn.innerHTML = '✓ Đã mở rộng 50 đơn!';
