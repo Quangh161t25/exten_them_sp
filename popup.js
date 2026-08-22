@@ -4293,46 +4293,35 @@ function setDhHoanButtonsDisabled(disabled) {
 
 async function appendDhHoanRow(status) {
   try {
-    statusText.textContent = `Dang ghi vao DH_HOAN (${status})...`;
+    statusText.textContent = `Đang cập nhật trạng thái (${status}) vào Sheet DH...`;
     setDhHoanButtonsDisabled(true);
 
     const data = await getDhHoanDataFromClipboard();
     if (!data.orderId) {
-      throw new Error("Clipboard khong co Ma don hang. Hay bam Copy Data.");
+      throw new Error("Clipboard không có Mã đơn hàng. Hãy bấm Copy Data trên Shopee.");
     }
     
-    const token = await getAccessToken();
-    const noidung = dhHoanText ? dhHoanText.value.trim() : "";
+    const maGian = dhHoanText ? dhHoanText.value.trim() : "";
     
-    const row = [
-      noidung, 
-      status, 
-      "", 
-      data.orderId, 
-      "", 
-      data.reason, 
-      data.returnId, 
-      data.tracking
-    ];
-    
-    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}/values/DH_HOAN!A:H:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        values: [row]
-      })
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        type: "UPDATE_DH_RETURN_STATUS",
+        status: status,
+        orderId: data.orderId,
+        reason: data.reason,
+        returnId: data.returnId,
+        tracking: data.tracking,
+        maGian: maGian
+      }, resolve);
     });
-    
-    if (!res.ok) {
-       const err = await res.json().catch(()=>({}));
-       throw new Error(err.error?.message || "Loi khi ghi vao DH_HOAN");
+
+    if (!response || !response.ok) {
+      throw new Error(response?.error || "Lỗi khi cập nhật vào Sheet DH");
     }
-    statusText.textContent = `Da ghi vao DH_HOAN (${status}) cho ma ${data.orderId}`;
+
+    statusText.textContent = `✅ Đã cập nhật (${status}) cho mã đơn ${data.orderId} vào Sheet DH!`;
   } catch (error) {
-    statusText.textContent = error?.message || "Loi append DH_HOAN";
+    statusText.textContent = `❌ ${error?.message || "Lỗi cập nhật Sheet DH"}`;
   } finally {
     setDhHoanButtonsDisabled(false);
   }
@@ -4340,59 +4329,41 @@ async function appendDhHoanRow(status) {
 
 async function updateDhHoanRow() {
   try {
-    statusText.textContent = `Dang cap nhat DH_HOAN...`;
+    statusText.textContent = `Đang cập nhật thông tin hoàn vào Sheet DH...`;
     setDhHoanButtonsDisabled(true);
 
     const data = await getDhHoanDataFromClipboard();
     if (!data.orderId) {
-      throw new Error("Clipboard khong co Ma don hang. Hay bam Copy Data tren Shopee truoc.");
+      throw new Error("Clipboard không có Mã đơn hàng. Hãy bấm Copy Data trên Shopee.");
     }
     
-    const token = await getAccessToken();
+    const maGian = dhHoanText ? dhHoanText.value.trim() : "";
     
-    const checkRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}/values/DH_HOAN!D:D`, {
-      headers: { Authorization: `Bearer ${token}` }
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        type: "UPDATE_DH_RETURN_STATUS",
+        status: "",
+        orderId: data.orderId,
+        reason: data.reason,
+        returnId: data.returnId,
+        tracking: data.tracking,
+        maGian: maGian
+      }, resolve);
     });
-    
-    if (!checkRes.ok) {
-        throw new Error("Khong the doc cot D cua DH_HOAN de tim ma.");
+
+    if (!response || !response.ok) {
+      throw new Error(response?.error || "Lỗi khi cập nhật Sheet DH");
     }
-    
-    const checkData = await checkRes.json();
-    const idRows = checkData.values || [];
-    
-    const foundIndex = idRows.findIndex(row => String(row[0] || "").trim() === data.orderId);
-    
-    if (foundIndex === -1) {
-       throw new Error(`Không tìm thấy đơn hàng để cập nhật.`);
-    }
-    
-    const rowNum = foundIndex + 1;
-    
-    const updateRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}/values/DH_HOAN!F${rowNum}:H${rowNum}?valueInputOption=RAW`, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        values: [[data.reason, data.returnId, data.tracking]]
-      })
-    });
-    
-    if (!updateRes.ok) {
-        throw new Error("Loi khi cap nhat DH_HOAN");
-    }
-    
-    statusText.textContent = `Da cap nhat cot F,G,H (dong ${rowNum}) cho don hang ${data.orderId}`;
+
+    statusText.textContent = `✅ Đã cập nhật Mã YC (${data.returnId}) và Vận chuyển (${data.tracking}) cho đơn ${data.orderId} vào Sheet DH!`;
   } catch (error) {
-    statusText.textContent = error?.message || "Loi update DH_HOAN";
+    statusText.textContent = `❌ ${error?.message || "Lỗi cập nhật Sheet DH"}`;
   } finally {
     setDhHoanButtonsDisabled(false);
   }
 }
 
-if (btnDhHoanHuy) btnDhHoanHuy.addEventListener("click", () => appendDhHoanRow("Há»§y"));
+if (btnDhHoanHuy) btnDhHoanHuy.addEventListener("click", () => appendDhHoanRow("Hủy"));
 if (btnDhHoanHoan) btnDhHoanHoan.addEventListener("click", () => appendDhHoanRow("Hoàn"));
 if (btnDhHoanTra) btnDhHoanTra.addEventListener("click", () => appendDhHoanRow("Trả"));
 if (btnDhHoanUpdate) btnDhHoanUpdate.addEventListener("click", updateDhHoanRow);

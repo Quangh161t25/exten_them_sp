@@ -382,10 +382,31 @@ async function uploadImageToFreeImageHost(imageUrl) {
     return true;
   }
 
-  if (message?.type === "FETCH_DH_HOAN_IDS") {
+  if (message?.type === "FETCH_DH_HOAN_IDS" || message?.type === "FETCH_DH_RETURN_IDS") {
     Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
-      .then(([token, sheetId]) => fetchSheetValues("DH_HOAN!D:D", token, GOOGLE_REQUEST_TIMEOUT_MS, sheetId))
-      .then(values => sendResponse({ ok: true, values }))
+      .then(async ([token, sheetId]) => {
+        try {
+          const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:AA")}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!res.ok) throw new Error(data.error?.message || "Không đọc được Sheet DH");
+          const rows = data.values || [];
+          const processed = [];
+          for (let i = 1; i < rows.length; i++) {
+            const r = rows[i];
+            const mdh = String(r[3] || "").trim(); // Col D
+            const status = String(r[15] || "").trim(); // Col P (trang_thai)
+            const returnId = String(r[25] || "").trim(); // Col Z (ma_yc_tra_hang)
+            const tracking = String(r[26] || "").trim(); // Col AA (vc_hang_hoan)
+            if (mdh && (status || returnId || tracking)) {
+              processed.push([mdh, status, returnId, tracking]);
+            }
+          }
+          sendResponse({ ok: true, values: processed });
+        } catch (err) {
+          sendResponse({ ok: false, error: err.message });
+        }
+      })
       .catch(error => sendResponse({ ok: false, error: error.message }));
     return true;
   }
@@ -969,43 +990,135 @@ async function uploadImageToFreeImageHost(imageUrl) {
     return true;
   }
 
-  if (message?.type === "APPEND_DH_HOAN") {
-    getGoogleAccessToken().then(async token => {
-      const row = [
-        message.noidung || "", 
-        message.status || "", 
-        "", 
-        message.orderId || "", 
-        "", 
-        message.reason || "", 
-        message.returnId || "", 
-        message.tracking || ""
-      ];
-      try {
-        await appendSheetValues("DH_HOAN!A:H", [row], token);
-        sendResponse({ ok: true });
-      } catch (err) {
-        sendResponse({ ok: false, error: err.message });
+  async function updateDhOrderReturnInfo(message, token, sheetId) {
+    await ensureSheetExists("DH", token);
+    
+    // 1. Đảm bảo header Z1 và AA1 đã có trong sheet DH
+    try {
+      const { res: hRes, data: hData } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!Z1:AA1")}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const headerVals = (hRes.ok && hData.values && hData.values[0]) ? hData.values[0] : [];
+      if (!headerVals[0] || !headerVals[1]) {
+        await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!Z1:AA1")}?valueInputOption=USER_ENTERED`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            values: [["ma_yc_tra_hang", "vc_hang_hoan"]]
+          })
+        });
       }
-    }).catch(err => sendResponse({ ok: false, error: error.message }));
-    return true;
+    } catch (err) {
+      console.warn("Lỗi kiểm tra header Z1:AA1:", err);
+    }
+
+    // 2. Đọc cột A (gian), Cột D (mdh) từ sheet DH
+    const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:D")}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!res.ok) throw new Error(data.error?.message || "Không thể đọc dữ liệu Sheet DH");
+    const rows = data.values || [];
+    if (rows.length <= 1) {
+      throw new Error("Sheet DH chưa có dữ liệu đơn hàng nào để cập nhật.");
+    }
+
+    const reqOrderId = String(message.orderId || "").trim().toLowerCase();
+    const reqGian = String(message.maGian || message.noidung || "").trim().toLowerCase();
+
+    if (!reqOrderId) {
+      throw new Error("Không có Mã đơn hàng để cập nhật.");
+    }
+
+    // 3. Tìm các dòng khớp mã đơn hàng (và mã gian nếu có)
+    let matchingRowNums = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      const rowGian = String(r[0] || "").trim().toLowerCase();
+      const rowMdh = String(r[3] || "").trim().toLowerCase();
+      const rowNum = i + 1;
+
+      if (rowMdh === reqOrderId) {
+        if (!reqGian || rowGian === reqGian) {
+          matchingRowNums.push(rowNum);
+        }
+      }
+    }
+
+    // Nếu lọc theo cả gian không thấy, fallback tìm theo mã đơn hàng
+    if (matchingRowNums.length === 0) {
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        const rowMdh = String(r[3] || "").trim().toLowerCase();
+        const rowNum = i + 1;
+        if (rowMdh === reqOrderId) {
+          matchingRowNums.push(rowNum);
+        }
+      }
+    }
+
+    if (matchingRowNums.length === 0) {
+      throw new Error(`Không tìm thấy Mã đơn hàng "${message.orderId}"${reqGian ? ` (Gian: ${reqGian})` : ''} trong Sheet DH.`);
+    }
+
+    // 4. Cập nhật Cột P (Trạng thái) và Cột Z (Mã yêu cầu trả hàng), Cột AA (Vận chuyển hàng hoàn)
+    const updateData = [];
+    const statusVal = String(message.status || "").trim();
+    const returnIdVal = String(message.returnId || "").trim();
+    const trackingVal = String(message.tracking || "").trim();
+
+    for (const rowNum of matchingRowNums) {
+      if (statusVal) {
+        updateData.push({
+          range: `DH!P${rowNum}`,
+          values: [[statusVal]]
+        });
+      }
+      updateData.push({
+        range: `DH!Z${rowNum}:AA${rowNum}`,
+        values: [[returnIdVal, trackingVal]]
+      });
+    }
+
+    if (updateData.length > 0) {
+      const { res: updateRes, data: updateResult } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          valueInputOption: "USER_ENTERED",
+          data: updateData
+        })
+      });
+
+      if (!updateRes.ok) {
+        throw new Error(updateResult.error?.message || "Không thể cập nhật Sheet DH.");
+      }
+    }
+
+    return {
+      ok: true,
+      updated: true,
+      count: matchingRowNums.length,
+      rowNums: matchingRowNums
+    };
   }
 
-  if (message?.type === "UPDATE_DH_HOAN") {
-    getGoogleAccessToken().then(async token => {
+  if (message?.type === "UPDATE_DH_RETURN_STATUS" || message?.type === "APPEND_DH_HOAN" || message?.type === "UPDATE_DH_HOAN") {
+    Promise.all([getGoogleAccessToken(), getSpreadsheetId()]).then(async ([token, sheetId]) => {
       try {
-        const rows = await fetchSheetValues("DH_HOAN!D:D", token);
-        const foundIndex = rows.findIndex(row => String(row[0] || "").trim() === (message.orderId || "").trim());
-        if (foundIndex === -1) {
-           throw new Error("KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng Ä‘á»ƒ cáº­p nháº­t.");
-        }
-        const rowNum = foundIndex + 1;
-        await updateSheetValues(`DH_HOAN!F${rowNum}:H${rowNum}`, [[message.reason || "", message.returnId || "", message.tracking || ""]], token);
-        sendResponse({ ok: true, rowNum });
+        const result = await updateDhOrderReturnInfo(message, token, sheetId);
+        sendResponse(result);
       } catch (err) {
         sendResponse({ ok: false, error: err.message });
       }
-    }).catch(err => sendResponse({ ok: false, error: error.message }));
+    }).catch(err => sendResponse({ ok: false, error: err.message }));
     return true;
   }
 

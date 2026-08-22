@@ -7237,26 +7237,25 @@ function downloadExcelFileBypass(wb, filename) {
   function handleDhHoanAction(action, orderIdEl, btn) {
       const data = extractReturnRowData(orderIdEl);
       if (!data || !data.orderId) {
-          alert("KhÃ´ng tÃ¬m tháº¥y MÃ£ Ä‘Æ¡n hÃ ng!");
+          alert("Không tìm thấy Mã đơn hàng!");
           return;
       }
       
       const originalText = btn.textContent;
-      btn.textContent = "...";
+      btn.textContent = "⏳...";
       btn.disabled = true;
 
-      chrome.storage.local.get(["dhHoanTextValue"], (result) => {
-          const noidung = result.dhHoanTextValue || "";
-          const msgType = action === "Cáº­p nháº­t" ? "UPDATE_DH_HOAN" : "APPEND_DH_HOAN";
+      chrome.storage.local.get(["maGian", "dhHoanTextValue"], (result) => {
+          const maGian = (result.maGian || result.dhHoanTextValue || "").trim();
           
           chrome.runtime.sendMessage({ 
-              type: msgType, 
-              status: action,
+              type: "UPDATE_DH_RETURN_STATUS", 
+              status: action === "Cập nhật" ? "" : action,
               orderId: data.orderId, 
               reason: data.reason, 
               returnId: data.returnId, 
               tracking: data.tracking,
-              noidung: noidung
+              maGian: maGian
           }, (response) => {
               btn.disabled = false;
               if (response && response.ok) {
@@ -7265,9 +7264,9 @@ function downloadExcelFileBypass(wb, filename) {
                   btn.textContent = "OK!";
                   setTimeout(() => { btn.textContent = originalText; }, 1500);
               } else {
-                  btn.textContent = "Lá»—i!";
+                  btn.textContent = "Lỗi!";
                   setTimeout(() => { btn.textContent = originalText; }, 2000);
-                  alert("Lá»—i: " + (response?.error || "KhÃ´ng xÃ¡c Ä‘á»‹nh"));
+                  alert("Lỗi: " + (response?.error || "Không xác định"));
               }
           });
       });
