@@ -8092,16 +8092,23 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function renderDonHangButtons() {
-      if (!window.location.pathname.match(/^\/portal\/sale\/(?:order\/)?[A-Z0-9]+$/)) {
+      // 1. Kiểm tra linh hoạt mọi định dạng URL chi tiết đơn hàng Shopee
+      if (!window.location.pathname.includes('/portal/sale/')) {
           return;
       }
       
       updateDonHangMdhCache();
 
+      // 2. Tìm Mã đơn hàng (orderId) từ URL hoặc từ DOM
       let orderId = "";
+      const urlMatch = window.location.pathname.match(/\/portal\/sale\/(?:order\/)?([A-Z0-9]+)/i);
+      if (urlMatch && urlMatch[1]) {
+          orderId = urlMatch[1].trim();
+      }
+
       let orderIdDiv = null;
-      const bodyDivs = document.querySelectorAll('.body, .order-id, .order-sn');
-      for (const div of bodyDivs) {
+      const candidateDivs = document.querySelectorAll('.body, .order-id, .order-sn, .order-sn-text, .order-number, [class*="order-sn"], [class*="order-id"]');
+      for (const div of candidateDivs) {
           let text = "";
           for (let node of div.childNodes) {
               if (node.nodeType === Node.TEXT_NODE) {
@@ -8109,114 +8116,160 @@ function downloadExcelFileBypass(wb, filename) {
               }
           }
           text = text.trim();
-          if (/^[0-9]{6}[A-Z0-9]{8,14}$/.test(text)) {
-              orderId = text;
+          if (/^[0-9]{6}[A-Z0-9]{6,16}$/i.test(text)) {
+              if (!orderId) orderId = text;
               orderIdDiv = div;
               break;
           }
       }
 
+      // Nếu chưa tìm thấy vị trí gắn, tìm các khung header của Shopee
       if (!orderIdDiv) {
-          const urlMatch = window.location.pathname.match(/\/portal\/sale\/(?:order\/)?([A-Z0-9]+)/i);
-          if (urlMatch) {
-              orderId = urlMatch[1];
-              orderIdDiv = document.querySelector('.order-panel-header, .header, .order-id') || document.body;
+          orderIdDiv = document.querySelector('.order-panel-header, .order-detail-header, .portal-panel-header, .eds-breadcrumb, .page-header, .header-container, header');
+      }
+
+      if (!orderId) return;
+
+      // 3. Tự động kiểm tra và đồng bộ (auto-add khi chưa có, auto-update khi phí/thuế sai)
+      checkAndAutoSyncDonHang(orderId);
+
+      // 4. Gắn Nút bấm trực tiếp cạnh Mã đơn hàng (Top inline button)
+      if (orderIdDiv) {
+          let btnContainer = document.getElementById('shopee-ext-donhang-btns');
+          if (!btnContainer) {
+              btnContainer = document.createElement('div');
+              btnContainer.id = 'shopee-ext-donhang-btns';
+              btnContainer.style.cssText = 'display: inline-flex; align-items: center; gap: 8px; margin-left: 14px; vertical-align: middle; z-index: 999;';
+              orderIdDiv.appendChild(btnContainer);
+          }
+
+          let btnAdd = document.getElementById('btn-add-don-hang');
+          if (!btnAdd) {
+              btnAdd = document.createElement('button');
+              btnAdd.id = 'btn-add-don-hang';
+              btnAdd.className = "eds-btn eds-btn--primary";
+              btnAdd.style.cssText = "padding: 4px 12px; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; border: 1px solid #ee4d2d; background-color: #ee4d2d; color: white; transition: all 0.2s;";
+              
+              btnAdd.addEventListener('click', async () => {
+                  const originalText = btnAdd.textContent;
+                  btnAdd.textContent = '⏳ Đang tính toán...';
+                  btnAdd.disabled = true;
+
+                  try {
+                      const orderDetail = await extractSellerOrderDetailFullData();
+                      if (!orderDetail || !orderDetail.ok || !orderDetail.rows || orderDetail.rows.length === 0) {
+                          alert('Không tìm thấy thông tin chi tiết đơn hàng! Vui lòng cuộn trang xuống để tải hết dữ liệu.');
+                          btnAdd.textContent = originalText;
+                          btnAdd.disabled = false;
+                          return;
+                      }
+
+                      const storage = await new Promise(r => chrome.storage.local.get(["maGian", "dhHoanTextValue"], r));
+                      const maGian = (storage?.maGian || storage?.dhHoanTextValue || "").trim();
+                      if (!maGian) {
+                          alert('Vui lòng vào Popup Extension cài đặt Mã Gian trước khi lưu!');
+                          btnAdd.textContent = originalText;
+                          btnAdd.disabled = false;
+                          return;
+                      }
+
+                      const dhValues = await buildDhValuesFromDetail(orderDetail.rows, maGian);
+                      const sampleMdh = orderDetail.orderId || orderDetail.rows[0]?.orderId || "";
+                      const sampleMvd = orderDetail.packageInfo?.tracking || orderDetail.rows[0]?.tracking || "";
+
+                      btnAdd.textContent = '⏳ Đang đẩy...';
+
+                      chrome.runtime.sendMessage({
+                          type: "SAVE_DH_ORDER",
+                          values: dhValues,
+                          mdh: sampleMdh,
+                          mvd: sampleMvd
+                      }, (response) => {
+                          btnAdd.disabled = false;
+                          if (response && response.ok) {
+                              btnAdd.textContent = 'OK!';
+                              lastFetchDonHangMdhTime = 0;
+                              updateDonHangMdhCache(true);
+                              setTimeout(() => { 
+                                  btnAdd.textContent = 'Đã có trong DH'; 
+                                  btnAdd.style.backgroundColor = '#00bfa5';
+                                  btnAdd.style.borderColor = '#00bfa5';
+                              }, 1500);
+                          } else {
+                              btnAdd.textContent = 'Lỗi!';
+                              alert('Lỗi: ' + (response?.error || 'Unknown'));
+                              setTimeout(() => { btnAdd.textContent = originalText; }, 2000);
+                          }
+                      });
+                  } catch (err) {
+                      console.error(err);
+                      alert('Lỗi: ' + err.message);
+                      btnAdd.textContent = originalText;
+                      btnAdd.disabled = false;
+                  }
+              });
+
+              btnContainer.appendChild(btnAdd);
+          }
+
+          if (orderId && cachedDonHangMdhIndices.has(orderId) && cachedDonHangMdhIndices.get(orderId).length > 0) {
+              if (!btnAdd.textContent.startsWith('⚡')) {
+                  btnAdd.textContent = 'Đã có trong DH';
+                  btnAdd.style.backgroundColor = '#00bfa5';
+                  btnAdd.style.borderColor = '#00bfa5';
+              }
+          } else {
+              if (!btnAdd.textContent.startsWith('⚡')) {
+                  btnAdd.textContent = 'Thêm mới vào DH';
+                  btnAdd.style.backgroundColor = '#ee4d2d';
+                  btnAdd.style.borderColor = '#ee4d2d';
+              }
           }
       }
 
-      if (!orderIdDiv) return;
+      // 5. Nút bấm nổi cố định góc dưới bên phải (Floating Action Button) để luôn luôn hiển thị 100%
+      let floatingBtn = document.getElementById('shopee-ext-floating-dh-btn');
+      if (!floatingBtn) {
+          floatingBtn = document.createElement('button');
+          floatingBtn.id = 'shopee-ext-floating-dh-btn';
+          floatingBtn.style.cssText = `
+              position: fixed;
+              bottom: 24px;
+              right: 24px;
+              z-index: 999999;
+              background-color: #ee4d2d;
+              color: #ffffff;
+              border: 2px solid #ffffff;
+              box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+              border-radius: 24px;
+              padding: 10px 18px;
+              font-size: 13px;
+              font-weight: bold;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              transition: all 0.2s ease;
+          `;
+          floatingBtn.addEventListener('mouseenter', () => { floatingBtn.style.transform = 'scale(1.05)'; });
+          floatingBtn.addEventListener('mouseleave', () => { floatingBtn.style.transform = 'scale(1)'; });
 
-      let btnContainer = document.getElementById('shopee-ext-donhang-btns');
-      if (!btnContainer) {
-          btnContainer = document.createElement('div');
-          btnContainer.id = 'shopee-ext-donhang-btns';
-          btnContainer.style.display = 'inline-flex';
-          btnContainer.style.gap = '10px';
-          btnContainer.style.marginLeft = '20px';
-          orderIdDiv.appendChild(btnContainer);
-      }
-
-      let btnAdd = document.getElementById('btn-add-don-hang');
-      if (!btnAdd) {
-          btnAdd = document.createElement('button');
-          btnAdd.id = 'btn-add-don-hang';
-          btnAdd.className = "eds-btn eds-btn--primary";
-          btnAdd.style.padding = "4px 12px";
-          btnAdd.style.fontSize = "12px";
-          btnAdd.style.fontWeight = "bold";
-          
-          btnAdd.addEventListener('click', async () => {
-              const originalText = btnAdd.textContent;
-              btnAdd.textContent = 'Đang tính toán...';
-              btnAdd.disabled = true;
-
-              try {
-                  const orderDetail = await extractSellerOrderDetailFullData();
-                  if (!orderDetail || !orderDetail.ok || !orderDetail.rows || orderDetail.rows.length === 0) {
-                      alert('Không tìm thấy thông tin chi tiết đơn hàng! Vui lòng cuộn trang xuống để tải hết dữ liệu.');
-                      btnAdd.textContent = originalText;
-                      btnAdd.disabled = false;
-                      return;
-                  }
-
-                  const storage = await new Promise(r => chrome.storage.local.get(["maGian", "dhHoanTextValue"], r));
-                  const maGian = (storage?.maGian || storage?.dhHoanTextValue || "").trim();
-                  if (!maGian) {
-                      alert('Vui lòng vào Popup Extension cài đặt Mã Gian trước khi lưu!');
-                      btnAdd.textContent = originalText;
-                      btnAdd.disabled = false;
-                      return;
-                  }
-
-                  const dhValues = await buildDhValuesFromDetail(orderDetail.rows, maGian);
-                  const sampleMdh = orderDetail.orderId || orderDetail.rows[0]?.orderId || "";
-                  const sampleMvd = orderDetail.packageInfo?.tracking || orderDetail.rows[0]?.tracking || "";
-
-                  btnAdd.textContent = 'Đang đẩy...';
-
-                  chrome.runtime.sendMessage({
-                      type: "SAVE_DH_ORDER",
-                      values: dhValues,
-                      mdh: sampleMdh,
-                      mvd: sampleMvd
-                  }, (response) => {
-                      btnAdd.disabled = false;
-                      if (response && response.ok) {
-                          btnAdd.textContent = 'OK!';
-                          lastFetchDonHangMdhTime = 0;
-                          updateDonHangMdhCache(true);
-                          setTimeout(() => { 
-                              btnAdd.textContent = 'Đã có trong DH'; 
-                              btnAdd.style.backgroundColor = '#00bfa5';
-                              btnAdd.style.borderColor = '#00bfa5';
-                          }, 1500);
-                      } else {
-                          btnAdd.textContent = 'Lỗi!';
-                          alert('Lỗi: ' + (response?.error || 'Unknown'));
-                          setTimeout(() => { btnAdd.textContent = originalText; }, 2000);
-                      }
-                  });
-              } catch (err) {
-                  console.error(err);
-                  alert('Lỗi: ' + err.message);
-                  btnAdd.textContent = originalText;
-                  btnAdd.disabled = false;
+          floatingBtn.addEventListener('click', () => {
+              const topBtn = document.getElementById('btn-add-don-hang');
+              if (topBtn) {
+                  topBtn.click();
               }
           });
 
-          btnContainer.appendChild(btnAdd);
+          document.body.appendChild(floatingBtn);
       }
 
-      checkAndAutoSyncDonHang(orderId);
-
       if (orderId && cachedDonHangMdhIndices.has(orderId) && cachedDonHangMdhIndices.get(orderId).length > 0) {
-          btnAdd.textContent = 'Đã có trong DH';
-          btnAdd.style.backgroundColor = '#00bfa5';
-          btnAdd.style.borderColor = '#00bfa5';
+          floatingBtn.innerHTML = '✓ Đã có trong DH';
+          floatingBtn.style.backgroundColor = '#00bfa5';
       } else {
-          btnAdd.textContent = 'Thêm mới vào DH';
-          btnAdd.style.backgroundColor = '';
-          btnAdd.style.borderColor = '';
+          floatingBtn.innerHTML = '⚡ Thêm mới vào DH';
+          floatingBtn.style.backgroundColor = '#ee4d2d';
       }
   }
   // Injected interceptor for FORCE_DOWNLOAD
@@ -8505,7 +8558,7 @@ function downloadExcelFileBypass(wb, filename) {
   window.setInterval(bindDescriptionImageDrop, 1500);
   window.setInterval(renderOrderProfit, 1500);
   window.setInterval(renderReturnInfoCopyButtons, 1500);
-  window.setInterval(renderDonHangButtons, 1500);
+  window.setInterval(renderDonHangButtons, 600);
   window.setInterval(renderUdCtStatus, 1500);
   window.setInterval(renderSaveToSheetButton, 1500);
 
