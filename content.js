@@ -6437,6 +6437,279 @@ function downloadExcelFileBypass(wb, filename) {
     });
   }
 
+
+  // =========================================================================
+  // ENHANCE ORDER DETAIL PRODUCTS (/portal/sale/order/*)
+  // - Copy icon for Product Name
+  // - Copy icon for Variation SKU
+  // - Lookup Mã Sản Phẩm in Sheet SP_SHOPEE (matching Mã Gian & Tên SP)
+  // - Button "Mở Sản Phẩm" -> https://banhang.shopee.vn/portal/product/[Mã Sản Phẩm]
+  // =========================================================================
+  let orderDetailSpCache = null;
+  let orderDetailMaGian = "";
+  let orderDetailLoadingSp = false;
+
+  function loadOrderDetailSpData(callback) {
+    if (orderDetailSpCache && orderDetailSpCache.length > 1) {
+      if (callback) callback(orderDetailSpCache, orderDetailMaGian);
+      return;
+    }
+    if (orderDetailLoadingSp) {
+      // Đang tải, đợi một chút rồi gọi lại callback
+      setTimeout(() => loadOrderDetailSpData(callback), 500);
+      return;
+    }
+    orderDetailLoadingSp = true;
+
+    chrome.storage.local.get(['sp_shopee_cache_data', 'maGian', 'dhHoanTextValue'], (res) => {
+      orderDetailMaGian = (res?.maGian || res?.dhHoanTextValue || "").trim().toLowerCase();
+      if (res && res.sp_shopee_cache_data && res.sp_shopee_cache_data.length > 1) {
+        orderDetailSpCache = res.sp_shopee_cache_data;
+        orderDetailLoadingSp = false;
+        if (callback) callback(orderDetailSpCache, orderDetailMaGian);
+      } else {
+        chrome.runtime.sendMessage({ type: "FETCH_SP_SHOPEE" }, (fRes) => {
+          orderDetailLoadingSp = false;
+          if (fRes && fRes.ok && fRes.values && fRes.values.length > 1) {
+            orderDetailSpCache = fRes.values;
+            chrome.storage.local.set({ sp_shopee_cache_data: fRes.values });
+            if (callback) callback(orderDetailSpCache, orderDetailMaGian);
+          } else {
+            orderDetailSpCache = [];
+            if (callback) callback(orderDetailSpCache, orderDetailMaGian);
+          }
+        });
+      }
+    });
+  }
+
+  function findMaSanPhamFromSheet(productName, currentMaGian, spRows) {
+    if (!productName || !spRows || spRows.length <= 1) return null;
+    
+    const cleanStr = (val) => {
+      if (!val) return "";
+      return String(val)
+        .normalize("NFC")
+        .replace(/[\u200B-\u200D\uFEFF]/g, '')
+        .replace(/\.\.\.$/, '')
+        .replace(/\u2026$/, '')
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+    };
+
+    const cleanP = cleanStr(productName);
+    const targetGian = cleanStr(currentMaGian);
+
+    const headers = spRows[0].map(v => cleanStr(v));
+    let maSpIdx = headers.findIndex(col => col.includes('mã sản phẩm') || col.includes('ma san pham') || col === 'ma sp' || col === 'mã sp' || col === 'item id' || col === 'id');
+    if (maSpIdx === -1) maSpIdx = 0;
+    
+    let pIdx = headers.findIndex(col => col.includes('tên sản phẩm') || col.includes('ten san pham') || col === 'ten sp' || col === 'name');
+    if (pIdx === -1) pIdx = 1;
+
+    let gIdx = headers.findIndex(col => col === 'gian' || col === 'mã gian' || col === 'ma gian' || col === 'ma_gian');
+    if (gIdx === -1) gIdx = 11;
+
+    // Lọc theo gian trước nếu có
+    let candidateRows = [];
+    if (targetGian) {
+      for (let i = 1; i < spRows.length; i++) {
+        const row = spRows[i];
+        const sG = cleanStr(row[gIdx]);
+        if (sG === targetGian || sG.includes(targetGian) || targetGian.includes(sG)) {
+          candidateRows.push(row);
+        }
+      }
+    }
+    if (candidateRows.length === 0) {
+      candidateRows = spRows.slice(1);
+    }
+
+    const getWordOverlap = (s1, s2) => {
+      if (!s1 || !s2) return 0;
+      const w1 = s1.split(' ').filter(w => w.length > 1);
+      const w2 = s2.split(' ').filter(w => w.length > 1);
+      let count = 0;
+      for (const w of w1) {
+        if (w2.includes(w)) count++;
+      }
+      return count;
+    };
+
+    const extractCodes = (str) => {
+      const matches = str.match(/[a-z0-9]+[0-9]+[a-z0-9]*/gi) || [];
+      return matches.map(m => m.toLowerCase());
+    };
+
+    const pCodes = extractCodes(cleanP);
+
+    let bestScore = -1;
+    let bestMaSp = "";
+
+    for (const row of candidateRows) {
+      const sheetName = cleanStr(row[pIdx]);
+      const maSp = String(row[maSpIdx] || "").trim();
+      if (!sheetName || !maSp) continue;
+
+      let score = 0;
+      if (sheetName === cleanP) {
+        score += 10000;
+      } else if (sheetName.startsWith(cleanP) || cleanP.startsWith(sheetName)) {
+        score += 5000;
+      } else if (sheetName.includes(cleanP) || cleanP.includes(sheetName)) {
+        score += 3000;
+      } else {
+        const sheetCodes = extractCodes(sheetName);
+        let codeMatch = false;
+        for (const c of pCodes) {
+          if (c.length >= 3 && sheetCodes.includes(c)) {
+            score += 2000;
+            codeMatch = true;
+          }
+        }
+        const overlap = getWordOverlap(cleanP, sheetName);
+        if (overlap >= 2 || codeMatch) {
+          score += overlap * 100;
+        }
+      }
+
+      if (score > bestScore && score > 0) {
+        bestScore = score;
+        bestMaSp = maSp;
+      }
+    }
+
+    return bestMaSp || null;
+  }
+
+  function renderOrderDetailProductEnhancements() {
+    if (!window.location.href.includes('/portal/sale/order/')) return;
+
+    const productDetailElements = Array.from(document.querySelectorAll('.product-detail, [class*="product-detail"]'));
+    if (productDetailElements.length === 0) return;
+
+    productDetailElements.forEach(detailEl => {
+      // 1. Tên sản phẩm
+      const nameEl = detailEl.querySelector('.product-name, [class*="product-name"]');
+      if (!nameEl) return;
+
+      const productName = (nameEl.getAttribute('title') || nameEl.innerText || nameEl.textContent || "").replace(/\s+/g, ' ').trim();
+      if (!productName) return;
+
+      // Gắn nút Copy tên sản phẩm
+      if (!nameEl.querySelector('.ext-copy-prod-name-btn')) {
+        nameEl.style.display = 'inline-flex';
+        nameEl.style.alignItems = 'center';
+        nameEl.style.flexWrap = 'wrap';
+        nameEl.style.gap = '4px';
+
+        const copyNameBtn = document.createElement('button');
+        copyNameBtn.type = 'button';
+        copyNameBtn.className = 'ext-copy-prod-name-btn';
+        copyNameBtn.title = 'Bấm để copy tên sản phẩm';
+        copyNameBtn.style.cssText = 'display: inline-flex !important; align-items: center !important; gap: 2px !important; margin-left: 6px !important; padding: 1px 6px !important; font-size: 11px !important; font-weight: bold !important; color: #0284c7 !important; background: #e0f2fe !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important; cursor: pointer !important; vertical-align: middle !important; user-select: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;';
+        copyNameBtn.innerHTML = '📋 Copy tên';
+
+        copyNameBtn.onclick = (e) => {
+          e.preventDefault(); e.stopPropagation();
+          navigator.clipboard.writeText(productName).then(() => {
+            copyNameBtn.innerHTML = '✓ Đã copy!';
+            copyNameBtn.style.color = '#15803d';
+            copyNameBtn.style.background = '#dcfce7';
+            copyNameBtn.style.borderColor = '#86efac';
+            setTimeout(() => {
+              copyNameBtn.innerHTML = '📋 Copy tên';
+              copyNameBtn.style.color = '#0284c7';
+              copyNameBtn.style.background = '#e0f2fe';
+              copyNameBtn.style.borderColor = '#7dd3fc';
+            }, 1200);
+          });
+        };
+        nameEl.appendChild(copyNameBtn);
+      }
+
+      // 2. Phân loại & SKU phân loại
+      const metaDivs = Array.from(detailEl.querySelectorAll('.product-meta > div, [class*="product-meta"] > div'));
+      metaDivs.forEach(mDiv => {
+        const text = (mDiv.innerText || mDiv.textContent || "").trim();
+        if (text.includes('SKU phân loại:') || text.includes('SKU:') || text.includes('Mã phân loại:')) {
+          if (!mDiv.querySelector('.ext-copy-sku-btn')) {
+            const skuVal = text.replace(/.*(?:SKU phân loại|SKU|Mã phân loại)\s*:\s*/i, '').trim();
+            if (skuVal) {
+              mDiv.style.display = 'flex';
+              mDiv.style.alignItems = 'center';
+              mDiv.style.flexWrap = 'wrap';
+              mDiv.style.gap = '4px';
+
+              const copySkuBtn = document.createElement('button');
+              copySkuBtn.type = 'button';
+              copySkuBtn.className = 'ext-copy-sku-btn';
+              copySkuBtn.title = 'Bấm để copy SKU: ' + skuVal;
+              copySkuBtn.style.cssText = 'display: inline-flex !important; align-items: center !important; gap: 2px !important; margin-left: 6px !important; padding: 1px 6px !important; font-size: 11px !important; font-weight: bold !important; color: #0369a1 !important; background: #f0f9ff !important; border: 1px solid #bae6fd !important; border-radius: 4px !important; cursor: pointer !important; vertical-align: middle !important; user-select: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;';
+              copySkuBtn.innerHTML = '📋 Copy SKU';
+
+              copySkuBtn.onclick = (e) => {
+                e.preventDefault(); e.stopPropagation();
+                navigator.clipboard.writeText(skuVal).then(() => {
+                  copySkuBtn.innerHTML = '✓ Đã copy!';
+                  copySkuBtn.style.color = '#15803d';
+                  copySkuBtn.style.background = '#dcfce7';
+                  copySkuBtn.style.borderColor = '#86efac';
+                  setTimeout(() => {
+                    copySkuBtn.innerHTML = '📋 Copy SKU';
+                    copySkuBtn.style.color = '#0369a1';
+                    copySkuBtn.style.background = '#f0f9ff';
+                    copySkuBtn.style.borderColor = '#bae6fd';
+                  }, 1200);
+                });
+              };
+              mDiv.appendChild(copySkuBtn);
+            }
+          }
+        }
+      });
+
+      // 3. Nút Mở Sản Phẩm (Link tới https://banhang.shopee.vn/portal/product/+Mã SP)
+      if (!detailEl.querySelector('.ext-open-product-wrapper')) {
+        const openWrapper = document.createElement('div');
+        openWrapper.className = 'ext-open-product-wrapper';
+        openWrapper.style.cssText = 'margin-top: 6px !important; display: flex !important; align-items: center !important; gap: 6px !important; flex-wrap: wrap !important;';
+        openWrapper.innerHTML = '<span style="font-size: 11px; color: #94a3b8;">⏳ Đang tra cứu mã SP từ Sheet SP_SHOPEE...</span>';
+        detailEl.appendChild(openWrapper);
+
+        loadOrderDetailSpData((spRows, currentMaGian) => {
+          const maSp = findMaSanPhamFromSheet(productName, currentMaGian, spRows);
+          if (maSp) {
+            openWrapper.innerHTML = `
+              <a href="https://banhang.shopee.vn/portal/product/${maSp}" target="_blank" class="ext-open-product-btn" style="
+                display: inline-flex !important; align-items: center !important; gap: 4px !important;
+                background: #ee4d2d !important; color: #ffffff !important;
+                font-size: 11px !important; font-weight: bold !important;
+                padding: 3px 10px !important; border-radius: 4px !important;
+                text-decoration: none !important; border: 1px solid #d03b1f !important;
+                box-shadow: 0 1px 3px rgba(238, 77, 45, 0.25) !important; cursor: pointer !important;
+              ">🌐 Mở sản phẩm (${maSp}) ↗</a>
+            `;
+          } else {
+            openWrapper.innerHTML = `
+              <span style="display: inline-flex !important; align-items: center !important; gap: 4px !important; font-size: 11px !important; color: #64748b !important; background: #f1f5f9 !important; padding: 2px 6px !important; border: 1px solid #cbd5e1 !important; border-radius: 4px !important;">
+                ⚠️ Không tìm thấy Mã SP trong sheet
+              </span>
+              <a href="https://banhang.shopee.vn/portal/product/list/all?search=name&keyword=${encodeURIComponent(productName.substring(0, 35))}" target="_blank" style="
+                display: inline-flex !important; align-items: center !important; gap: 2px !important;
+                font-size: 11px !important; color: #0284c7 !important; background: #e0f2fe !important;
+                padding: 2px 8px !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important;
+                text-decoration: none !important; font-weight: 500 !important;
+              ">🔍 Tìm trên Shopee ↗</a>
+            `;
+          }
+        });
+      }
+    });
+  }
+
   async function renderOrderProfit() {
     if (!window.location.href.includes('/portal/sale/order/')) return;
     
@@ -7963,6 +8236,8 @@ function downloadExcelFileBypass(wb, filename) {
   window.setTimeout(injectAwbDownloadButton, 1200);
   window.setTimeout(bindDescriptionImageDrop, 1200);
   window.setTimeout(renderOrderProfit, 1200);
+  window.setTimeout(renderOrderDetailProductEnhancements, 1000);
+  window.setInterval(renderOrderDetailProductEnhancements, 1200);
   window.setTimeout(renderReturnInfoCopyButtons, 1200);
   window.setInterval(renderProductListQuickActions, 1500);
   window.setInterval(renderOrderSnCopyButtons, 1500);
