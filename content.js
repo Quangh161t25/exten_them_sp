@@ -7482,37 +7482,41 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function extractSellerOrderCreatedAt() {
-      const timePattern = /\b\d{2}:\d{2}\s+\d{2}\/\d{2}\/\d{4}\b/;
-      const findTimeInLines = (lines, index) => {
-          for (let offset = 0; offset <= 4; offset++) {
-              const line = lines[index + offset] || "";
-              const match = line.match(timePattern);
-              if (match) return match[0];
-          }
-          return "";
-      };
+      const timePattern1 = /\b(\d{1,2}:\d{2}(?::\d{2})?)\s+(\d{1,2}\/\d{1,2}\/\d{4})\b/;
+      const timePattern2 = /\b(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}(?::\d{2})?)\b/;
 
+      // 1. Quét trực tiếp các thẻ có class .time hoặc div.time
+      const timeElements = Array.from(document.querySelectorAll('.time, div[class*="time"], span[class*="time"], .order-time, .eds-timeline-item, div.time'));
+      for (const el of timeElements) {
+          const txt = cleanOrderDetailText(el.textContent || "").trim();
+          const m1 = txt.match(timePattern1);
+          if (m1) return `${m1[1]} ${m1[2]}`;
+          const m2 = txt.match(timePattern2);
+          if (m2) return `${m2[2]} ${m2[1]}`;
+      }
+
+      // 2. Quét các dòng văn bản cạnh 'đơn hàng mới' hoặc 'ngày đặt'
       const lines = getOrderDetailLines();
       for (let i = 0; i < lines.length; i++) {
-          if (normalizeOrderDetailText(lines[i]).includes("don hang moi")) {
-              const found = findTimeInLines(lines, i);
-              if (found) return found;
+          const norm = normalizeOrderDetailText(lines[i]);
+          if (norm.includes("don hang moi") || norm.includes("ngay dat") || norm.includes("thoi gian dat")) {
+              for (let off = 0; off <= 4; off++) {
+                  const l = lines[i + off] || "";
+                  const m1 = l.match(timePattern1);
+                  if (m1) return `${m1[1]} ${m1[2]}`;
+                  const m2 = l.match(timePattern2);
+                  if (m2) return `${m2[2]} ${m2[1]}`;
+              }
           }
       }
 
-      const statusElements = Array.from(document.querySelectorAll("div, span, li")).filter(isOrderDetailVisible);
-      for (const element of statusElements) {
-          if (!normalizeOrderDetailText(element.textContent).includes("don hang moi")) continue;
-          const localLines = getOrderDetailLines(element.closest("li, div") || element.parentElement || element);
-          const localIndex = localLines.findIndex((line) => normalizeOrderDetailText(line).includes("don hang moi"));
-          const localFound = findTimeInLines(localLines, Math.max(localIndex, 0));
-          if (localFound) return localFound;
+      // 3. Fallback quét toàn bộ text trong trang
+      const allMatches = (document.body.innerText || "").match(/\b\d{1,2}:\d{2}(?::\d{2})?\s+\d{1,2}\/\d{1,2}\/\d{4}\b/g);
+      if (allMatches && allMatches.length > 0) {
+          return allMatches[0];
       }
 
-      const timeEl = Array.from(document.querySelectorAll("div.time, .time"))
-          .map((element) => cleanOrderDetailText(element.textContent))
-          .find((text) => timePattern.test(text));
-      return timeEl ? (timeEl.match(timePattern) || [""])[0] : "";
+      return "";
   }
   function extractSellerOrderPackageInfo() {
       const labelTexts = Array.from(document.querySelectorAll("span.label, div.label, .label"))
@@ -7797,192 +7801,140 @@ function downloadExcelFileBypass(wb, filename) {
 
       return { ok: true, orderId, orderCreatedAt, packageInfo, payments, products, profitData, rows, url: location.href };
   }
-  async function extractOrderDetailForDonHang(dhHoanTextValue) {
-      let orderId = "";
-      const bodyDivs = document.querySelectorAll('.body');
-      for (const div of bodyDivs) {
-          let text = "";
-          for (let node of div.childNodes) {
-              if (node.nodeType === Node.TEXT_NODE) {
-                  text += node.textContent;
-              }
+  async function buildDhValuesFromDetail(rows, maGian) {
+    let dsSpMap = new Map();
+    try {
+      const res = await new Promise((resolve) => chrome.runtime.sendMessage({ type: "FETCH_DS_SP" }, resolve));
+      if (res && res.ok && res.values && res.values.length > 1) {
+        const headers = res.values[0].map(h => String(h || "").trim().toLowerCase());
+        const idSpIdx = headers.findIndex(h => h === "id_sp" || h === "mã sp" || h.includes("id_sp"));
+        const giaBanIdx = headers.findIndex(h => h === "gia_ban" || h === "giá bán" || h.includes("gia_ban") || h.includes("giá"));
+        
+        const bIdx = idSpIdx !== -1 ? idSpIdx : 1;
+        const eIdx = giaBanIdx !== -1 ? giaBanIdx : 4;
+
+        for (let i = 1; i < res.values.length; i++) {
+          const row = res.values[i];
+          const key = String(row[bIdx] || "").trim().toLowerCase();
+          if (key) {
+            const priceStr = String(row[eIdx] || "").replace(/[^\d-]/g, "");
+            const priceNum = parseFloat(priceStr) || 0;
+            dsSpMap.set(key, priceNum);
           }
-          text = text.trim();
-          if (/^[0-9]{6}[A-Z0-9]{8,9}$/.test(text)) {
-              orderId = text;
-              break;
-          }
+        }
       }
+    } catch (e) {
+      console.warn("Không thể tải sheet DS_SP:", e);
+    }
+
+    const processedRows = rows.map((row) => {
+      const mdh = String(row.orderId || "").trim();
+      const sku = String(row.sku || "").trim();
+      const idSp = sku.length >= 10 ? sku.substring(0, 10) : sku;
+      const slg = Number(String(row.quantity || "1").replace(/[^0-9]/g, "")) || 1;
       
-      let tracking = "";
-      const labelSpans = document.querySelectorAll('span.label');
-      for (const span of labelSpans) {
-          if (span.textContent.includes('#')) {
-              tracking = span.textContent.replace('#', '').trim();
-              break;
-          }
+      let donGia = dsSpMap.get(idSp.toLowerCase());
+      if (donGia === undefined || donGia === null || donGia === 0) {
+        const rawUnitCost = String(row.unitCost || "").replace(/[^0-9]/g, "");
+        donGia = rawUnitCost ? Number(rawUnitCost) : 0;
       }
 
-      let timeRaw = "";
-      const timeEl = document.querySelector('div.time');
-      if (timeEl) {
-          timeRaw = timeEl.textContent.trim();
-      }
-      let dateOnly = "";
-      let dateWithTime = timeRaw;
-      const timeMatch = timeRaw.match(/(\d{2}:\d{2})\s+(\d{2}\/\d{2}\/\d{4})/);
-      if (timeMatch) {
-          dateOnly = timeMatch[2];
-          dateWithTime = `${timeMatch[2]} ${timeMatch[1]}:00`;
-      }
+      const thanhTien = slg * donGia;
 
-      let products = [];
-      const skuElements = Array.from(document.querySelectorAll('div, span')).filter(el => {
-          const text = normalizeOrderDetailText(el.textContent);
-          return (text.includes('sku phan loai') || text.includes('sku:') || text.includes('sku san pham')) && el.children.length === 0;
-      });
-      const qtyElements = document.querySelectorAll('.qty');
+      return {
+        row,
+        mdh,
+        sku,
+        idSp,
+        slg,
+        donGia,
+        thanhTien
+      };
+    });
+
+    const tienSpMap = new Map();
+    processedRows.forEach(item => {
+      const key = item.mdh || "__order__";
+      tienSpMap.set(key, (tienSpMap.get(key) || 0) + item.thanhTien);
+    });
+
+    const parseMoneyNumber = (val) => {
+      if (val === null || val === undefined) return 0;
+      const digits = String(val).replace(/[^0-9]/g, "");
+      return digits ? Number(digits) : 0;
+    };
+
+    const extractDatePart = (timeStr) => {
+      if (!timeStr) return "";
+      const m = timeStr.match(/\b\d{1,2}\/\d{1,2}\/\d{4}\b/);
+      return m ? m[0] : timeStr;
+    };
+
+    const formatDateTime = (timeStr) => {
+      if (!timeStr) return "";
+      const m1 = timeStr.match(/(\d{1,2}:\d{2}(?::\d{2})?)\s+(\d{1,2}\/\d{1,2}\/\d{4})/);
+      if (m1) {
+        const t = m1[1].split(":");
+        const hhmm = `${t[0].padStart(2, "0")}:${t[1].padStart(2, "0")}`;
+        const ss = t[2] ? `:${t[2].padStart(2, "0")}` : ":00";
+        return `${m1[2]} ${hhmm}${ss}`;
+      }
+      const m2 = timeStr.match(/(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}(?::\d{2})?)/);
+      if (m2) {
+        const t = m2[2].split(":");
+        const hhmm = `${t[0].padStart(2, "0")}:${t[1].padStart(2, "0")}`;
+        const ss = t[2] ? `:${t[2].padStart(2, "0")}` : ":00";
+        return `${m2[1]} ${hhmm}${ss}`;
+      }
+      return timeStr;
+    };
+
+    // 21 CỘT CHUẨN XÁC 100% VỚI SHEET DH
+    return processedRows.map((item) => {
+      const { row, mdh, sku, idSp, slg, donGia, thanhTien } = item;
+      const tienSp = tienSpMap.get(mdh || "__order__") || 0;
       
-      for (let i = 0; i < skuElements.length; i++) {
-          let rawSku = cleanOrderDetailText(skuElements[i].textContent);
-          let sku = rawSku.replace(/^.*?:\s*/, '').trim();
-          let qty = 1;
-          if (qtyElements[i]) {
-              qty = parseInt(qtyElements[i].textContent.trim(), 10) || 1;
-          } else {
-              let p = skuElements[i].parentElement;
-              while (p && p !== document.body) {
-                  const q = p.querySelector('.qty');
-                  if (q) {
-                      qty = parseInt(q.textContent.trim(), 10) || 1;
-                      break;
-                  }
-                  p = p.parentElement;
-              }
-          }
-          products.push({ sku, qty });
-      }
+      const tongTien = parseMoneyNumber(row.totalProductAmount);
+      const maGiamGia = 0;
+      const phiVc = parseMoneyNumber(row.estimatedShippingTotal);
+      const phuPhi = parseMoneyNumber(row.surcharge);
+      const thue = parseMoneyNumber(row.tax);
       
-      if (products.length === 0) {
-          products.push({ sku: "", qty: 1 });
-      }
+      // Doanh thu theo công thức: tong_tien - ma_giam_gia (0) - phi_vc - phu_phi - thue
+      const doanhThu = tongTien - maGiamGia - phiVc - phuPhi - thue;
+      const phiKhac = 0;
 
-      let paymentItems = [];
-      const incomeItems = document.querySelectorAll('.income-item');
-      incomeItems.forEach(item => {
-          const labelEl = item.querySelector('.income-label-text');
-          const valEl = item.querySelector('.income-value');
-          if (labelEl && valEl) {
-              let label = labelEl.textContent.replace('<!--v-if-->', '').trim();
-              let val = valEl.textContent.replace('<!--v-if-->', '').trim();
-              paymentItems.push({ label, val });
-          }
-      });
+      // Lợi nhuận = doanh_thu - phi_khac - tien_sp
+      const loiNhuan = doanhThu - phiKhac - tienSp;
 
-      const getPaymentValue = (key) => {
-          const lowerKey = key.toLowerCase().trim();
-          const found = paymentItems.find(pi => pi.label.toLowerCase().includes(lowerKey));
-          return found ? found.val : "";
-      };
-
-      const parsePaymentNumber = (str) => {
-          if (!str) return "";
-          let s = str.toString().replace(/[^\d]/g, '');
-          if (s === "") return "";
-          return Number(s);
-      };
-
-      const parsePositivePaymentNumber = (str) => {
-          if (!str) return "";
-          let s = str.toString().replace(/[^\d]/g, '');
-          if (s === "") return "";
-          return Number(s);
-      };
-
-      let thue = getPaymentValue("Thuáº¿");
-      if (!thue) {
-          const gtgt = parseInt((getPaymentValue("Thuế") || "0").replace(/[^\d-]/g, ''), 10) || 0;
-          const tncn = parseInt((getPaymentValue("Thuế") || "0").replace(/[^\d-]/g, ''), 10) || 0;
-          if (gtgt || tncn) {
-              thue = (gtgt + tncn).toString();
-          }
-      }
-
-      const dsSpDataResponse = await new Promise((resolve) => chrome.runtime.sendMessage({ type: "FETCH_DS_SP" }, resolve));
-      const dsSpData = (dsSpDataResponse && dsSpDataResponse.ok) ? dsSpDataResponse.values : null;
-
-      const getDsSpPrice = (skuCode) => {
-          if (!dsSpData || dsSpData.length === 0) return 0;
-          const headers = dsSpData[0];
-          const normalizeHeader = (t) => String(t || "").trim().toLowerCase();
-          const idSpIdx = headers.findIndex(h => normalizeHeader(h) === "id_sp");
-          const giaBanIdx = headers.findIndex(h => normalizeHeader(h) === "gia_ban");
-
-          let bIdx = idSpIdx !== -1 ? idSpIdx : 1;
-          let eIdx = giaBanIdx !== -1 ? giaBanIdx : 4;
-
-          for (let i = 1; i < dsSpData.length; i++) {
-              if (dsSpData[i][bIdx] && dsSpData[i][bIdx].toString().trim() === skuCode.toString().trim()) {
-                  const priceStr = dsSpData[i][eIdx] ? dsSpData[i][eIdx].toString().replace(/[^\d-]/g, '') : "0";
-                  return parseFloat(priceStr) || 0;
-              }
-          }
-          return 0;
-      };
-
-      let totalX = 0;
-      for (const prod of products) {
-          prod.u = prod.sku.substring(0, 4);
-          prod.w = getDsSpPrice(prod.u);
-          prod.x = prod.qty * prod.w;
-          totalX += prod.x;
-      }
-
-      const doanhThuStr = getPaymentValue("doanh thu đơn hàng");
-      const doanhThu = parseFloat(parsePaymentNumber(doanhThuStr)) || 0;
-      const phiKhac = 0; // Cá»™t O hiá»‡n táº¡i Ä‘ang bá» trá»‘ng
-      const profit = doanhThu - phiKhac - totalX;
-
-      const rowDatas = [];
-      for (const prod of products) {
-          let row = [];
-          row.push(dhHoanTextValue || ""); // A
-          row.push(dateOnly); // B
-          row.push(dateWithTime); // C
-          row.push(orderId); // D
-          row.push(tracking); // E
-          let tongTienSpStr = getPaymentValue("tổng tiền hàng");
-          if (!tongTienSpStr) tongTienSpStr = getPaymentValue("tổng tiền sản phẩm");
-          row.push(parsePaymentNumber(tongTienSpStr)); // F
-          row.push(""); // G
-          row.push(parsePositivePaymentNumber(getPaymentValue("Phí cố định"))); // H
-          row.push(parsePositivePaymentNumber(getPaymentValue("Phí Dịch Vụ"))); // I
-          row.push(parsePositivePaymentNumber(getPaymentValue("Phí xử lý giao dịch"))); // J
-          row.push(parsePositivePaymentNumber(thue)); // K
-          row.push(2700); // L
-          row.push(parsePositivePaymentNumber(getPaymentValue("phí hoa hồng tiếp thị liên kết"))); // M
-          row.push(parsePaymentNumber(doanhThuStr)); // N
-          row.push(""); // O
-          row.push(totalX); // P
-          row.push(profit); // Q
-          row.push(""); // R
-          row.push(""); // S
-          row.push(prod.sku); // T
-          row.push(prod.u); // U
-          row.push(prod.qty); // V
-          row.push(prod.w); // W
-          row.push(prod.x); // X
-          row.push(""); // Y
-          row.push(window.location.href); // Z
-          
-          rowDatas.push(row);
-      }
-      
-      return rowDatas;
+      return [
+        maGian,                                   // Col A (1): gian
+        extractDatePart(row.orderCreatedAt),     // Col B (2): ngay
+        formatDateTime(row.orderCreatedAt),       // Col C (3): ngay_gio
+        mdh,                                      // Col D (4): mdh
+        String(row.tracking || "").trim(),        // Col E (5): mvd
+        tongTien,                                 // Col F (6): tong_tien
+        maGiamGia,                                // Col G (7): ma_giam_gia
+        phiVc,                                    // Col H (8): phi_vc
+        phuPhi,                                   // Col I (9): phu_phi
+        thue,                                     // Col J (10): thue
+        doanhThu,                                 // Col K (11): doanh_thu
+        phiKhac,                                  // Col L (12): phi_khac
+        tienSp,                                   // Col M (13): tien_sp
+        loiNhuan,                                 // Col N (14): loi_nhuan
+        "",                                       // Col O (15): tinh_trang
+        "",                                       // Col P (16): trang_thai
+        sku,                                      // Col Q (17): sku
+        idSp,                                     // Col R (18): id_sp
+        slg,                                      // Col S (19): slg
+        donGia,                                   // Col T (20): don_gia
+        thanhTien                                 // Col U (21): thanh_tien
+      ];
+    });
   }
 
   function renderDonHangButtons() {
-      if (!window.location.pathname.match(/^\/portal\/sale\/order\/[A-Z0-9]+$/)) {
+      if (!window.location.pathname.match(/^\/portal\/sale\/(?:order\/)?[A-Z0-9]+$/)) {
           return;
       }
       
@@ -7990,7 +7942,7 @@ function downloadExcelFileBypass(wb, filename) {
 
       let orderId = "";
       let orderIdDiv = null;
-      const bodyDivs = document.querySelectorAll('.body');
+      const bodyDivs = document.querySelectorAll('.body, .order-id, .order-sn');
       for (const div of bodyDivs) {
           let text = "";
           for (let node of div.childNodes) {
@@ -7999,10 +7951,18 @@ function downloadExcelFileBypass(wb, filename) {
               }
           }
           text = text.trim();
-          if (/^[0-9]{6}[A-Z0-9]{8,9}$/.test(text)) {
+          if (/^[0-9]{6}[A-Z0-9]{8,14}$/.test(text)) {
               orderId = text;
               orderIdDiv = div;
               break;
+          }
+      }
+
+      if (!orderIdDiv) {
+          const urlMatch = window.location.pathname.match(/\/portal\/sale\/(?:order\/)?([A-Z0-9]+)/i);
+          if (urlMatch) {
+              orderId = urlMatch[1];
+              orderIdDiv = document.querySelector('.order-panel-header, .header, .order-id') || document.body;
           }
       }
 
@@ -8025,54 +7985,65 @@ function downloadExcelFileBypass(wb, filename) {
           btnAdd.className = "eds-btn eds-btn--primary";
           btnAdd.style.padding = "4px 12px";
           btnAdd.style.fontSize = "12px";
+          btnAdd.style.fontWeight = "bold";
           
-          btnAdd.addEventListener('click', () => {
-              chrome.storage.local.get(["dhHoanTextValue"], async (result) => {
-                  const dhHoanTextValue = result.dhHoanTextValue || "";
-                  
-                  const originalText = btnAdd.textContent;
-                  btnAdd.textContent = 'Đang tính toán...';
-                  btnAdd.disabled = true;
+          btnAdd.addEventListener('click', async () => {
+              const originalText = btnAdd.textContent;
+              btnAdd.textContent = 'Đang tính toán...';
+              btnAdd.disabled = true;
 
-                  const rowDatas = await extractOrderDetailForDonHang(dhHoanTextValue);
-                  
-
-                  if (!rowDatas || rowDatas.length === 0 || !rowDatas[0][3]) {
-                      alert('Không tìm thấy Mã đơn hàng!');
+              try {
+                  const orderDetail = await extractSellerOrderDetailFullData();
+                  if (!orderDetail || !orderDetail.ok || !orderDetail.rows || orderDetail.rows.length === 0) {
+                      alert('Không tìm thấy thông tin chi tiết đơn hàng! Vui lòng cuộn trang xuống để tải hết dữ liệu.');
                       btnAdd.textContent = originalText;
                       btnAdd.disabled = false;
                       return;
                   }
-                  
-                  if (!rowDatas[0][5] || !rowDatas[0][13]) {
-                      alert('Dá»¯ liá»‡u thanh toÃ¡n chÆ°a Ä‘Æ°á»£c load Ä‘áº§y Ä‘á»§. Vui lÃ²ng Ä‘á»£i thÃªm hoáº·c cuá»™n trang xuá»‘ng!');
+
+                  const storage = await new Promise(r => chrome.storage.local.get(["maGian", "dhHoanTextValue"], r));
+                  const maGian = (storage?.maGian || storage?.dhHoanTextValue || "").trim();
+                  if (!maGian) {
+                      alert('Vui lòng vào Popup Extension cài đặt Mã Gian trước khi lưu!');
                       btnAdd.textContent = originalText;
                       btnAdd.disabled = false;
                       return;
                   }
-                  
+
+                  const dhValues = await buildDhValuesFromDetail(orderDetail.rows, maGian);
+                  const sampleMdh = orderDetail.orderId || orderDetail.rows[0]?.orderId || "";
+                  const sampleMvd = orderDetail.packageInfo?.tracking || orderDetail.rows[0]?.tracking || "";
+
                   btnAdd.textContent = 'Đang đẩy...';
 
                   chrome.runtime.sendMessage({
-                      type: "APPEND_DON_HANG",
-                      rowDatas: rowDatas
+                      type: "SAVE_DH_ORDER",
+                      values: dhValues,
+                      mdh: sampleMdh,
+                      mvd: sampleMvd
                   }, (response) => {
                       btnAdd.disabled = false;
                       if (response && response.ok) {
                           btnAdd.textContent = 'OK!';
-                          lastFetchDonHangMdhTime = 0; // Force cache refresh
+                          lastFetchDonHangMdhTime = 0;
+                          updateDonHangMdhCache(true);
                           setTimeout(() => { 
                               btnAdd.textContent = 'Đã có trong DH'; 
                               btnAdd.style.backgroundColor = '#00bfa5';
                               btnAdd.style.borderColor = '#00bfa5';
-                          }, 2000);
+                          }, 1500);
                       } else {
                           btnAdd.textContent = 'Lỗi!';
                           alert('Lỗi: ' + (response?.error || 'Unknown'));
                           setTimeout(() => { btnAdd.textContent = originalText; }, 2000);
                       }
                   });
-              });
+              } catch (err) {
+                  console.error(err);
+                  alert('Lỗi: ' + err.message);
+                  btnAdd.textContent = originalText;
+                  btnAdd.disabled = false;
+              }
           });
 
           btnContainer.appendChild(btnAdd);
@@ -8088,9 +8059,6 @@ function downloadExcelFileBypass(wb, filename) {
           btnAdd.style.borderColor = '';
       }
   }
-
-  
-  
   // Injected interceptor for FORCE_DOWNLOAD
   if ((window.location.href.includes("auto_download_ds_sp=1") || window.location.href.includes("auto_download_giam_gia=1")) && !window.hasInjectedDownloadInterceptor) {
       window.hasInjectedDownloadInterceptor = true;
