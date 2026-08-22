@@ -8097,28 +8097,26 @@ function downloadExcelFileBypass(wb, filename) {
 
   function isSellerOrderDetailPage() {
     const path = (window.location.pathname || "").toLowerCase();
+    
     if (!path.startsWith('/portal/sale/order') && !path.startsWith('/portal/sale/return')) {
       return false;
     }
 
-    const search = window.location.search || "";
-    const queryMatch = search.match(/[?&](?:order_sn|orderId|order_id|ordersn)=([0-9]{6}[A-Z0-9]{6,16})/i);
-    if (queryMatch && queryMatch[1]) {
+    const breadcrumb = document.querySelector('.eds-breadcrumb, [class*="breadcrumb"], .portal-breadcrumb');
+    if (breadcrumb && (/chi tiết/i.test(breadcrumb.textContent) || /detail/i.test(breadcrumb.textContent))) {
       return true;
     }
 
-    const cleanPath = path.replace(/^\/portal\/sale\/(?:order|return)\/?/i, '').replace(/^detail\/?/i, '');
-    const segments = cleanPath.split('/').filter(Boolean);
-    if (!segments.length) {
-      return false;
+    const cleanPath = path.replace(/^\/portal\/sale\/(?:order|return)\/?/i, '').replace(/^detail\/?/i, '').trim();
+    if (cleanPath) {
+      const seg = cleanPath.split('/')[0].split('?')[0].trim();
+      if (seg && !/^(order|list|mass|shipping|return|setting|batch|all|unprocessed|toship|completed|cancelled)$/i.test(seg)) {
+        return true;
+      }
     }
 
-    const lastSeg = segments[segments.length - 1].trim();
-    if (/^(order|list|mass|shipping|return|setting|batch|all|unprocessed|toship|completed|cancelled)$/i.test(lastSeg)) {
-      return false;
-    }
-
-    if (/^[0-9]{6}[A-Z0-9]{6,16}$/i.test(lastSeg) || /^[0-9]{10,24}$/i.test(lastSeg)) {
+    const search = window.location.search || "";
+    if (/[?&](?:order_sn|orderId|order_id|ordersn)=([0-9A-Z]{8,})/i.test(search)) {
       return true;
     }
 
@@ -8134,6 +8132,25 @@ function downloadExcelFileBypass(wb, filename) {
     if (floatingBtn) floatingBtn.remove();
   }
 
+  function findTargetContainerForDonHangButton(orderId) {
+    const breadcrumb = document.querySelector('.eds-breadcrumb, [class*="breadcrumb"], .portal-breadcrumb');
+    if (breadcrumb) {
+      return breadcrumb;
+    }
+
+    if (orderId) {
+      const allDivs = document.querySelectorAll('.body, .order-sn, .order-sn-text, .order-number, [class*="order-sn"], [class*="order-id"], div, section, p');
+      for (const div of allDivs) {
+        const txt = (div.textContent || "").trim();
+        if (txt.includes(orderId)) {
+          return div;
+        }
+      }
+    }
+
+    return document.querySelector('.order-panel-header, .order-detail-header, .portal-panel-header, .page-header, .header-container, main, #app');
+  }
+
   function renderDonHangButtons() {
       // 1. Chỉ chạy khi đang ở trang chi tiết đơn hàng
       if (!isSellerOrderDetailPage()) {
@@ -8141,45 +8158,38 @@ function downloadExcelFileBypass(wb, filename) {
           return;
       }
 
-      // 2. Tìm Mã đơn hàng (orderId) từ URL hoặc DOM
-      const orderId = extractSellerOrderIdFromPage();
-      if (!orderId || /^(order|detail|list|all)$/i.test(orderId)) {
-          removeDonHangButtons();
-          return;
+      // 2. Tìm Mã đơn hàng (orderId) từ DOM hoặc URL
+      let orderId = extractSellerOrderIdFromPage();
+      if (!orderId) {
+          const urlMatch = window.location.pathname.match(/\/portal\/sale\/(?:order|return)\/(?:detail\/)?([0-9A-Z]{8,})/i);
+          if (urlMatch && urlMatch[1] && !/^(order|list|mass|shipping|return|setting|batch|all)$/i.test(urlMatch[1])) {
+              orderId = urlMatch[1].trim();
+          }
       }
 
-      // Luôn dọn dẹp nút nổi thừa ở góc màn hình để không có 2 nút trùng lặp
+      // Luôn dọn dẹp nút nổi thừa ở góc màn hình
       const floatingBtn = document.getElementById('shopee-ext-floating-dh-btn');
       if (floatingBtn) floatingBtn.remove();
 
       updateDonHangMdhCache();
 
       // 3. Tự động kiểm tra và đồng bộ (auto-add khi chưa có, auto-update khi phí/thuế sai)
-      checkAndAutoSyncDonHang(orderId);
-
-      // 4. Gắn duy nhất 1 nút bấm trực tiếp cạnh Mã đơn hàng (Top inline button)
-      let orderIdDiv = null;
-      const candidateDivs = document.querySelectorAll('.order-sn, .order-sn-text, .order-number, [class*="order-sn"], [class*="order-id"], .order-panel-header, .order-detail-header');
-      for (const div of candidateDivs) {
-          const txt = (div.textContent || "").trim();
-          if (txt.includes(orderId)) {
-              orderIdDiv = div;
-              break;
-          }
+      if (orderId && !/^(order|detail|list|all)$/i.test(orderId)) {
+          checkAndAutoSyncDonHang(orderId);
       }
 
-      if (!orderIdDiv) {
-          orderIdDiv = document.querySelector('.order-panel-header, .order-detail-header');
-      }
-
-      if (!orderIdDiv) return;
+      // 4. Gắn duy nhất 1 nút bấm trực tiếp vào Breadcrumb / Header
+      const targetContainer = findTargetContainerForDonHangButton(orderId);
+      if (!targetContainer) return;
 
       let btnContainer = document.getElementById('shopee-ext-donhang-btns');
       if (!btnContainer) {
           btnContainer = document.createElement('div');
           btnContainer.id = 'shopee-ext-donhang-btns';
           btnContainer.style.cssText = 'display: inline-flex; align-items: center; gap: 8px; margin-left: 14px; vertical-align: middle; z-index: 999;';
-          orderIdDiv.appendChild(btnContainer);
+          targetContainer.appendChild(btnContainer);
+      } else if (btnContainer.parentElement !== targetContainer) {
+          targetContainer.appendChild(btnContainer);
       }
 
       let btnAdd = document.getElementById('btn-add-don-hang');
