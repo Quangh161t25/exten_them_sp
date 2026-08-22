@@ -4506,8 +4506,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         const textA = removeAccents(a.textContent);
         const textB = removeAccents(b.textContent);
 
-        let indexA = normalizedSheetTabNames.findIndex(n => n === textA || textA.includes(n) || n.includes(textA));
-        let indexB = normalizedSheetTabNames.findIndex(n => n === textB || textB.includes(n) || n.includes(textB));
+        let indexA = normalizedSheetTabNames.indexOf(textA);
+        if (indexA === -1) {
+          indexA = normalizedSheetTabNames.findIndex(n => textA.includes(n) || n.includes(textA));
+        }
+
+        let indexB = normalizedSheetTabNames.indexOf(textB);
+        if (indexB === -1) {
+          indexB = normalizedSheetTabNames.findIndex(n => textB.includes(n) || n.includes(textB));
+        }
 
         if (indexA === -1) indexA = 999;
         if (indexB === -1) indexB = 999;
