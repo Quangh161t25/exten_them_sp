@@ -517,10 +517,27 @@
         throw new Error(response?.error || response?.message || "Không cập nhật được.");
       }
 
+      // NẾU ĐƠN CHƯA CÓ TRONG SHEET DH -> MỞ LINK ĐƠN HÀNG TRONG TAB MỚI
+      const isMatched = response.matchedCount > 0 && response.matchedOrders && response.matchedOrders.length > 0;
+      if (!isMatched) {
+        const saleLink = item.orderLink || `https://banhang.shopee.vn/portal/sale/order/${orderId}`;
+        window.open(saleLink, '_blank');
+        
+        syncedOrdersMap.set(orderId.toLowerCase(), '🌐 Đã mở link');
+        if (btnElement) {
+          btnElement.disabled = false;
+          btnElement.innerHTML = '🌐 Đã mở link';
+          btnElement.style.background = '#d97706';
+        }
+        setStatus(`⚠️ Đơn <b>${escapeHtml(orderId)}</b> chưa có trong Sheet DH -> <b>Đã mở link chi tiết đơn</b> để bạn kiểm tra & lưu!`);
+        return;
+      }
+
       const rowNums = (response.rowNums || []).join(", ");
       syncedOrdersMap.set(orderId.toLowerCase(), `✓ Dòng ${rowNums || 'OK'}`);
       
       if (btnElement) {
+        btnElement.disabled = false;
         btnElement.innerHTML = `✓ Dòng ${rowNums || 'OK'}`;
         btnElement.style.background = '#15803d';
       }
@@ -535,6 +552,94 @@
     }
   }
 
+  async function syncAllToSheetDh() {
+    if (isSyncing) return;
+    if (!allRows.length) {
+      alert("Chưa có dữ liệu đơn hàng. Vui lòng bấm '⚡ Đọc Doanh Thu Shopee' trước.");
+      return;
+    }
+
+    isSyncing = true;
+    if (syncAllDhBtn) {
+      syncAllDhBtn.disabled = true;
+      syncAllDhBtn.innerHTML = '⏳ Đang cập nhật...';
+    }
+    setStatus('<span style="color: #059669; font-weight: bold;">⏳ Đang so khớp mã gian & mã đơn để cập nhật vào Sheet DH...</span>');
+
+    try {
+      const maGian = await getCurrentMaGian();
+      const positiveItems = allRows.map(r => ({
+        ...r,
+        tienSanPham: Math.abs(Number(r.tienSanPham) || 0),
+        phiVanChuyen: Math.abs(Number(r.phiVanChuyen) || 0),
+        phuPhi: Math.abs(Number(r.phuPhi) || 0),
+        thue: Math.abs(Number(r.thue) || 0),
+        doanhThu: Math.abs(Number(r.amount || r.doanhThu) || 0),
+        amount: Math.abs(Number(r.amount || r.doanhThu) || 0)
+      }));
+
+      const response = await new Promise(resolve => {
+        chrome.runtime.sendMessage({
+          type: "UPDATE_DH_INCOME_FINANCIALS",
+          items: positiveItems,
+          maGian
+        }, resolve);
+      });
+
+      if (!response?.ok) {
+        throw new Error(response?.error || response?.message || "Không cập nhật được vào Sheet DH.");
+      }
+
+      if (response.matchedOrders && Array.isArray(response.matchedOrders)) {
+        response.matchedOrders.forEach(ordId => {
+          syncedOrdersMap.set(ordId.toLowerCase(), "✓ Đã cập nhật");
+        });
+      }
+
+      const unmatched = response.unmatchedOrders || [];
+      if (unmatched.length > 0) {
+        unmatched.forEach(ordId => {
+          syncedOrdersMap.set(ordId.toLowerCase(), "⚠️ Chưa có");
+        });
+      }
+
+      renderTable();
+      setStatus(`✅ ${response.message}${unmatched.length > 0 ? ` (Có ${unmatched.length} đơn chưa có trong Sheet)` : ''}`);
+
+      // Nếu có đơn chưa có trong Sheet DH, hỏi người dùng có muốn mở link các đơn này không
+      if (unmatched.length > 0) {
+        const confirmOpen = confirm(`Đã cập nhật xong các đơn trùng khớp.\nCó ${unmatched.length} đơn CHƯA CÓ trong Sheet DH.\n\nBạn có muốn tự động mở link các đơn này để xem & lưu không?`);
+        if (confirmOpen) {
+          const toOpen = unmatched.slice(0, 10);
+          toOpen.forEach(ordId => {
+            const item = allRows.find(r => (r.orderId || "").toLowerCase() === ordId.toLowerCase());
+            const url = item?.orderLink || `https://banhang.shopee.vn/portal/sale/order/${ordId}`;
+            window.open(url, '_blank');
+          });
+          if (unmatched.length > 10) {
+            alert(`Đã mở 10 đơn đầu tiên trong tab mới (để tránh quá tải trình duyệt).`);
+          }
+        }
+      }
+
+      if (syncAllDhBtn) {
+        syncAllDhBtn.innerHTML = `✓ Đã cập nhật (${response.matchedCount} dòng)`;
+        setTimeout(() => {
+          syncAllDhBtn.innerHTML = '☁️ Cập Nhật Tất Cả Lên Sheet ĐH';
+          syncAllDhBtn.disabled = false;
+        }, 3000);
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus(`❌ Lỗi cập nhật Sheet DH: ${err.message}`, true);
+      if (syncAllDhBtn) {
+        syncAllDhBtn.disabled = false;
+        syncAllDhBtn.innerHTML = '☁️ Cập Nhật Tất Cả Lên Sheet ĐH';
+      }
+    } finally {
+      isSyncing = false;
+    }
+  }
   function updateStats() {
     if (!statsEl) return;
     if (allRows.length === 0) {

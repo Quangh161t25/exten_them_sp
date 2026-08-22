@@ -556,10 +556,21 @@ async function uploadImageToFreeImageHost(imageUrl) {
           }
         }
 
+        // Danh sách các đơn chưa có trong Sheet DH
+        const unmatchedOrders = [];
+        items.forEach(item => {
+          if (item.orderId && !matchedOrders.has(item.orderId.trim().toLowerCase())) {
+            unmatchedOrders.push(item.orderId);
+          }
+        });
+
         if (updateData.length === 0) {
           sendResponse({
-            ok: false,
-            message: `Không tìm thấy mã đơn hàng nào khớp trong Sheet DH (Mã gian: "${currentMaGian || 'Tất cả'}").`
+            ok: true,
+            matchedCount: 0,
+            matchedOrders: [],
+            unmatchedOrders,
+            message: `Chưa có đơn hàng nào trong Sheet DH (Mã gian: "${currentMaGian || 'Tất cả'}").`
           });
           return;
         }
@@ -580,11 +591,11 @@ async function uploadImageToFreeImageHost(imageUrl) {
         if (!batchRes.ok) {
           throw new Error(batchResult.error?.message || "Không thể cập nhật sheet DH.");
         }
-
         sendResponse({
           ok: true,
           matchedCount,
           matchedOrders: Array.from(matchedOrders),
+          unmatchedOrders,
           rowNums: matchedRowNumbers,
           message: `Đã cập nhật thành công ${matchedCount} dòng (${matchedOrders.size} đơn hàng) trong Sheet DH!`
         });
