@@ -160,49 +160,38 @@
             console.warn("Could not change page size to 50:", e);
           }
 
-          // 2. KÍCH HOẠT MỞ RỘNG BẰNG CLICK CHÂN THỰC TRÊN TỪNG DÒNG
-          const simulateHumanClick = (el) => {
-            if (!el || el.tagName === 'A' || el.closest('a')) return;
-            const rect = el.getBoundingClientRect();
-            const clientX = rect.left + rect.width / 2;
-            const clientY = rect.top + rect.height / 2;
-
-            const opts = {
-              bubbles: true,
-              cancelable: true,
-              view: window,
-              clientX: clientX,
-              clientY: clientY,
-              screenX: clientX,
-              screenY: clientY,
-              button: 0,
-              buttons: 1
-            };
-
-            el.dispatchEvent(new PointerEvent('pointerdown', opts));
-            el.dispatchEvent(new MouseEvent('mousedown', opts));
-            el.dispatchEvent(new PointerEvent('pointerup', opts));
-            el.dispatchEvent(new MouseEvent('mouseup', opts));
-            el.dispatchEvent(new MouseEvent('click', opts));
-            if (typeof el.click === 'function' && el.tagName !== 'A') el.click();
+          // 2. CHỈ CLICK DUY NHẤT VÀO ICON MŨI TÊN (CHẶN MỞ TAB TUYỆT ĐỐI)
+          const preventLinkClicks = (e) => {
+            if (e.target.closest('a') || e.target.tagName === 'A') {
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+            }
           };
+          window.addEventListener('click', preventLinkClicks, true);
 
           try {
             const rows = Array.from(document.querySelectorAll('.grid-table-body .grid-table-row, .transaction-table .grid-table-row, .grid-table-row'));
             rows.forEach(r => {
-              const amountDiv = r.querySelector('.transaction-amount') || r.querySelector('.transaction-amount-wrapper') || r;
-              const icon = r.querySelector('i.eds-icon, i');
-              const svg = r.querySelector('svg');
-              const wrapper = r.querySelector('.transaction-amount-wrapper');
-              const popoverRef = wrapper?.closest('.eds-popover__ref') || wrapper?.parentElement;
+              const arrowIcon = r.querySelector('path[d*="9.18933983"]')?.closest('i') ||
+                                r.querySelector('.transaction-amount-wrapper i.eds-icon') ||
+                                r.querySelector('.transaction-amount-wrapper i') ||
+                                r.querySelector('i.eds-icon');
 
-              [amountDiv, icon, svg, wrapper, popoverRef].filter(Boolean).forEach(t => simulateHumanClick(t));
+              if (arrowIcon && !arrowIcon.closest('a')) {
+                const opts = { bubbles: true, cancelable: true, view: window };
+                arrowIcon.dispatchEvent(new MouseEvent('mousedown', opts));
+                arrowIcon.dispatchEvent(new MouseEvent('mouseup', opts));
+                arrowIcon.dispatchEvent(new MouseEvent('click', opts));
+              }
             });
 
             // Chờ 800ms để toàn bộ các chi tiết đơn hàng mở rộng và render xong vào DOM
             await new Promise(r => setTimeout(r, 800));
           } catch (e) {
             console.warn("Lỗi khi mở rộng dòng:", e);
+          } finally {
+            window.removeEventListener('click', preventLinkClicks, true);
           }
 
           // 3. Quét tất cả các dòng giao dịch trong bảng

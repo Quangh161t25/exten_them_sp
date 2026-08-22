@@ -6713,54 +6713,46 @@ function downloadExcelFileBypass(wb, filename) {
 
 
   // =========================================================================
-  // NÂNG CẤP BẤM MỞ RỘNG ĐƠN TRÊN TRANG SHOPEE FINANCE
+  // NÂNG CẤP BẤM MỞ RỘNG ĐƠN TRÊN TRANG SHOPEE FINANCE (CHỐNG MỞ TAB TUYỆT ĐỐI)
   // =========================================================================
-  function simulateHumanClick(el) {
-    if (!el) return;
-    if (el.tagName === 'A' || el.closest('a')) return; // Chặn tuyệt đối không bấm link
+  function clickOnlyArrowIcon(row) {
+    if (!row) return;
 
-    const rect = el.getBoundingClientRect();
-    const clientX = rect.left + rect.width / 2;
-    const clientY = rect.top + rect.height / 2;
+    // Tìm icon mũi tên (có chứa SVG mũi tên xuống hoặc nằm trong cột số tiền)
+    const arrowIcon = row.querySelector('path[d*="9.18933983"]')?.closest('i') ||
+                      row.querySelector('.transaction-amount-wrapper i.eds-icon') ||
+                      row.querySelector('.transaction-amount-wrapper i') ||
+                      row.querySelector('i.eds-icon');
 
-    const opts = {
-      bubbles: true,
-      cancelable: true,
-      view: window,
-      clientX: clientX,
-      clientY: clientY,
-      screenX: clientX,
-      screenY: clientY,
-      button: 0,
-      buttons: 1
+    if (!arrowIcon) return;
+    if (arrowIcon.tagName === 'A' || arrowIcon.closest('a')) return; // Chặn tuyệt đối nếu nằm trong thẻ A
+
+    // Tạm thời chặn mọi hành vi mở link thẻ <a> trong lúc bấm
+    const preventLink = (e) => {
+      if (e.target.closest('a') || e.target.tagName === 'A') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+      }
     };
+    window.addEventListener('click', preventLink, true);
 
-    el.dispatchEvent(new PointerEvent('pointerdown', opts));
-    el.dispatchEvent(new MouseEvent('mousedown', opts));
-    el.dispatchEvent(new PointerEvent('pointerup', opts));
-    el.dispatchEvent(new MouseEvent('mouseup', opts));
-    el.dispatchEvent(new MouseEvent('click', opts));
-    if (typeof el.click === 'function' && el.tagName !== 'A') el.click();
-  }
+    try {
+      const opts = { bubbles: true, cancelable: true, view: window };
+      arrowIcon.dispatchEvent(new MouseEvent('mousedown', opts));
+      arrowIcon.dispatchEvent(new MouseEvent('mouseup', opts));
+      arrowIcon.dispatchEvent(new MouseEvent('click', opts));
+    } catch (_) {}
 
-  function expandSingleIncomeRow(rowOrCell) {
-    if (!rowOrCell) return;
-    const amountDiv = rowOrCell.querySelector('.transaction-amount') || rowOrCell;
-    const wrapper = rowOrCell.querySelector('.transaction-amount-wrapper') || amountDiv.parentElement;
-    const icon = rowOrCell.querySelector('i.eds-icon, i') || wrapper?.querySelector('i');
-    const svg = rowOrCell.querySelector('svg') || wrapper?.querySelector('svg');
-    const popoverRef = wrapper?.closest('.eds-popover__ref') || wrapper?.parentElement;
-
-    // Kích hoạt click chân thực lên các phần tử mở rộng
-    [amountDiv, icon, svg, wrapper, popoverRef].filter(Boolean).forEach(target => {
-      simulateHumanClick(target);
-    });
+    setTimeout(() => {
+      window.removeEventListener('click', preventLink, true);
+    }, 200);
   }
 
   function injectFinanceExpandButtons() {
     if (!window.location.href.includes('/portal/finance/income')) return;
 
-    // 1. Nút nổi cố định ở góc dưới bên phải màn hình
+    // 1. Nút nổi ở góc dưới bên phải màn hình
     if (!document.getElementById('ext-btn-expand-all-finance')) {
       const floatBtn = document.createElement('button');
       floatBtn.id = 'ext-btn-expand-all-finance';
@@ -6788,9 +6780,9 @@ function downloadExcelFileBypass(wb, filename) {
           }
         } catch (_) {}
 
-        // Mở rộng tất cả các dòng
+        // Mở rộng tất cả các dòng chỉ bằng icon mũi tên
         const rows = Array.from(document.querySelectorAll('.grid-table-body .grid-table-row, .transaction-table .grid-table-row, .grid-table-row'));
-        rows.forEach(r => expandSingleIncomeRow(r));
+        rows.forEach(r => clickOnlyArrowIcon(r));
 
         floatBtn.innerHTML = '✓ Đã mở rộng ' + rows.length + ' đơn!';
         floatBtn.style.background = '#16a34a';
@@ -6821,7 +6813,7 @@ function downloadExcelFileBypass(wb, filename) {
 
       rowBtn.onclick = (e) => {
         e.preventDefault(); e.stopPropagation();
-        expandSingleIncomeRow(r);
+        clickOnlyArrowIcon(r);
         rowBtn.innerHTML = '✓ Đã mở';
         rowBtn.style.background = '#16a34a';
       };
@@ -6846,7 +6838,6 @@ function downloadExcelFileBypass(wb, filename) {
       xuanBtn.parentElement.insertBefore(topBtn, xuanBtn.nextSibling);
     }
   }
-
   async function renderOrderProfit() {
     if (!window.location.href.includes('/portal/sale/order/')) return;
     
