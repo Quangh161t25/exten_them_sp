@@ -6595,35 +6595,46 @@ function downloadExcelFileBypass(wb, filename) {
   function renderOrderDetailProductEnhancements() {
     if (!window.location.href.includes('/portal/sale/order/')) return;
 
-    const productDetailElements = Array.from(document.querySelectorAll('.product-detail, [class*="product-detail"]'));
+    const productDetailElements = Array.from(document.querySelectorAll('.product-detail, [class*="product-detail"], .order-product-wrapper, .order-item, .product-item, .order-view-item'));
     if (productDetailElements.length === 0) return;
 
     productDetailElements.forEach(detailEl => {
-      // 1. Tên sản phẩm
-      const nameEl = detailEl.querySelector('.product-name, [class*="product-name"]');
+      const nameEl = detailEl.querySelector('.product-name, [class*="product-name"], .ct-item-product-name, .item-name');
       if (!nameEl) return;
 
       const productName = (nameEl.getAttribute('title') || nameEl.innerText || nameEl.textContent || "").replace(/\s+/g, ' ').trim();
       if (!productName) return;
 
-      // Gắn nút Copy tên sản phẩm
-      if (!nameEl.querySelector('.ext-copy-prod-name-btn')) {
-        nameEl.style.display = 'inline-flex';
-        nameEl.style.alignItems = 'center';
-        nameEl.style.flexWrap = 'wrap';
-        nameEl.style.gap = '4px';
+      let skuVal = "";
+      const metaDivs = Array.from(detailEl.querySelectorAll('.product-meta > div, [class*="product-meta"] > div, .item-meta, .ct-item-meta, [class*="meta"]'));
+      for (const mDiv of metaDivs) {
+        const text = (mDiv.innerText || mDiv.textContent || "").trim();
+        if (text.includes('SKU phân loại:') || text.includes('SKU:') || text.includes('Mã phân loại:') || text.includes('Mã sản phẩm:')) {
+          skuVal = text.replace(/.*(?:SKU phân loại|SKU|Mã phân loại|Mã sản phẩm)\s*:\s*/i, '').trim();
+          skuVal = skuVal.replace(/copy\s*sku|sao\s*ch[eé]p\s*sku|copy|sao\s*ch[eé]p/gi, '').trim();
+          if (skuVal) break;
+        }
+      }
 
+      // Đưa toàn bộ các nút Copy tên, Copy SKU, Mở SP xuống dòng footer riêng ở dưới cùng
+      let actionsFooter = detailEl.querySelector('.ext-product-actions-footer');
+      if (!actionsFooter) {
+        actionsFooter = document.createElement('div');
+        actionsFooter.className = 'ext-product-actions-footer';
+        actionsFooter.style.cssText = 'margin-top: 8px !important; display: flex !important; align-items: center !important; gap: 8px !important; flex-wrap: wrap !important;';
+        detailEl.appendChild(actionsFooter);
+
+        // 1. Nút Copy Tên
         const copyNameBtn = document.createElement('button');
         copyNameBtn.type = 'button';
         copyNameBtn.className = 'ext-copy-prod-name-btn';
         copyNameBtn.title = 'Bấm để copy tên sản phẩm';
-        copyNameBtn.style.cssText = 'display: inline-flex !important; align-items: center !important; gap: 2px !important; margin-left: 6px !important; padding: 1px 6px !important; font-size: 11px !important; font-weight: bold !important; color: #0284c7 !important; background: #e0f2fe !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important; cursor: pointer !important; vertical-align: middle !important; user-select: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;';
+        copyNameBtn.style.cssText = 'display: inline-flex !important; align-items: center !important; gap: 2px !important; padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; color: #0284c7 !important; background: #e0f2fe !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important; cursor: pointer !important; user-select: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;';
         copyNameBtn.innerHTML = '📋 Copy tên';
-
         copyNameBtn.onclick = (e) => {
           e.preventDefault(); e.stopPropagation();
           navigator.clipboard.writeText(productName).then(() => {
-            copyNameBtn.innerHTML = '✓ Đã copy!';
+            copyNameBtn.innerHTML = '✓ Đã copy tên!';
             copyNameBtn.style.color = '#15803d';
             copyNameBtn.style.background = '#dcfce7';
             copyNameBtn.style.borderColor = '#86efac';
@@ -6635,57 +6646,39 @@ function downloadExcelFileBypass(wb, filename) {
             }, 1200);
           });
         };
-        nameEl.appendChild(copyNameBtn);
-      }
+        actionsFooter.appendChild(copyNameBtn);
 
-      // 2. Phân loại & SKU phân loại
-      const metaDivs = Array.from(detailEl.querySelectorAll('.product-meta > div, [class*="product-meta"] > div'));
-      metaDivs.forEach(mDiv => {
-        const text = (mDiv.innerText || mDiv.textContent || "").trim();
-        if (text.includes('SKU phân loại:') || text.includes('SKU:') || text.includes('Mã phân loại:')) {
-          if (!mDiv.querySelector('.ext-copy-sku-btn')) {
-            const skuVal = text.replace(/.*(?:SKU phân loại|SKU|Mã phân loại)\s*:\s*/i, '').trim();
-            if (skuVal) {
-              mDiv.style.display = 'flex';
-              mDiv.style.alignItems = 'center';
-              mDiv.style.flexWrap = 'wrap';
-              mDiv.style.gap = '4px';
-
-              const copySkuBtn = document.createElement('button');
-              copySkuBtn.type = 'button';
-              copySkuBtn.className = 'ext-copy-sku-btn';
-              copySkuBtn.title = 'Bấm để copy SKU: ' + skuVal;
-              copySkuBtn.style.cssText = 'display: inline-flex !important; align-items: center !important; gap: 2px !important; margin-left: 6px !important; padding: 1px 6px !important; font-size: 11px !important; font-weight: bold !important; color: #0369a1 !important; background: #f0f9ff !important; border: 1px solid #bae6fd !important; border-radius: 4px !important; cursor: pointer !important; vertical-align: middle !important; user-select: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;';
-              copySkuBtn.innerHTML = '📋 Copy SKU';
-
-              copySkuBtn.onclick = (e) => {
-                e.preventDefault(); e.stopPropagation();
-                navigator.clipboard.writeText(skuVal).then(() => {
-                  copySkuBtn.innerHTML = '✓ Đã copy!';
-                  copySkuBtn.style.color = '#15803d';
-                  copySkuBtn.style.background = '#dcfce7';
-                  copySkuBtn.style.borderColor = '#86efac';
-                  setTimeout(() => {
-                    copySkuBtn.innerHTML = '📋 Copy SKU';
-                    copySkuBtn.style.color = '#0369a1';
-                    copySkuBtn.style.background = '#f0f9ff';
-                    copySkuBtn.style.borderColor = '#bae6fd';
-                  }, 1200);
-                });
-              };
-              mDiv.appendChild(copySkuBtn);
-            }
-          }
+        // 2. Nút Copy SKU (nếu có SKU)
+        if (skuVal) {
+          const copySkuBtn = document.createElement('button');
+          copySkuBtn.type = 'button';
+          copySkuBtn.className = 'ext-copy-sku-btn';
+          copySkuBtn.title = 'Bấm để copy SKU: ' + skuVal;
+          copySkuBtn.style.cssText = 'display: inline-flex !important; align-items: center !important; gap: 2px !important; padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; color: #0369a1 !important; background: #f0f9ff !important; border: 1px solid #bae6fd !important; border-radius: 4px !important; cursor: pointer !important; user-select: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;';
+          copySkuBtn.innerHTML = '📋 Copy SKU';
+          copySkuBtn.onclick = (e) => {
+            e.preventDefault(); e.stopPropagation();
+            navigator.clipboard.writeText(skuVal).then(() => {
+              copySkuBtn.innerHTML = '✓ Đã copy SKU!';
+              copySkuBtn.style.color = '#15803d';
+              copySkuBtn.style.background = '#dcfce7';
+              copySkuBtn.style.borderColor = '#86efac';
+              setTimeout(() => {
+                copySkuBtn.innerHTML = '📋 Copy SKU';
+                copySkuBtn.style.color = '#0369a1';
+                copySkuBtn.style.background = '#f0f9ff';
+                copySkuBtn.style.borderColor = '#bae6fd';
+              }, 1200);
+            });
+          };
+          actionsFooter.appendChild(copySkuBtn);
         }
-      });
 
-      // 3. Nút Mở Sản Phẩm (Link tới https://banhang.shopee.vn/portal/product/+Mã SP)
-      if (!detailEl.querySelector('.ext-open-product-wrapper')) {
-        const openWrapper = document.createElement('div');
+        // 3. Khung Mở Sản Phẩm
+        const openWrapper = document.createElement('span');
         openWrapper.className = 'ext-open-product-wrapper';
-        openWrapper.style.cssText = 'margin-top: 6px !important; display: flex !important; align-items: center !important; gap: 6px !important; flex-wrap: wrap !important;';
-        openWrapper.innerHTML = '<span style="font-size: 11px; color: #94a3b8;">⏳ Đang tra cứu mã SP từ Sheet SP_SHOPEE...</span>';
-        detailEl.appendChild(openWrapper);
+        openWrapper.innerHTML = '<span style="font-size: 11px; color: #94a3b8;">⏳ Đang tra cứu mã SP...</span>';
+        actionsFooter.appendChild(openWrapper);
 
         loadOrderDetailSpData((spRows, currentMaGian) => {
           const maSp = findMaSanPhamFromSheet(productName, currentMaGian, spRows);
@@ -6695,30 +6688,25 @@ function downloadExcelFileBypass(wb, filename) {
                 display: inline-flex !important; align-items: center !important; gap: 4px !important;
                 background: #ee4d2d !important; color: #ffffff !important;
                 font-size: 11px !important; font-weight: bold !important;
-                padding: 3px 10px !important; border-radius: 4px !important;
+                padding: 2px 8px !important; border-radius: 4px !important;
                 text-decoration: none !important; border: 1px solid #d03b1f !important;
                 box-shadow: 0 1px 3px rgba(238, 77, 45, 0.25) !important; cursor: pointer !important;
               ">🌐 Mở sản phẩm (${maSp}) ↗</a>
             `;
           } else {
             openWrapper.innerHTML = `
-              <span style="display: inline-flex !important; align-items: center !important; gap: 4px !important; font-size: 11px !important; color: #64748b !important; background: #f1f5f9 !important; padding: 2px 6px !important; border: 1px solid #cbd5e1 !important; border-radius: 4px !important;">
-                ⚠️ Không tìm thấy Mã SP trong sheet
-              </span>
               <a href="https://banhang.shopee.vn/portal/product/list/all?search=name&keyword=${encodeURIComponent(productName.substring(0, 35))}" target="_blank" style="
                 display: inline-flex !important; align-items: center !important; gap: 2px !important;
                 font-size: 11px !important; color: #0284c7 !important; background: #e0f2fe !important;
                 padding: 2px 8px !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important;
                 text-decoration: none !important; font-weight: 500 !important;
-              ">🔍 Tìm trên Shopee ↗</a>
+              ">🔍 Tìm SP trên Shopee ↗</a>
             `;
           }
         });
       }
     });
   }
-
-
 
   // =========================================================================
   // NÂNG CẤP BẤM MỞ RỘNG ĐƠN TRÊN TRANG SHOPEE FINANCE (CHỐNG MỞ TAB TUYỆT ĐỐI)
@@ -7819,27 +7807,6 @@ function downloadExcelFileBypass(wb, filename) {
       return skuElement.parentElement || skuElement;
   }
 
-  function cleanProductSku(raw) {
-    if (!raw) return "";
-    let s = String(raw).trim();
-    s = s.replace(/copy\s*sku|sao\s*ch[eé]p\s*sku|copy|sao\s*ch[eé]p/gi, "").trim();
-    s = s.replace(/^(m[aã]\s*sku|sku\s*ph[aâ]n\s*lo[aạ]i|m[aã]\s*ph[aâ]n\s*lo[aạ]i|ph[aâ]n\s*lo[aạ]i\s*h[aà]ng|m[aã]\s*s[aả]n\s*ph[aẩ]m|sku)\s*:\s*/i, "").trim();
-    
-    const mBracket = s.match(/\[([A-Z0-9_-]{3,35})\]/i);
-    if (mBracket && !/^(copy|sp|sku)$/i.test(mBracket[1])) {
-      return mBracket[1].trim();
-    }
-
-    const mSku = s.match(/\b([A-Z0-9]{2,10}(?:-[A-Z0-9]{1,10}){1,6})\b/i);
-    if (mSku && !/^(copy|sku|sp)$/i.test(mSku[1])) {
-      return mSku[1].trim();
-    }
-
-    s = s.replace(/^[\[\]:\s-]+|[\[\]:\s-]+$/g, "").trim();
-    if (/^(copy|sku|sp|copy\s*sku)$/i.test(s)) return "";
-    return s;
-  }
-
   function extractSellerOrderProducts() {
       const productContainers = Array.from(document.querySelectorAll(
         ".order-view-item, .order-product-wrapper, .order-item, .product-item, .item-card, " +
@@ -7849,56 +7816,70 @@ function downloadExcelFileBypass(wb, filename) {
       if (productContainers.length > 0) {
           const results = [];
           for (const container of productContainers) {
-              let sku = "";
-              
-              // 1. Thử lấy từ các thẻ meta / sku
-              const metaEls = container.querySelectorAll(".ct-item-meta, .item-meta, [class*='ct-item-meta'], [class*='item-meta'], [class*='sku'], [class*='variation']");
-              for (const mEl of metaEls) {
-                  const cleaned = cleanProductSku(mEl.textContent);
-                  if (cleaned) {
-                      sku = cleaned;
-                      break;
-                  }
+              const clone = container.cloneNode(true);
+              clone.querySelectorAll('button, .ext-copy-sku-btn, .ext-copy-prod-name-btn, .ext-open-product-wrapper, .ext-product-actions-footer, .shopee-qlsp-sku-display, .shopee-qlsp-copy-button, .btn-copy-price, .injected-sku-ct').forEach(n => n.remove());
+
+              const cleanText = (el) => el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
+
+              // 1. Tên sản phẩm & Mã trong ngoặc vuông [CODE] từ tên SP
+              const titleEl = clone.querySelector(".ct-item-product-name, .product-name, [class*='product-name'], [class*='item-name']");
+              const productName = cleanText(titleEl);
+              let titleBracketCode = "";
+              const mBracket = productName.match(/\[([A-Z0-9_-]{3,35})\]/i);
+              if (mBracket && !/^(copy|sp|sku)$/i.test(mBracket[1])) {
+                  titleBracketCode = mBracket[1].trim();
               }
 
-              // 2. Thử tìm trong các dòng text của container
-              if (!sku) {
-                  const lines = getOrderDetailLines(container);
-                  for (const line of lines) {
-                      const cleaned = cleanProductSku(line);
-                      if (cleaned) {
-                          sku = cleaned;
+              // 2. Tìm SKU từ các dòng meta
+              let skuFromMeta = "";
+              let variationName = "";
+              const metaLines = Array.from(clone.querySelectorAll(".ct-item-meta, .item-meta, [class*='ct-item-meta'], [class*='item-meta'], [class*='sku'], [class*='variation'], .product-meta > div, [class*='product-meta'] > div"))
+                  .map(cleanText).filter(Boolean);
+
+              const allLines = (clone.innerText || clone.textContent || "").split('\n').map(l => l.trim()).filter(Boolean);
+              const combinedLines = [...new Set([...metaLines, ...allLines])];
+
+              for (const line of combinedLines) {
+                  if (/sku\s*ph[aâ]n\s*lo[aạ]i|m[aã]\s*ph[aâ]n\s*lo[aạ]i|m[aã]\s*sku|^sku\s*:/i.test(line)) {
+                      let val = line.replace(/.*(?:sku\s*ph[aâ]n\s*lo[aạ]i|m[aã]\s*ph[aâ]n\s*lo[aạ]i|m[aã]\s*sku|^sku)\s*:\s*/i, '').trim();
+                      val = val.replace(/copy\s*sku|sao\s*ch[eé]p\s*sku|copy|sao\s*ch[eé]p/gi, '').trim();
+                      if (val && !/^(copy|sku|sp)$/i.test(val)) {
+                          skuFromMeta = val;
                           break;
                       }
                   }
-              }
-
-              // 3. Thử tìm trong tên sản phẩm (Product Title có dạng [SKU-CODE])
-              if (!sku) {
-                  const titleEl = container.querySelector(".ct-item-product-name, .product-name, [class*='product-name'], [class*='item-name']");
-                  if (titleEl) {
-                      const cleaned = cleanProductSku(titleEl.textContent);
-                      if (cleaned) sku = cleaned;
+                  if (/m[aã]\s*s[aả]n\s*ph[aẩ]m/i.test(line)) {
+                      let val = line.replace(/.*m[aã]\s*s[aả]n\s*ph[aẩ]m\s*:\s*/i, '').trim();
+                      val = val.replace(/copy\s*sku|sao\s*ch[eé]p\s*sku|copy|sao\s*ch[eé]p/gi, '').trim();
+                      if (val && !/^(copy|sku|sp)$/i.test(val)) {
+                          skuFromMeta = val;
+                          break;
+                      }
+                  }
+                  if (/ph[aâ]n\s*lo[aạ]i(?:\s*h[aà]ng)?\s*:/i.test(line) && !variationName) {
+                      variationName = line.replace(/.*ph[aâ]n\s*lo[aạ]i(?:\s*h[aà]ng)?\s*:\s*/i, '').trim();
                   }
               }
 
-              // Số lượng
+              let finalSku = skuFromMeta || titleBracketCode || variationName || (productName ? productName.substring(0, 35) : "SP");
+              finalSku = finalSku.replace(/copy\s*sku|sao\s*ch[eé]p/gi, '').trim();
+              if (!finalSku) finalSku = titleBracketCode || "SP";
+
               let quantity = "1";
               const qtyEl = container.querySelector(".ct-item-product-num, .ct-item-product-qty, .qty, .quantity, [class*='qty'], [class*='quantity'], [class*='num']");
               if (qtyEl) {
                   quantity = cleanOrderDetailText(qtyEl.textContent).replace(/[^0-9]/g, "") || "1";
               }
 
-              // Giá sản phẩm
               const moneyValues = extractOrderMoneyValues(container.innerText || container.textContent || "");
               const productPrice = moneyValues[0] || "";
 
-              results.push({ sku: sku || "", quantity: quantity || "1", productPrice });
+              results.push({ sku: finalSku, quantity: quantity || "1", productPrice });
           }
           if (results.length > 0) return results;
       }
 
-      return [{ sku: "", quantity: "1", productPrice: "" }];
+      return [{ sku: "SP", quantity: "1", productPrice: "" }];
   }
 
   function parseSellerOrderMoneyNumber(value) {
