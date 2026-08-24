@@ -783,9 +783,12 @@ async function uploadImageToFreeImageHost(imageUrl) {
     return true;
   }
 
+  let saveDhOrderQueue = Promise.resolve();
+
   if (message?.type === "SAVE_DH_ORDER") {
-    Promise.all([getGoogleAccessToken(), getSpreadsheetId()]).then(async ([token, sheetId]) => {
+    saveDhOrderQueue = saveDhOrderQueue.then(async () => {
       try {
+        const [token, sheetId] = await Promise.all([getGoogleAccessToken(), getSpreadsheetId()]);
         await ensureSheetExists("DH", token);
         const newValues = message.values || [];
         if (!newValues.length) throw new Error("Không có dữ liệu để lưu.");
@@ -816,15 +819,21 @@ async function uploadImageToFreeImageHost(imageUrl) {
           }
         }
 
-        // 2. Nếu ĐÃ TỒN TẠI -> CẬP NHẬT LẠI (UPDATE)
+        // 2. Nếu ĐÃ TỒN TẠI -> CẬP NHẬT LẠI CHÍNH DÒNG ĐÓ VÀ DỌN DẸP DÒNG TRÙNG THỪA
         if (matchingRowNums.length > 0) {
           const updateData = [];
-          for (let i = 0; i < newValues.length; i++) {
-            if (i < matchingRowNums.length) {
-              const rowNum = matchingRowNums[i];
+          for (let i = 0; i < matchingRowNums.length; i++) {
+            const rowNum = matchingRowNums[i];
+            if (i < newValues.length) {
               updateData.push({
                 range: `DH!A${rowNum}:Y${rowNum}`,
                 values: [newValues[i]]
+              });
+            } else {
+              // Xóa sạch dòng trùng thừa trước đó nếu có
+              updateData.push({
+                range: `DH!A${rowNum}:Y${rowNum}`,
+                values: [new Array(25).fill("")]
               });
             }
           }
@@ -882,7 +891,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
       } catch (err) {
         sendResponse({ ok: false, error: err.message });
       }
-    }).catch(err => sendResponse({ ok: false, error: err.message }));
+    });
     return true;
   }
 

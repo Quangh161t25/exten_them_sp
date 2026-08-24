@@ -8374,11 +8374,24 @@ function downloadExcelFileBypass(wb, filename) {
     return true;
   }
 
+  let lastPageUrlForSync = "";
+  let pageLoadSettleTime = 0;
+
   async function checkAndAutoSyncDonHang(orderId) {
     if (!orderId || isAutoProcessingOrder) return;
 
     // Chỉ chạy khi đang ở trang chi tiết đơn hàng (không phải returnrefundcancel)
     if (!isSellerOrderDetailPage()) return;
+
+    if (location.href !== lastPageUrlForSync) {
+      lastPageUrlForSync = location.href;
+      pageLoadSettleTime = Date.now() + 1800; // Đợi 1.8 giây để Vue render xong dữ liệu thật
+      return;
+    }
+
+    if (Date.now() < pageLoadSettleTime) {
+      return;
+    }
 
     const orderDetail = await extractSellerOrderDetailFullData();
     if (!isOrderDetailDataReady(orderDetail)) {
