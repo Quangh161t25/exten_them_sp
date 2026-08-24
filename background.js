@@ -386,19 +386,31 @@ async function uploadImageToFreeImageHost(imageUrl) {
     Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
       .then(async ([token, sheetId]) => {
         try {
-          const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!D:D")}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          if (!res.ok) throw new Error(data.error?.message || "Không đọc được Sheet DH");
-          const rows = data.values || [];
+          const values = await getCachedDhRows(token, sheetId);
+          if (!values || values.length <= 1) {
+            sendResponse({ ok: true, values: [], statusMap: {} });
+            return;
+          }
+
           const processed = [];
-          for (let i = 1; i < rows.length; i++) {
-            const mdh = String(rows[i]?.[0] || "").trim();
+          const statusMap = {};
+
+          for (let i = 1; i < values.length; i++) {
+            const r = values[i];
+            const mdh = String(r[3] || "").trim();
+            const tinhTrang = String(r[14] || "").trim();
+            const trangThai = String(r[15] || "").trim();
+            const returnId = String(r[25] || "").trim();
+
             if (mdh) {
               processed.push([mdh]);
+              // Nếu đã có trạng thái Hủy / Hoàn / Trả hoặc có mã yêu cầu trả hàng
+              if (tinhTrang || trangThai || returnId) {
+                statusMap[mdh] = trangThai || tinhTrang || "Đã cập nhật";
+              }
             }
           }
-          sendResponse({ ok: true, values: processed });
+          sendResponse({ ok: true, values: processed, statusMap });
         } catch (err) {
           sendResponse({ ok: false, error: err.message });
         }

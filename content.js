@@ -6968,6 +6968,7 @@ function downloadExcelFileBypass(wb, filename) {
     }
   }
 
+  let cachedDhHoanStatusMap = new Map(); // mdh -> status
   let cachedDhHoanIds = new Set();
   let isFetchingDhHoanIds = false;
   let lastFetchDhHoanIdsTime = 0;
@@ -6981,9 +6982,15 @@ function downloadExcelFileBypass(wb, filename) {
           const response = await new Promise(resolve => chrome.runtime.sendMessage({ type: "FETCH_DH_HOAN_IDS" }, resolve));
           if (response && response.ok && response.values) {
               cachedDhHoanIds.clear();
+              cachedDhHoanStatusMap.clear();
               for (const row of response.values) {
                   const id = String(row[0] || "").trim();
                   if (id) cachedDhHoanIds.add(id);
+              }
+              if (response.statusMap) {
+                  for (const [id, st] of Object.entries(response.statusMap)) {
+                      cachedDhHoanStatusMap.set(id, st);
+                  }
               }
               lastFetchDhHoanIdsTime = Date.now();
               updateCopyButtonColors();
@@ -7277,16 +7284,31 @@ function downloadExcelFileBypass(wb, filename) {
   function updateCopyButtonColors() {
       document.querySelectorAll(".btn-copy-return-data-check").forEach(btn => {
           const id = btn.dataset.shopeeQlspCopyReturnOrderId;
-          if (id && (cachedDhHoanIds.has(id) || cachedDonHangMdhIndices.has(id))) {
-              btn.style.setProperty("background-color", "#cbb89d", "important"); // màu be
+          if (!id) return;
+
+          // 1. ĐÃ CẬP NHẬT TRẠNG THÁI (Hủy / Hoàn / Trả) -> ĐỔI SANG MÀU XANH LÁ
+          if (cachedDhHoanStatusMap.has(id)) {
+              btn.style.setProperty("background-color", "#22c55e", "important"); // Màu xanh lá (#22c55e)
+              btn.style.setProperty("border-color", "#16a34a", "important");
+              btn.style.setProperty("color", "#ffffff", "important");
+              btn.style.setProperty("font-weight", "bold", "important");
+              btn.title = `Đã cập nhật trạng thái: ${cachedDhHoanStatusMap.get(id)}`;
+          }
+          // 2. ĐÃ CÓ TRONG SHEET DH (chưa cập nhật trạng thái Hủy/Hoàn/Trả) -> MÀU BE
+          else if (cachedDonHangMdhIndices.has(id) || cachedDhHoanIds.has(id)) {
+              btn.style.setProperty("background-color", "#cbb89d", "important"); // Màu be
               btn.style.setProperty("border-color", "#b7a285", "important");
               btn.style.setProperty("color", "#3d3124", "important");
               btn.style.setProperty("font-weight", "bold", "important");
-          } else {
+              btn.title = "Đã có trong Sheet DH (chưa cập nhật trạng thái)";
+          }
+          // 3. CHƯA CÓ TRONG SHEET DH -> MÀU ĐỎ CAM
+          else {
               btn.style.setProperty("background-color", "#ee4d2d", "important");
               btn.style.removeProperty("border-color");
               btn.style.setProperty("color", "#ffffff", "important");
               btn.style.removeProperty("font-weight");
+              btn.title = "Chưa có trong Sheet DH";
           }
       });
   }
@@ -7360,6 +7382,7 @@ function downloadExcelFileBypass(wb, filename) {
                     clearTimeout(timer);
                     btn.disabled = false;
                     cachedDhHoanIds.add(data.orderId);
+                    cachedDhHoanStatusMap.set(data.orderId, action);
                     updateCopyButtonColors();
                     btn.textContent = "OK!";
                     setTimeout(() => { btn.textContent = originalText; }, 2000);
@@ -7511,14 +7534,20 @@ function downloadExcelFileBypass(wb, filename) {
       btnCopy.dataset.shopeeQlspCopyReturnOrderId = directOrderId;
       btnCopy.classList.add("btn-copy-return-data-check");
       
-      if (directOrderId && (cachedDhHoanIds.has(directOrderId) || cachedDonHangMdhIndices.has(directOrderId))) {
-          btnCopy.style.backgroundColor = "#cbb89d"; // màu be
-          btnCopy.style.borderColor = "#b7a285";
-          btnCopy.style.color = "#3d3124";
-          btnCopy.style.fontWeight = "bold";
+      if (directOrderId) {
+          if (cachedDhHoanStatusMap.has(directOrderId)) {
+              btnCopy.style.backgroundColor = "#22c55e"; // màu xanh lá
+              btnCopy.style.borderColor = "#16a34a";
+              btnCopy.style.color = "#ffffff";
+              btnCopy.style.fontWeight = "bold";
+          } else if (cachedDhHoanIds.has(directOrderId) || cachedDonHangMdhIndices.has(directOrderId)) {
+              btnCopy.style.backgroundColor = "#cbb89d"; // màu be
+              btnCopy.style.borderColor = "#b7a285";
+              btnCopy.style.color = "#3d3124";
+              btnCopy.style.fontWeight = "bold";
+          }
       }
-      
-      container.appendChild(btnCopy);
+            container.appendChild(btnCopy);
 
       const btnHuy = createActionBtn("Hủy", "#ef4444", (e) => { e.stopPropagation(); e.preventDefault(); handleDhHoanAction("Hủy", orderIdEl, btnHuy); });
       container.appendChild(btnHuy);
