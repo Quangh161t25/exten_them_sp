@@ -7364,21 +7364,15 @@ function downloadExcelFileBypass(wb, filename) {
                     btn.textContent = "OK!";
                     setTimeout(() => { btn.textContent = originalText; }, 2000);
                 } else if (response && (response.notFound || (response.error && response.error.includes("Không tìm thấy Mã đơn hàng")))) {
-                    // Chưa có trong Sheet DH -> Kích hoạt click vào thẻ span.id-content để mở chi tiết đơn hàng
-                    const orderIdContentEl = orderIdEl.querySelector('.id-content');
+                    // Chưa có trong Sheet DH -> Mở trực tiếp 1 cửa sổ Chrome mới (tuyệt đối không gọi .click() để tránh mở đúp 2 tab)
                     btn.textContent = "⏳ Mở Chrome...";
-                    
-                    if (orderIdContentEl) {
-                        orderIdContentEl.click();
-                    } else {
-                        const targetUrl = findOrderRowHref(orderIdEl, data.orderId);
-                        chrome.runtime.sendMessage({
-                            type: "OPEN_ORDER_IN_NEW_WINDOW",
-                            url: targetUrl,
-                            orderId: data.orderId,
-                            autoCloseDelay: 60000
-                        });
-                    }
+                    const targetUrl = findOrderRowHref(orderIdEl, data.orderId);
+                    chrome.runtime.sendMessage({
+                        type: "OPEN_ORDER_IN_NEW_WINDOW",
+                        url: targetUrl,
+                        orderId: data.orderId,
+                        autoCloseDelay: 60000
+                    });
 
                     // Tự động kiểm tra và cập nhật lại khi đơn hàng được lưu xong vào Sheet DH
                     let pollCount = 0;
@@ -7471,7 +7465,7 @@ function downloadExcelFileBypass(wb, filename) {
               orderId: data.orderId,
               autoCloseDelay: 60000
             });
-          });
+          }, true);
         }
       }
 
