@@ -652,24 +652,30 @@ async function uploadImageToFreeImageHost(imageUrl) {
 
         const headers = values[0].map(h => String(h || "").trim().toLowerCase());
         let gianIdx = 0;
+        let ngayIdx = 1;
+        let ngayGioIdx = 2;
         let mdhIdx = 3;
         let mvdIdx = 4;
-        let tongTienIdx = headers.findIndex(h => h.includes("tong_tien") || h.includes("tổng tiền"));
-        if (tongTienIdx === -1) tongTienIdx = 5;
-        let phiVcIdx = headers.findIndex(h => h.includes("phi_vc") || h.includes("phí vc"));
-        if (phiVcIdx === -1) phiVcIdx = 7;
-        let phuPhiIdx = headers.findIndex(h => h.includes("phu_phi") || h.includes("phụ phí"));
-        if (phuPhiIdx === -1) phuPhiIdx = 8;
-        let thueIdx = headers.findIndex(h => h.includes("thue") || h.includes("thuế"));
-        if (thueIdx === -1) thueIdx = 9;
-        let skuIdx = headers.findIndex(h => h === "sku" || h.includes("sku"));
-        if (skuIdx === -1) skuIdx = 16;
-        let tenKhachIdx = headers.findIndex(h => h.includes("ten_khach"));
-        if (tenKhachIdx === -1) tenKhachIdx = 21;
-        let ngNhanIdx = headers.findIndex(h => h.includes("ng_nhan"));
-        if (ngNhanIdx === -1) ngNhanIdx = 22;
-        let diaChiIdx = headers.findIndex(h => h.includes("dia_chi"));
-        if (diaChiIdx === -1) diaChiIdx = 23;
+        let tongTienIdx = 5;
+        let maGiamGiaIdx = 6;
+        let phiVcIdx = 7;
+        let phuPhiIdx = 8;
+        let thueIdx = 9;
+        let doanhThuIdx = 10;
+        let phiKhacIdx = 11;
+        let tienSpIdx = 12;
+        let loiNhuanIdx = 13;
+        let tinhTrangIdx = 14;
+        let trangThaiIdx = 15;
+        let skuIdx = 16;
+        let idSpIdx = 17;
+        let slgIdx = 18;
+        let donGiaIdx = 19;
+        let thanhTienIdx = 20;
+        let tenKhachIdx = 21;
+        let ngNhanIdx = 22;
+        let diaChiIdx = 23;
+        let linkDonIdx = 24;
 
         const matchingRows = [];
         for (let i = 1; i < values.length; i++) {
@@ -681,20 +687,36 @@ async function uploadImageToFreeImageHost(imageUrl) {
           if (isGianMatch && rowMdh === mdh) {
             matchingRows.push({
               rowNum: i + 1,
+              gian: r[gianIdx] || "",
+              ngay: r[ngayIdx] || "",
+              ngayGio: r[ngayGioIdx] || "",
+              mdh: r[mdhIdx] || "",
               mvd: r[mvdIdx] || "",
               tongTien: r[tongTienIdx] || "",
+              maGiamGia: r[maGiamGiaIdx] || "",
               phiVc: r[phiVcIdx] || "",
               phuPhi: r[phuPhiIdx] || "",
               thue: r[thueIdx] || "",
+              doanhThu: r[doanhThuIdx] || "",
+              phiKhac: r[phiKhacIdx] || "",
+              tienSp: r[tienSpIdx] || "",
+              loiNhuan: r[loiNhuanIdx] || "",
+              tinhTrang: r[tinhTrangIdx] || "",
+              trangThai: r[trangThaiIdx] || "",
               sku: r[skuIdx] || "",
+              idSp: r[idSpIdx] || "",
+              slg: r[slgIdx] || "",
+              donGia: r[donGiaIdx] || "",
+              thanhTien: r[thanhTienIdx] || "",
               tenKhach: r[tenKhachIdx] || "",
               ngNhan: r[ngNhanIdx] || "",
-              diaChi: r[diaChiIdx] || ""
+              diaChi: r[diaChiIdx] || "",
+              linkDon: r[linkDonIdx] || ""
             });
           }
         }
 
-        sendResponse({
+                sendResponse({
           ok: true,
           exists: matchingRows.length > 0,
           rows: matchingRows

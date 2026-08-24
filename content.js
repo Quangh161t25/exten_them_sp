@@ -8347,7 +8347,7 @@ function downloadExcelFileBypass(wb, filename) {
     if (!orderDetail || !orderDetail.ok || !orderDetail.rows || orderDetail.rows.length === 0) return false;
     if (!orderDetail.orderId) return false;
     
-    // BẮT BUỘC mã đơn hàng phải đúng định dạng chuẩn (ví dụ 14 ký tự có chữ cái, KHÔNG được thuần số như ID URL 240520694230100)
+    // BẮT BUỘC mã đơn hàng phải đúng định dạng chuẩn
     const id = String(orderDetail.orderId).trim();
     if (id.length < 10) return false;
     if (/^\d+$/.test(id) && id.length > 12) {
@@ -8356,6 +8356,18 @@ function downloadExcelFileBypass(wb, filename) {
 
     // BẮT BUỘC phải lấy được Ngày tạo đơn hàng từ Đơn hàng mới
     if (!orderDetail.rows[0]?.orderCreatedAt) {
+      return false;
+    }
+
+    // BẮT BUỘC SKU PHẢI LÀ SKU THẬT (KHÔNG ĐƯỢC LÀ DUMMY "SP" KHI TRANG CHƯA LOAD XONG)
+    const firstSku = String(orderDetail.rows[0]?.sku || "").trim();
+    if (!firstSku || firstSku === "SP") {
+      return false;
+    }
+
+    // BẮT BUỘC phải có DOM sản phẩm hiển thị trên trang
+    const hasProductEl = document.querySelector('.order-view-item, .order-item, .product-item, .order-product-wrapper, .ct-item-product-name, .product-name');
+    if (!hasProductEl) {
       return false;
     }
 
@@ -8492,14 +8504,23 @@ function downloadExcelFileBypass(wb, filename) {
             const pageSlg = parseMoneyNumber(pageRow?.quantity || "1");
             const pageSku = String(pageRow?.sku || "").trim();
 
+            // Nếu trong Sheet DH đang là dữ liệu dummy (sku === "SP" hoặc tongTien === 0 hoặc thiếu ngày giờ)
+            // và trang hiện tại đã bóc tách được SKU thực tế -> Cần cập nhật đè ngay
+            if (sheetSku === "SP" || sheetSku === "" || (sheetTongTien === 0 && pageTongTien > 0) || !sheetNgayGio) {
+              if (pageSku && pageSku !== "SP") {
+                isDataMismatch = true;
+                break;
+              }
+            }
+
             if ((pageNgay && sheetNgay && sheetNgay !== pageNgay) ||
                 (pageNgayGio && sheetNgayGio && sheetNgayGio !== pageNgayGio) ||
-                sheetTongTien !== pageTongTien || 
-                sheetPhiVc !== pagePhiVc || 
-                sheetPhuPhi !== pagePhuPhi || 
-                sheetThue !== pageThue ||
+                (pageTongTien > 0 && sheetTongTien !== pageTongTien) || 
+                (pagePhiVc > 0 && sheetPhiVc !== pagePhiVc) || 
+                (pagePhuPhi > 0 && sheetPhuPhi !== pagePhuPhi) || 
+                (pageThue > 0 && sheetThue !== pageThue) ||
                 (pageSlg > 0 && sheetSlg !== pageSlg) ||
-                (pageSku && sheetSku !== pageSku) ||
+                (pageSku && pageSku !== "SP" && sheetSku !== pageSku) ||
                 (!sheetMvd && pageMvd) ||
                 (!sheetTenKhach && pageTenKhach) ||
                 (!sheetNgNhan && pageNgNhan) ||
