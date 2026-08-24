@@ -1162,6 +1162,36 @@ async function uploadImageToFreeImageHost(imageUrl) {
     };
   }
 
+  if (message?.type === "OPEN_ORDER_IN_NEW_WINDOW") {
+    const targetUrl = message.url || `https://banhang.shopee.vn/portal/sale/order/${message.orderId}`;
+    const autoCloseDelay = message.autoCloseDelay || 60000;
+
+    chrome.windows.create({
+      url: targetUrl,
+      type: "normal",
+      focused: true
+    }, (newWindow) => {
+      if (chrome.runtime.lastError || !newWindow) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError?.message || "Không thể mở cửa sổ mới" });
+        return;
+      }
+
+      const winId = newWindow.id;
+      setTimeout(() => {
+        chrome.windows.get(winId, (win) => {
+          if (!chrome.runtime.lastError && win) {
+            chrome.windows.remove(winId, () => {
+              console.log(`[Shopee Ext] Đã tự động đóng cửa sổ đơn hàng ${message.orderId || ""} sau 1 phút.`);
+            });
+          }
+        });
+      }, autoCloseDelay);
+
+      sendResponse({ ok: true, windowId: winId });
+    });
+    return true;
+  }
+
   if (message?.type === "UPDATE_DH_RETURN_STATUS" || message?.type === "APPEND_DH_HOAN" || message?.type === "UPDATE_DH_HOAN") {
     Promise.all([getGoogleAccessToken(), getSpreadsheetId()]).then(async ([token, sheetId]) => {
       try {

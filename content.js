@@ -7273,33 +7273,79 @@ function downloadExcelFileBypass(wb, filename) {
               btn.disabled = false;
               btn.textContent = originalText;
           }
-      }, 10000);
+      }, 70000);
 
       chrome.storage.local.get(["maGian", "dhHoanTextValue"], (result) => {
           const maGian = (result.maGian || result.dhHoanTextValue || "").trim();
           
-          chrome.runtime.sendMessage({ 
-              type: "UPDATE_DH_RETURN_STATUS", 
-              status: action === "Cập nhật" ? "" : action,
-              orderId: data.orderId, 
-              reason: data.reason, 
-              returnId: data.returnId, 
-              tracking: data.tracking,
-              maGian: maGian
-          }, (response) => {
-              clearTimeout(timer);
-              btn.disabled = false;
-              if (response && response.ok) {
-                  cachedDhHoanIds.add(data.orderId);
-                  updateCopyButtonColors();
-                  btn.textContent = "OK!";
-                  setTimeout(() => { btn.textContent = originalText; }, 1500);
-              } else {
-                  btn.textContent = "Lỗi!";
-                  setTimeout(() => { btn.textContent = originalText; }, 2500);
-                  alert("Lỗi cập nhật: " + (response?.error || "Không có phản hồi từ Background Service"));
-              }
-          });
+          const sendUpdateReq = (isRetry = false) => {
+            chrome.runtime.sendMessage({ 
+                type: "UPDATE_DH_RETURN_STATUS", 
+                status: action === "Cập nhật" ? "" : action,
+                orderId: data.orderId, 
+                reason: data.reason, 
+                returnId: data.returnId, 
+                tracking: data.tracking,
+                maGian: maGian
+            }, (response) => {
+                if (response && response.ok) {
+                    clearTimeout(timer);
+                    btn.disabled = false;
+                    cachedDhHoanIds.add(data.orderId);
+                    updateCopyButtonColors();
+                    btn.textContent = "OK!";
+                    setTimeout(() => { btn.textContent = originalText; }, 2000);
+                } else if (response && (response.notFound || (response.error && response.error.includes("Không tìm thấy Mã đơn hàng")))) {
+                    // Chưa có trong Sheet DH -> Tự động mở 1 cửa sổ Chrome mới (không phải tab mới) và sau 1 phút tự tắt
+                    const orderLinkEl = orderIdEl.querySelector("a[href]");
+                    const targetUrl = (orderLinkEl && orderLinkEl.href) ? orderLinkEl.href : `https://banhang.shopee.vn/portal/sale/order/${data.orderId}`;
+                    
+                    btn.textContent = "⏳ Mở Chrome...";
+                    
+                    chrome.runtime.sendMessage({
+                        type: "OPEN_ORDER_IN_NEW_WINDOW",
+                        url: targetUrl,
+                        orderId: data.orderId,
+                        autoCloseDelay: 60000
+                    });
+
+                    // Tự động kiểm tra và cập nhật lại khi đơn hàng được lưu xong vào Sheet DH
+                    let pollCount = 0;
+                    const pollInterval = setInterval(() => {
+                        pollCount++;
+                        if (pollCount > 20) { // Sau 60s nếu chưa xong
+                            clearInterval(pollInterval);
+                            clearTimeout(timer);
+                            btn.disabled = false;
+                            btn.textContent = "Lỗi!";
+                            setTimeout(() => { btn.textContent = originalText; }, 2500);
+                            alert(`Không tìm thấy đơn hàng "${data.orderId}" sau khi mở cửa sổ chi tiết đơn.`);
+                            return;
+                        }
+
+                        chrome.runtime.sendMessage({
+                            type: "CHECK_AND_GET_DH_ORDER",
+                            mdh: data.orderId,
+                            maGian: maGian
+                        }, (chkRes) => {
+                            if (chkRes && chkRes.exists && chkRes.rows.length > 0) {
+                                clearInterval(pollInterval);
+                                btn.textContent = "⏳ Cập nhật...";
+                                sendUpdateReq(true);
+                            }
+                        });
+                    }, 3000);
+                } else {
+                    clearTimeout(timer);
+                    btn.disabled = false;
+                    btn.textContent = "Lỗi!";
+                    setTimeout(() => { btn.textContent = originalText; }, 2500);
+                    alert("Lỗi cập nhật: " + (response?.error || "Không có phản hồi từ Background Service"));
+                }
+            });
+          };
+
+          sendUpdateReq(false);
       });
   }
 
