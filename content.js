@@ -7875,13 +7875,20 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function extractSellerOrderProducts() {
-      const productContainers = Array.from(document.querySelectorAll(
+      const rawContainers = Array.from(document.querySelectorAll(
         ".order-view-item, .order-product-wrapper, .order-item, .product-item, .item-card, " +
         "[class*='order-view-item'], [class*='order-item'], [class*='orderProduct'], [class*='product-item']"
       )).filter(isOrderDetailVisible);
 
-      if (productContainers.length > 0) {
+      if (rawContainers.length > 0) {
+          // Loại bỏ các container cha bao ngoài container con để chống nhân đôi sản phẩm
+          const productContainers = rawContainers.filter(c => {
+            return !rawContainers.some(other => other !== c && c.contains(other));
+          });
+
           const results = [];
+          const seenProductKeys = new Set();
+
           for (const container of productContainers) {
               const clone = container.cloneNode(true);
               clone.querySelectorAll('button, .ext-copy-sku-btn, .ext-copy-prod-name-btn, .ext-open-product-wrapper, .ext-product-actions-footer, .shopee-qlsp-sku-display, .shopee-qlsp-copy-button, .btn-copy-price, .injected-sku-ct').forEach(n => n.remove());
@@ -7935,13 +7942,11 @@ function downloadExcelFileBypass(wb, filename) {
               // 3. BÓC TÁCH SỐ LƯỢNG CHÍNH XÁC (DOM + TỶ LỆ GIÁ TIỀN)
               let quantity = "";
               
-              // A. Tìm trong các phần tử chứa số lượng (khung số lượng)
               const qtyCandidates = Array.from(clone.querySelectorAll(
                 ".ct-item-product-num, .ct-item-product-qty, .qty, .quantity, [class*='qty'], [class*='quantity'], [class*='num'], [class*='count'], td, div, span"
               ));
               for (const el of qtyCandidates) {
                 const txt = (el.innerText || el.textContent || "").trim();
-                // Khớp số đơn lẻ dạng "2", "x2", "×2", "*2"
                 if (/^[xX*×]?\s*([1-9]\d{0,3})\s*$/.test(txt) && !el.querySelector('*')) {
                   const m = txt.match(/^[xX*×]?\s*([1-9]\d{0,3})\s*$/);
                   if (m) {
@@ -7949,7 +7954,6 @@ function downloadExcelFileBypass(wb, filename) {
                     break;
                   }
                 }
-                // Khớp nhãn "Số lượng: 2" hoặc "SL: 2"
                 if (/(?:số lượng|sl|qty|quantity)\s*:\s*([1-9]\d{0,3})/i.test(txt)) {
                   const m = txt.match(/(?:số lượng|sl|qty|quantity)\s*:\s*([1-9]\d{0,3})/i);
                   if (m) {
@@ -7959,7 +7963,6 @@ function downloadExcelFileBypass(wb, filename) {
                 }
               }
 
-              // B. Tính toán đối chiếu từ Đơn giá và Thành tiền (VD: Đơn giá 1.690.000, Thành tiền 3.380.000 -> SL = 2)
               const rawMoneyMatches = extractOrderMoneyValues(clone.innerText || clone.textContent || "");
               const numericAmounts = rawMoneyMatches.map(parseSellerOrderMoneyNumber).filter(n => n > 0);
               
@@ -7977,10 +7980,14 @@ function downloadExcelFileBypass(wb, filename) {
               }
 
               if (!quantity || quantity === "0") quantity = "1";
-
               const productPrice = rawMoneyMatches[0] || "";
 
-              results.push({ sku: finalSku, quantity, productPrice });
+              // Chống thêm dòng sản phẩm trùng lặp trong cùng 1 đơn
+              const prodKey = `${finalSku}_${quantity}_${productPrice}_${productName.substring(0, 20)}`;
+              if (!seenProductKeys.has(prodKey)) {
+                seenProductKeys.add(prodKey);
+                results.push({ sku: finalSku, quantity, productPrice });
+              }
           }
           if (results.length > 0) return results;
       }
@@ -8465,29 +8472,50 @@ function downloadExcelFileBypass(wb, filename) {
         // TỰ ĐỘNG CẬP NHẬT KHI THÔNG TIN TÀI CHÍNH HOẶC THÔNG TIN ĐƠN CHƯA GIỐNG NHAU
         let isDataMismatch = false;
 
-        for (const r of checkResponse.rows) {
-          const sheetTongTien = parseMoneyNumber(r.tongTien);
-          const sheetPhiVc = parseMoneyNumber(r.phiVc);
-          const sheetPhuPhi = parseMoneyNumber(r.phuPhi);
-          const sheetThue = parseMoneyNumber(r.thue);
-          const sheetMvd = String(r.mvd || "").trim();
-          const sheetTenKhach = String(r.tenKhach || "").trim();
-          const sheetNgNhan = String(r.ngNhan || "").trim();
-          const sheetDiaChi = String(r.diaChi || "").trim();
+        // Nếu số lượng dòng trong sheet khác số dòng sản phẩm trên trang -> Cần cập nhật lại
+        if (checkResponse.rows.length !== orderDetail.rows.length) {
+          isDataMismatch = true;
+        } else {
+          for (let i = 0; i < checkResponse.rows.length; i++) {
+            const r = checkResponse.rows[i];
+            const pageRow = orderDetail.rows[i] || orderDetail.rows[0];
 
-          if (sheetTongTien !== pageTongTien || 
-              sheetPhiVc !== pagePhiVc || 
-              sheetPhuPhi !== pagePhuPhi || 
-              sheetThue !== pageThue ||
-              (!sheetMvd && pageMvd) ||
-              (!sheetTenKhach && pageTenKhach) ||
-              (!sheetNgNhan && pageNgNhan) ||
-              (!sheetDiaChi && pageDiaChi)) {
-            isDataMismatch = true;
-            break;
+            const sheetNgay = String(r.ngay || "").trim();
+            const sheetNgayGio = String(r.ngayGio || "").trim();
+            const sheetTongTien = parseMoneyNumber(r.tongTien);
+            const sheetPhiVc = parseMoneyNumber(r.phiVc);
+            const sheetPhuPhi = parseMoneyNumber(r.phuPhi);
+            const sheetThue = parseMoneyNumber(r.thue);
+            const sheetSku = String(r.sku || "").trim();
+            const sheetSlg = parseMoneyNumber(r.slg);
+            const sheetMvd = String(r.mvd || "").trim();
+            const sheetTenKhach = String(r.tenKhach || "").trim();
+            const sheetNgNhan = String(r.ngNhan || "").trim();
+            const sheetDiaChi = String(r.diaChi || "").trim();
+
+            const pageNgayGio = formatDateTime(orderDetail.rows[0]?.orderCreatedAt);
+            const pageNgay = extractDatePart(orderDetail.rows[0]?.orderCreatedAt);
+            const pageSlg = parseMoneyNumber(pageRow?.quantity || "1");
+            const pageSku = String(pageRow?.sku || "").trim();
+
+            if ((pageNgay && sheetNgay && sheetNgay !== pageNgay) ||
+                (pageNgayGio && sheetNgayGio && sheetNgayGio !== pageNgayGio) ||
+                sheetTongTien !== pageTongTien || 
+                sheetPhiVc !== pagePhiVc || 
+                sheetPhuPhi !== pagePhuPhi || 
+                sheetThue !== pageThue ||
+                (pageSlg > 0 && sheetSlg !== pageSlg) ||
+                (pageSku && sheetSku !== pageSku) ||
+                (!sheetMvd && pageMvd) ||
+                (!sheetTenKhach && pageTenKhach) ||
+                (!sheetNgNhan && pageNgNhan) ||
+                (!sheetDiaChi && pageDiaChi)) {
+              isDataMismatch = true;
+              break;
+            }
           }
         }
-
+        
         if (isDataMismatch) {
           if (btnAdd) {
             btnAdd.textContent = '⚡ Đang tự động cập nhật lại DH...';
@@ -12174,7 +12202,18 @@ async function extractProductDataAndSave() {
 
   injectBuyerProductActionButtons();
 
-  setInterval(() => {
+  
+  // Tự động xóa snapshot sau 30 giây để luôn đối chiếu lại dữ liệu mới nhất với Sheet DH
+  if (isSellerOrderDetailPage()) {
+    setInterval(() => {
+      const curOrderId = extractSellerOrderIdFromPage();
+      if (curOrderId) {
+        syncedOrderSnapshots.delete(curOrderId);
+      }
+    }, 30000);
+  }
+
+setInterval(() => {
     injectAiDescriptionButton();
     injectStockQuickButtons();
     autoInjectPromotionSkuBadges();
