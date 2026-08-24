@@ -6595,10 +6595,25 @@ function downloadExcelFileBypass(wb, filename) {
   function renderOrderDetailProductEnhancements() {
     if (!window.location.href.includes('/portal/sale/order/')) return;
 
-    const productDetailElements = Array.from(document.querySelectorAll('.product-detail, [class*="product-detail"], .order-product-wrapper, .order-item, .product-item, .order-view-item'));
-    if (productDetailElements.length === 0) return;
+    // 1. Dọn dẹp bất kỳ footer trùng lặp nào trước đó nếu có
+    const existingFooters = document.querySelectorAll('.ext-product-actions-footer');
+    if (existingFooters.length > 10) {
+      existingFooters.forEach(f => f.remove());
+    }
 
-    productDetailElements.forEach(detailEl => {
+    // 2. Tìm các khung sản phẩm cấp con chứa tên sản phẩm trực tiếp, tránh chọn cả container cha lẫn con
+    const productDetailElements = Array.from(document.querySelectorAll('.product-detail, [class*="product-detail"]'))
+      .filter(el => el.querySelector('.product-name, [class*="product-name"], .ct-item-product-name, .item-name'));
+
+    const targets = productDetailElements.length > 0 ? productDetailElements : Array.from(document.querySelectorAll('.order-product-wrapper, .order-item, .product-item, .order-view-item'))
+      .filter(el => el.querySelector('.product-name, [class*="product-name"], .ct-item-product-name, .item-name'));
+
+    if (targets.length === 0) return;
+
+    targets.forEach(detailEl => {
+      // Tránh lặp: nếu đã có footer hoặc cha/con đã có footer thì bỏ qua
+      if (detailEl.querySelector('.ext-product-actions-footer') || detailEl.closest('.order-view-item, .order-item')?.querySelector('.ext-product-actions-footer')) return;
+
       const nameEl = detailEl.querySelector('.product-name, [class*="product-name"], .ct-item-product-name, .item-name');
       if (!nameEl) return;
 
@@ -6616,95 +6631,92 @@ function downloadExcelFileBypass(wb, filename) {
         }
       }
 
-      // Đưa toàn bộ các nút Copy tên, Copy SKU, Mở SP xuống dòng footer riêng ở dưới cùng
-      let actionsFooter = detailEl.querySelector('.ext-product-actions-footer');
-      if (!actionsFooter) {
-        actionsFooter = document.createElement('div');
-        actionsFooter.className = 'ext-product-actions-footer';
-        actionsFooter.style.cssText = 'margin-top: 8px !important; display: flex !important; align-items: center !important; gap: 8px !important; flex-wrap: wrap !important;';
-        detailEl.appendChild(actionsFooter);
+      // Tạo footer actions riêng
+      const actionsFooter = document.createElement('div');
+      actionsFooter.className = 'ext-product-actions-footer';
+      actionsFooter.style.cssText = 'margin-top: 8px !important; display: flex !important; align-items: center !important; gap: 8px !important; flex-wrap: wrap !important;';
+      detailEl.appendChild(actionsFooter);
 
-        // 1. Nút Copy Tên
-        const copyNameBtn = document.createElement('button');
-        copyNameBtn.type = 'button';
-        copyNameBtn.className = 'ext-copy-prod-name-btn';
-        copyNameBtn.title = 'Bấm để copy tên sản phẩm';
-        copyNameBtn.style.cssText = 'display: inline-flex !important; align-items: center !important; gap: 2px !important; padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; color: #0284c7 !important; background: #e0f2fe !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important; cursor: pointer !important; user-select: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;';
-        copyNameBtn.innerHTML = '📋 Copy tên';
-        copyNameBtn.onclick = (e) => {
+      // 1. Nút Copy Tên
+      const copyNameBtn = document.createElement('button');
+      copyNameBtn.type = 'button';
+      copyNameBtn.className = 'ext-copy-prod-name-btn';
+      copyNameBtn.title = 'Bấm để copy tên sản phẩm';
+      copyNameBtn.style.cssText = 'display: inline-flex !important; align-items: center !important; gap: 2px !important; padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; color: #0284c7 !important; background: #e0f2fe !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important; cursor: pointer !important; user-select: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;';
+      copyNameBtn.innerHTML = '📋 Copy tên';
+      copyNameBtn.onclick = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        navigator.clipboard.writeText(productName).then(() => {
+          copyNameBtn.innerHTML = '✓ Đã copy tên!';
+          copyNameBtn.style.color = '#15803d';
+          copyNameBtn.style.background = '#dcfce7';
+          copyNameBtn.style.borderColor = '#86efac';
+          setTimeout(() => {
+            copyNameBtn.innerHTML = '📋 Copy tên';
+            copyNameBtn.style.color = '#0284c7';
+            copyNameBtn.style.background = '#e0f2fe';
+            copyNameBtn.style.borderColor = '#7dd3fc';
+          }, 1200);
+        });
+      };
+      actionsFooter.appendChild(copyNameBtn);
+
+      // 2. Nút Copy SKU (nếu có SKU)
+      if (skuVal) {
+        const copySkuBtn = document.createElement('button');
+        copySkuBtn.type = 'button';
+        copySkuBtn.className = 'ext-copy-sku-btn';
+        copySkuBtn.title = 'Bấm để copy SKU: ' + skuVal;
+        copySkuBtn.style.cssText = 'display: inline-flex !important; align-items: center !important; gap: 2px !important; padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; color: #0369a1 !important; background: #f0f9ff !important; border: 1px solid #bae6fd !important; border-radius: 4px !important; cursor: pointer !important; user-select: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;';
+        copySkuBtn.innerHTML = '📋 Copy SKU';
+        copySkuBtn.onclick = (e) => {
           e.preventDefault(); e.stopPropagation();
-          navigator.clipboard.writeText(productName).then(() => {
-            copyNameBtn.innerHTML = '✓ Đã copy tên!';
-            copyNameBtn.style.color = '#15803d';
-            copyNameBtn.style.background = '#dcfce7';
-            copyNameBtn.style.borderColor = '#86efac';
+          navigator.clipboard.writeText(skuVal).then(() => {
+            copySkuBtn.innerHTML = '✓ Đã copy SKU!';
+            copySkuBtn.style.color = '#15803d';
+            copySkuBtn.style.background = '#dcfce7';
+            copySkuBtn.style.borderColor = '#86efac';
             setTimeout(() => {
-              copyNameBtn.innerHTML = '📋 Copy tên';
-              copyNameBtn.style.color = '#0284c7';
-              copyNameBtn.style.background = '#e0f2fe';
-              copyNameBtn.style.borderColor = '#7dd3fc';
+              copySkuBtn.innerHTML = '📋 Copy SKU';
+              copySkuBtn.style.color = '#0369a1';
+              copySkuBtn.style.background = '#f0f9ff';
+              copySkuBtn.style.borderColor = '#bae6fd';
             }, 1200);
           });
         };
-        actionsFooter.appendChild(copyNameBtn);
-
-        // 2. Nút Copy SKU (nếu có SKU)
-        if (skuVal) {
-          const copySkuBtn = document.createElement('button');
-          copySkuBtn.type = 'button';
-          copySkuBtn.className = 'ext-copy-sku-btn';
-          copySkuBtn.title = 'Bấm để copy SKU: ' + skuVal;
-          copySkuBtn.style.cssText = 'display: inline-flex !important; align-items: center !important; gap: 2px !important; padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; color: #0369a1 !important; background: #f0f9ff !important; border: 1px solid #bae6fd !important; border-radius: 4px !important; cursor: pointer !important; user-select: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;';
-          copySkuBtn.innerHTML = '📋 Copy SKU';
-          copySkuBtn.onclick = (e) => {
-            e.preventDefault(); e.stopPropagation();
-            navigator.clipboard.writeText(skuVal).then(() => {
-              copySkuBtn.innerHTML = '✓ Đã copy SKU!';
-              copySkuBtn.style.color = '#15803d';
-              copySkuBtn.style.background = '#dcfce7';
-              copySkuBtn.style.borderColor = '#86efac';
-              setTimeout(() => {
-                copySkuBtn.innerHTML = '📋 Copy SKU';
-                copySkuBtn.style.color = '#0369a1';
-                copySkuBtn.style.background = '#f0f9ff';
-                copySkuBtn.style.borderColor = '#bae6fd';
-              }, 1200);
-            });
-          };
-          actionsFooter.appendChild(copySkuBtn);
-        }
-
-        // 3. Khung Mở Sản Phẩm
-        const openWrapper = document.createElement('span');
-        openWrapper.className = 'ext-open-product-wrapper';
-        openWrapper.innerHTML = '<span style="font-size: 11px; color: #94a3b8;">⏳ Đang tra cứu mã SP...</span>';
-        actionsFooter.appendChild(openWrapper);
-
-        loadOrderDetailSpData((spRows, currentMaGian) => {
-          const maSp = findMaSanPhamFromSheet(productName, currentMaGian, spRows);
-          if (maSp) {
-            openWrapper.innerHTML = `
-              <a href="https://banhang.shopee.vn/portal/product/${maSp}" target="_blank" class="ext-open-product-btn" style="
-                display: inline-flex !important; align-items: center !important; gap: 4px !important;
-                background: #ee4d2d !important; color: #ffffff !important;
-                font-size: 11px !important; font-weight: bold !important;
-                padding: 2px 8px !important; border-radius: 4px !important;
-                text-decoration: none !important; border: 1px solid #d03b1f !important;
-                box-shadow: 0 1px 3px rgba(238, 77, 45, 0.25) !important; cursor: pointer !important;
-              ">🌐 Mở sản phẩm (${maSp}) ↗</a>
-            `;
-          } else {
-            openWrapper.innerHTML = `
-              <a href="https://banhang.shopee.vn/portal/product/list/all?search=name&keyword=${encodeURIComponent(productName.substring(0, 35))}" target="_blank" style="
-                display: inline-flex !important; align-items: center !important; gap: 2px !important;
-                font-size: 11px !important; color: #0284c7 !important; background: #e0f2fe !important;
-                padding: 2px 8px !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important;
-                text-decoration: none !important; font-weight: 500 !important;
-              ">🔍 Tìm SP trên Shopee ↗</a>
-            `;
-          }
-        });
+        actionsFooter.appendChild(copySkuBtn);
       }
+
+      // 3. Khung Mở Sản Phẩm
+      const openWrapper = document.createElement('span');
+      openWrapper.className = 'ext-open-product-wrapper';
+      openWrapper.innerHTML = '<span style="font-size: 11px; color: #94a3b8;">⏳ Đang tra cứu mã SP...</span>';
+      actionsFooter.appendChild(openWrapper);
+
+      loadOrderDetailSpData((spRows, currentMaGian) => {
+        const maSp = findMaSanPhamFromSheet(productName, currentMaGian, spRows);
+        if (maSp) {
+          openWrapper.innerHTML = `
+            <a href="https://banhang.shopee.vn/portal/product/${maSp}" target="_blank" class="ext-open-product-btn" style="
+              display: inline-flex !important; align-items: center !important; gap: 4px !important;
+              background: #ee4d2d !important; color: #ffffff !important;
+              font-size: 11px !important; font-weight: bold !important;
+              padding: 2px 8px !important; border-radius: 4px !important;
+              text-decoration: none !important; border: 1px solid #d03b1f !important;
+              box-shadow: 0 1px 3px rgba(238, 77, 45, 0.25) !important; cursor: pointer !important;
+            ">🌐 Mở sản phẩm (${maSp}) ↗</a>
+          `;
+        } else {
+          openWrapper.innerHTML = `
+            <a href="https://banhang.shopee.vn/portal/product/list/all?search=name&keyword=${encodeURIComponent(productName.substring(0, 35))}" target="_blank" style="
+              display: inline-flex !important; align-items: center !important; gap: 2px !important;
+              font-size: 11px !important; color: #0284c7 !important; background: #e0f2fe !important;
+              padding: 2px 8px !important; border: 1px solid #7dd3fc !important; border-radius: 4px !important;
+              text-decoration: none !important; font-weight: 500 !important;
+            ">🔍 Tìm SP trên Shopee ↗</a>
+          `;
+        }
+      });
     });
   }
 
@@ -7585,51 +7597,68 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function extractSellerOrderIdFromPage() {
-      const directSnEl = document.querySelector(".order-sn, .order-id, [class*='order-sn'], [class*='orderId']");
-      if (directSnEl) {
-        const txt = directSnEl.textContent;
-        const m = txt.match(/([0-9]{6}[A-Z0-9]{8,14})/i);
-        if (m && m[1].toLowerCase() !== "detail") return m[1].toUpperCase();
+    // 1. Quét nhãn "Mã đơn hàng" hoặc "Order SN"
+    const labels = Array.from(document.querySelectorAll('.label, dt, span, div')).filter(el => {
+      const t = normalizeOrderDetailText(el.textContent);
+      return t === "ma don hang" || t === "order sn" || t.startsWith("ma don hang:");
+    });
+
+    for (const lbl of labels) {
+      const parent = lbl.parentElement;
+      if (parent) {
+        const bodyEl = parent.querySelector('.body, .body-content, dd, span:last-child, div:last-child');
+        if (bodyEl && bodyEl !== lbl) {
+          const txt = bodyEl.textContent.trim();
+          const m = txt.match(/([0-9]{6}[A-Z0-9]{6,12})/i);
+          if (m && m[1].toLowerCase() !== "detail") return m[1].toUpperCase();
+        }
+        const next = lbl.nextElementSibling;
+        if (next) {
+          const txt = next.textContent.trim();
+          const m = txt.match(/([0-9]{6}[A-Z0-9]{6,12})/i);
+          if (m && m[1].toLowerCase() !== "detail") return m[1].toUpperCase();
+        }
       }
+    }
 
-      const bodyDivs = document.querySelectorAll(".body, .body-content");
-      for (const div of bodyDivs) {
-          let text = "";
-          for (let node of div.childNodes) {
-              if (node.nodeType === Node.TEXT_NODE) {
-                  text += node.textContent;
-              }
-          }
-          text = text.trim();
-          if (text) {
-              const match = text.match(/([0-9]{6}[A-Z0-9]{8,14})/i);
-              if (match && match[1].toLowerCase() !== "detail") return match[1].toUpperCase();
-          }
+    // 2. Quét trong thẻ có class chứa order-sn, order-id
+    const directSnEl = document.querySelector(".order-sn, .order-id, [class*='order-sn'], [class*='orderId']");
+    if (directSnEl) {
+      const txt = directSnEl.textContent;
+      const m = txt.match(/([0-9]{6}[A-Z0-9]{6,12})/i);
+      if (m && m[1].toLowerCase() !== "detail") return m[1].toUpperCase();
+    }
+
+    // 3. Quét toàn bộ dòng text trên trang tìm mã đơn dạng 260816F4WVPU2M
+    const lines = getOrderDetailLines();
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (normalizeOrderDetailText(line).includes("ma don hang") || normalizeOrderDetailText(line).includes("order sn")) {
+        const sameLine = line.match(/([0-9]{6}[A-Z0-9]{6,12})/i);
+        if (sameLine && sameLine[1].toLowerCase() !== "detail") return sameLine[1].toUpperCase();
+        const next = lines[i + 1] || "";
+        const nextMatch = next.match(/([0-9]{6}[A-Z0-9]{6,12})/i);
+        if (nextMatch && nextMatch[1].toLowerCase() !== "detail") return nextMatch[1].toUpperCase();
       }
+    }
 
-      const lines = getOrderDetailLines();
-      for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          if (normalizeOrderDetailText(line).includes("ma don hang") || normalizeOrderDetailText(line).includes("order sn")) {
-              const sameLine = line.match(/([0-9]{6}[A-Z0-9]{8,14})/i);
-              if (sameLine && sameLine[1].toLowerCase() !== "detail") return sameLine[1].toUpperCase();
-              const next = lines[i + 1] || "";
-              const nextMatch = next.match(/([0-9]{6}[A-Z0-9]{8,14})/i);
-              if (nextMatch && nextMatch[1].toLowerCase() !== "detail") return nextMatch[1].toUpperCase();
-          }
+    // 4. Tìm bất kỳ mã 14-15 ký tự có chứa chữ cái (ví dụ: 260816F4WVPU2M)
+    for (const line of lines) {
+      const mAlpha = line.match(/\b(2[0-9]{5}[A-Z0-9]{7,10})\b/i);
+      if (mAlpha && /[A-Z]/i.test(mAlpha[1])) {
+        return mAlpha[1].toUpperCase();
       }
+    }
 
-      const allDivs = document.querySelectorAll(".order-id, .order-sn, [class*='order-sn'], [class*='orderSn'], [class*='order-id']");
-      for (const div of allDivs) {
-          const text = cleanOrderDetailText(div.textContent);
-          const match = text.match(/([0-9]{6}[A-Z0-9]{8,14})/i);
-          if (match && match[1].toLowerCase() !== "detail") return match[1].toUpperCase();
-      }
+    // 5. Query param ?order_sn=...
+    const searchMatch = location.search.match(/order_sn=([0-9]{6}[A-Z0-9]{6,12})/i);
+    if (searchMatch && /[A-Z]/i.test(searchMatch[1])) return searchMatch[1].toUpperCase();
 
-      const urlMatch = location.pathname.match(/\/sale\/order\/([0-9]{6}[A-Z0-9]{8,14})/i) || location.search.match(/order_sn=([0-9]{6}[A-Z0-9]{8,14})/i);
-      if (urlMatch) return urlMatch[1].toUpperCase();
+    // 6. Pathname chỉ lấy nếu có chứa chữ cái (Order SN thực sự), TUYỆT ĐỐI KHÔNG lấy dãy số ID nội bộ (240520694230100)
+    const urlMatch = location.pathname.match(/\/sale\/order\/(2[0-9]{5}[A-Z0-9]{7,10})/i);
+    if (urlMatch && /[A-Z]/i.test(urlMatch[1])) return urlMatch[1].toUpperCase();
 
-      return "";
+    return "";
   }
 
   function findOrderPackageContainer(trackingText) {
@@ -8239,6 +8268,14 @@ function downloadExcelFileBypass(wb, filename) {
   function isOrderDetailDataReady(orderDetail) {
     if (!orderDetail || !orderDetail.ok || !orderDetail.rows || orderDetail.rows.length === 0) return false;
     if (!orderDetail.orderId) return false;
+    
+    // BẮT BUỘC mã đơn hàng phải đúng định dạng chuẩn (ví dụ 14 ký tự có chữ cái, KHÔNG được thuần số như ID URL 240520694230100)
+    const id = String(orderDetail.orderId).trim();
+    if (id.length < 10) return false;
+    if (/^\d+$/.test(id) && id.length > 12) {
+      // Dạng thuần số như 240520694230100 chỉ là ID nội bộ của URL, chưa load xong Mã đơn hàng thực tế
+      return false;
+    }
     return true;
   }
 
