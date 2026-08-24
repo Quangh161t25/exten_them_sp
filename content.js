@@ -11796,12 +11796,54 @@ async function extractProductDataAndSave() {
     processPopupInputs();
   }
 
-  // =========================================================================
-  // AUTO-INJECT SKU BADGES ON SHOPEE MARKETING / PROMOTION PAGES
+    // =========================================================================
+  // AUTO-INJECT SKU BADGES & PRICING RULES ON SHOPEE MARKETING / PROMOTION PAGES
   // =========================================================================
   let autoShopeeSpCache = null;   // null = chưa load; [] = đã load nhưng rỗng
+  let autoShopeeDsCache = null;   // cache DS_SP
   let autoShopeeMaGian = "";
   let autoShopeeLoadingData = false; // tránh gọi API song song
+
+  function findMinPriceForSku(sku, dsRows) {
+    if (!sku || !dsRows || !Array.isArray(dsRows) || dsRows.length <= 1) return null;
+    
+    let dsIdSpIdx = 1; // Mặc định cột B (id_sp)
+    let dsGiaThapNhatIdx = 6; // Mặc định cột G (gia_thap_nhat)
+    
+    const dsHeaders = dsRows[0].map(h => String(h || "").normalize("NFC").trim().toLowerCase());
+    const idCol = dsHeaders.findIndex(h => h === "id_sp" || h === "id sp" || h === "id_sp_ct" || h === "sku" || h === "ma_sku");
+    if (idCol !== -1) dsIdSpIdx = idCol;
+    
+    const giaCol = dsHeaders.findIndex(h => h === "gia_thap_nhat" || h === "gia thap nhat" || h.includes("thấp nhất") || h.includes("giá min") || h.includes("gia_min"));
+    if (giaCol !== -1) dsGiaThapNhatIdx = giaCol;
+
+    const cleanSku = String(sku).trim().toUpperCase();
+    const skuPrefix4 = cleanSku.substring(0, 4);
+
+    let matchRows = dsRows.filter((r, idx) => {
+      if (idx === 0) return false;
+      const rowId = String(r[dsIdSpIdx] || "").trim().toUpperCase();
+      return rowId && (rowId === cleanSku || cleanSku.startsWith(rowId) || rowId.startsWith(skuPrefix4));
+    });
+
+    if (matchRows.length > 0) {
+      let minPrice = null;
+      for (const r of matchRows) {
+        const rawVal = r[dsGiaThapNhatIdx];
+        if (rawVal) {
+          const numericMatch = parseInt(String(rawVal).replace(/[^\d]/g, ''), 10);
+          if (!isNaN(numericMatch) && numericMatch > 0) {
+            if (minPrice === null || numericMatch < minPrice) {
+              minPrice = numericMatch;
+            }
+          }
+        }
+      }
+      return minPrice;
+    }
+
+    return null;
+  }
 
   function findSkuForShopeeVariation(pName, vName, spRows, currentMaGian) {
     if (!spRows || spRows.length <= 1) return "";
@@ -11810,7 +11852,6 @@ async function extractProductDataAndSave() {
     const cleanV = cleanString(vName);
     if (!cleanV && !cleanP) return "";
 
-    // 1. Xác định vị trí các cột
     const headers = spRows[0].map(v => cleanString(v));
     let pIdx = headers.findIndex(col => col.includes('tên sản phẩm') || col === 'ten sp' || col === 'name');
     if (pIdx === -1) pIdx = 1;
@@ -11821,7 +11862,6 @@ async function extractProductDataAndSave() {
     let gIdx = headers.findIndex(col => col === 'gian' || col === 'mã gian' || col === 'ma gian');
     if (gIdx === -1) gIdx = 11;
 
-    // BƯỚC 1: LỌC MÃ GIAN HÀNG TRƯỚC TIÊN (Shop Code Filtering)
     let candidateRows = [];
     const targetGian = cleanString(currentMaGian);
 
@@ -11835,12 +11875,10 @@ async function extractProductDataAndSave() {
       }
     }
 
-    // Nếu không lọc được theo gian hoặc chưa chọn gian, dùng toàn bộ dữ liệu
     if (candidateRows.length === 0) {
       candidateRows = spRows.slice(1);
     }
 
-    // BƯỚC 2: TÌM SẢN PHẨM CHA (Parent Product Matching)
     const getWordOverlap = (s1, s2) => {
       if (!s1 || !s2) return 0;
       const w1 = s1.split(' ').filter(w => w.length > 1);
@@ -11858,11 +11896,9 @@ async function extractProductDataAndSave() {
     };
 
     const pCodes = extractCodes(cleanP);
-
     let bestParentScore = -1;
     let bestParentRows = [];
     
-    // Gom nhóm các dòng theo Tên sản phẩm cha trong sheet
     const productGroups = new Map();
     for (const row of candidateRows) {
       const sP = cleanString(row[pIdx]);
@@ -11883,7 +11919,6 @@ async function extractProductDataAndSave() {
       } else if (sheetParentName.includes(cleanP) || cleanP.includes(sheetParentName)) {
         pScore += 3000;
       } else {
-        // Kiểm tra trùng mã model (ví dụ CIM382, SK-09, PA516...)
         const sheetCodes = extractCodes(sheetParentName);
         let codeMatch = false;
         for (const c of pCodes) {
@@ -11909,7 +11944,6 @@ async function extractProductDataAndSave() {
       bestParentRows = candidateRows;
     }
 
-    // BƯỚC 3: TÌM PHÂN LOẠI CON TRONG ĐÚNG NHÓM SẢN PHẨM CHA ĐÃ KHỚP (Variation Matching)
     let bestVarScore = -1;
     let bestSku = "";
 
@@ -11948,12 +11982,11 @@ async function extractProductDataAndSave() {
   }
 
   function doInjectBadges() {
-    // Dọn dẹp triệt để các badge cũ từ module cũ
+    // Dọn dẹp triệt để các badge thừa
     document.querySelectorAll('.injected-sku-ct, .injected-sku-info, .injected-sku-price-helper, .shopee-qlsp-sku-display').forEach(el => el.remove());
 
     const models = Array.from(document.querySelectorAll('.discount-view-item-model-component, .discount-item-model-component, .discount-edit-item-model-component, tr.ant-table-row'));
     models.forEach((mEl) => {
-      // Xóa tất cả các badge thừa bên trong model
       mEl.querySelectorAll('.injected-sku-ct, .injected-sku-info, .injected-sku-price-helper, .shopee-qlsp-sku-display').forEach(el => el.remove());
 
       const varCell = mEl.querySelector('.item-content.item-variation, .item-variation, td:nth-child(2), .product-name') || mEl;
@@ -11965,7 +11998,6 @@ async function extractProductDataAndSave() {
         varName = (singleEl.innerText || singleEl.textContent || "").replace(/\s+/g,' ').trim();
       }
       if (!varName) {
-        // Fallback: tooltip content hoặc clone strip
         const tipEl = varCell.querySelector('.eds-popover__content');
         if (tipEl) varName = (tipEl.innerText || "").replace(/\s+/g,' ').trim();
       }
@@ -11995,15 +12027,19 @@ async function extractProductDataAndSave() {
           }
       }
 
-      const sku = findSkuForShopeeVariation(parentName, varName, autoShopeeSpCache, autoShopeeMaGian);
+      // ƯU TIÊN SỐ 1: Bóc tách trực tiếp mã SKU từ DOM của dòng phân loại trên Shopee
+      let directSkuFromDom = "";
+      const modelText = (mEl.innerText || mEl.textContent || "");
+      const mSku = modelText.match(/(?:sku|mã\s*(?:phân\s*loại|sản\s*phẩm))\s*:\s*([A-Z0-9_-]{3,35})/i);
+      if (mSku && !/^(copy|sku|sp)$/i.test(mSku[1])) {
+        directSkuFromDom = mSku[1].trim();
+      }
+
+      const sku = directSkuFromDom || findSkuForShopeeVariation(parentName, varName, autoShopeeSpCache, autoShopeeMaGian);
       if (!sku) return;
 
-      // Xóa các badge cũ trong ô để chỉ giữ lại đúng 1 badge duy nhất
       varCell.querySelectorAll('.ext-km-injected-sku, .injected-sku-ct, .injected-sku-info, .injected-sku-price-helper, .shopee-qlsp-sku-display').forEach(el => el.remove());
       mEl.querySelectorAll('.injected-sku-price-helper').forEach(el => el.remove());
-      const existing = varCell.querySelector('.ext-km-injected-sku');
-      if (existing && existing.getAttribute('data-sku') === sku) return;
-      if (existing) existing.remove();
 
       mEl.style.setProperty('height', 'auto', 'important');
       mEl.style.setProperty('min-height', '56px', 'important');
@@ -12039,6 +12075,50 @@ async function extractProductDataAndSave() {
       };
       badge.appendChild(skuSpan);
 
+      const discInput = mEl.querySelector('.item-discounted-price input, input.eds-input__input, input[restrictiontype="value"], input[type="text"], input[type="number"]');
+
+      const updateInputColor = () => {
+        if (!discInput) return;
+        const curVal = parseSellerOrderMoneyNumber(discInput.value);
+        const minVal = parseSellerOrderMoneyNumber(minPrice);
+        if (minVal > 0 && curVal > 0) {
+          if (curVal === minVal) {
+            // BẰNG GIÁ MIN -> MÀU XANH LÁ
+            discInput.style.setProperty('background-color', '#f0fdf4', 'important');
+            discInput.style.setProperty('border-color', '#16a34a', 'important');
+            discInput.style.setProperty('color', '#15803d', 'important');
+            discInput.style.setProperty('font-weight', 'bold', 'important');
+          } else if (curVal > minVal) {
+            // LỚN HƠN GIÁ MIN -> MÀU ĐỎ
+            discInput.style.setProperty('background-color', '#fef2f2', 'important');
+            discInput.style.setProperty('border-color', '#ef4444', 'important');
+            discInput.style.setProperty('color', '#dc2626', 'important');
+            discInput.style.setProperty('font-weight', 'bold', 'important');
+          } else {
+            // NHỎ HƠN GIÁ MIN -> MÀU TRẮNG + CHỮ ĐEN
+            discInput.style.setProperty('background-color', '#ffffff', 'important');
+            discInput.style.setProperty('border-color', '#d1d5db', 'important');
+            discInput.style.setProperty('color', '#000000', 'important');
+            discInput.style.setProperty('font-weight', 'normal', 'important');
+          }
+        } else {
+          discInput.style.setProperty('background-color', '#ffffff', 'important');
+          discInput.style.setProperty('border-color', '#d1d5db', 'important');
+          discInput.style.setProperty('color', '#000000', 'important');
+          discInput.style.setProperty('font-weight', 'normal', 'important');
+        }
+      };
+
+      if (discInput) {
+        updateInputColor();
+        if (!discInput.dataset.shopeeExtColorBound) {
+          discInput.dataset.shopeeExtColorBound = "1";
+          discInput.addEventListener('input', updateInputColor);
+          discInput.addEventListener('change', updateInputColor);
+          discInput.addEventListener('blur', updateInputColor);
+        }
+      }
+
       if (minPrice) {
         const formattedPriceStr = Number(minPrice).toLocaleString('vi-VN');
         const minSpan = document.createElement('span');
@@ -12055,7 +12135,6 @@ async function extractProductDataAndSave() {
 
         fillBtn.onclick = (e) => {
           e.preventDefault(); e.stopPropagation();
-          const discInput = mEl.querySelector('.item-discounted-price input, input.eds-input__input, input[restrictiontype="value"], input');
           if (discInput && !discInput.disabled) {
             discInput.focus();
             const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
@@ -12069,14 +12148,11 @@ async function extractProductDataAndSave() {
             fillBtn.style.background = '#059669';
             fillBtn.style.borderColor = '#047857';
 
-            discInput.style.border = '2px solid #16a34a';
-            discInput.style.backgroundColor = '#f0fdf4';
+            updateInputColor();
             setTimeout(() => {
               fillBtn.innerHTML = `⚡ Điền`;
               fillBtn.style.background = '#f97316';
               fillBtn.style.borderColor = '#ea580c';
-              discInput.style.border = '';
-              discInput.style.backgroundColor = '';
             }, 1500);
           }
         };
@@ -12090,49 +12166,46 @@ async function extractProductDataAndSave() {
   function autoInjectPromotionSkuBadges() {
     if (!window.location.href.includes('/portal/marketing/')) return;
 
-    // Data đã thử load (dù có hay không)
-    if (autoShopeeSpCache !== null) {
-      if (autoShopeeSpCache.length > 1) {
-        doInjectBadges();
-      }
+    if (autoShopeeSpCache && autoShopeeSpCache.length > 1 && autoShopeeDsCache && autoShopeeDsCache.length > 1) {
+      doInjectBadges();
       return;
     }
 
-    // Đang load → chờ
     if (autoShopeeLoadingData) return;
-
-    // Chưa có data → load
     autoShopeeLoadingData = true;
-    try {
-      chrome.storage.local.get(['sp_shopee_cache_data', 'ds_sp_cache_data', 'maGian', 'dhHoanTextValue'], (res) => {
-        if (res && res.ds_sp_cache_data) autoShopeeDsCache = res.ds_sp_cache_data;
-        autoShopeeMaGian = (res?.maGian || res?.dhHoanTextValue || "").trim().toLowerCase();
 
-        if (res && res.sp_shopee_cache_data && res.sp_shopee_cache_data.length > 1) {
-          // Cache có sẵn trong storage
-          autoShopeeSpCache = res.sp_shopee_cache_data;
-          autoShopeeLoadingData = false;
-          doInjectBadges();
-        } else {
-          // Cần gọi API lấy từ Google Sheets
-          chrome.runtime.sendMessage({ type: "FETCH_SP_SHOPEE" }, (fRes) => {
-            autoShopeeLoadingData = false;
-            if (fRes && fRes.ok && fRes.values && fRes.values.length > 1) {
-              autoShopeeSpCache = fRes.values;
-              chrome.storage.local.set({ sp_shopee_cache_data: fRes.values });
-              doInjectBadges();
-            } else {
-              autoShopeeSpCache = []; // đánh dấu đã thử, tránh loop vô hạn
-            }
-          });
+    chrome.storage.local.get(['sp_shopee_cache_data', 'ds_sp_cache_data', 'maGian', 'dhHoanTextValue'], async (res) => {
+      if (res?.ds_sp_cache_data && res.ds_sp_cache_data.length > 1) autoShopeeDsCache = res.ds_sp_cache_data;
+      if (res?.sp_shopee_cache_data && res.sp_shopee_cache_data.length > 1) autoShopeeSpCache = res.sp_shopee_cache_data;
+      autoShopeeMaGian = (res?.maGian || res?.dhHoanTextValue || "").trim().toLowerCase();
+
+      try {
+        if (!autoShopeeSpCache || autoShopeeSpCache.length <= 1) {
+          const fRes = await new Promise(resolve => chrome.runtime.sendMessage({ type: "FETCH_SP_SHOPEE" }, resolve));
+          if (fRes && fRes.ok && fRes.values && fRes.values.length > 1) {
+            autoShopeeSpCache = fRes.values;
+            chrome.storage.local.set({ sp_shopee_cache_data: fRes.values });
+          }
         }
-      });
-    } catch (_) {
-      autoShopeeLoadingData = false;
-    }
+
+        if (!autoShopeeDsCache || autoShopeeDsCache.length <= 1) {
+          const dsRes = await new Promise(resolve => chrome.runtime.sendMessage({ type: "FETCH_DS_SP" }, resolve));
+          if (dsRes && dsRes.ok && dsRes.values && dsRes.values.length > 1) {
+            autoShopeeDsCache = dsRes.values;
+            chrome.storage.local.set({ ds_sp_cache_data: dsRes.values });
+          }
+        }
+
+        autoShopeeLoadingData = false;
+        doInjectBadges();
+      } catch(e) {
+        autoShopeeLoadingData = false;
+        console.error("Lỗi nạp cache khuyến mãi:", e);
+      }
+    });
   }
 
-  // Khởi động lần đầu
+// Khởi động lần đầu
   autoInjectPromotionSkuBadges();
 
   // Chạy định kỳ 800ms — inject tiếp khi Shopee Vue re-render thêm dòng mới
