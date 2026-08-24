@@ -639,18 +639,12 @@ async function uploadImageToFreeImageHost(imageUrl) {
           return;
         }
 
-        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:Y")}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        if (!res.ok) throw new Error(data.error?.message || "Không đọc được sheet DH.");
-        const values = data.values || [];
-        if (values.length <= 1) {
+        const values = await getCachedDhRows(token, sheetId);
+        if (!values || values.length <= 1) {
           sendResponse({ ok: true, exists: false, rows: [] });
           return;
         }
 
-        const headers = values[0].map(h => String(h || "").trim().toLowerCase());
         let gianIdx = 0;
         let ngayIdx = 1;
         let ngayGioIdx = 2;
@@ -716,7 +710,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
           }
         }
 
-                sendResponse({
+        sendResponse({
           ok: true,
           exists: matchingRows.length > 0,
           rows: matchingRows
@@ -851,6 +845,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
               })
             });
             if (!updateRes.ok) throw new Error(updateResult.error?.message || "Không thể cập nhật dòng trong sheet DH");
+            invalidateDhCache();
           }
 
           // Nếu số dòng mới nhiều hơn số dòng cũ đã có, thêm các dòng còn lại vào cuối
@@ -1263,27 +1258,69 @@ function normalizeHeaderText(value) {
     .replace(/^_+|_+$/g, "");
 }
 
-async function fetchJsonWithTimeout(url, options = {}, timeoutMs = GOOGLE_REQUEST_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+async function fetchJsonWithTimeout(url, options = {}, timeoutMs = GOOGLE_REQUEST_TIMEOUT_MS, retries = 3) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  try {
-    const res = await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-    const data = await res.json().catch(() => ({}));
+    try {
+      const res = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      const data = await res.json().catch(() => ({}));
 
-    return { res, data };
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      throw new Error(`Google API qua ${Math.round(timeoutMs / 1000)} giay khong phan hoi.`);
+      // Nếu gặp lỗi 429 Quota Exceeded / Rate Limit: Tự động đợi 2s, 4s, 6s và thử lại
+      if (res.status === 429 && attempt < retries) {
+        console.warn(`[Google Sheets Quota 429] Đang đợi ${(attempt + 1) * 2}s để thử lại tự động (lần ${attempt + 1}/${retries})...`);
+        clearTimeout(timeoutId);
+        await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+        continue;
+      }
+
+      return { res, data };
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        throw new Error(`Google API quá ${Math.round(timeoutMs / 1000)} giây không phản hồi.`);
+      }
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
+        continue;
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
   }
+}
+
+let cachedDhRows = null;
+let cachedDhRowsTimestamp = 0;
+const DH_CACHE_TTL_MS = 60000; // 60 giây cache trong RAM
+
+async function getCachedDhRows(token, sheetId, forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && cachedDhRows && (now - cachedDhRowsTimestamp < DH_CACHE_TTL_MS)) {
+    return cachedDhRows;
+  }
+
+  const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:Y")}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (res.ok && data.values) {
+    cachedDhRows = data.values;
+    cachedDhRowsTimestamp = Date.now();
+    return cachedDhRows;
+  }
+
+  if (cachedDhRows) return cachedDhRows;
+  throw new Error(data.error?.message || "Không đọc được sheet DH.");
+}
+
+function invalidateDhCache() {
+  cachedDhRows = null;
+  cachedDhRowsTimestamp = 0;
 }
 
 async function getGoogleAccessToken() {

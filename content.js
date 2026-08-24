@@ -12271,7 +12271,6 @@ setInterval(() => {
     autoInjectPromotionSkuBadges();
     injectBuyerProductActionButtons();
     if (isOrderListPage()) {
-      updateDonHangMdhCache();
       updateCopyAllButtonColors();
     }
   }, 800);
