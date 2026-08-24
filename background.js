@@ -1015,8 +1015,8 @@ async function uploadImageToFreeImageHost(imageUrl) {
       console.warn("Lỗi kiểm tra header Z1:AA1:", err);
     }
 
-    // 2. Đọc cột A (gian), Cột D (mdh) từ sheet DH
-    const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:D")}`, {
+    // 2. Đọc cột A:P từ sheet DH
+    const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:P")}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
@@ -1037,7 +1037,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
     }
 
     // 3. Tìm các dòng khớp mã đơn hàng (và mã gian nếu có)
-    let matchingRowNums = [];
+    let matchingRows = [];
 
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i];
@@ -1047,44 +1047,79 @@ async function uploadImageToFreeImageHost(imageUrl) {
 
       if (rowMdh === reqOrderId) {
         if (!reqGian || rowGian === reqGian) {
-          matchingRowNums.push(rowNum);
+          matchingRows.push({ rowNum, rowData: r });
         }
       }
     }
 
     // Nếu lọc theo cả gian không thấy, fallback tìm theo mã đơn hàng
-    if (matchingRowNums.length === 0) {
+    if (matchingRows.length === 0) {
       for (let i = 1; i < rows.length; i++) {
         const r = rows[i];
         const rowMdh = String(r[3] || "").trim().toLowerCase().replace(/copy|sao\s*ch[eé]p/gi, "").trim();
         const rowNum = i + 1;
         if (rowMdh === reqOrderId) {
-          matchingRowNums.push(rowNum);
+          matchingRows.push({ rowNum, rowData: r });
         }
       }
     }
 
-    if (matchingRowNums.length === 0) {
+    if (matchingRows.length === 0) {
       throw new Error(`Không tìm thấy Mã đơn hàng "${reqOrderId.toUpperCase()}"${reqGian ? ` (Gian: ${reqGian})` : ''} trong Sheet DH.`);
     }
 
-    // 4. Cập nhật Cột P (Trạng thái) và Cột Z (Mã yêu cầu trả hàng), Cột AA (Vận chuyển hàng hoàn)
+    // 4. Cập nhật các cột theo trạng thái (Hủy: tinh_trang=Hủy, doanh_thu=0, tien_sp=0; Hoàn/Trả: tien_sp=0)
     const updateData = [];
     const statusVal = String(message.status || "").trim();
     const returnIdVal = String(message.returnId || "").trim();
     const trackingVal = String(message.tracking || "").trim();
 
-    for (const rowNum of matchingRowNums) {
-      if (statusVal) {
+    const parseNum = (val) => {
+      if (val === null || val === undefined) return 0;
+      if (typeof val === "number") return val;
+      const d = String(val).replace(/[^0-9.-]/g, "");
+      return d ? Number(d) : 0;
+    };
+
+    for (const item of matchingRows) {
+      const { rowNum, rowData } = item;
+
+      if (statusVal === "Hủy") {
+        // Hủy: tinh_trang = "Hủy", trang_thai = "Hủy", doanh_thu = 0, tien_sp = 0, loi_nhuan = 0
+        updateData.push({
+          range: `DH!K${rowNum}`,
+          values: [[0]]
+        });
+        updateData.push({
+          range: `DH!M${rowNum}:P${rowNum}`,
+          values: [[0, 0, "Hủy", "Hủy"]]
+        });
+      } else if (statusVal === "Hoàn" || statusVal === "Trả") {
+        // Hoàn / Trả: tien_sp = 0, trang_thai = statusVal, loi_nhuan = doanh_thu - phi_khac
+        const dt = parseNum(rowData[10]);
+        const pk = parseNum(rowData[11]);
+        const newLoiNhuan = dt - pk;
+        updateData.push({
+          range: `DH!M${rowNum}:N${rowNum}`,
+          values: [[0, newLoiNhuan]]
+        });
+        updateData.push({
+          range: `DH!P${rowNum}`,
+          values: [[statusVal]]
+        });
+      } else if (statusVal) {
         updateData.push({
           range: `DH!P${rowNum}`,
           values: [[statusVal]]
         });
       }
-      updateData.push({
-        range: `DH!Z${rowNum}:AA${rowNum}`,
-        values: [[returnIdVal, trackingVal]]
-      });
+
+      if (returnIdVal || trackingVal) {
+        updateData.push({
+          range: `DH!Z${rowNum}:AA${rowNum}`,
+          values: [[returnIdVal, trackingVal]]
+        });
+      }
     }
 
     if (updateData.length > 0) {
@@ -1108,8 +1143,8 @@ async function uploadImageToFreeImageHost(imageUrl) {
     return {
       ok: true,
       updated: true,
-      count: matchingRowNums.length,
-      rowNums: matchingRowNums
+      count: matchingRows.length,
+      rowNums: matchingRows.map(m => m.rowNum)
     };
   }
 
