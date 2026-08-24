@@ -9781,6 +9781,9 @@ if (oldFlashBtn) oldFlashBtn.remove();
     }
 
     async function renderDiscountSkuCt() {
+        // Module cũ đã được hợp nhất vào autoInjectPromotionSkuBadges
+        document.querySelectorAll('.injected-sku-ct, .injected-sku-info, .injected-sku-price-helper').forEach(el => el.remove());
+        return;
         const hasDiscountDom = document.querySelector('.discount-edit-item-model-component, .item-content.item-variation, .item-variation, .discount-edit-item-model-list');
         const isDiscountUrl = window.location.href.includes('discount');
         if (!hasDiscountDom && !isDiscountUrl) return;
@@ -11945,9 +11948,15 @@ async function extractProductDataAndSave() {
   }
 
   function doInjectBadges() {
-    const models = Array.from(document.querySelectorAll('.discount-view-item-model-component, .discount-item-model-component, .discount-edit-item-model-component'));
+    // Dọn dẹp triệt để các badge cũ từ module cũ
+    document.querySelectorAll('.injected-sku-ct, .injected-sku-info, .injected-sku-price-helper, .shopee-qlsp-sku-display').forEach(el => el.remove());
+
+    const models = Array.from(document.querySelectorAll('.discount-view-item-model-component, .discount-item-model-component, .discount-edit-item-model-component, tr.ant-table-row'));
     models.forEach((mEl) => {
-      const varCell = mEl.querySelector('.item-content.item-variation, .item-variation') || mEl;
+      // Xóa tất cả các badge thừa bên trong model
+      mEl.querySelectorAll('.injected-sku-ct, .injected-sku-info, .injected-sku-price-helper, .shopee-qlsp-sku-display').forEach(el => el.remove());
+
+      const varCell = mEl.querySelector('.item-content.item-variation, .item-variation, td:nth-child(2), .product-name') || mEl;
       if (!varCell) return;
 
       let varName = "";
@@ -11989,7 +11998,9 @@ async function extractProductDataAndSave() {
       const sku = findSkuForShopeeVariation(parentName, varName, autoShopeeSpCache, autoShopeeMaGian);
       if (!sku) return;
 
-      // Already has correct badge → skip
+      // Xóa các badge cũ trong ô để chỉ giữ lại đúng 1 badge duy nhất
+      varCell.querySelectorAll('.ext-km-injected-sku, .injected-sku-ct, .injected-sku-info, .injected-sku-price-helper, .shopee-qlsp-sku-display').forEach(el => el.remove());
+      mEl.querySelectorAll('.injected-sku-price-helper').forEach(el => el.remove());
       const existing = varCell.querySelector('.ext-km-injected-sku');
       if (existing && existing.getAttribute('data-sku') === sku) return;
       if (existing) existing.remove();
