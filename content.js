@@ -7258,18 +7258,18 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function updateCopyAllButtonColors() {
-      document.querySelectorAll(".btn-copy-all-check").forEach(btn => {
-          const id = btn.dataset.shopeeQlspCopyAllOrderId;
+      document.querySelectorAll(".btn-copy-all-check, button[aria-label*='Copy toan bo'], [class*='btn-copy-all']").forEach(btn => {
+          const id = btn.dataset.shopeeQlspCopyAllOrderId || getOrderSnFromText(btn.closest('.order-sn, [class*="order-sn"], tr, div')?.textContent || "");
           if (id && (cachedDonHangMdhIndices.has(id) || cachedDhHoanIds.has(id))) {
-              btn.style.backgroundColor = "#cbb89d"; // màu be
-              btn.style.borderColor = "#b7a285";
-              btn.style.color = "#3d3124";
-              btn.style.fontWeight = "bold";
+              btn.style.setProperty("background-color", "#cbb89d", "important"); // màu be
+              btn.style.setProperty("border-color", "#b7a285", "important");
+              btn.style.setProperty("color", "#3d3124", "important");
+              btn.style.setProperty("font-weight", "bold", "important");
           } else {
-              btn.style.backgroundColor = "";
-              btn.style.borderColor = "";
-              btn.style.color = "";
-              btn.style.fontWeight = "";
+              btn.style.removeProperty("background-color");
+              btn.style.removeProperty("border-color");
+              btn.style.removeProperty("color");
+              btn.style.removeProperty("font-weight");
           }
       });
   }
@@ -7278,15 +7278,15 @@ function downloadExcelFileBypass(wb, filename) {
       document.querySelectorAll(".btn-copy-return-data-check").forEach(btn => {
           const id = btn.dataset.shopeeQlspCopyReturnOrderId;
           if (id && (cachedDhHoanIds.has(id) || cachedDonHangMdhIndices.has(id))) {
-              btn.style.backgroundColor = "#cbb89d"; // màu be
-              btn.style.borderColor = "#b7a285";
-              btn.style.color = "#3d3124";
-              btn.style.fontWeight = "bold";
+              btn.style.setProperty("background-color", "#cbb89d", "important"); // màu be
+              btn.style.setProperty("border-color", "#b7a285", "important");
+              btn.style.setProperty("color", "#3d3124", "important");
+              btn.style.setProperty("font-weight", "bold", "important");
           } else {
-              btn.style.backgroundColor = "#ee4d2d";
-              btn.style.borderColor = "";
-              btn.style.color = "#fff";
-              btn.style.fontWeight = "";
+              btn.style.setProperty("background-color", "#ee4d2d", "important");
+              btn.style.removeProperty("border-color");
+              btn.style.setProperty("color", "#ffffff", "important");
+              btn.style.removeProperty("font-weight");
           }
       });
   }
@@ -7924,7 +7924,7 @@ function downloadExcelFileBypass(wb, filename) {
                       }
                   }
                   if (/ph[aâ]n\s*lo[aạ]i(?:\s*h[aà]ng)?\s*:/i.test(line) && !variationName) {
-                      variationName = line.replace(/.*ph[aâ]n\s*lo[aạ]i(?:\s*h[aà]ng)?\s*:\s*/i, '').trim();
+                      variationName = line.replace(/.*ph[aâ]n\s*lo[aạ]i(?:\s*h[aà]ng)?\s*:/i, '').trim();
                   }
               }
 
@@ -7932,16 +7932,55 @@ function downloadExcelFileBypass(wb, filename) {
               finalSku = finalSku.replace(/copy\s*sku|sao\s*ch[eé]p/gi, '').trim();
               if (!finalSku) finalSku = titleBracketCode || "SP";
 
-              let quantity = "1";
-              const qtyEl = container.querySelector(".ct-item-product-num, .ct-item-product-qty, .qty, .quantity, [class*='qty'], [class*='quantity'], [class*='num']");
-              if (qtyEl) {
-                  quantity = cleanOrderDetailText(qtyEl.textContent).replace(/[^0-9]/g, "") || "1";
+              // 3. BÓC TÁCH SỐ LƯỢNG CHÍNH XÁC (DOM + TỶ LỆ GIÁ TIỀN)
+              let quantity = "";
+              
+              // A. Tìm trong các phần tử chứa số lượng (khung số lượng)
+              const qtyCandidates = Array.from(clone.querySelectorAll(
+                ".ct-item-product-num, .ct-item-product-qty, .qty, .quantity, [class*='qty'], [class*='quantity'], [class*='num'], [class*='count'], td, div, span"
+              ));
+              for (const el of qtyCandidates) {
+                const txt = (el.innerText || el.textContent || "").trim();
+                // Khớp số đơn lẻ dạng "2", "x2", "×2", "*2"
+                if (/^[xX*×]?\s*([1-9]\d{0,3})\s*$/.test(txt) && !el.querySelector('*')) {
+                  const m = txt.match(/^[xX*×]?\s*([1-9]\d{0,3})\s*$/);
+                  if (m) {
+                    quantity = m[1];
+                    break;
+                  }
+                }
+                // Khớp nhãn "Số lượng: 2" hoặc "SL: 2"
+                if (/(?:số lượng|sl|qty|quantity)\s*:\s*([1-9]\d{0,3})/i.test(txt)) {
+                  const m = txt.match(/(?:số lượng|sl|qty|quantity)\s*:\s*([1-9]\d{0,3})/i);
+                  if (m) {
+                    quantity = m[1];
+                    break;
+                  }
+                }
               }
 
-              const moneyValues = extractOrderMoneyValues(container.innerText || container.textContent || "");
-              const productPrice = moneyValues[0] || "";
+              // B. Tính toán đối chiếu từ Đơn giá và Thành tiền (VD: Đơn giá 1.690.000, Thành tiền 3.380.000 -> SL = 2)
+              const rawMoneyMatches = extractOrderMoneyValues(clone.innerText || clone.textContent || "");
+              const numericAmounts = rawMoneyMatches.map(parseSellerOrderMoneyNumber).filter(n => n > 0);
+              
+              if (numericAmounts.length >= 2) {
+                const p1 = numericAmounts[0];
+                const p2 = numericAmounts[1];
+                if (p1 > 0 && p2 > 0) {
+                  if (p2 > p1 && p2 % p1 === 0) {
+                    const calcQty = Math.round(p2 / p1);
+                    if (calcQty >= 1 && calcQty <= 1000) {
+                      quantity = String(calcQty);
+                    }
+                  }
+                }
+              }
 
-              results.push({ sku: finalSku, quantity: quantity || "1", productPrice });
+              if (!quantity || quantity === "0") quantity = "1";
+
+              const productPrice = rawMoneyMatches[0] || "";
+
+              results.push({ sku: finalSku, quantity, productPrice });
           }
           if (results.length > 0) return results;
       }
@@ -12140,6 +12179,10 @@ async function extractProductDataAndSave() {
     injectStockQuickButtons();
     autoInjectPromotionSkuBadges();
     injectBuyerProductActionButtons();
+    if (isOrderListPage()) {
+      updateDonHangMdhCache();
+      updateCopyAllButtonColors();
+    }
   }, 800);
 })();
 
