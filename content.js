@@ -8385,11 +8385,16 @@ function downloadExcelFileBypass(wb, filename) {
 
     if (location.href !== lastPageUrlForSync) {
       lastPageUrlForSync = location.href;
-      pageLoadSettleTime = Date.now() + 1800; // Đợi 1.8 giây để Vue render xong dữ liệu thật
+      pageLoadSettleTime = Date.now() + 10000; // Đợi đúng 10 giây để Shopee tải xong toàn bộ dữ liệu đầy đủ rồi mới thêm
       return;
     }
 
     if (Date.now() < pageLoadSettleTime) {
+      const btnAdd = document.getElementById('btn-add-don-hang');
+      if (btnAdd && !btnAdd.textContent.includes('✓') && !btnAdd.textContent.includes('Đã có')) {
+        const remainingSec = Math.max(1, Math.ceil((pageLoadSettleTime - Date.now()) / 1000));
+        btnAdd.textContent = `⏳ Đợi load đủ dữ liệu (${remainingSec}s)...`;
+      }
       return;
     }
 
