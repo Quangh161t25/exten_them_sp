@@ -8117,8 +8117,22 @@ function downloadExcelFileBypass(wb, filename) {
       const paymentItems = collectSellerOrderPaymentItems();
       const products = extractSellerOrderProducts();
 
-      const totalProductAmount = findSellerOrderPaymentValue(paymentItems, ["tong tien san pham", "tong tien hang", "tong gia ban"]);
+      let totalProductAmount = findSellerOrderPaymentValue(paymentItems, ["tong tien san pham", "tong tien hang", "tong gia ban", "tong tien", "gia san pham"]);
       const productPrice = findSellerOrderPaymentValue(paymentItems, ["gia san pham"]);
+
+      // Fallback nếu chưa bắt được tổng tiền sản phẩm: tính từ dòng sản phẩm
+      if (!totalProductAmount || parseSellerOrderMoneyNumber(totalProductAmount) === 0) {
+        let calcProductTotal = 0;
+        for (const p of products) {
+          const pPrice = parseSellerOrderMoneyNumber(p.productPrice);
+          const pQty = parseInt(p.quantity || "1", 10) || 1;
+          calcProductTotal += pPrice * pQty;
+        }
+        if (calcProductTotal > 0) {
+          totalProductAmount = String(calcProductTotal);
+        }
+      }
+
       const estimatedShippingTotal = findSellerOrderPaymentValue(paymentItems, ["tong phi van chuyen uoc tinh", "tong phi van chuyen", "phi van chuyen uoc tinh", "phi van chuyen"]);
       const buyerPaidShippingFee = findSellerOrderPaymentValue(paymentItems, ["phi van chuyen nguoi mua tra"]);
       const estimatedShippingFee = findSellerOrderPaymentValue(paymentItems, ["phi van chuyen uoc tinh"]);
@@ -8362,6 +8376,17 @@ function downloadExcelFileBypass(wb, filename) {
     // BẮT BUỘC phải có DOM sản phẩm hiển thị trên trang
     const hasProductEl = document.querySelector('.order-view-item, .order-item, .product-item, .order-product-wrapper, .ct-item-product-name, .product-name, [class*="product-name"], [class*="item-name"]');
     if (!hasProductEl && (!orderDetail.rows[0]?.sku || orderDetail.rows[0]?.sku === "SP")) {
+      return false;
+    }
+
+    // BẮT BUỘC: Tổng tiền sản phẩm hoặc giá sản phẩm KHÔNG ĐƯỢC = 0 khi thêm mới
+    const parseMoneyNumber = (val) => {
+      if (val === null || val === undefined) return 0;
+      const digits = String(val).replace(/[^0-9]/g, "");
+      return digits ? Number(digits) : 0;
+    };
+    const tongTien = parseMoneyNumber(orderDetail.payments?.totalProductAmount) || parseMoneyNumber(orderDetail.rows[0]?.totalProductAmount) || parseMoneyNumber(orderDetail.rows[0]?.productPrice);
+    if (tongTien === 0) {
       return false;
     }
 
