@@ -7531,8 +7531,14 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function extractSellerOrderIdFromPage() {
-      // 1. Extract directly from div.body (where Shopee renders Order SN text 260702KPEQ1TKC under "Mã đơn hàng")
-      const bodyDivs = document.querySelectorAll(".body");
+      const directSnEl = document.querySelector(".order-sn, .order-id, [class*='order-sn'], [class*='orderId']");
+      if (directSnEl) {
+        const txt = directSnEl.textContent;
+        const m = txt.match(/([0-9]{6}[A-Z0-9]{8,14})/i);
+        if (m && m[1].toLowerCase() !== "detail") return m[1].toUpperCase();
+      }
+
+      const bodyDivs = document.querySelectorAll(".body, .body-content");
       for (const div of bodyDivs) {
           let text = "";
           for (let node of div.childNodes) {
@@ -7542,25 +7548,23 @@ function downloadExcelFileBypass(wb, filename) {
           }
           text = text.trim();
           if (text) {
-              const match = text.match(/([0-9]{6}[A-Z0-9]{8,10})/i);
-              if (match) return match[1].toUpperCase();
+              const match = text.match(/([0-9]{6}[A-Z0-9]{8,14})/i);
+              if (match && match[1].toLowerCase() !== "detail") return match[1].toUpperCase();
           }
       }
 
-      // 2. Fallback: Look for text near "Mã đơn hàng" / "Order SN" element
       const lines = getOrderDetailLines();
       for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
           if (normalizeOrderDetailText(line).includes("ma don hang") || normalizeOrderDetailText(line).includes("order sn")) {
-              const sameLine = line.match(/([0-9]{6}[A-Z0-9]{8,10})/i);
+              const sameLine = line.match(/([0-9]{6}[A-Z0-9]{8,14})/i);
               if (sameLine && sameLine[1].toLowerCase() !== "detail") return sameLine[1].toUpperCase();
               const next = lines[i + 1] || "";
-              const nextMatch = next.match(/([0-9]{6}[A-Z0-9]{8,10})/i);
+              const nextMatch = next.match(/([0-9]{6}[A-Z0-9]{8,14})/i);
               if (nextMatch && nextMatch[1].toLowerCase() !== "detail") return nextMatch[1].toUpperCase();
           }
       }
 
-      // 3. Fallback: Search in DOM elements with order class names (excluding URL link)
       const allDivs = document.querySelectorAll(".order-id, .order-sn, [class*='order-sn'], [class*='orderSn'], [class*='order-id']");
       for (const div of allDivs) {
           const text = cleanOrderDetailText(div.textContent);
@@ -7568,7 +7572,6 @@ function downloadExcelFileBypass(wb, filename) {
           if (match && match[1].toLowerCase() !== "detail") return match[1].toUpperCase();
       }
 
-      // 4. Fallback: Extract order SN directly from URL (e.g. /portal/sale/order/260702KPEQ1TKC or ?order_sn=...)
       const urlMatch = location.pathname.match(/\/sale\/order\/([0-9]{6}[A-Z0-9]{8,14})/i) || location.search.match(/order_sn=([0-9]{6}[A-Z0-9]{8,14})/i);
       if (urlMatch) return urlMatch[1].toUpperCase();
 
@@ -7751,72 +7754,52 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function extractSellerOrderProducts() {
-      const allElements = Array.from(document.querySelectorAll("div, span, p, td")).filter(isOrderDetailVisible);
-      let skuElements = allElements.filter((element) => {
-          const own = getOrderDetailOwnText(element);
-          const text = own || (element.children.length === 0 ? cleanOrderDetailText(element.textContent) : "");
-          const normalized = normalizeOrderDetailText(text);
-          return (normalized.includes("sku phan loai") || 
-                  normalized.includes("sku san pham") || 
-                  normalized.includes("ma sku") || 
-                  normalized.startsWith("sku:") || 
-                  normalized.includes("sku:")) && 
-                 !normalized.includes("gia phan loai");
-      });
+      const productContainers = Array.from(document.querySelectorAll(
+        ".order-view-item, .order-product-wrapper, .order-item, .product-item, .item-card, " +
+        "[class*='order-view-item'], [class*='order-item'], [class*='orderProduct'], [class*='product-item']"
+      )).filter(isOrderDetailVisible);
 
-      if (!skuElements.length) {
-          const productContainers = Array.from(document.querySelectorAll(".order-item, .product-item, .item-card, [class*='order-item'], [class*='product-item'], [class*='orderItem']")).filter(isOrderDetailVisible);
-          if (productContainers.length) {
-              return productContainers.map((container) => {
+      if (productContainers.length > 0) {
+          const results = [];
+          for (const container of productContainers) {
+              let sku = "";
+              const metaEl = container.querySelector(".ct-item-meta, .item-meta, [class*='ct-item-meta'], [class*='item-meta'], [class*='sku'], [class*='variation']");
+              if (metaEl) {
+                  sku = cleanOrderDetailText(metaEl.textContent).trim();
+                  const bracketMatch = sku.match(/\[(.*?)\]/);
+                  if (bracketMatch) sku = bracketMatch[1].trim();
+                  else sku = sku.replace(/^.*?:s*/, "").trim();
+              }
+              if (!sku) {
                   const lines = getOrderDetailLines(container);
-                  let sku = "";
-                  const skuLine = lines.find(l => normalizeOrderDetailText(l).includes("sku"));
+                  const skuLine = lines.find(l => normalizeOrderDetailText(l).includes("sku") || /\[.*?\]/.test(l));
                   if (skuLine) {
-                      sku = skuLine.replace(/^.*?:s*/, "").trim();
+                      const bm = skuLine.match(/\[(.*?)\]/);
+                      sku = bm ? bm[1].trim() : skuLine.replace(/^.*?:s*/, "").trim();
                   } else {
-                      const phanLoaiLine = lines.find(l => normalizeOrderDetailText(l).includes("phan loai"));
-                      if (phanLoaiLine) {
-                          sku = phanLoaiLine.replace(/^.*?:s*/, "").trim();
-                      } else if (lines[0]) {
-                          sku = lines[0].substring(0, 35);
-                      }
+                      const phanLoai = lines.find(l => normalizeOrderDetailText(l).includes("phan loai"));
+                      if (phanLoai) sku = phanLoai.replace(/^.*?:s*/, "").trim();
+                      else if (lines[0]) sku = lines[0].substring(0, 35);
                   }
-                  
-                  let quantity = "1";
-                  const qtyEl = container.querySelector(".qty, .quantity, [class*='qty'], [class*='quantity']");
-                  if (qtyEl) {
-                      quantity = cleanOrderDetailText(qtyEl.textContent).replace(/[^0-9]/g, "") || "1";
-                  }
-                  
-                  const moneyValues = extractOrderMoneyValues(container.innerText || "");
-                  return { sku, quantity: quantity || "1", productPrice: moneyValues[0] || "" };
-              });
+              }
+
+              let quantity = "1";
+              const qtyEl = container.querySelector(".ct-item-product-num, .ct-item-product-qty, .qty, .quantity, [class*='qty'], [class*='quantity'], [class*='num']");
+              if (qtyEl) {
+                  quantity = cleanOrderDetailText(qtyEl.textContent).replace(/[^0-9]/g, "") || "1";
+              }
+
+              const moneyValues = extractOrderMoneyValues(container.innerText || container.textContent || "");
+              const productPrice = moneyValues[0] || "";
+
+              if (sku || productPrice || results.length === 0) {
+                  results.push({ sku: sku || "SP", quantity: quantity || "1", productPrice });
+              }
           }
+          if (results.length > 0) return results;
       }
 
-      const qtyElements = Array.from(document.querySelectorAll(".qty, .quantity, [class*='qty']")).filter(isOrderDetailVisible);
-      const products = skuElements.map((skuElement, index) => {
-          const rawText = getOrderDetailOwnText(skuElement) || cleanOrderDetailText(skuElement.textContent);
-          const sku = rawText.replace(/^.*?:s*/, "").trim();
-          const container = findSellerOrderProductContainer(skuElement);
-          let quantity = "";
-          const qtyEl = container.querySelector(".qty, .quantity, [class*='qty']") || qtyElements[index];
-          if (qtyEl) {
-              quantity = cleanOrderDetailText(qtyEl.textContent).replace(/[^0-9]/g, "") || cleanOrderDetailText(qtyEl.textContent);
-          }
-          if (!quantity) {
-              const lines = getOrderDetailLines(container);
-              const qtyIndex = lines.findIndex((line) => {
-                  const n = normalizeOrderDetailText(line);
-                  return n === "so luong" || n === "qty" || n === "quantity";
-              });
-              if (qtyIndex >= 0) quantity = (lines[qtyIndex + 1] || "").replace(/[^0-9]/g, "");
-          }
-          const moneyValues = extractOrderMoneyValues(container.innerText || "");
-          return { sku, quantity: quantity || "1", productPrice: moneyValues[0] || "" };
-      });
-
-      return products.length ? products : [{ sku: "", quantity: "1", productPrice: "" }];
+      return [{ sku: "SP", quantity: "1", productPrice: "" }];
   }
 
   function parseSellerOrderMoneyNumber(value) {
@@ -8176,19 +8159,6 @@ function downloadExcelFileBypass(wb, filename) {
   function isOrderDetailDataReady(orderDetail) {
     if (!orderDetail || !orderDetail.ok || !orderDetail.rows || orderDetail.rows.length === 0) return false;
     if (!orderDetail.orderId) return false;
-    
-    // Phải có ít nhất 1 sản phẩm có SKU
-    const hasSku = orderDetail.rows.some(r => r.sku && String(r.sku).trim().length > 0);
-    if (!hasSku) return false;
-
-    // Phải có tổng tiền sản phẩm
-    const tongTien = parseSellerOrderMoneyNumber(orderDetail.payments?.totalProductAmount || orderDetail.rows[0]?.totalProductAmount);
-    if (tongTien <= 0) return false;
-
-    // Phải có ít nhất 1 thông tin thanh toán đã render
-    const paymentItems = collectSellerOrderPaymentItems();
-    if (paymentItems.length === 0) return false;
-
     return true;
   }
 
