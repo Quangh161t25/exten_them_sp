@@ -11807,23 +11807,34 @@ async function extractProductDataAndSave() {
   function findMinPriceForSku(sku, dsRows) {
     if (!sku || !dsRows || !Array.isArray(dsRows) || dsRows.length <= 1) return null;
     
-    let dsIdSpIdx = 1; // Mặc định cột B (id_sp)
+    let dsIdSpIdx = 1; // Mặc định cột B (id_sp_ct / id_sp)
     let dsGiaThapNhatIdx = 6; // Mặc định cột G (gia_thap_nhat)
     
     const dsHeaders = dsRows[0].map(h => String(h || "").normalize("NFC").trim().toLowerCase());
-    const idCol = dsHeaders.findIndex(h => h === "id_sp" || h === "id sp" || h === "id_sp_ct" || h === "sku" || h === "ma_sku");
+    const idCol = dsHeaders.findIndex(h => h === "id_sp_ct" || h === "id_sp" || h === "id sp" || h === "sku" || h === "ma_sku");
     if (idCol !== -1) dsIdSpIdx = idCol;
     
-    const giaCol = dsHeaders.findIndex(h => h === "gia_thap_nhat" || h === "gia thap nhat" || h.includes("thấp nhất") || h.includes("giá min") || h.includes("gia_min"));
+    const giaCol = dsHeaders.findIndex(h => h === "gia_thap_nhat" || h === "gia thap nhat" || h.includes("thấp nhất") || h.includes("giá min") || h.includes("gia_min") || h.includes("thap nhat"));
     if (giaCol !== -1) dsGiaThapNhatIdx = giaCol;
 
     const cleanSku = String(sku).trim().toUpperCase();
+    const sku10 = cleanSku.substring(0, 10);
+    const sku14 = cleanSku.substring(0, 14);
     const skuPrefix4 = cleanSku.substring(0, 4);
 
     let matchRows = dsRows.filter((r, idx) => {
       if (idx === 0) return false;
       const rowId = String(r[dsIdSpIdx] || "").trim().toUpperCase();
-      return rowId && (rowId === cleanSku || cleanSku.startsWith(rowId) || rowId.startsWith(skuPrefix4));
+      if (!rowId) return false;
+      return (
+        rowId === cleanSku || 
+        rowId === sku14 || 
+        rowId === sku10 || 
+        cleanSku.startsWith(rowId) || 
+        rowId.startsWith(sku10) || 
+        rowId.startsWith(skuPrefix4) ||
+        cleanSku.startsWith(rowId.substring(0, 4))
+      );
     });
 
     if (matchRows.length > 0) {
@@ -12075,12 +12086,15 @@ async function extractProductDataAndSave() {
       };
       badge.appendChild(skuSpan);
 
-      const discInput = mEl.querySelector('.item-discounted-price input, input.eds-input__input, input[restrictiontype="value"], input[type="text"], input[type="number"]');
+      // Ô giá sau giảm là ô nhập đầu tiên trong nhóm giá của biến thể
+      const discInput = mEl.querySelector('.item-discounted-price input, .item-price input, .discount-price input, input[restrictiontype="value"], input[placeholder*="giá"], input[placeholder*="Giá"], input.eds-input__input, input[type="text"], input[type="number"], input');
 
       const updateInputColor = () => {
         if (!discInput) return;
         const curVal = parseSellerOrderMoneyNumber(discInput.value);
         const minVal = parseSellerOrderMoneyNumber(minPrice);
+        const wrapper = discInput.closest('.eds-input, .eds-input-wrapper') || discInput;
+
         if (minVal > 0 && curVal > 0) {
           if (curVal === minVal) {
             // BẰNG GIÁ MIN -> MÀU XANH LÁ
@@ -12088,24 +12102,40 @@ async function extractProductDataAndSave() {
             discInput.style.setProperty('border-color', '#16a34a', 'important');
             discInput.style.setProperty('color', '#15803d', 'important');
             discInput.style.setProperty('font-weight', 'bold', 'important');
+            if (wrapper !== discInput) {
+              wrapper.style.setProperty('background-color', '#f0fdf4', 'important');
+              wrapper.style.setProperty('border-color', '#16a34a', 'important');
+            }
           } else if (curVal > minVal) {
             // LỚN HƠN GIÁ MIN -> MÀU ĐỎ
             discInput.style.setProperty('background-color', '#fef2f2', 'important');
             discInput.style.setProperty('border-color', '#ef4444', 'important');
             discInput.style.setProperty('color', '#dc2626', 'important');
             discInput.style.setProperty('font-weight', 'bold', 'important');
+            if (wrapper !== discInput) {
+              wrapper.style.setProperty('background-color', '#fef2f2', 'important');
+              wrapper.style.setProperty('border-color', '#ef4444', 'important');
+            }
           } else {
             // NHỎ HƠN GIÁ MIN -> MÀU TRẮNG + CHỮ ĐEN
             discInput.style.setProperty('background-color', '#ffffff', 'important');
             discInput.style.setProperty('border-color', '#d1d5db', 'important');
             discInput.style.setProperty('color', '#000000', 'important');
             discInput.style.setProperty('font-weight', 'normal', 'important');
+            if (wrapper !== discInput) {
+              wrapper.style.setProperty('background-color', '#ffffff', 'important');
+              wrapper.style.setProperty('border-color', '#d1d5db', 'important');
+            }
           }
         } else {
           discInput.style.setProperty('background-color', '#ffffff', 'important');
           discInput.style.setProperty('border-color', '#d1d5db', 'important');
           discInput.style.setProperty('color', '#000000', 'important');
           discInput.style.setProperty('font-weight', 'normal', 'important');
+          if (wrapper !== discInput) {
+            wrapper.style.setProperty('background-color', '#ffffff', 'important');
+            wrapper.style.setProperty('border-color', '#d1d5db', 'important');
+          }
         }
       };
 
@@ -12378,11 +12408,72 @@ async function extractProductDataAndSave() {
     }, 30000);
   }
 
+
+  // =========================================================================
+  // ĐỔI MÀU ĐỎ NHẠT CHO SẢN PHẨM CÓ KHO HÀNG = 0 TRÊN PORTAL/PRODUCT/LIST
+  // =========================================================================
+  function highlightZeroStockProducts() {
+    if (!window.location.pathname.includes('/portal/product/list')) return;
+
+    // 1. Quét theo thẻ .product-stock-label (như selector mẫu của người dùng)
+    document.querySelectorAll('.product-stock-label').forEach(labelEl => {
+      const container = labelEl.closest('.text-overflow') || labelEl.parentElement;
+      if (!container) return;
+
+      const fullText = (container.textContent || "").trim();
+      // Bóc tách số sau nhãn "Kho hàng"
+      const m = fullText.match(/(?:kho\s*hàng\s*:?\s*|^)(\d+)/i) || fullText.match(/(\d+)/);
+      if (m) {
+        const qty = parseInt(m[1], 10);
+        if (qty === 0) {
+          container.style.setProperty('background-color', '#fee2e2', 'important'); // màu đỏ nhạt
+          container.style.setProperty('border', '1px solid #f87171', 'important');
+          container.style.setProperty('border-radius', '4px', 'important');
+          container.style.setProperty('padding', '2px 6px', 'important');
+          container.style.setProperty('color', '#dc2626', 'important');
+          container.style.setProperty('font-weight', 'bold', 'important');
+          container.style.setProperty('display', 'inline-flex', 'important');
+          container.style.setProperty('align-items', 'center', 'important');
+          container.style.setProperty('gap', '4px', 'important');
+          container.style.setProperty('width', 'max-content', 'important');
+
+          container.querySelectorAll('span').forEach(sp => {
+            sp.style.setProperty('color', '#dc2626', 'important');
+            sp.style.setProperty('font-weight', 'bold', 'important');
+          });
+        }
+      }
+    });
+
+    // 2. Quét các container text-overflow có nội dung Kho hàng 0
+    document.querySelectorAll('.text-overflow').forEach(el => {
+      const text = (el.textContent || "").trim();
+      if (/^kho\s*hàng\s*:?\s*0$/i.test(text)) {
+        el.style.setProperty('background-color', '#fee2e2', 'important');
+        el.style.setProperty('border', '1px solid #f87171', 'important');
+        el.style.setProperty('border-radius', '4px', 'important');
+        el.style.setProperty('padding', '2px 6px', 'important');
+        el.style.setProperty('color', '#dc2626', 'important');
+        el.style.setProperty('font-weight', 'bold', 'important');
+        el.style.setProperty('display', 'inline-flex', 'important');
+        el.style.setProperty('align-items', 'center', 'important');
+        el.style.setProperty('gap', '4px', 'important');
+        el.style.setProperty('width', 'max-content', 'important');
+        el.querySelectorAll('span').forEach(sp => {
+          sp.style.setProperty('color', '#dc2626', 'important');
+          sp.style.setProperty('font-weight', 'bold', 'important');
+        });
+      }
+    });
+  }
+
+
 setInterval(() => {
     injectAiDescriptionButton();
     injectStockQuickButtons();
     autoInjectPromotionSkuBadges();
     injectBuyerProductActionButtons();
+    highlightZeroStockProducts();
     if (isOrderListPage()) {
       updateCopyAllButtonColors();
     }
