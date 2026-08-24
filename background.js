@@ -386,20 +386,16 @@ async function uploadImageToFreeImageHost(imageUrl) {
     Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
       .then(async ([token, sheetId]) => {
         try {
-          const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:AA")}`, {
+          const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!D:D")}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (!res.ok) throw new Error(data.error?.message || "Không đọc được Sheet DH");
           const rows = data.values || [];
           const processed = [];
           for (let i = 1; i < rows.length; i++) {
-            const r = rows[i];
-            const mdh = String(r[3] || "").trim(); // Col D
-            const status = String(r[15] || "").trim(); // Col P (trang_thai)
-            const returnId = String(r[25] || "").trim(); // Col Z (ma_yc_tra_hang)
-            const tracking = String(r[26] || "").trim(); // Col AA (vc_hang_hoan)
-            if (mdh && (status || returnId || tracking)) {
-              processed.push([mdh, status, returnId, tracking]);
+            const mdh = String(rows[i]?.[0] || "").trim();
+            if (mdh) {
+              processed.push([mdh]);
             }
           }
           sendResponse({ ok: true, values: processed });

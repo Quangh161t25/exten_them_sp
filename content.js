@@ -4028,6 +4028,7 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function renderOrderSnCopyButtons() {
+    updateDonHangMdhCache().then(() => updateCopyAllButtonColors());
     if (!isOrderListPage()) {
       return;
     }
@@ -4133,8 +4134,15 @@ function downloadExcelFileBypass(wb, filename) {
 
       const copyAllBtn = document.createElement("button");
       copyAllBtn.type = "button";
-      copyAllBtn.className = ORDER_SN_COPY_BUTTON_CLASS;
+      copyAllBtn.className = ORDER_SN_COPY_BUTTON_CLASS + " btn-copy-all-check";
+      copyAllBtn.dataset.shopeeQlspCopyAllOrderId = orderSn;
       copyAllBtn.textContent = "Copy All";
+      if (cachedDonHangMdhIndices.has(orderSn) || cachedDhHoanIds.has(orderSn)) {
+          copyAllBtn.style.backgroundColor = "#cbb89d"; // màu be
+          copyAllBtn.style.borderColor = "#b7a285";
+          copyAllBtn.style.color = "#3d3124";
+          copyAllBtn.style.fontWeight = "bold";
+      }
       copyAllBtn.title = `Copy toan bo thong tin don hang ${orderSn}`;
       copyAllBtn.setAttribute("aria-label", `Copy toan bo thong tin don hang ${orderSn}`);
       copyAllBtn.style.width = "auto";
@@ -6964,10 +6972,10 @@ function downloadExcelFileBypass(wb, filename) {
   let isFetchingDhHoanIds = false;
   let lastFetchDhHoanIdsTime = 0;
 
-  async function updateDhHoanIdsCache() {
+  async function updateDhHoanIdsCache(force = false) {
       if (isFetchingDhHoanIds) return;
       const now = Date.now();
-      if (now - lastFetchDhHoanIdsTime < 30000) return;
+      if (!force && now - lastFetchDhHoanIdsTime < 30000) return;
       isFetchingDhHoanIds = true;
       try {
           const response = await new Promise(resolve => chrome.runtime.sendMessage({ type: "FETCH_DH_HOAN_IDS" }, resolve));
@@ -6978,6 +6986,8 @@ function downloadExcelFileBypass(wb, filename) {
                   if (id) cachedDhHoanIds.add(id);
               }
               lastFetchDhHoanIdsTime = Date.now();
+              updateCopyButtonColors();
+              updateCopyAllButtonColors();
           }
       } catch(e) {
           console.error(e);
@@ -7030,10 +7040,10 @@ function downloadExcelFileBypass(wb, filename) {
   let isFetchingDonHangMdh = false;
   let lastFetchDonHangMdhTime = 0;
 
-  async function updateDonHangMdhCache() {
+  async function updateDonHangMdhCache(force = false) {
       if (isFetchingDonHangMdh) return;
       const now = Date.now();
-      if (now - lastFetchDonHangMdhTime < 30000) return;
+      if (!force && now - lastFetchDonHangMdhTime < 30000) return;
       isFetchingDonHangMdh = true;
       try {
           const response = await new Promise(resolve => chrome.runtime.sendMessage({ type: "FETCH_DON_HANG_MDH" }, resolve));
@@ -7044,7 +7054,7 @@ function downloadExcelFileBypass(wb, filename) {
                   const row = response.values[i];
                   const id = String(row[0] || "").trim();
                   if (id) {
-                      const rowIdx = i + 1; // Google Sheets is 1-indexed
+                      const rowIdx = i + 1;
                       if (!cachedDonHangMdhIndices.has(id)) {
                           cachedDonHangMdhIndices.set(id, []);
                       }
@@ -7052,6 +7062,8 @@ function downloadExcelFileBypass(wb, filename) {
                   }
               }
               lastFetchDonHangMdhTime = Date.now();
+              updateCopyAllButtonColors();
+              updateCopyButtonColors();
           }
       } catch(e) {
           console.error(e);
@@ -7245,13 +7257,36 @@ function downloadExcelFileBypass(wb, filename) {
     return { orderId, reason, returnId, tracking };
   }
 
+  function updateCopyAllButtonColors() {
+      document.querySelectorAll(".btn-copy-all-check").forEach(btn => {
+          const id = btn.dataset.shopeeQlspCopyAllOrderId;
+          if (id && (cachedDonHangMdhIndices.has(id) || cachedDhHoanIds.has(id))) {
+              btn.style.backgroundColor = "#cbb89d"; // màu be
+              btn.style.borderColor = "#b7a285";
+              btn.style.color = "#3d3124";
+              btn.style.fontWeight = "bold";
+          } else {
+              btn.style.backgroundColor = "";
+              btn.style.borderColor = "";
+              btn.style.color = "";
+              btn.style.fontWeight = "";
+          }
+      });
+  }
+
   function updateCopyButtonColors() {
       document.querySelectorAll(".btn-copy-return-data-check").forEach(btn => {
           const id = btn.dataset.shopeeQlspCopyReturnOrderId;
-          if (id && cachedDhHoanIds.has(id)) {
-              btn.style.backgroundColor = "#22c55e";
+          if (id && (cachedDhHoanIds.has(id) || cachedDonHangMdhIndices.has(id))) {
+              btn.style.backgroundColor = "#cbb89d"; // màu be
+              btn.style.borderColor = "#b7a285";
+              btn.style.color = "#3d3124";
+              btn.style.fontWeight = "bold";
           } else {
               btn.style.backgroundColor = "#ee4d2d";
+              btn.style.borderColor = "";
+              btn.style.color = "#fff";
+              btn.style.fontWeight = "";
           }
       });
   }
@@ -7482,8 +7517,11 @@ function downloadExcelFileBypass(wb, filename) {
       btnCopy.dataset.shopeeQlspCopyReturnOrderId = directOrderId;
       btnCopy.classList.add("btn-copy-return-data-check");
       
-      if (directOrderId && cachedDhHoanIds.has(directOrderId)) {
-          btnCopy.style.backgroundColor = "#22c55e";
+      if (directOrderId && (cachedDhHoanIds.has(directOrderId) || cachedDonHangMdhIndices.has(directOrderId))) {
+          btnCopy.style.backgroundColor = "#cbb89d"; // màu be
+          btnCopy.style.borderColor = "#b7a285";
+          btnCopy.style.color = "#3d3124";
+          btnCopy.style.fontWeight = "bold";
       }
       
       container.appendChild(btnCopy);
