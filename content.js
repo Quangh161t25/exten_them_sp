@@ -11896,10 +11896,169 @@ async function extractProductDataAndSave() {
   autoInjectPromotionSkuBadges();
 
   // Chạy định kỳ 800ms — inject tiếp khi Shopee Vue re-render thêm dòng mới
+  
+  // =========================================================================
+  // NÚT "SỬA SẢN PHẨM" VÀ "COPY TÊN SP" TRÊN TRANG SHOPEE NGƯỜI MUA (shopee.vn)
+  // =========================================================================
+  function extractShopeeBuyerItemId() {
+    const href = window.location.href;
+    const path = window.location.pathname;
+
+    const m1 = path.match(/\/product\/\d+\/(\d+)/i) || href.match(/\/product\/\d+\/(\d+)/i);
+    if (m1) return m1[1];
+
+    const m2 = path.match(/-i\.\d+\.(\d+)/i) || href.match(/-i\.\d+\.(\d+)/i);
+    if (m2) return m2[1];
+
+    const m3 = path.match(/\/universal-link\/product\/\d+\/(\d+)/i);
+    if (m3) return m3[1];
+
+    const m4 = href.match(/[?&](?:item_id|itemId|itemid)=(\d+)/i);
+    if (m4) return m4[1];
+
+    return "";
+  }
+
+  function extractShopeeBuyerProductName() {
+    const selectors = [
+      '.WBVL_7',
+      '._44qnta',
+      '.qaNIZv',
+      '.vR6Z3Z',
+      '.page-product__name',
+      '[class*="product-name"]',
+      '[class*="productTitle"]',
+      'h1'
+    ];
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el) {
+        const txt = (el.innerText || el.textContent || "").replace(/\s+/g, ' ').trim();
+        if (txt && txt.length > 3 && !/shopee|đăng nhập|tìm kiếm/i.test(txt)) {
+          return txt;
+        }
+      }
+    }
+
+    const metaTitle = document.querySelector('meta[property="og:title"]')?.content;
+    if (metaTitle && metaTitle.length > 3) {
+      return metaTitle.replace(/\|\s*Shopee.*$/i, '').trim();
+    }
+
+    if (document.title) {
+      return document.title.replace(/\|\s*Shopee.*$/i, '').replace(/Shopee\s*Việt\s*Nam.*$/i, '').trim();
+    }
+
+    return "";
+  }
+
+  function injectBuyerProductActionButtons() {
+    if (!window.location.host.includes("shopee.vn") || window.location.host.includes("banhang")) {
+      return;
+    }
+
+    const itemId = extractShopeeBuyerItemId();
+    if (!itemId) return;
+
+    const editUrl = `https://banhang.shopee.vn/portal/product/${itemId}`;
+
+    // 1. Gắn nút Inline ngay bên cạnh / dưới tiêu đề sản phẩm
+    const titleEl = document.querySelector('.WBVL_7, ._44qnta, .qaNIZv, .vR6Z3Z, .page-product__name, [class*="product-name"], [class*="productTitle"], h1');
+    if (titleEl && !document.getElementById('shopee-ext-buyer-actions')) {
+      const actionsDiv = document.createElement('div');
+      actionsDiv.id = 'shopee-ext-buyer-actions';
+      actionsDiv.style.cssText = 'margin: 12px 0 14px 0 !important; display: flex !important; align-items: center !important; gap: 10px !important; flex-wrap: wrap !important; z-index: 99 !important;';
+
+      const editBtn = document.createElement('a');
+      editBtn.href = editUrl;
+      editBtn.target = '_blank';
+      editBtn.className = 'ext-buyer-btn-edit';
+      editBtn.style.cssText = 'display: inline-flex !important; align-items: center !important; gap: 6px !important; padding: 6px 14px !important; background: #ee4d2d !important; color: #ffffff !important; font-size: 13px !important; font-weight: bold !important; border-radius: 6px !important; text-decoration: none !important; border: 1px solid #d03b1f !important; box-shadow: 0 2px 5px rgba(238, 77, 45, 0.25) !important; cursor: pointer !important; transition: all 0.2s !important;';
+      editBtn.innerHTML = `🛠️ Sửa sản phẩm (${itemId}) ↗`;
+
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'ext-buyer-btn-copy-name';
+      copyBtn.style.cssText = 'display: inline-flex !important; align-items: center !important; gap: 6px !important; padding: 6px 14px !important; background: #0284c7 !important; color: #ffffff !important; font-size: 13px !important; font-weight: bold !important; border-radius: 6px !important; border: 1px solid #0369a1 !important; box-shadow: 0 2px 5px rgba(2, 132, 199, 0.25) !important; cursor: pointer !important; transition: all 0.2s !important;';
+      copyBtn.innerHTML = `📋 Copy tên sản phẩm`;
+
+      copyBtn.onclick = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const pName = extractShopeeBuyerProductName();
+        if (pName) {
+          navigator.clipboard.writeText(pName).then(() => {
+            copyBtn.innerHTML = '✓ Đã copy tên!';
+            copyBtn.style.backgroundColor = '#16a34a';
+            copyBtn.style.borderColor = '#15803d';
+            setTimeout(() => {
+              copyBtn.innerHTML = `📋 Copy tên sản phẩm`;
+              copyBtn.style.backgroundColor = '#0284c7';
+              copyBtn.style.borderColor = '#0369a1';
+            }, 1500);
+          });
+        }
+      };
+
+      actionsDiv.appendChild(editBtn);
+      actionsDiv.appendChild(copyBtn);
+
+      if (titleEl.parentElement) {
+        titleEl.parentElement.insertBefore(actionsDiv, titleEl.nextSibling);
+      }
+    }
+
+    // 2. Gắn thanh nổi Floating Bar ở góc phải màn hình
+    if (!document.getElementById('shopee-ext-buyer-floating-bar')) {
+      const floatDiv = document.createElement('div');
+      floatDiv.id = 'shopee-ext-buyer-floating-bar';
+      floatDiv.style.cssText = 'position: fixed !important; top: 120px !important; right: 20px !important; z-index: 999999 !important; display: flex !important; flex-direction: column !important; gap: 8px !important; background: rgba(255, 255, 255, 0.96) !important; padding: 10px 12px !important; border-radius: 8px !important; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important; border: 1px solid #cbd5e1 !important; backdrop-filter: blur(4px) !important;';
+
+      const floatHeader = document.createElement('div');
+      floatHeader.style.cssText = 'font-size: 11px !important; font-weight: bold !important; color: #475569 !important; margin-bottom: 2px !important; display: flex !important; align-items: center !important; justify-content: space-between !important;';
+      floatHeader.innerHTML = `<span>⚡ Shopee Ext (${itemId})</span>`;
+      floatDiv.appendChild(floatHeader);
+
+      const fEditBtn = document.createElement('a');
+      fEditBtn.href = editUrl;
+      fEditBtn.target = '_blank';
+      fEditBtn.style.cssText = 'display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 4px !important; padding: 5px 12px !important; background: #ee4d2d !important; color: #ffffff !important; font-size: 12px !important; font-weight: bold !important; border-radius: 4px !important; text-decoration: none !important; box-shadow: 0 1px 3px rgba(238, 77, 45, 0.25) !important; text-align: center !important;';
+      fEditBtn.innerHTML = `🛠️ Về sửa sản phẩm ↗`;
+
+      const fCopyBtn = document.createElement('button');
+      fCopyBtn.type = 'button';
+      fCopyBtn.style.cssText = 'display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 4px !important; padding: 5px 12px !important; background: #0284c7 !important; color: #ffffff !important; font-size: 12px !important; font-weight: bold !important; border-radius: 4px !important; border: 1px solid #0369a1 !important; cursor: pointer !important;';
+      fCopyBtn.innerHTML = `📋 Copy tên SP`;
+
+      fCopyBtn.onclick = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const pName = extractShopeeBuyerProductName();
+        if (pName) {
+          navigator.clipboard.writeText(pName).then(() => {
+            fCopyBtn.innerHTML = '✓ Đã copy!';
+            fCopyBtn.style.backgroundColor = '#16a34a';
+            fCopyBtn.style.borderColor = '#15803d';
+            setTimeout(() => {
+              fCopyBtn.innerHTML = `📋 Copy tên SP`;
+              fCopyBtn.style.backgroundColor = '#0284c7';
+              fCopyBtn.style.borderColor = '#0369a1';
+            }, 1500);
+          });
+        }
+      };
+
+      floatDiv.appendChild(fEditBtn);
+      floatDiv.appendChild(fCopyBtn);
+      document.body.appendChild(floatDiv);
+    }
+  }
+
+  injectBuyerProductActionButtons();
+
   setInterval(() => {
     injectAiDescriptionButton();
     injectStockQuickButtons();
     autoInjectPromotionSkuBadges();
+    injectBuyerProductActionButtons();
   }, 800);
 })();
 
