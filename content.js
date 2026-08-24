@@ -7256,6 +7256,39 @@ function downloadExcelFileBypass(wb, filename) {
       });
   }
 
+  function findOrderRowHref(orderIdEl, fallbackOrderId) {
+    if (orderIdEl) {
+      const closestA = orderIdEl.closest("a[href]");
+      if (closestA) {
+        const h = closestA.getAttribute("href") || closestA.href;
+        if (h && h !== "#" && !h.startsWith("javascript:")) {
+          return h.startsWith("http") ? h : `https://banhang.shopee.vn${h.startsWith("/") ? "" : "/"}${h}`;
+        }
+      }
+
+      let current = orderIdEl;
+      let rowContainer = orderIdEl;
+      while(current && current.parentElement && current.parentElement !== document.body) {
+          if (current.parentElement.querySelectorAll(".id.order-id").length > 1) {
+              break;
+          }
+          current = current.parentElement;
+          rowContainer = current;
+      }
+
+      if (rowContainer) {
+        const containerA = rowContainer.closest("a[href]") || rowContainer.querySelector("a[href*='/order/'], a[href*='/sale/order'], a[href*='/portal/sale/order'], a[href]");
+        if (containerA) {
+          const h = containerA.getAttribute("href") || containerA.href;
+          if (h && h !== "#" && !h.startsWith("javascript:")) {
+            return h.startsWith("http") ? h : `https://banhang.shopee.vn${h.startsWith("/") ? "" : "/"}${h}`;
+          }
+        }
+      }
+    }
+    return `https://banhang.shopee.vn/portal/sale/order/${fallbackOrderId}`;
+  }
+
   function handleDhHoanAction(action, orderIdEl, btn) {
       const data = extractReturnRowData(orderIdEl);
       if (!data || !data.orderId) {
@@ -7296,9 +7329,8 @@ function downloadExcelFileBypass(wb, filename) {
                     btn.textContent = "OK!";
                     setTimeout(() => { btn.textContent = originalText; }, 2000);
                 } else if (response && (response.notFound || (response.error && response.error.includes("Không tìm thấy Mã đơn hàng")))) {
-                    // Chưa có trong Sheet DH -> Tự động mở 1 cửa sổ Chrome mới (không phải tab mới) và sau 1 phút tự tắt
-                    const orderLinkEl = orderIdEl.querySelector("a[href]");
-                    const targetUrl = (orderLinkEl && orderLinkEl.href) ? orderLinkEl.href : `https://banhang.shopee.vn/portal/sale/order/${data.orderId}`;
+                    // Chưa có trong Sheet DH -> Lấy đúng link href từ thẻ a bọc ngoài dòng (vd: /portal/sale/order/240520694230100)
+                    const targetUrl = findOrderRowHref(orderIdEl, data.orderId);
                     
                     btn.textContent = "⏳ Mở Chrome...";
                     
