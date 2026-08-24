@@ -1027,7 +1027,9 @@ async function uploadImageToFreeImageHost(imageUrl) {
     }
 
     let reqOrderId = String(message.orderId || "").trim().toLowerCase();
-    reqOrderId = reqOrderId.replace(/copy|sao\s*ch[eé]p/gi, "").trim();
+    reqOrderId = reqOrderId.replace(/copy|sao\s*ch[eé]p|m[aã]\s*([đd][oơ]n\s*h[aà]ng|y[eê]u\s*c[aầ]u\s*tr[aả]\s*h[aà]ng)/gi, " ").trim();
+    const mReq = reqOrderId.match(/([0-9]{6}[a-z0-9]{7,14})/i);
+    if (mReq) reqOrderId = mReq[1].toLowerCase();
     const reqGian = String(message.maGian || message.noidung || "").trim().toLowerCase();
 
     if (!reqOrderId) {

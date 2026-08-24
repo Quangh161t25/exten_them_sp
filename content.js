@@ -7168,22 +7168,27 @@ function downloadExcelFileBypass(wb, filename) {
 
 
 
-  function cleanShopeeOrderIdOrReturnId(str) {
-    if (!str) return "";
-    let clean = String(str).replace(/copy|sao\s*ch[eé]p/gi, " ").trim();
-    const m = clean.match(/([0-9]{6}[A-Z0-9]{8,14})/i);
-    if (m) return m[1].toUpperCase();
-    return clean.replace(/\s+/g, "").toUpperCase();
+  function extractShopeeCode(elementOrText) {
+    if (!elementOrText) return "";
+    let text = typeof elementOrText === "string" ? elementOrText : (elementOrText.textContent || "");
+    text = text.replace(/copy|sao\s*ch[eé]p|m[aã]\s*([đd][oơ]n\s*h[aà]ng|y[eê]u\s*c[aầ]u\s*tr[aả]\s*h[aà]ng)/gi, " ").trim();
+    const m = text.match(/([0-9]{6}[A-Z0-9]{7,14})/i);
+    if (m) {
+      let code = m[1].toUpperCase();
+      if (code.endsWith("COPY")) code = code.slice(0, -4);
+      return code;
+    }
+    return "";
   }
 
   function extractReturnRowData(orderIdEl) {
     let orderId = "";
-    const orderIdContentEl = orderIdEl.querySelector(".id-content, a, span, b");
-    if (orderIdContentEl) {
-      orderId = cleanShopeeOrderIdOrReturnId(orderIdContentEl.textContent);
+    const contentEl = orderIdEl.querySelector(".id-content, a[href*='order'], a");
+    if (contentEl) {
+      orderId = extractShopeeCode(contentEl.textContent);
     }
     if (!orderId) {
-      orderId = cleanShopeeOrderIdOrReturnId(orderIdEl.textContent);
+      orderId = extractShopeeCode(orderIdEl.textContent);
     }
 
     let current = orderIdEl;
@@ -7199,9 +7204,9 @@ function downloadExcelFileBypass(wb, filename) {
     if (!rowContainer) return { orderId, reason: "", returnId: "", tracking: "" };
 
     let returnId = "";
-    const returnIdEl_ = rowContainer.querySelector(".id.return-id .id-content, .return-id, [class*=\"return-id\"]");
+    const returnIdEl_ = rowContainer.querySelector(".id.return-id, .return-id, [class*=\"return-id\"]");
     if (returnIdEl_) {
-      returnId = cleanShopeeOrderIdOrReturnId(returnIdEl_.textContent);
+      returnId = extractShopeeCode(returnIdEl_.textContent);
     }
 
     let tracking = "";
@@ -7367,7 +7372,7 @@ function downloadExcelFileBypass(wb, filename) {
       });
       
       const orderIdContentEl = orderIdEl.querySelector('.id-content');
-      const directOrderId = cleanShopeeOrderIdOrReturnId(orderIdContentEl ? orderIdContentEl.textContent : orderIdEl.textContent);
+      const directOrderId = extractShopeeCode(orderIdEl.textContent);
       btnCopy.dataset.shopeeQlspCopyReturnOrderId = directOrderId;
       btnCopy.classList.add("btn-copy-return-data-check");
       
