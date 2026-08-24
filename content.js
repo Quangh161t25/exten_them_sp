@@ -8347,7 +8347,7 @@ function downloadExcelFileBypass(wb, filename) {
     if (!orderDetail || !orderDetail.ok || !orderDetail.rows || orderDetail.rows.length === 0) return false;
     if (!orderDetail.orderId) return false;
     
-    // BẮT BUỘC mã đơn hàng phải đúng định dạng chuẩn
+    // BẮT BUỘC mã đơn hàng phải đúng định dạng chuẩn (không thuần số như ID URL 240520694230100)
     const id = String(orderDetail.orderId).trim();
     if (id.length < 10) return false;
     if (/^\d+$/.test(id) && id.length > 12) {
@@ -8359,15 +8359,9 @@ function downloadExcelFileBypass(wb, filename) {
       return false;
     }
 
-    // BẮT BUỘC SKU PHẢI LÀ SKU THẬT (KHÔNG ĐƯỢC LÀ DUMMY "SP" KHI TRANG CHƯA LOAD XONG)
-    const firstSku = String(orderDetail.rows[0]?.sku || "").trim();
-    if (!firstSku || firstSku === "SP") {
-      return false;
-    }
-
     // BẮT BUỘC phải có DOM sản phẩm hiển thị trên trang
-    const hasProductEl = document.querySelector('.order-view-item, .order-item, .product-item, .order-product-wrapper, .ct-item-product-name, .product-name');
-    if (!hasProductEl) {
+    const hasProductEl = document.querySelector('.order-view-item, .order-item, .product-item, .order-product-wrapper, .ct-item-product-name, .product-name, [class*="product-name"], [class*="item-name"]');
+    if (!hasProductEl && (!orderDetail.rows[0]?.sku || orderDetail.rows[0]?.sku === "SP")) {
       return false;
     }
 
@@ -8385,7 +8379,7 @@ function downloadExcelFileBypass(wb, filename) {
 
     if (location.href !== lastPageUrlForSync) {
       lastPageUrlForSync = location.href;
-      pageLoadSettleTime = Date.now() + 10000; // Đợi đúng 10 giây để Shopee tải xong toàn bộ dữ liệu đầy đủ rồi mới thêm
+      pageLoadSettleTime = Date.now() + 3000; // Đợi 3 giây để Shopee Vue render đầy đủ dữ liệu
       return;
     }
 
