@@ -7329,17 +7329,21 @@ function downloadExcelFileBypass(wb, filename) {
                     btn.textContent = "OK!";
                     setTimeout(() => { btn.textContent = originalText; }, 2000);
                 } else if (response && (response.notFound || (response.error && response.error.includes("Không tìm thấy Mã đơn hàng")))) {
-                    // Chưa có trong Sheet DH -> Lấy đúng link href từ thẻ a bọc ngoài dòng (vd: /portal/sale/order/240520694230100)
-                    const targetUrl = findOrderRowHref(orderIdEl, data.orderId);
-                    
+                    // Chưa có trong Sheet DH -> Kích hoạt click vào thẻ span.id-content để mở chi tiết đơn hàng
+                    const orderIdContentEl = orderIdEl.querySelector('.id-content');
                     btn.textContent = "⏳ Mở Chrome...";
                     
-                    chrome.runtime.sendMessage({
-                        type: "OPEN_ORDER_IN_NEW_WINDOW",
-                        url: targetUrl,
-                        orderId: data.orderId,
-                        autoCloseDelay: 60000
-                    });
+                    if (orderIdContentEl) {
+                        orderIdContentEl.click();
+                    } else {
+                        const targetUrl = findOrderRowHref(orderIdEl, data.orderId);
+                        chrome.runtime.sendMessage({
+                            type: "OPEN_ORDER_IN_NEW_WINDOW",
+                            url: targetUrl,
+                            orderId: data.orderId,
+                            autoCloseDelay: 60000
+                        });
+                    }
 
                     // Tự động kiểm tra và cập nhật lại khi đơn hàng được lưu xong vào Sheet DH
                     let pollCount = 0;
@@ -7411,6 +7415,31 @@ function downloadExcelFileBypass(wb, filename) {
 
     const orderIdElements = document.querySelectorAll('.id.order-id');
     for (const orderIdEl of orderIdElements) {
+      // Gắn sự kiện click trực tiếp và style cho span.id-content
+      const orderIdContentEl = orderIdEl.querySelector('.id-content');
+      if (orderIdContentEl) {
+        orderIdContentEl.style.cursor = "pointer";
+        orderIdContentEl.style.color = "#1890ff";
+        orderIdContentEl.style.fontWeight = "bold";
+        orderIdContentEl.title = "Click để mở chi tiết đơn hàng trong Chrome mới (tự đóng sau 1 phút)";
+
+        if (orderIdContentEl.dataset.shopeeExtClickBound !== "1") {
+          orderIdContentEl.dataset.shopeeExtClickBound = "1";
+          orderIdContentEl.addEventListener("click", (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const data = extractReturnRowData(orderIdEl);
+            const targetUrl = findOrderRowHref(orderIdEl, data.orderId);
+            chrome.runtime.sendMessage({
+              type: "OPEN_ORDER_IN_NEW_WINDOW",
+              url: targetUrl,
+              orderId: data.orderId,
+              autoCloseDelay: 60000
+            });
+          });
+        }
+      }
+
       if (orderIdEl.dataset.shopeeQlspCopyReturnInfo === "1") {
         continue;
       }
@@ -7426,11 +7455,11 @@ function downloadExcelFileBypass(wb, filename) {
         const data = extractReturnRowData(orderIdEl);
         if (!data) return;
         const copyLines = [];
-        if (data.orderId) copyLines.push(`MÃ£ Ä‘Æ¡n hÃ ng: ${data.orderId}`);
-        if (data.reason) copyLines.push(`LÃ½ do: ${data.reason}`);
-        if (data.returnId) copyLines.push(`MÃ£ yÃªu cáº§u tráº£ hÃ ng: ${data.returnId}`);
-        if (data.tracking) copyLines.push(`Váº­n chuyá»ƒn hÃ ng hoÃ n: ${data.tracking}`);
-        const copyText = copyLines.join('\\n');
+        if (data.orderId) copyLines.push(`Mã đơn hàng: ${data.orderId}`);
+        if (data.reason) copyLines.push(`Lý do: ${data.reason}`);
+        if (data.returnId) copyLines.push(`Mã yêu cầu trả hàng: ${data.returnId}`);
+        if (data.tracking) copyLines.push(`Vận chuyển hàng hoàn: ${data.tracking}`);
+        const copyText = copyLines.join('\n');
         
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(copyText).then(() => {
@@ -7449,7 +7478,6 @@ function downloadExcelFileBypass(wb, filename) {
         }
       });
       
-      const orderIdContentEl = orderIdEl.querySelector('.id-content');
       const directOrderId = extractShopeeCode(orderIdEl.textContent);
       btnCopy.dataset.shopeeQlspCopyReturnOrderId = directOrderId;
       btnCopy.classList.add("btn-copy-return-data-check");
