@@ -11805,28 +11805,49 @@ async function extractProductDataAndSave() {
   let autoShopeeLoadingData = false; // tránh gọi API song song
 
   function findMinPriceForSku(sku, dsRows) {
-    if (!sku || !dsRows || !Array.isArray(dsRows) || dsRows.length <= 1) return null;
+    if (!sku || !dsRows || !Array.isArray(dsRows) || dsRows.length === 0) return null;
     
     let dsIdSpIdx = 1; // Mặc định cột B (id_sp_ct / id_sp)
     let dsGiaThapNhatIdx = 6; // Mặc định cột G (gia_thap_nhat)
     
-    const dsHeaders = dsRows[0].map(h => String(h || "").normalize("NFC").trim().toLowerCase());
-    const idCol = dsHeaders.findIndex(h => h === "id_sp_ct" || h === "id_sp" || h === "id sp" || h === "sku" || h === "ma_sku");
-    if (idCol !== -1) dsIdSpIdx = idCol;
-    
-    const giaCol = dsHeaders.findIndex(h => h === "gia_thap_nhat" || h === "gia thap nhat" || h.includes("thấp nhất") || h.includes("giá min") || h.includes("gia_min") || h.includes("thap nhat"));
-    if (giaCol !== -1) dsGiaThapNhatIdx = giaCol;
+    if (Array.isArray(dsRows[0])) {
+      const dsHeaders = dsRows[0].map(h => String(h || "").normalize("NFC").trim().toLowerCase());
+      const idCol = dsHeaders.findIndex(h => h === "id_sp_ct" || h === "id_sp" || h === "id sp" || h === "sku" || h === "ma_sku");
+      if (idCol !== -1) dsIdSpIdx = idCol;
+      
+      const giaCol = dsHeaders.findIndex(h => h === "gia_thap_nhat" || h === "gia thap nhat" || h.includes("thấp nhất") || h.includes("giá min") || h.includes("gia_min") || h.includes("thap nhat"));
+      if (giaCol !== -1) dsGiaThapNhatIdx = giaCol;
+    }
 
     const cleanSku = String(sku).trim().toUpperCase();
-    const sku10 = cleanSku.substring(0, 10);
     const sku14 = cleanSku.substring(0, 14);
+    const sku10 = cleanSku.substring(0, 10);
     const skuPrefix4 = cleanSku.substring(0, 4);
 
-    let matchRows = dsRows.filter((r, idx) => {
-      if (idx === 0) return false;
-      const rowId = String(r[dsIdSpIdx] || "").trim().toUpperCase();
-      if (!rowId) return false;
-      return (
+    let minPrice = null;
+
+    for (let idx = 0; idx < dsRows.length; idx++) {
+      if (idx === 0 && Array.isArray(dsRows[0]) && typeof dsRows[0][0] === 'string' && dsRows[0][0].toLowerCase().includes('ngay')) {
+        continue;
+      }
+
+      const r = dsRows[idx];
+      if (!r) continue;
+
+      let rowId = "";
+      let rawVal = "";
+
+      if (Array.isArray(r)) {
+        rowId = String(r[dsIdSpIdx] || r[1] || "").trim().toUpperCase();
+        rawVal = r[dsGiaThapNhatIdx] || r[6] || r[5];
+      } else if (typeof r === "object") {
+        rowId = String(r.id_sp || r.id_sp_ct || r.sku || r.id || "").trim().toUpperCase();
+        rawVal = r.gia_thap_nhat || r.gia_min || r.giaThapNhat || r.lowestPrice;
+      }
+
+      if (!rowId) continue;
+
+      const isMatch = (
         rowId === cleanSku || 
         rowId === sku14 || 
         rowId === sku10 || 
@@ -11835,25 +11856,18 @@ async function extractProductDataAndSave() {
         rowId.startsWith(skuPrefix4) ||
         cleanSku.startsWith(rowId.substring(0, 4))
       );
-    });
 
-    if (matchRows.length > 0) {
-      let minPrice = null;
-      for (const r of matchRows) {
-        const rawVal = r[dsGiaThapNhatIdx];
-        if (rawVal) {
-          const numericMatch = parseInt(String(rawVal).replace(/[^\d]/g, ''), 10);
-          if (!isNaN(numericMatch) && numericMatch > 0) {
-            if (minPrice === null || numericMatch < minPrice) {
-              minPrice = numericMatch;
-            }
+      if (isMatch && rawVal) {
+        const numericMatch = parseInt(String(rawVal).replace(/[^\d]/g, ''), 10);
+        if (!isNaN(numericMatch) && numericMatch > 0) {
+          if (minPrice === null || numericMatch < minPrice) {
+            minPrice = numericMatch;
           }
         }
       }
-      return minPrice;
     }
 
-    return null;
+    return minPrice;
   }
 
   function findSkuForShopeeVariation(pName, vName, spRows, currentMaGian) {
@@ -12086,54 +12100,56 @@ async function extractProductDataAndSave() {
       };
       badge.appendChild(skuSpan);
 
-      // Ô giá sau giảm là ô nhập đầu tiên trong nhóm giá của biến thể
-      const discInput = mEl.querySelector('.item-discounted-price input, .item-price input, .discount-price input, input[restrictiontype="value"], input[placeholder*="giá"], input[placeholder*="Giá"], input.eds-input__input, input[type="text"], input[type="number"], input');
+      // 2. TÌM Ô NHẬP GIÁ SAU GIẢM (LUÔN LÀ Ô NHẬP ĐẦU TIÊN TRONG DÒNG BIẾN THỂ)
+      const inputsInRow = Array.from(mEl.querySelectorAll('input:not([type="checkbox"]):not([type="radio"])'));
+      const discInput = mEl.querySelector('.item-discounted-price input, .item-price input, .discount-price input') || inputsInRow[0];
 
       const updateInputColor = () => {
         if (!discInput) return;
-        const curVal = parseSellerOrderMoneyNumber(discInput.value);
+        const rawVal = discInput.value;
+        const curVal = parseSellerOrderMoneyNumber(rawVal);
         const minVal = parseSellerOrderMoneyNumber(minPrice);
-        const wrapper = discInput.closest('.eds-input, .eds-input-wrapper') || discInput;
+        const wrapper = discInput.closest('.eds-input, .eds-input-wrapper') || discInput.parentElement || discInput;
 
         if (minVal > 0 && curVal > 0) {
           if (curVal === minVal) {
-            // BẰNG GIÁ MIN -> MÀU XANH LÁ
+            // 1. BẰNG GIÁ MIN -> MÀU XANH LÁ
             discInput.style.setProperty('background-color', '#f0fdf4', 'important');
-            discInput.style.setProperty('border-color', '#16a34a', 'important');
             discInput.style.setProperty('color', '#15803d', 'important');
             discInput.style.setProperty('font-weight', 'bold', 'important');
-            if (wrapper !== discInput) {
+            if (wrapper) {
               wrapper.style.setProperty('background-color', '#f0fdf4', 'important');
+              wrapper.style.setProperty('border', '2px solid #16a34a', 'important');
               wrapper.style.setProperty('border-color', '#16a34a', 'important');
             }
           } else if (curVal > minVal) {
-            // LỚN HƠN GIÁ MIN -> MÀU ĐỎ
+            // 2. LỚN HƠN GIÁ MIN -> MÀU ĐỎ
             discInput.style.setProperty('background-color', '#fef2f2', 'important');
-            discInput.style.setProperty('border-color', '#ef4444', 'important');
             discInput.style.setProperty('color', '#dc2626', 'important');
             discInput.style.setProperty('font-weight', 'bold', 'important');
-            if (wrapper !== discInput) {
+            if (wrapper) {
               wrapper.style.setProperty('background-color', '#fef2f2', 'important');
+              wrapper.style.setProperty('border', '2px solid #ef4444', 'important');
               wrapper.style.setProperty('border-color', '#ef4444', 'important');
             }
           } else {
-            // NHỎ HƠN GIÁ MIN -> MÀU TRẮNG + CHỮ ĐEN
+            // 3. NHỎ HƠN GIÁ MIN -> MÀU TRẮNG + CHỮ ĐEN
             discInput.style.setProperty('background-color', '#ffffff', 'important');
-            discInput.style.setProperty('border-color', '#d1d5db', 'important');
             discInput.style.setProperty('color', '#000000', 'important');
             discInput.style.setProperty('font-weight', 'normal', 'important');
-            if (wrapper !== discInput) {
+            if (wrapper) {
               wrapper.style.setProperty('background-color', '#ffffff', 'important');
+              wrapper.style.setProperty('border', '1px solid #d1d5db', 'important');
               wrapper.style.setProperty('border-color', '#d1d5db', 'important');
             }
           }
         } else {
           discInput.style.setProperty('background-color', '#ffffff', 'important');
-          discInput.style.setProperty('border-color', '#d1d5db', 'important');
           discInput.style.setProperty('color', '#000000', 'important');
           discInput.style.setProperty('font-weight', 'normal', 'important');
-          if (wrapper !== discInput) {
+          if (wrapper) {
             wrapper.style.setProperty('background-color', '#ffffff', 'important');
+            wrapper.style.setProperty('border', '1px solid #d1d5db', 'important');
             wrapper.style.setProperty('border-color', '#d1d5db', 'important');
           }
         }
@@ -12413,52 +12429,44 @@ async function extractProductDataAndSave() {
   // ĐỔI MÀU ĐỎ NHẠT CHO SẢN PHẨM CÓ KHO HÀNG = 0 TRÊN PORTAL/PRODUCT/LIST
   // =========================================================================
   function highlightZeroStockProducts() {
-    if (!window.location.pathname.includes('/portal/product/list')) return;
+    if (!window.location.href.includes('/portal/product/list')) return;
 
-    // 1. Quét theo thẻ .product-stock-label (như selector mẫu của người dùng)
-    document.querySelectorAll('.product-stock-label').forEach(labelEl => {
+    // 1. Quét trực tiếp các phần tử chứa nhãn Kho hàng
+    document.querySelectorAll('.product-stock-label, span.product-stock-label, [class*="product-stock-label"]').forEach(labelEl => {
       const container = labelEl.closest('.text-overflow') || labelEl.parentElement;
       if (!container) return;
 
-      const fullText = (container.textContent || "").trim();
-      // Bóc tách số sau nhãn "Kho hàng"
-      const m = fullText.match(/(?:kho\s*hàng\s*:?\s*|^)(\d+)/i) || fullText.match(/(\d+)/);
-      if (m) {
-        const qty = parseInt(m[1], 10);
-        if (qty === 0) {
-          container.style.setProperty('background-color', '#fee2e2', 'important'); // màu đỏ nhạt
-          container.style.setProperty('border', '1px solid #f87171', 'important');
-          container.style.setProperty('border-radius', '4px', 'important');
-          container.style.setProperty('padding', '2px 6px', 'important');
-          container.style.setProperty('color', '#dc2626', 'important');
-          container.style.setProperty('font-weight', 'bold', 'important');
-          container.style.setProperty('display', 'inline-flex', 'important');
-          container.style.setProperty('align-items', 'center', 'important');
-          container.style.setProperty('gap', '4px', 'important');
-          container.style.setProperty('width', 'max-content', 'important');
+      const fullText = (container.textContent || "").replace(/\s+/g, ' ').trim();
+      // Bắt trường hợp "Kho hàng 0" hoặc "Kho hàng: 0" hoặc "Kho hàng0"
+      if (/kho\s*hàng\s*:?\s*0\b/i.test(fullText) || /tồn\s*kho\s*:?\s*0\b/i.test(fullText) || fullText === "Kho hàng0" || fullText === "Kho hàng 0" || fullText.endsWith(" 0") || fullText.endsWith("0")) {
+        container.style.setProperty('background-color', '#fee2e2', 'important'); // màu đỏ nhạt
+        container.style.setProperty('border', '1px solid #f87171', 'important');
+        container.style.setProperty('border-radius', '4px', 'important');
+        container.style.setProperty('padding', '2px 8px', 'important');
+        container.style.setProperty('color', '#dc2626', 'important');
+        container.style.setProperty('font-weight', 'bold', 'important');
+        container.style.setProperty('display', 'inline-block', 'important');
+        container.style.setProperty('box-shadow', '0 1px 2px rgba(220, 38, 38, 0.1)', 'important');
 
-          container.querySelectorAll('span').forEach(sp => {
-            sp.style.setProperty('color', '#dc2626', 'important');
-            sp.style.setProperty('font-weight', 'bold', 'important');
-          });
-        }
+        container.querySelectorAll('span').forEach(sp => {
+          sp.style.setProperty('color', '#dc2626', 'important');
+          sp.style.setProperty('font-weight', 'bold', 'important');
+        });
       }
     });
 
-    // 2. Quét các container text-overflow có nội dung Kho hàng 0
+    // 2. Quét các thẻ .text-overflow trên trang danh sách sản phẩm
     document.querySelectorAll('.text-overflow').forEach(el => {
-      const text = (el.textContent || "").trim();
-      if (/^kho\s*hàng\s*:?\s*0$/i.test(text)) {
+      const txt = (el.textContent || "").replace(/\s+/g, ' ').trim();
+      if (txt === "Kho hàng0" || txt === "Kho hàng 0" || /^kho\s*hàng\s*:?\s*0$/i.test(txt) || /^tồn\s*kho\s*:?\s*0$/i.test(txt)) {
         el.style.setProperty('background-color', '#fee2e2', 'important');
         el.style.setProperty('border', '1px solid #f87171', 'important');
         el.style.setProperty('border-radius', '4px', 'important');
-        el.style.setProperty('padding', '2px 6px', 'important');
+        el.style.setProperty('padding', '2px 8px', 'important');
         el.style.setProperty('color', '#dc2626', 'important');
         el.style.setProperty('font-weight', 'bold', 'important');
-        el.style.setProperty('display', 'inline-flex', 'important');
-        el.style.setProperty('align-items', 'center', 'important');
-        el.style.setProperty('gap', '4px', 'important');
-        el.style.setProperty('width', 'max-content', 'important');
+        el.style.setProperty('display', 'inline-block', 'important');
+        el.style.setProperty('box-shadow', '0 1px 2px rgba(220, 38, 38, 0.1)', 'important');
         el.querySelectorAll('span').forEach(sp => {
           sp.style.setProperty('color', '#dc2626', 'important');
           sp.style.setProperty('font-weight', 'bold', 'important');
