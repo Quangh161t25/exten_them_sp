@@ -7681,42 +7681,88 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function extractSellerOrderCreatedAt() {
-      const timePattern1 = /\b(\d{1,2}:\d{2}(?::\d{2})?)\s+(\d{1,2}\/\d{1,2}\/\d{4})\b/;
-      const timePattern2 = /\b(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}(?::\d{2})?)\b/;
+    const timePattern1 = /\b(\d{1,2}:\d{2}(?::\d{2})?)\s+(\d{1,2}\/\d{1,2}\/\d{4})\b/;
+    const timePattern2 = /\b(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}(?::\d{2})?)\b/;
 
-      // 1. Quét trực tiếp các thẻ có class .time hoặc div.time
-      const timeElements = Array.from(document.querySelectorAll('.time, div[class*="time"], span[class*="time"], .order-time, .eds-timeline-item, div.time'));
-      for (const el of timeElements) {
-          const txt = cleanOrderDetailText(el.textContent || "").trim();
-          const m1 = txt.match(timePattern1);
-          if (m1) return `${m1[1]} ${m1[2]}`;
-          const m2 = txt.match(timePattern2);
-          if (m2) return `${m2[2]} ${m2[1]}`;
-      }
-
-      // 2. Quét các dòng văn bản cạnh 'đơn hàng mới' hoặc 'ngày đặt'
-      const lines = getOrderDetailLines();
-      for (let i = 0; i < lines.length; i++) {
-          const norm = normalizeOrderDetailText(lines[i]);
-          if (norm.includes("don hang moi") || norm.includes("ngay dat") || norm.includes("thoi gian dat")) {
-              for (let off = 0; off <= 4; off++) {
-                  const l = lines[i + off] || "";
-                  const m1 = l.match(timePattern1);
-                  if (m1) return `${m1[1]} ${m1[2]}`;
-                  const m2 = l.match(timePattern2);
-                  if (m2) return `${m2[2]} ${m2[1]}`;
-              }
-          }
-      }
-
-      // 3. Fallback quét toàn bộ text trong trang
-      const allMatches = (document.body.innerText || "").match(/\b\d{1,2}:\d{2}(?::\d{2})?\s+\d{1,2}\/\d{1,2}\/\d{4}\b/g);
-      if (allMatches && allMatches.length > 0) {
-          return allMatches[0];
-      }
-
+    const parseTimeFromText = (txt) => {
+      if (!txt) return "";
+      const m1 = txt.match(timePattern1);
+      if (m1) return `${m1[1]} ${m1[2]}`;
+      const m2 = txt.match(timePattern2);
+      if (m2) return `${m2[2]} ${m2[1]}`;
       return "";
+    };
+
+    // 1. Ưu tiên cao nhất: Tìm khối timeline có chữ "Đơn hàng mới" hoặc "Thời gian đặt hàng" hoặc "Ngày đặt"
+    const timelineItems = Array.from(document.querySelectorAll('.eds-timeline-item, .timeline-item, [class*="timeline-item"], [class*="timelineItem"], div'));
+    for (const item of timelineItems) {
+      const itemText = normalizeOrderDetailText(item.innerText || item.textContent || "");
+      if (itemText.includes("don hang moi") || itemText.includes("thoi gian dat hang") || itemText.includes("ngay dat hang") || itemText.includes("dat hang thanh cong") || itemText.includes("order placed")) {
+        const timeEl = item.querySelector('.time, [class*="time"], .date, [class*="date"]');
+        if (timeEl) {
+          const t = parseTimeFromText(timeEl.textContent);
+          if (t) return t;
+        }
+        const t = parseTimeFromText(item.innerText || item.textContent || "");
+        if (t) return t;
+      }
+    }
+
+    // 2. Tìm trong các dòng văn bản cạnh 'đơn hàng mới' hoặc 'ngày đặt'
+    const lines = getOrderDetailLines();
+    for (let i = 0; i < lines.length; i++) {
+      const norm = normalizeOrderDetailText(lines[i]);
+      if (norm.includes("don hang moi") || norm.includes("thoi gian dat") || norm.includes("ngay dat")) {
+        for (let off = 0; off <= 3; off++) {
+          const l = lines[i + off] || "";
+          const t = parseTimeFromText(l);
+          if (t) return t;
+        }
+      }
+    }
+
+    // 3. Nếu timeline có nhiều thẻ .time, tìm thẻ gắn với "đơn hàng mới"
+    const timeElements = Array.from(document.querySelectorAll('.time, div.time, span.time, [class*="timeline"] .time'));
+    const allFoundTimes = [];
+    for (const el of timeElements) {
+      const parentText = normalizeOrderDetailText(el.closest('div, li, [class*="item"]')?.textContent || "");
+      const t = parseTimeFromText(el.textContent);
+      if (t) {
+        if (parentText.includes("don hang moi") || parentText.includes("dat hang")) {
+          return t;
+        }
+        allFoundTimes.push({ timeStr: t, el });
+      }
+    }
+
+    // 4. Nếu có danh sách các mốc thời gian trên timeline, mốc tạo đơn "Đơn hàng mới" là mốc thời gian nhỏ nhất (sớm nhất trong quá khứ)
+    if (allFoundTimes.length > 0) {
+      let earliestTime = "";
+      let minTs = Infinity;
+      for (const item of allFoundTimes) {
+        const parts = item.timeStr.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (parts) {
+          const d = new Date(Number(parts[5]), Number(parts[4]) - 1, Number(parts[3]), Number(parts[1]), Number(parts[2]));
+          const ts = d.getTime();
+          if (ts < minTs) {
+            minTs = ts;
+            earliestTime = item.timeStr;
+          }
+        }
+      }
+      if (earliestTime) return earliestTime;
+      return allFoundTimes[allFoundTimes.length - 1].timeStr;
+    }
+
+    // 5. Fallback quét toàn bộ text trong trang (lấy mốc thời gian đầu tiên xuất hiện hoặc nhỏ nhất)
+    const allMatches = (document.body.innerText || "").match(/\b\d{1,2}:\d{2}(?::\d{2})?\s+\d{1,2}\/\d{1,2}\/\d{4}\b/g);
+    if (allMatches && allMatches.length > 0) {
+      return allMatches[allMatches.length - 1];
+    }
+
+    return "";
   }
+
   function extractSellerOrderPackageInfo() {
       const labelTexts = Array.from(document.querySelectorAll("span.label, div.label, .label"))
           .map((element) => cleanOrderDetailText(element.textContent))
