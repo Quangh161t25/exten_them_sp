@@ -7449,7 +7449,7 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function extractOrderMoneyValues(text) {
-      return String(text || "").match(/-?\s*₫\s*[\d.,]+/g) || [];
+      return String(text || "").match(/(?:[-–—]\s*)?₫\s*[\d.,]+|[\d.,]+\s*₫|(?:[-–—]\s*)?\b\d{1,3}(?:\.\d{3})+(?:,\d+)?\b/g) || [];
   }
 
   function extractSellerOrderIdFromPage() {
@@ -7614,10 +7614,17 @@ function downloadExcelFileBypass(wb, filename) {
           }
       };
 
-      document.querySelectorAll(".income-item").forEach((item) => {
-          const labelEl = item.querySelector(".income-label-text") || item.querySelector(".label") || item.firstElementChild;
-          const valueEl = item.querySelector(".income-value") || item.querySelector(".amount") || item.lastElementChild;
-          addItem(labelEl?.textContent || "", valueEl?.textContent || "");
+      const itemContainers = document.querySelectorAll(
+        ".income-item, .income-detail-item, .payment-item, .order-income-item, " +
+        "[class*='income-item'], [class*='incomeItem'], [class*='cost-item'], " +
+        ".order-income-section div, .order-panel-income div, .order-income div"
+      );
+      itemContainers.forEach((item) => {
+          const labelEl = item.querySelector(".income-label-text, .label, .income-label, [class*='label'], [class*='title'], dt, span:first-child");
+          const valueEl = item.querySelector(".income-value, .amount, .value, [class*='value'], [class*='amount'], dd, span:last-child");
+          if (labelEl && valueEl && labelEl !== valueEl) {
+            addItem(labelEl.textContent || "", valueEl.textContent || "");
+          }
       });
 
       const lines = getOrderDetailLines();
@@ -7626,8 +7633,9 @@ function downloadExcelFileBypass(wb, filename) {
           const sameLineMoney = extractOrderMoneyValues(line);
           if (sameLineMoney.length) {
               const label = line.replace(sameLineMoney[sameLineMoney.length - 1], "").trim();
-              addItem(label, sameLineMoney[sameLineMoney.length - 1]);
-          } else if (extractOrderMoneyValues(lines[i + 1] || "").length) {
+              if (label) addItem(label, sameLineMoney[sameLineMoney.length - 1]);
+          }
+          if (lines[i + 1] && extractOrderMoneyValues(lines[i + 1]).length) {
               addItem(line, lines[i + 1]);
           }
       }
@@ -7686,11 +7694,11 @@ function downloadExcelFileBypass(wb, filename) {
                   let sku = "";
                   const skuLine = lines.find(l => normalizeOrderDetailText(l).includes("sku"));
                   if (skuLine) {
-                      sku = skuLine.replace(/^.*?:\s*/, "").trim();
+                      sku = skuLine.replace(/^.*?:s*/, "").trim();
                   } else {
                       const phanLoaiLine = lines.find(l => normalizeOrderDetailText(l).includes("phan loai"));
                       if (phanLoaiLine) {
-                          sku = phanLoaiLine.replace(/^.*?:\s*/, "").trim();
+                          sku = phanLoaiLine.replace(/^.*?:s*/, "").trim();
                       } else if (lines[0]) {
                           sku = lines[0].substring(0, 35);
                       }
@@ -7711,7 +7719,7 @@ function downloadExcelFileBypass(wb, filename) {
       const qtyElements = Array.from(document.querySelectorAll(".qty, .quantity, [class*='qty']")).filter(isOrderDetailVisible);
       const products = skuElements.map((skuElement, index) => {
           const rawText = getOrderDetailOwnText(skuElement) || cleanOrderDetailText(skuElement.textContent);
-          const sku = rawText.replace(/^.*?:\s*/, "").trim();
+          const sku = rawText.replace(/^.*?:s*/, "").trim();
           const container = findSellerOrderProductContainer(skuElement);
           let quantity = "";
           const qtyEl = container.querySelector(".qty, .quantity, [class*='qty']") || qtyElements[index];
@@ -7782,8 +7790,6 @@ function downloadExcelFileBypass(wb, filename) {
     let diaChi = "";
     let linkDon = window.location.href || "";
 
-    // 1. LẤY TÊN KHÁCH (username người mua)
-    // Shopee DOM: <div class="username text-overflow">...</div>
     const usernameEl = document.querySelector(".username, [class*='username'], .buyer-name, [class*='buyer-name'], .user-name");
     if (usernameEl && usernameEl.textContent) {
       tenKhach = cleanOrderDetailText(usernameEl.textContent).trim();
@@ -7798,49 +7804,36 @@ function downloadExcelFileBypass(wb, filename) {
         if (parent) {
           const directDivs = Array.from(parent.querySelectorAll('div, span, p'))
             .map(e => cleanOrderDetailText(e.textContent).trim())
-            .filter(t => t && !/chat ngay|theo d[oõ]i/i.test(t) && t.length < 50 && !t.includes('http'));
-          if (directDivs.length > 0) {
-            tenKhach = directDivs[0];
-          }
+            .filter(t => t && !t.toLowerCase().includes("chat ngay") && t.length > 2);
+          if (directDivs.length > 0) tenKhach = directDivs[0];
         }
       }
     }
 
-    // 2. LẤY ĐỊA CHỈ NHẬN HÀNG VÀ NGƯỜI NHẬN
-    // Shopee DOM: <div class="ship-address">...</div>
-    const shipAddressEl = document.querySelector(".ship-address, [class*='ship-address'], [class*='delivery-address'], [class*='shipping-address']");
-    if (shipAddressEl && shipAddressEl.textContent) {
+    const shipAddressEl = document.querySelector(".ship-address, [class*='ship-address'], [class*='shipping-address'], .shipping-address");
+    if (shipAddressEl) {
       diaChi = cleanOrderDetailText(shipAddressEl.textContent).trim();
-      const prev = shipAddressEl.previousElementSibling;
-      if (prev && prev.textContent && !normalizeOrderDetailText(prev.textContent).includes("dia chi")) {
-        ngNhan = cleanOrderDetailText(prev.textContent).trim();
-      }
-    }
-
-    // Fallback: Quét các dòng văn bản quanh "Địa chỉ nhận hàng"
-    if (!diaChi || !ngNhan) {
-      const lines = getOrderDetailLines();
-      for (let i = 0; i < lines.length; i++) {
-        const norm = normalizeOrderDetailText(lines[i]);
-        if (norm.includes("dia chi nhan hang") || norm.includes("dia chi giao hang")) {
-          if (!ngNhan && lines[i + 1]) {
-            const l1 = cleanOrderDetailText(lines[i + 1]).trim();
-            if (!normalizeOrderDetailText(l1).includes("thong tin van chuyen") && !normalizeOrderDetailText(l1).includes("kien hang")) {
-              ngNhan = l1;
-            }
-          }
-          if (!diaChi && lines[i + 2]) {
-            const l2 = cleanOrderDetailText(lines[i + 2]).trim();
-            if (!normalizeOrderDetailText(l2).includes("thong tin van chuyen") && !normalizeOrderDetailText(l2).includes("kien hang")) {
-              diaChi = l2;
-            }
-          }
-          break;
+      const parentEl = shipAddressEl.parentElement;
+      if (parentEl) {
+        const prevDiv = parentEl.querySelector('div:not(.ship-address):not([class*="ship-address"]), span:first-child');
+        if (prevDiv && prevDiv !== shipAddressEl) {
+          ngNhan = cleanOrderDetailText(prevDiv.textContent).trim();
         }
       }
     }
 
-    // Fallback 2: Quét khối container chứa "Địa chỉ nhận hàng"
+    if (!diaChi || !ngNhan) {
+      const recipientDiv = Array.from(document.querySelectorAll('div, span, p')).find(el => {
+        const t = el.textContent || "";
+        return /\*{4,}\d{2}/.test(t) || /\d{3,4}\s*\*{3,}\s*\d{3,4}/.test(t);
+      });
+      if (recipientDiv) {
+        if (!ngNhan) ngNhan = cleanOrderDetailText(recipientDiv.textContent).trim();
+        const nextDiv = recipientDiv.nextElementSibling || recipientDiv.parentElement?.querySelector('.ship-address, div:nth-child(2)');
+        if (nextDiv && !diaChi) diaChi = cleanOrderDetailText(nextDiv.textContent).trim();
+      }
+    }
+
     if (!diaChi || !ngNhan) {
       const addressHeaders = Array.from(document.querySelectorAll('div, span, p, h3, h4')).filter(el => {
         const t = normalizeOrderDetailText(el.textContent || "");
@@ -7875,21 +7868,52 @@ function downloadExcelFileBypass(wb, filename) {
       const customerInfo = extractSellerOrderCustomerInfo();
       const paymentItems = collectSellerOrderPaymentItems();
       const products = extractSellerOrderProducts();
+
+      const totalProductAmount = findSellerOrderPaymentValue(paymentItems, ["tong tien san pham", "tong tien hang", "tong gia ban"]);
+      const productPrice = findSellerOrderPaymentValue(paymentItems, ["gia san pham"]);
+      const estimatedShippingTotal = findSellerOrderPaymentValue(paymentItems, ["tong phi van chuyen uoc tinh", "tong phi van chuyen", "phi van chuyen uoc tinh", "phi van chuyen"]);
+      const buyerPaidShippingFee = findSellerOrderPaymentValue(paymentItems, ["phi van chuyen nguoi mua tra"]);
+      const estimatedShippingFee = findSellerOrderPaymentValue(paymentItems, ["phi van chuyen uoc tinh"]);
+      
+      const fixedFee = findSellerOrderPaymentValue(paymentItems, ["phi co dinh"]);
+      const serviceFee = findSellerOrderPaymentValue(paymentItems, ["phi dich vu"]);
+      const transactionFee = findSellerOrderPaymentValue(paymentItems, ["phi xu ly giao dich", "phi thanh toan", "phi giao dich"]);
+      
+      let surcharge = findSellerOrderPaymentValue(paymentItems, ["tong phi san", "phi san", "phu phi", "phi nguoi ban phai tra", "chi phi san"]);
+      if (!surcharge || parseSellerOrderMoneyNumber(surcharge) === 0) {
+        const subFeeSum = parseSellerOrderMoneyNumber(fixedFee) + parseSellerOrderMoneyNumber(serviceFee) + parseSellerOrderMoneyNumber(transactionFee);
+        if (subFeeSum > 0) {
+          surcharge = String(subFeeSum);
+        }
+      }
+
+      const vatTax = findSellerOrderPaymentValue(paymentItems, ["thue gtgt", "thue gia tri gia tang"]);
+      const pitTax = findSellerOrderPaymentValue(paymentItems, ["thue tncn", "thue thu nhap ca nhan"]);
+      let tax = findSellerOrderPaymentValue(paymentItems, ["tong thue", "thue"]);
+      if (!tax || parseSellerOrderMoneyNumber(tax) === 0) {
+        const taxSum = parseSellerOrderMoneyNumber(vatTax) + parseSellerOrderMoneyNumber(pitTax);
+        if (taxSum > 0) {
+          tax = String(taxSum);
+        }
+      }
+
+      const estimatedOrderIncome = findSellerOrderPaymentValue(paymentItems, ["doanh thu don hang uoc tinh", "doanh thu don hang", "thuc nhan", "so tien thanh toan"]);
+
       const payments = {
-          totalProductAmount: findSellerOrderPaymentValue(paymentItems, ["tong tien san pham", "tong tien hang"]),
-          productPrice: findSellerOrderPaymentValue(paymentItems, ["gia san pham"]),
-          estimatedShippingTotal: findSellerOrderPaymentValue(paymentItems, ["tong phi van chuyen uoc tinh", "tong phi van chuyen"]),
-          buyerPaidShippingFee: findSellerOrderPaymentValue(paymentItems, ["phi van chuyen nguoi mua tra"]),
-          estimatedShippingFee: findSellerOrderPaymentValue(paymentItems, ["phi van chuyen uoc tinh"]),
-          surcharge: findSellerOrderPaymentValue(paymentItems, ["phu phi"]),
-          fixedFee: findSellerOrderPaymentValue(paymentItems, ["phi co dinh"]),
-          serviceFee: findSellerOrderPaymentValue(paymentItems, ["phi dich vu"]),
-          transactionFee: findSellerOrderPaymentValue(paymentItems, ["phi xu ly giao dich"]),
-          tax: findSellerOrderPaymentValue(paymentItems, ["thue"]),
-          vatTax: findSellerOrderPaymentValue(paymentItems, ["thue gtgt"]),
-          pitTax: findSellerOrderPaymentValue(paymentItems, ["thue tncn"]),
+          totalProductAmount,
+          productPrice,
+          estimatedShippingTotal,
+          buyerPaidShippingFee,
+          estimatedShippingFee,
+          surcharge,
+          fixedFee,
+          serviceFee,
+          transactionFee,
+          tax,
+          vatTax,
+          pitTax,
           buyerValueAddedServiceTotal: findSellerOrderPaymentValue(paymentItems, ["tong phu dich vu gia tri gia tang cho nguoi mua", "tong phu dv gtgt"]),
-          estimatedOrderIncome: findSellerOrderPaymentValue(paymentItems, ["doanh thu don hang uoc tinh", "doanh thu don hang"])
+          estimatedOrderIncome
       };
       const profitData = await calculateSellerOrderProfitData(products, payments);
 
@@ -7930,6 +7954,7 @@ function downloadExcelFileBypass(wb, filename) {
 
       return { ok: true, orderId, orderCreatedAt, packageInfo, customerInfo, payments, products, profitData, rows, url: location.href };
   }
+
   async function buildDhValuesFromDetail(rows, maGian) {
     let dsSpMap = new Map();
     try {
@@ -8067,16 +8092,69 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
 
-  let lastAutoProcessedOrderId = "";
+  let syncedOrderSnapshots = new Map();
   let isAutoProcessingOrder = false;
+
+  function isOrderDetailDataReady(orderDetail) {
+    if (!orderDetail || !orderDetail.ok || !orderDetail.rows || orderDetail.rows.length === 0) return false;
+    if (!orderDetail.orderId) return false;
+    
+    // Phải có ít nhất 1 sản phẩm có SKU
+    const hasSku = orderDetail.rows.some(r => r.sku && String(r.sku).trim().length > 0);
+    if (!hasSku) return false;
+
+    // Phải có tổng tiền sản phẩm
+    const tongTien = parseSellerOrderMoneyNumber(orderDetail.payments?.totalProductAmount || orderDetail.rows[0]?.totalProductAmount);
+    if (tongTien <= 0) return false;
+
+    // Phải có ít nhất 1 thông tin thanh toán đã render
+    const paymentItems = collectSellerOrderPaymentItems();
+    if (paymentItems.length === 0) return false;
+
+    return true;
+  }
 
   async function checkAndAutoSyncDonHang(orderId) {
     if (!orderId || isAutoProcessingOrder) return;
-    if (lastAutoProcessedOrderId === orderId) return;
 
-    // Chờ khi trang Shopee đã load xong thông tin thanh toán
-    const incomeItems = document.querySelectorAll('.income-item');
-    if (incomeItems.length === 0) return;
+    // Chỉ chạy khi đang ở trang chi tiết đơn hàng (không phải returnrefundcancel)
+    if (!isSellerOrderDetailPage()) return;
+
+    const orderDetail = await extractSellerOrderDetailFullData();
+    if (!isOrderDetailDataReady(orderDetail)) {
+      // Dữ liệu trang chưa load xong hết, đợi observer chu kỳ tiếp theo
+      return;
+    }
+
+    const parseMoneyNumber = (val) => {
+      if (val === null || val === undefined) return 0;
+      const digits = String(val).replace(/[^0-9]/g, "");
+      return digits ? Number(digits) : 0;
+    };
+
+    const pageTongTien = parseMoneyNumber(orderDetail.payments?.totalProductAmount);
+    const pagePhiVc = parseMoneyNumber(orderDetail.payments?.estimatedShippingTotal);
+    const pagePhuPhi = parseMoneyNumber(orderDetail.payments?.surcharge);
+    const pageThue = parseMoneyNumber(orderDetail.payments?.tax);
+    const pageMvd = String(orderDetail.packageInfo?.tracking || orderDetail.rows[0]?.tracking || "").trim();
+    const pageTenKhach = String(orderDetail.customerInfo?.tenKhach || "").trim();
+    const pageNgNhan = String(orderDetail.customerInfo?.ngNhan || "").trim();
+    const pageDiaChi = String(orderDetail.customerInfo?.diaChi || "").trim();
+    const pageSkuCount = orderDetail.rows.length;
+
+    const currentSnapshotKey = `${pageTongTien}_${pagePhiVc}_${pagePhuPhi}_${pageThue}_${pageMvd}_${pageSkuCount}_${pageTenKhach}_${pageNgNhan}`;
+    const lastSnapshot = syncedOrderSnapshots.get(orderId);
+
+    if (lastSnapshot === currentSnapshotKey) {
+      // Dữ liệu hiện tại đã được sync khớp hoàn toàn
+      const btnAdd = document.getElementById('btn-add-don-hang');
+      if (btnAdd && btnAdd.textContent.includes('Thêm mới')) {
+        btnAdd.textContent = '✓ Đã có trong DH';
+        btnAdd.style.backgroundColor = '#00bfa5';
+        btnAdd.style.borderColor = '#00bfa5';
+      }
+      return;
+    }
 
     isAutoProcessingOrder = true;
 
@@ -8084,12 +8162,6 @@ function downloadExcelFileBypass(wb, filename) {
       const storage = await new Promise(r => chrome.storage.local.get(["maGian", "dhHoanTextValue"], r));
       const maGian = (storage?.maGian || storage?.dhHoanTextValue || "").trim();
       if (!maGian) {
-        isAutoProcessingOrder = false;
-        return;
-      }
-
-      const orderDetail = await extractSellerOrderDetailFullData();
-      if (!orderDetail || !orderDetail.ok || !orderDetail.rows || orderDetail.rows.length === 0) {
         isAutoProcessingOrder = false;
         return;
       }
@@ -8102,21 +8174,10 @@ function downloadExcelFileBypass(wb, filename) {
         }, resolve);
       });
 
-      const parseMoneyNumber = (val) => {
-        if (val === null || val === undefined) return 0;
-        const digits = String(val).replace(/[^0-9]/g, "");
-        return digits ? Number(digits) : 0;
-      };
-
-      const pageTongTien = parseMoneyNumber(orderDetail.payments?.totalProductAmount);
-      const pagePhiVc = parseMoneyNumber(orderDetail.payments?.estimatedShippingTotal);
-      const pagePhuPhi = parseMoneyNumber(orderDetail.payments?.surcharge);
-      const pageThue = parseMoneyNumber(orderDetail.payments?.tax);
-
       const btnAdd = document.getElementById('btn-add-don-hang');
 
       if (!checkResponse || !checkResponse.exists || checkResponse.rows.length === 0) {
-        // TỰ ĐỘNG THÊM MỚI KHI CHƯA CÓ
+        // TỰ ĐỘNG THÊM MỚI KHI CHƯA CÓ TRONG SHEET DH
         if (btnAdd) {
           btnAdd.textContent = '⚡ Đang tự động thêm vào DH...';
           btnAdd.disabled = true;
@@ -8124,7 +8185,7 @@ function downloadExcelFileBypass(wb, filename) {
 
         const dhValues = await buildDhValuesFromDetail(orderDetail.rows, maGian);
         const sampleMdh = orderDetail.orderId || orderDetail.rows[0]?.orderId || "";
-        const sampleMvd = orderDetail.packageInfo?.tracking || orderDetail.rows[0]?.tracking || "";
+        const sampleMvd = pageMvd;
 
         const saveRes = await new Promise(resolve => {
           chrome.runtime.sendMessage({
@@ -8135,9 +8196,8 @@ function downloadExcelFileBypass(wb, filename) {
           }, resolve);
         });
 
-        lastAutoProcessedOrderId = orderId;
-
         if (saveRes && saveRes.ok) {
+          syncedOrderSnapshots.set(orderId, currentSnapshotKey);
           lastFetchDonHangMdhTime = 0;
           updateDonHangMdhCache(true);
           if (btnAdd) {
@@ -8154,30 +8214,41 @@ function downloadExcelFileBypass(wb, filename) {
           }
         }
       } else {
-        // TỰ ĐỘNG CẬP NHẬT KHI PHÍ VC, PHỤ PHÍ, THUẾ BỊ SAI
-        let isFinancialMismatch = false;
+        // TỰ ĐỘNG CẬP NHẬT KHI THÔNG TIN TÀI CHÍNH HOẶC THÔNG TIN ĐƠN CHƯA GIỐNG NHAU
+        let isDataMismatch = false;
 
         for (const r of checkResponse.rows) {
           const sheetTongTien = parseMoneyNumber(r.tongTien);
           const sheetPhiVc = parseMoneyNumber(r.phiVc);
           const sheetPhuPhi = parseMoneyNumber(r.phuPhi);
           const sheetThue = parseMoneyNumber(r.thue);
+          const sheetMvd = String(r.mvd || "").trim();
+          const sheetTenKhach = String(r.tenKhach || "").trim();
+          const sheetNgNhan = String(r.ngNhan || "").trim();
+          const sheetDiaChi = String(r.diaChi || "").trim();
 
-          if (sheetPhiVc !== pagePhiVc || sheetPhuPhi !== pagePhuPhi || sheetThue !== pageThue || sheetTongTien !== pageTongTien) {
-            isFinancialMismatch = true;
+          if (sheetTongTien !== pageTongTien || 
+              sheetPhiVc !== pagePhiVc || 
+              sheetPhuPhi !== pagePhuPhi || 
+              sheetThue !== pageThue ||
+              (!sheetMvd && pageMvd) ||
+              (!sheetTenKhach && pageTenKhach) ||
+              (!sheetNgNhan && pageNgNhan) ||
+              (!sheetDiaChi && pageDiaChi)) {
+            isDataMismatch = true;
             break;
           }
         }
 
-        if (isFinancialMismatch) {
+        if (isDataMismatch) {
           if (btnAdd) {
-            btnAdd.textContent = '⚡ Đang tự động cập nhật phí...';
+            btnAdd.textContent = '⚡ Đang tự động cập nhật lại DH...';
             btnAdd.disabled = true;
           }
 
           const dhValues = await buildDhValuesFromDetail(orderDetail.rows, maGian);
           const sampleMdh = orderDetail.orderId || orderDetail.rows[0]?.orderId || "";
-          const sampleMvd = orderDetail.packageInfo?.tracking || orderDetail.rows[0]?.tracking || "";
+          const sampleMvd = pageMvd;
 
           const saveRes = await new Promise(resolve => {
             chrome.runtime.sendMessage({
@@ -8188,18 +8259,17 @@ function downloadExcelFileBypass(wb, filename) {
             }, resolve);
           });
 
-          lastAutoProcessedOrderId = orderId;
-
           if (saveRes && saveRes.ok) {
+            syncedOrderSnapshots.set(orderId, currentSnapshotKey);
             lastFetchDonHangMdhTime = 0;
             updateDonHangMdhCache(true);
             if (btnAdd) {
               btnAdd.disabled = false;
-              btnAdd.textContent = '✓ Đã cập nhật lại phí vào DH';
+              btnAdd.textContent = '✓ Đã cập nhật lại vào DH';
               btnAdd.style.backgroundColor = '#00bfa5';
               btnAdd.style.borderColor = '#00bfa5';
             }
-            console.log(`[Shopee Ext] Đã tự động cập nhật phí & thuế đơn ${orderId} vào Sheet DH`);
+            console.log(`[Shopee Ext] Đã tự động cập nhật lại đơn ${orderId} vào Sheet DH`);
           } else {
             if (btnAdd) {
               btnAdd.disabled = false;
@@ -8208,10 +8278,10 @@ function downloadExcelFileBypass(wb, filename) {
             }
           }
         } else {
-          lastAutoProcessedOrderId = orderId;
+          syncedOrderSnapshots.set(orderId, currentSnapshotKey);
           if (btnAdd) {
             btnAdd.disabled = false;
-            btnAdd.textContent = 'Đã có trong DH';
+            btnAdd.textContent = '✓ Đã có trong DH';
             btnAdd.style.backgroundColor = '#00bfa5';
             btnAdd.style.borderColor = '#00bfa5';
           }
@@ -8227,21 +8297,30 @@ function downloadExcelFileBypass(wb, filename) {
   function isSellerOrderDetailPage() {
     const path = (window.location.pathname || "").toLowerCase();
     
-    if (!path.startsWith('/portal/sale/order') && !path.startsWith('/portal/sale/return')) {
+    // TUYỆT ĐỐI LOẠI TRỪ TRANG TRẢ HÀNG, HOÀN TIỀN, HỦY
+    if (path.includes('returnrefundcancel') || path.includes('/sale/return') || path.includes('/cancel') || path.includes('/refund')) {
       return false;
     }
 
+    if (!path.startsWith('/portal/sale/order')) {
+      return false;
+    }
+
+    const cleanPath = path.replace(/^\/portal\/sale\/order\/?/i, '').replace(/^detail\/?/i, '').trim();
+    if (cleanPath) {
+      const seg = cleanPath.split('/')[0].split('?')[0].trim();
+      if (/^(order|list|mass|shipping|return|setting|batch|all|unprocessed|toship|completed|cancelled)$/i.test(seg)) {
+        return false;
+      }
+    }
+
     const breadcrumb = document.querySelector('.eds-breadcrumb, [class*="breadcrumb"], .portal-breadcrumb');
-    if (breadcrumb && (/chi tiết/i.test(breadcrumb.textContent) || /detail/i.test(breadcrumb.textContent))) {
+    if (breadcrumb && /chi tiết đơn hàng/i.test(breadcrumb.textContent)) {
       return true;
     }
 
-    const cleanPath = path.replace(/^\/portal\/sale\/(?:order|return)\/?/i, '').replace(/^detail\/?/i, '').trim();
-    if (cleanPath) {
-      const seg = cleanPath.split('/')[0].split('?')[0].trim();
-      if (seg && !/^(order|list|mass|shipping|return|setting|batch|all|unprocessed|toship|completed|cancelled)$/i.test(seg)) {
-        return true;
-      }
+    if (cleanPath && /^[0-9A-Z]{10,}$/i.test(cleanPath)) {
+      return true;
     }
 
     const search = window.location.search || "";
@@ -8252,7 +8331,7 @@ function downloadExcelFileBypass(wb, filename) {
     return false;
   }
 
-  function removeDonHangButtons() {
+    function removeDonHangButtons() {
     const btnContainer = document.getElementById('shopee-ext-donhang-btns');
     if (btnContainer) btnContainer.remove();
     const btnAdd = document.getElementById('btn-add-don-hang');

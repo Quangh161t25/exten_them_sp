@@ -657,6 +657,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
         const headers = values[0].map(h => String(h || "").trim().toLowerCase());
         let gianIdx = 0;
         let mdhIdx = 3;
+        let mvdIdx = 4;
         let tongTienIdx = headers.findIndex(h => h.includes("tong_tien") || h.includes("tổng tiền"));
         if (tongTienIdx === -1) tongTienIdx = 5;
         let phiVcIdx = headers.findIndex(h => h.includes("phi_vc") || h.includes("phí vc"));
@@ -665,6 +666,14 @@ async function uploadImageToFreeImageHost(imageUrl) {
         if (phuPhiIdx === -1) phuPhiIdx = 8;
         let thueIdx = headers.findIndex(h => h.includes("thue") || h.includes("thuế"));
         if (thueIdx === -1) thueIdx = 9;
+        let skuIdx = headers.findIndex(h => h === "sku" || h.includes("sku"));
+        if (skuIdx === -1) skuIdx = 16;
+        let tenKhachIdx = headers.findIndex(h => h.includes("ten_khach"));
+        if (tenKhachIdx === -1) tenKhachIdx = 21;
+        let ngNhanIdx = headers.findIndex(h => h.includes("ng_nhan"));
+        if (ngNhanIdx === -1) ngNhanIdx = 22;
+        let diaChiIdx = headers.findIndex(h => h.includes("dia_chi"));
+        if (diaChiIdx === -1) diaChiIdx = 23;
 
         const matchingRows = [];
         for (let i = 1; i < values.length; i++) {
@@ -676,10 +685,15 @@ async function uploadImageToFreeImageHost(imageUrl) {
           if (isGianMatch && rowMdh === mdh) {
             matchingRows.push({
               rowNum: i + 1,
+              mvd: r[mvdIdx] || "",
               tongTien: r[tongTienIdx] || "",
               phiVc: r[phiVcIdx] || "",
               phuPhi: r[phuPhiIdx] || "",
-              thue: r[thueIdx] || ""
+              thue: r[thueIdx] || "",
+              sku: r[skuIdx] || "",
+              tenKhach: r[tenKhachIdx] || "",
+              ngNhan: r[ngNhanIdx] || "",
+              diaChi: r[diaChiIdx] || ""
             });
           }
         }
