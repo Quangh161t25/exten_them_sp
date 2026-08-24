@@ -7781,6 +7781,27 @@ function downloadExcelFileBypass(wb, filename) {
       return skuElement.parentElement || skuElement;
   }
 
+  function cleanProductSku(raw) {
+    if (!raw) return "";
+    let s = String(raw).trim();
+    s = s.replace(/copy\s*sku|sao\s*ch[eé]p\s*sku|copy|sao\s*ch[eé]p/gi, "").trim();
+    s = s.replace(/^(m[aã]\s*sku|sku\s*ph[aâ]n\s*lo[aạ]i|m[aã]\s*ph[aâ]n\s*lo[aạ]i|ph[aâ]n\s*lo[aạ]i\s*h[aà]ng|m[aã]\s*s[aả]n\s*ph[aẩ]m|sku)\s*:\s*/i, "").trim();
+    
+    const mBracket = s.match(/\[([A-Z0-9_-]{3,35})\]/i);
+    if (mBracket && !/^(copy|sp|sku)$/i.test(mBracket[1])) {
+      return mBracket[1].trim();
+    }
+
+    const mSku = s.match(/\b([A-Z0-9]{2,10}(?:-[A-Z0-9]{1,10}){1,6})\b/i);
+    if (mSku && !/^(copy|sku|sp)$/i.test(mSku[1])) {
+      return mSku[1].trim();
+    }
+
+    s = s.replace(/^[\[\]:\s-]+|[\[\]:\s-]+$/g, "").trim();
+    if (/^(copy|sku|sp|copy\s*sku)$/i.test(s)) return "";
+    return s;
+  }
+
   function extractSellerOrderProducts() {
       const productContainers = Array.from(document.querySelectorAll(
         ".order-view-item, .order-product-wrapper, .order-item, .product-item, .item-card, " +
@@ -7791,43 +7812,55 @@ function downloadExcelFileBypass(wb, filename) {
           const results = [];
           for (const container of productContainers) {
               let sku = "";
-              const metaEl = container.querySelector(".ct-item-meta, .item-meta, [class*='ct-item-meta'], [class*='item-meta'], [class*='sku'], [class*='variation']");
-              if (metaEl) {
-                  sku = cleanOrderDetailText(metaEl.textContent).trim();
-                  const bracketMatch = sku.match(/\[(.*?)\]/);
-                  if (bracketMatch) sku = bracketMatch[1].trim();
-                  else sku = sku.replace(/^.*?:s*/, "").trim();
-              }
-              if (!sku) {
-                  const lines = getOrderDetailLines(container);
-                  const skuLine = lines.find(l => normalizeOrderDetailText(l).includes("sku") || /\[.*?\]/.test(l));
-                  if (skuLine) {
-                      const bm = skuLine.match(/\[(.*?)\]/);
-                      sku = bm ? bm[1].trim() : skuLine.replace(/^.*?:s*/, "").trim();
-                  } else {
-                      const phanLoai = lines.find(l => normalizeOrderDetailText(l).includes("phan loai"));
-                      if (phanLoai) sku = phanLoai.replace(/^.*?:s*/, "").trim();
-                      else if (lines[0]) sku = lines[0].substring(0, 35);
+              
+              // 1. Thử lấy từ các thẻ meta / sku
+              const metaEls = container.querySelectorAll(".ct-item-meta, .item-meta, [class*='ct-item-meta'], [class*='item-meta'], [class*='sku'], [class*='variation']");
+              for (const mEl of metaEls) {
+                  const cleaned = cleanProductSku(mEl.textContent);
+                  if (cleaned) {
+                      sku = cleaned;
+                      break;
                   }
               }
 
+              // 2. Thử tìm trong các dòng text của container
+              if (!sku) {
+                  const lines = getOrderDetailLines(container);
+                  for (const line of lines) {
+                      const cleaned = cleanProductSku(line);
+                      if (cleaned) {
+                          sku = cleaned;
+                          break;
+                      }
+                  }
+              }
+
+              // 3. Thử tìm trong tên sản phẩm (Product Title có dạng [SKU-CODE])
+              if (!sku) {
+                  const titleEl = container.querySelector(".ct-item-product-name, .product-name, [class*='product-name'], [class*='item-name']");
+                  if (titleEl) {
+                      const cleaned = cleanProductSku(titleEl.textContent);
+                      if (cleaned) sku = cleaned;
+                  }
+              }
+
+              // Số lượng
               let quantity = "1";
               const qtyEl = container.querySelector(".ct-item-product-num, .ct-item-product-qty, .qty, .quantity, [class*='qty'], [class*='quantity'], [class*='num']");
               if (qtyEl) {
                   quantity = cleanOrderDetailText(qtyEl.textContent).replace(/[^0-9]/g, "") || "1";
               }
 
+              // Giá sản phẩm
               const moneyValues = extractOrderMoneyValues(container.innerText || container.textContent || "");
               const productPrice = moneyValues[0] || "";
 
-              if (sku || productPrice || results.length === 0) {
-                  results.push({ sku: sku || "SP", quantity: quantity || "1", productPrice });
-              }
+              results.push({ sku: sku || "", quantity: quantity || "1", productPrice });
           }
           if (results.length > 0) return results;
       }
 
-      return [{ sku: "SP", quantity: "1", productPrice: "" }];
+      return [{ sku: "", quantity: "1", productPrice: "" }];
   }
 
   function parseSellerOrderMoneyNumber(value) {
