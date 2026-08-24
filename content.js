@@ -7693,22 +7693,53 @@ function downloadExcelFileBypass(wb, filename) {
       return "";
     };
 
-    // 1. Ưu tiên cao nhất: Tìm khối timeline có chữ "Đơn hàng mới" hoặc "Thời gian đặt hàng" hoặc "Ngày đặt"
-    const timelineItems = Array.from(document.querySelectorAll('.eds-timeline-item, .timeline-item, [class*="timeline-item"], [class*="timelineItem"], div'));
-    for (const item of timelineItems) {
-      const itemText = normalizeOrderDetailText(item.innerText || item.textContent || "");
-      if (itemText.includes("don hang moi") || itemText.includes("thoi gian dat hang") || itemText.includes("ngay dat hang") || itemText.includes("dat hang thanh cong") || itemText.includes("order placed")) {
-        const timeEl = item.querySelector('.time, [class*="time"], .date, [class*="date"]');
+    // 1. ƯU TIÊN SỐ 1 TUYỆT ĐỐI: Khung Lịch sử đơn hàng (.order-history, [data-testid="sdp-order-history"], .od-log)
+    // Tìm đúng .od-log có chứa "Đơn hàng mới"
+    const historyLogs = Array.from(document.querySelectorAll('.order-history .od-log, [data-testid="sdp-order-history"] .od-log, .od-log'));
+    for (const log of historyLogs) {
+      const statusEl = log.querySelector('.status, .status-log, [class*="status"]');
+      const statusText = normalizeOrderDetailText(statusEl ? statusEl.textContent : log.textContent);
+      if (statusText.includes("don hang moi") || statusText.includes("thoi gian dat hang") || statusText.includes("ngay dat") || statusText.includes("dat hang thanh cong") || statusText.includes("order placed")) {
+        const timeEl = log.querySelector('.time, [class*="time"]');
         if (timeEl) {
           const t = parseTimeFromText(timeEl.textContent);
           if (t) return t;
         }
-        const t = parseTimeFromText(item.innerText || item.textContent || "");
+        const t = parseTimeFromText(log.textContent);
         if (t) return t;
       }
     }
 
-    // 2. Tìm trong các dòng văn bản cạnh 'đơn hàng mới' hoặc 'ngày đặt'
+    // Nếu không khớp chữ, trong .order-history, mốc cuối cùng chính là "Đơn hàng mới"
+    if (historyLogs.length > 0) {
+      for (let i = historyLogs.length - 1; i >= 0; i--) {
+        const log = historyLogs[i];
+        const timeEl = log.querySelector('.time, [class*="time"]');
+        const t = parseTimeFromText(timeEl ? timeEl.textContent : log.textContent);
+        if (t) return t;
+      }
+    }
+
+    // 2. Tìm phần tử chứa chữ "Đơn hàng mới" (chỉ lấy leaf node / element nhỏ nhất)
+    const statusEls = Array.from(document.querySelectorAll('.status, div, span, p')).filter(el => {
+      const t = normalizeOrderDetailText(el.textContent);
+      return (t === "don hang moi" || t.startsWith("don hang moi:") || t === "thoi gian dat hang" || t === "ngay dat hang") && el.children.length === 0;
+    });
+
+    for (const sEl of statusEls) {
+      const parent = sEl.closest('.od-log, .eds-timeline-item, .timeline-item, .status-log, div');
+      if (parent) {
+        const timeEl = parent.querySelector('.time, [class*="time"]');
+        if (timeEl) {
+          const t = parseTimeFromText(timeEl.textContent);
+          if (t) return t;
+        }
+        const t = parseTimeFromText(parent.textContent);
+        if (t) return t;
+      }
+    }
+
+    // 3. Fallback: Dòng text cạnh "đơn hàng mới"
     const lines = getOrderDetailLines();
     for (let i = 0; i < lines.length; i++) {
       const norm = normalizeOrderDetailText(lines[i]);
@@ -7719,45 +7750,6 @@ function downloadExcelFileBypass(wb, filename) {
           if (t) return t;
         }
       }
-    }
-
-    // 3. Nếu timeline có nhiều thẻ .time, tìm thẻ gắn với "đơn hàng mới"
-    const timeElements = Array.from(document.querySelectorAll('.time, div.time, span.time, [class*="timeline"] .time'));
-    const allFoundTimes = [];
-    for (const el of timeElements) {
-      const parentText = normalizeOrderDetailText(el.closest('div, li, [class*="item"]')?.textContent || "");
-      const t = parseTimeFromText(el.textContent);
-      if (t) {
-        if (parentText.includes("don hang moi") || parentText.includes("dat hang")) {
-          return t;
-        }
-        allFoundTimes.push({ timeStr: t, el });
-      }
-    }
-
-    // 4. Nếu có danh sách các mốc thời gian trên timeline, mốc tạo đơn "Đơn hàng mới" là mốc thời gian nhỏ nhất (sớm nhất trong quá khứ)
-    if (allFoundTimes.length > 0) {
-      let earliestTime = "";
-      let minTs = Infinity;
-      for (const item of allFoundTimes) {
-        const parts = item.timeStr.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-        if (parts) {
-          const d = new Date(Number(parts[5]), Number(parts[4]) - 1, Number(parts[3]), Number(parts[1]), Number(parts[2]));
-          const ts = d.getTime();
-          if (ts < minTs) {
-            minTs = ts;
-            earliestTime = item.timeStr;
-          }
-        }
-      }
-      if (earliestTime) return earliestTime;
-      return allFoundTimes[allFoundTimes.length - 1].timeStr;
-    }
-
-    // 5. Fallback quét toàn bộ text trong trang (lấy mốc thời gian đầu tiên xuất hiện hoặc nhỏ nhất)
-    const allMatches = (document.body.innerText || "").match(/\b\d{1,2}:\d{2}(?::\d{2})?\s+\d{1,2}\/\d{1,2}\/\d{4}\b/g);
-    if (allMatches && allMatches.length > 0) {
-      return allMatches[allMatches.length - 1];
     }
 
     return "";
@@ -8319,9 +8311,14 @@ function downloadExcelFileBypass(wb, filename) {
     const id = String(orderDetail.orderId).trim();
     if (id.length < 10) return false;
     if (/^\d+$/.test(id) && id.length > 12) {
-      // Dạng thuần số như 240520694230100 chỉ là ID nội bộ của URL, chưa load xong Mã đơn hàng thực tế
       return false;
     }
+
+    // BẮT BUỘC phải lấy được Ngày tạo đơn hàng từ Đơn hàng mới
+    if (!orderDetail.rows[0]?.orderCreatedAt) {
+      return false;
+    }
+
     return true;
   }
 
@@ -8353,7 +8350,8 @@ function downloadExcelFileBypass(wb, filename) {
     const pageDiaChi = String(orderDetail.customerInfo?.diaChi || "").trim();
     const pageSkuCount = orderDetail.rows.length;
 
-    const currentSnapshotKey = `${pageTongTien}_${pagePhiVc}_${pagePhuPhi}_${pageThue}_${pageMvd}_${pageSkuCount}_${pageTenKhach}_${pageNgNhan}`;
+    const orderCreatedAt = String(orderDetail.rows[0]?.orderCreatedAt || "").trim();
+    const currentSnapshotKey = `${orderCreatedAt}_${pageTongTien}_${pagePhiVc}_${pagePhuPhi}_${pageThue}_${pageMvd}_${pageSkuCount}_${pageTenKhach}_${pageNgNhan}`;
     const lastSnapshot = syncedOrderSnapshots.get(orderId);
 
     if (lastSnapshot === currentSnapshotKey) {
