@@ -39,12 +39,12 @@
   const btnFillAndSend = document.getElementById("chat-ai-btn-send-shopee");
   const actionFeedback = document.getElementById("chat-ai-action-feedback");
 
-  // Style mapping descriptions
+  // Style mapping descriptions (Đơn giản, súc tích)
   const STYLE_PROMPTS = {
-    tu_van: "Tư vấn tận tình, thân thiện, giải đáp rõ ràng tính năng và công dụng sản phẩm, hướng dẫn chọn phân loại/số lượng và mời khách đặt hàng.",
-    chot_don: "Trả lời ngắn gọn, dứt khoát, xác nhận hàng luôn có sẵn tại kho, sẵn sàng đóng gói giao hỏa tốc/nhanh trong ngày, hướng dẫn bấm Mua Ngay.",
-    voucher: "Tư vấn giá tốt, nhắc nhở khách hàng lưu và áp thêm mã giảm giá/Voucher của Shop và mã Freeship của Shopee để được giá rẻ nhất.",
-    bao_hanh: "Tư vấn lịch sự về chính sách cam kết chất lượng, bảo hành chính hãng, bao đổi trả 1-1 nếu có lỗi từ nhà sản xuất, tạo sự an tâm tuyệt đối."
+    tu_van: "Trả lời ngắn gọn 1-2 câu, giải đáp thẳng câu hỏi của khách.",
+    chot_don: "Trả lời nhanh gọn, xác nhận còn hàng và hướng dẫn đặt ngay.",
+    voucher: "Nhắc nhẹ khách áp mã giảm giá / freeship.",
+    bao_hanh: "Khẳng định hàng chính hãng, bảo hành đổi trả uy tín."
   };
 
   // 1. Tìm Tab Shopee Webchat đang mở
@@ -473,28 +473,25 @@
         chatHistoryText = currentChatData.messages.map(m => `${m.sender === 'customer' ? 'Khách' : 'Shop'}: ${m.text}`).join('\n');
       }
 
-      const prompt = `Bạn là nhân viên chăm sóc khách hàng và tư vấn bán hàng xuất sắc của Shop trên sàn thương mại điện tử Shopee Việt Nam.
+      const prompt = `Bạn là nhân viên hỗ trợ khách hàng của Shop trên Shopee. Hãy trả lời tin nhắn của khách hàng.
 
-THÔNG TIN SẢN PHẨM KHÁCH ĐANG TRAO ĐỔI:
-- Tên sản phẩm: ${p.name || 'Sản phẩm tại Shop'}
-- Giá bán hiện tại: ${p.price || 'Giá ưu đãi tốt'}
-- Giá niêm yết: ${p.originalPrice || 'N/A'}
-- Giảm giá / Khuyến mãi: ${p.discount || 'Đang khuyến mãi'}
-- Tình trạng kho: ${p.stock || 'Còn hàng sẵn'}
-- Lượt đã bán: ${p.sold || 'Nhiều khách tin dùng'}
+THÔNG TIN SẢN PHẨM:
+- Tên: ${p.name || 'Sản phẩm của Shop'}
+- Giá: ${p.price || ''}
+- Tình trạng: ${p.stock || 'Sẵn hàng'}
 
-${chatHistoryText ? `LỊCH SỬ TIN NHẮN VỚI KHÁCH:\n${chatHistoryText}\n` : ''}
-CÂU HỎI MỚI NHẤT CỦA KHÁCH HÀNG:
-"${question || (p.name ? 'Sản phẩm này dùng thế nào, có tốt không shop?' : 'Shop tư vấn giúp mình')}"
+${chatHistoryText ? `LỊCH SỬ CHAT GẦN ĐÂY:\n${chatHistoryText}\n` : ''}
+CÂU HỎI / TIN NHẮN MỚI NHẤT CỦA KHÁCH:
+"${question || (p.name ? 'Sản phẩm này dùng thế nào shop?' : 'Shop tư vấn giúp mình')}"
 
-${customNote ? `LƯU Ý RIÊNG TỪ CHỦ SHOP:\n"${customNote}"\n` : ''}
+${customNote ? `GHI CHÚ THÊM CỦA SHOP: "${customNote}"\n` : ''}
 
-YÊU CẦU TRẢ LỜI:
-- Phong cách tư vấn: ${styleInstruction}
-- Giọng điệu thân thiện, nhiệt tình, lịch sự, xưng hô Shop - Bạn/Anh/Chị chuẩn văn hóa mua sắm Shopee Việt Nam.
-- Trả lời đúng trọng tâm câu hỏi của khách hàng, dựa vào thông tin sản phẩm và ngữ cảnh ở trên.
-- Khéo léo hướng dẫn thao tác đặt hàng (ví dụ: cách chọn phân loại màu/size, cách tăng số lượng lên 2-3 chiếc trong giỏ hàng, áp mã Freeship/Voucher Shopee).
-- Tuyệt đối KHÔNG chứa các ký tự định dạng markdown như **, *, #, không chứa dấu ngoặc kép bọc cả câu. Viết tự nhiên như một tin nhắn chat thật giữa người với người. Chỉ trả về nội dung câu trả lời.`;
+QUY TẮC BẮT BUỘC TRẢ LỜI:
+1. ĐƠN GIẢN, NGẮN GỌN (chỉ 1 - 3 câu).
+2. TẬP TRUNG THẲNG VÀO CÂU HỎI VÀ NGỮ CẢNH CỦA KHÁCH, giải đáp trực tiếp, không nói vòng vo, không văn mẫu dài dòng.
+3. Yêu cầu phong cách: ${styleInstruction}
+4. Xưng hô lịch sự, thân thiện tự nhiên (Dạ vâng ạ / Dạ anh/chị...).
+5. Tuyệt đối KHÔNG dùng định dạng markdown như **, *, #, không dùng dấu ngoặc kép bọc câu. Chỉ trả về đúng nội dung tin nhắn gửi khách.`;
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
       const response = await fetch(url, {

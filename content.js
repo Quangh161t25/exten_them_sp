@@ -12529,20 +12529,20 @@ async function extractProductDataAndSave() {
           return;
         }
 
-        const prompt = `Bạn là nhân viên tư vấn bán hàng chuyên nghiệp của Shop trên sàn Shopee Việt Nam.
+        const prompt = `Bạn là nhân viên hỗ trợ khách hàng của Shop trên Shopee. Hãy trả lời tin nhắn của khách hàng.
 
-THÔNG TIN SẢN PHẨM KHÁCH HỎI:
-- Tên sản phẩm: ${pName || 'Sản phẩm của Shop'}
-- Giá bán: ${pPrice || 'Giá ưu đãi tốt'}
+THÔNG TIN SẢN PHẨM:
+- Tên: ${pName || 'Sản phẩm của Shop'}
+- Giá: ${pPrice || ''}
 
-CÂU HỎI CỦA KHÁCH:
-"${lastQ || (pName ? `Sản phẩm ${pName} này dùng thế nào, có tốt không shop?` : 'Shop tư vấn giúp mình')}"
+CÂU HỎI / TIN NHẮN CỦA KHÁCH:
+"${lastQ || (pName ? `Sản phẩm ${pName} này dùng thế nào shop?` : 'Shop tư vấn giúp mình')}"
 
-YÊU CẦU:
-- Tư vấn thân thiện, lễ phép (chào hỏi Shop - Bạn/Anh/Chị).
-- Trả lời đúng trọng tâm câu hỏi của khách hàng.
-- Hướng dẫn thao tác đặt hàng / chọn phân loại hoặc số lượng.
-- Tuyệt đối KHÔNG dùng ký tự markdown như **, *, viết tự nhiên như tin nhắn chat thật. Chỉ trả về nội dung câu trả lời.`;
+QUY TẮC BẮT BUỘC TRẢ LỜI:
+1. ĐƠN GIẢN, NGẮN GỌN (chỉ từ 1 đến 3 câu).
+2. TẬP TRUNG THẲNG VÀO CÂU HỎI VÀ NGỮ CẢNH CỦA KHÁCH, giải đáp trực tiếp, không nói vòng vo, không văn mẫu dài dòng.
+3. Xưng hô lịch sự, thân thiện tự nhiên (Dạ vâng ạ / Dạ anh/chị...).
+4. Tuyệt đối KHÔNG dùng ký tự markdown như **, *, #, không để ngoặc kép. Chỉ trả về nội dung tin nhắn.`;
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
         const response = await fetch(url, {
