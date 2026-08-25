@@ -12467,6 +12467,14 @@ async function extractProductDataAndSave() {
         el.style.setProperty('font-weight', 'bold', 'important');
         el.style.setProperty('display', 'inline-block', 'important');
         el.style.setProperty('box-shadow', '0 1px 2px rgba(220, 38, 38, 0.1)', 'important');
+        el.querySelectorAll('span').forEach(sp => {
+          sp.style.setProperty('color', '#dc2626', 'important');
+          sp.style.setProperty('font-weight', 'bold', 'important');
+        });
+      }
+    });
+  }
+
   // =========================================================================
   // NÚT NỔI AI TƯ VẤN TRỰC TIẾP TRÊN SHOPEE WEBCHAT
   // =========================================================================
