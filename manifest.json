@@ -16,7 +16,8 @@
     "downloads",
     "storage",
     "scripting",
-    "sidePanel"
+    "sidePanel",
+    "tabs"
   ],
   "host_permissions": [
     "<all_urls>",

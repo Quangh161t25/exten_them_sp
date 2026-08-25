@@ -50,21 +50,192 @@
   // 1. Tìm Tab Shopee Webchat đang mở
   async function findShopeeWebchatTab() {
     return new Promise((resolve) => {
-      // Ưu tiên 1: Tab đang active hiện tại
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs && tabs[0] && tabs[0].url && (tabs[0].url.includes("webchat") || tabs[0].url.includes("banhang.shopee.vn"))) {
-          return resolve(tabs[0]);
-        }
+      chrome.tabs.query({}, (allTabs) => {
+        if (!allTabs || allTabs.length === 0) return resolve(null);
 
-        // Ưu tiên 2: Tìm tab Shopee Webchat bất kỳ đang mở trong Chrome
-        chrome.tabs.query({ url: ["*://banhang.shopee.vn/*webchat*", "*://seller.shopee.vn/*webchat*", "*://banhang.shopee.vn/*"] }, (allTabs) => {
-          if (allTabs && allTabs.length > 0) {
-            return resolve(allTabs[0]);
-          }
-          resolve(null);
-        });
+        // Ưu tiên 1: Tab đang active có link webchat hoặc Shopee
+        const activeTab = allTabs.find(t => t.active && t.url && (t.url.includes("webchat") || t.url.includes("banhang.shopee.vn")));
+        if (activeTab) return resolve(activeTab);
+
+        // Ưu tiên 2: Bất kỳ tab nào có link new-webchat hoặc webchat
+        const webchatTab = allTabs.find(t => t.url && (t.url.includes("new-webchat") || t.url.includes("webchat")));
+        if (webchatTab) return resolve(webchatTab);
+
+        // Ưu tiên 3: Tab banhang.shopee.vn bất kỳ
+        const shopeeTab = allTabs.find(t => t.url && t.url.includes("banhang.shopee.vn"));
+        if (shopeeTab) return resolve(shopeeTab);
+
+        resolve(null);
       });
     });
+  }
+
+  // Hàm chạy trực tiếp trong trang Shopee (dùng làm fallback qua scripting.executeScript)
+  function extractShopeeChatDataInPage() {
+    const detailChat = document.querySelector('._3h5To4QZew, [data-cy="webchat-conversation-detail-chat"], ._2WZcuAW5Qo') || document.body;
+
+    let productInfo = {
+      name: "",
+      image: "",
+      price: "",
+      originalPrice: "",
+      stock: "",
+      sold: "",
+      discount: "",
+      source: ""
+    };
+
+    // A. Thẻ sản phẩm ghim trên đầu khung chat
+    const pinnedProduct = detailChat.querySelector('.Wy5_SjKidw, ._ki3uOms2o, [class*="pinned-product"]');
+    if (pinnedProduct) {
+      const nameEl = pinnedProduct.querySelector('.rFHc1_XxbI, .CFm21BsdMu, [class*="title"]');
+      if (nameEl) productInfo.name = nameEl.textContent.trim();
+
+      const imgEl = pinnedProduct.querySelector('img.EOkaqhE5Vk, img');
+      if (imgEl) productInfo.image = imgEl.src || "";
+
+      const priceEl = pinnedProduct.querySelector('.izywe_mFbr, [class*="price"]');
+      if (priceEl) productInfo.price = priceEl.textContent.trim();
+
+      const origPriceEl = pinnedProduct.querySelector('.NY59qgWgc3, [class*="origin-price"]');
+      if (origPriceEl) productInfo.originalPrice = origPriceEl.textContent.trim();
+
+      productInfo.source = "Thẻ sản phẩm ghim đầu chat";
+    }
+
+    // B. Thẻ sản phẩm trong tin nhắn
+    if (!productInfo.name) {
+      const chatProductCard = detailChat.querySelector('.P8CcB0wjwY, .HOPL9U0T1c, [class*="productcard"]');
+      if (chatProductCard) {
+        const cardParent = chatProductCard.closest('.P8CcB0wjwY') || chatProductCard.parentElement;
+        const nameEl = cardParent.querySelector('.Qp7M6nTYF_, .xIrlSYpAIZ, [title]');
+        if (nameEl) productInfo.name = nameEl.getAttribute('title') || nameEl.textContent.trim();
+
+        const imgEl = cardParent.querySelector('img.LWnGpseTts, img');
+        if (imgEl && !productInfo.image) productInfo.image = imgEl.src || "";
+
+        const priceEl = cardParent.querySelector('.NMPRLXUCs1, .wWpupCJoha');
+        if (priceEl && !productInfo.price) productInfo.price = priceEl.textContent.trim();
+
+        const origPriceEl = cardParent.querySelector('.eHBPNxGGDK');
+        if (origPriceEl && !productInfo.originalPrice) productInfo.originalPrice = origPriceEl.textContent.trim();
+
+        productInfo.source = "Thẻ sản phẩm trong tin nhắn";
+      }
+    }
+
+    // C. Khung thông tin sản phẩm ở thanh bên phải (Workstation)
+    const workstation = document.querySelector('#workstation, ._1wok-igujT, .S3OvW0Hxe8');
+    if (workstation) {
+      if (!productInfo.name) {
+        const nameEl = workstation.querySelector('.PwWXFM7aOY [title], [data-cy*="product"] [title]');
+        if (nameEl) productInfo.name = nameEl.getAttribute('title') || nameEl.textContent.trim();
+      }
+      if (!productInfo.image) {
+        const imgEl = workstation.querySelector('img.IaIV2xKT1C, img');
+        if (imgEl) productInfo.image = imgEl.src || "";
+      }
+      if (!productInfo.price) {
+        const priceEl = workstation.querySelector('.HMBXaKkUSS, .FWKGhSkSNN');
+        if (priceEl) productInfo.price = priceEl.textContent.trim();
+      }
+
+      const stockEl = workstation.querySelector('._46VsRuudzE');
+      if (stockEl) productInfo.stock = stockEl.textContent.trim();
+
+      const soldEl = workstation.querySelector('.yy8KyS7UNN');
+      if (soldEl) productInfo.sold = soldEl.textContent.trim();
+
+      const discEl = workstation.querySelector('.CQcE9c4xWM, [data-cy*="promotion"]');
+      if (discEl) productInfo.discount = discEl.textContent.trim();
+    }
+
+    // 2. LẤY DANH SÁCH TIN NHẮN
+    const messages = [];
+    let lastCustomerMessage = "";
+
+    const msgElements = detailChat.querySelectorAll('#messagesContainer .DEwekPN7v2, #messagesContainer .RtO616EACf, [data-cy^="webchat-message"]');
+    msgElements.forEach(msgEl => {
+      const isReceive = msgEl.querySelector('[data-cy="webchat-message-receive"]') || msgEl.classList.contains('x_vjYCA89K') || msgEl.getAttribute('data-cy') === 'webchat-message-receive';
+      const isSend = msgEl.querySelector('[data-cy="webchat-message-send"]') || msgEl.classList.contains('IjkExKWyR_') || msgEl.getAttribute('data-cy') === 'webchat-message-send';
+      
+      const sender = isReceive ? "customer" : (isSend ? "shop" : "system");
+      const isAutoReply = !!msgEl.querySelector('.ufjjFujTb2, [class*="autoreply"]');
+
+      const timeEl = msgEl.querySelector('.sSIhmxFOh6, .pE0ax8leZo, .ps7_zN15iV');
+      const timeStr = timeEl ? timeEl.textContent.trim() : "";
+
+      let text = "";
+      const textContainer = msgEl.querySelector('.w2C67vtnXi, .FkK7VxR2qX, .i6xFxbUJy0');
+      if (textContainer) {
+        const clone = textContainer.cloneNode(true);
+        clone.querySelectorAll('.sSIhmxFOh6, .pE0ax8leZo, .ujrf_CG21r, .ChatbotUI-icon, svg').forEach(x => x.remove());
+        text = clone.textContent.trim();
+      }
+
+      const productCardInMsg = msgEl.querySelector('.Qp7M6nTYF_, .HOPL9U0T1c');
+      let cardText = "";
+      if (productCardInMsg) {
+        const cardParent = productCardInMsg.closest('.P8CcB0wjwY') || productCardInMsg.parentElement;
+        const pName = cardParent.querySelector('.Qp7M6nTYF_')?.textContent?.trim() || "";
+        const pPrice = cardParent.querySelector('.NMPRLXUCs1')?.textContent?.trim() || "";
+        cardText = `[Thẻ sản phẩm: ${pName} ${pPrice ? '(' + pPrice + ')' : ''}]`;
+      }
+
+      const fullContent = text || cardText;
+      if (fullContent && !fullContent.includes("LƯU Ý: Shopee KHÔNG cho phép")) {
+        messages.push({
+          sender,
+          text: fullContent,
+          time: timeStr,
+          isAutoReply
+        });
+
+        if (sender === "customer" && text) {
+          lastCustomerMessage = text;
+        }
+      }
+    });
+
+    return {
+      ok: true,
+      url: window.location.href,
+      product: productInfo,
+      messages: messages.slice(-15),
+      lastCustomerQuestion: lastCustomerMessage
+    };
+  }
+
+  // Hàm điền chat trực tiếp trong trang
+  function fillShopeeChatInPageDirect(text, autoSend) {
+    const textarea = document.querySelector('textarea.E2MWg3w8y6, [data-cy="webchat-conversation-detail-input"] textarea, #inputField textarea, textarea[placeholder*="tin nhắn"], textarea');
+    if (!textarea) {
+      return { ok: false, error: "Không tìm thấy ô nhập tin nhắn trên Shopee Chat" };
+    }
+
+    textarea.focus();
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
+    if (nativeSetter) {
+      nativeSetter.call(textarea, text);
+    } else {
+      textarea.value = text;
+    }
+
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new Event('change', { bubbles: true }));
+
+    if (autoSend) {
+      setTimeout(() => {
+        const sendBtn = document.querySelector('.XsR3zIeGOc, .kgP1yPCqxR, [data-cy="webchat-conversation-detail-input"] [class*="send"]');
+        if (sendBtn) {
+          sendBtn.click();
+        } else {
+          textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true }));
+        }
+      }, 300);
+    }
+
+    return { ok: true };
   }
 
   // 2. Quét thông tin từ Shopee Webchat
@@ -86,19 +257,35 @@
     activeWebchatTabId = tab.id;
 
     try {
-      const response = await new Promise((resolve) => {
+      // Cách 1: Gửi message tới content script
+      let response = await new Promise((resolve) => {
         chrome.tabs.sendMessage(tab.id, { action: "GET_SHOPEE_CHAT_DATA" }, (res) => {
           if (chrome.runtime.lastError) {
-            resolve({ ok: false, error: chrome.runtime.lastError.message });
+            resolve(null);
           } else {
-            resolve(res || { ok: false, error: "Không nhận được phản hồi" });
+            resolve(res);
           }
         });
       });
 
+      // Cách 2 (Fallback tự động): Nếu content script chưa kết nối (do chưa F5 tab), chạy trực tiếp qua scripting
+      if (!response || !response.ok) {
+        try {
+          const results = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: extractShopeeChatDataInPage
+          });
+          if (results && results[0] && results[0].result) {
+            response = results[0].result;
+          }
+        } catch (e) {
+          console.warn("Execute script fallback error:", e);
+        }
+      }
+
       if (!response || !response.ok) {
         if (statusEl) {
-          statusEl.innerHTML = `⚠️ Chưa lấy được dữ liệu. Bạn hãy mở đúng cuộc trò chuyện trên Webchat rồi bấm Quét lại nhé!`;
+          statusEl.innerHTML = `⚠️ Chưa lấy được dữ liệu. Bạn hãy bấm F5 (Tải lại) trang Shopee Webchat rồi bấm Quét lại nhé!`;
           statusEl.style.color = "#dc2626";
         }
         return;
@@ -197,7 +384,6 @@
           chatHistoryContainer.appendChild(item);
         });
 
-        // Cuộn xuống cuối danh sách tin nhắn
         chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
       } else {
         chatHistoryContainer.innerHTML = `<div style="text-align: center; color: #94a3b8; padding: 10px; font-size: 12px;">Chưa có tin nhắn nào trong cuộc trò chuyện</div>`;
@@ -282,7 +468,6 @@
       const customNote = inputCustomNote ? inputCustomNote.value.trim() : "";
       const styleInstruction = STYLE_PROMPTS[selectedStyle] || STYLE_PROMPTS.tu_van;
 
-      // Xây dựng đoạn hội thoại gần nhất
       let chatHistoryText = "";
       if (currentChatData?.messages && currentChatData.messages.length > 0) {
         chatHistoryText = currentChatData.messages.map(m => `${m.sender === 'customer' ? 'Khách' : 'Shop'}: ${m.text}`).join('\n');
@@ -366,17 +551,30 @@ YÊU CẦU TRẢ LỜI:
       return;
     }
 
+    // Gửi qua message
     chrome.tabs.sendMessage(tab.id, {
       action: "FILL_SHOPEE_CHAT_INPUT",
       text: text,
       autoSend: !!autoSend
-    }, (res) => {
-      if (chrome.runtime.lastError) {
-        showActionFeedback(`❌ Lỗi: ${chrome.runtime.lastError.message}`, "#dc2626");
+    }, async (res) => {
+      if (chrome.runtime.lastError || !res || !res.ok) {
+        // Fallback qua executeScript
+        try {
+          const results = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: fillShopeeChatInPageDirect,
+            args: [text, autoSend]
+          });
+          if (results && results[0] && results[0].result?.ok) {
+            showActionFeedback(autoSend ? "⚡ Đã điền và GỬI tin nhắn thành công!" : "📝 Đã điền vào ô chat Shopee!", "#16a34a");
+          } else {
+            showActionFeedback("⚠️ Không thể điền vào ô chat", "#dc2626");
+          }
+        } catch (e) {
+          showActionFeedback(`❌ Lỗi: ${e.message}`, "#dc2626");
+        }
       } else if (res && res.ok) {
         showActionFeedback(autoSend ? "⚡ Đã điền và GỬI tin nhắn thành công!" : "📝 Đã điền vào ô chat Shopee!", "#16a34a");
-      } else {
-        showActionFeedback(`⚠️ ${res?.error || "Không thể điền vào ô chat"}`, "#dc2626");
       }
     });
   }
