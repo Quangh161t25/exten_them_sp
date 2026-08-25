@@ -19,6 +19,7 @@
 <button class="tab-btn" data-tab="tab-images">Ảnh</button>
 <button class="tab-btn" data-tab="tab-flash-sale" style="display: none;">Flash Sale</button>
 <button class="tab-btn" data-tab="tab-print">In</button>
+<button class="tab-btn" data-tab="tab-chat-ai" style="background: #eff6ff; color: #1d4ed8; font-weight: bold; border-color: #bfdbfe;">💬 Chat AI</button>
 <button class="tab-btn" data-tab="tab-don-hang-detail">Đơn hàng</button>
 <button class="tab-btn" data-tab="tab-ds-sp">DS SP</button>
 <button class="tab-btn" data-tab="tab-sp">SP</button>
@@ -999,6 +1000,103 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 </div>
 </div>
 
+
+<div id="tab-chat-ai" class="tab-content" hidden>
+  <section class="tool-section" style="border-left: 4px solid #3b82f6;">
+    <div class="section-head" style="margin-bottom: 6px;">
+      <h2 style="color: #1d4ed8; display: flex; align-items: center; gap: 6px;">
+        <span>💬</span> AI Tư Vấn Chat Khách Hàng Shopee
+      </h2>
+    </div>
+    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+      <button id="chat-ai-btn-scan" type="button" class="primary-action" style="flex: 2; background: #2563eb; display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: bold;">
+        <span>🔄</span> Quét Chat Shopee
+      </button>
+      <button id="chat-ai-btn-open-webchat" type="button" class="secondary" style="flex: 1; background: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; font-size: 11px;">
+        ↗ Mở Webchat
+      </button>
+    </div>
+    <div id="chat-ai-status" style="font-size: 12px; font-weight: 500; color: #64748b; margin-bottom: 8px; line-height: 1.4;">
+      Mở Shopee Webchat và bấm "Quét Chat Shopee" để lấy dữ liệu.
+    </div>
+  </section>
+
+  <!-- KHUNG THÔNG TIN SẢN PHẨM KHÁCH ĐANG TRAO ĐỔI -->
+  <section class="tool-section" id="chat-ai-product-section" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0;">
+    <div class="section-head" style="margin-bottom: 6px;">
+      <h2 style="color: #15803d; font-size: 12px;">🛍️ Sản phẩm khách đang hỏi:</h2>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: flex-start;">
+      <img id="chat-ai-product-img" src="" alt="SP" style="width: 54px; height: 54px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; flex-shrink: 0; background: #fff;">
+      <div style="flex: 1; min-width: 0;">
+        <div id="chat-ai-product-name" style="font-size: 12px; font-weight: bold; color: #1e293b; line-height: 1.3; margin-bottom: 4px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;"></div>
+        <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 11px;">
+          <span id="chat-ai-product-price" style="font-weight: bold; color: #dc2626;"></span>
+          <span id="chat-ai-product-orig-price" style="color: #94a3b8; text-decoration: line-through;"></span>
+          <span id="chat-ai-product-stock" style="background: #e2e8f0; color: #475569; padding: 1px 5px; border-radius: 3px; font-size: 10px;"></span>
+          <span id="chat-ai-product-sold" style="background: #fef3c7; color: #d97706; padding: 1px 5px; border-radius: 3px; font-size: 10px;"></span>
+          <span id="chat-ai-product-discount" style="background: #fee2e2; color: #ef4444; padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: bold;"></span>
+        </div>
+      </div>
+    </div>
+    <div id="chat-ai-product-sheet-info" style="display: none; margin-top: 6px; padding: 4px 8px; background: #ffffff; border-radius: 4px; border: 1px solid #86efac; font-size: 11px; color: #166534;"></div>
+  </section>
+
+  <!-- KHUNG LỊCH SỬ TIN NHẮN GẦN NHẤT -->
+  <section class="tool-section">
+    <div class="section-head" style="margin-bottom: 6px;">
+      <h2 style="color: #334155; font-size: 12px;">💬 Tin nhắn gần đây trong cuộc trò chuyện:</h2>
+    </div>
+    <div id="chat-ai-history-list" style="max-height: 150px; overflow-y: auto; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
+      <div style="text-align: center; color: #94a3b8; padding: 10px; font-size: 12px;">Chưa quét dữ liệu chat</div>
+    </div>
+
+    <!-- CÂU HỎI CỦA KHÁCH -->
+    <label style="font-size: 11px; font-weight: bold; color: #1e293b; display: block; margin-bottom: 4px;">👤 Câu hỏi của khách hàng (hoặc nội dung cần trả lời):</label>
+    <textarea id="chat-ai-customer-question" rows="2" placeholder="Ví dụ: Mua 3 nồi đặc như thế nào / Có freeship không..." style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; margin-bottom: 6px; resize: vertical; box-sizing: border-box;"></textarea>
+
+    <!-- LƯU Ý RIÊNG CỦA SHOP -->
+    <details style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
+      <summary style="cursor: pointer; font-weight: 600; color: #475569;">+ Thêm chỉ dẫn riêng cho AI (tùy chọn)</summary>
+      <input type="text" id="chat-ai-custom-note" placeholder="Vd: Bảo hành 12 tháng, giao hỏa tốc 2h, tặng kèm muôi inox..." style="width: 100%; padding: 6px 8px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 11px; box-sizing: border-box;">
+    </details>
+
+    <!-- PHONG CÁCH TƯ VẤN -->
+    <label style="font-size: 11px; font-weight: bold; color: #1e293b; display: block; margin-bottom: 4px;">🎯 Chọn phong cách trả lời:</label>
+    <div class="chat-ai-styles-bar" style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 8px;">
+      <button type="button" class="chat-ai-style-btn active" data-style="tu_van">🌸 Tư vấn tận tình</button>
+      <button type="button" class="chat-ai-style-btn" data-style="chot_don">⚡ Chốt đơn nhanh</button>
+      <button type="button" class="chat-ai-style-btn" data-style="voucher">🏷️ Báo giá & Voucher</button>
+      <button type="button" class="chat-ai-style-btn" data-style="bao_hanh">🛡️ Bảo hành & Cam kết</button>
+    </div>
+
+    <button id="chat-ai-btn-generate" type="button" class="primary-action" style="width: 100%; background: linear-gradient(135deg, #10b981, #059669); font-weight: bold; font-size: 13px;">
+      ✨ AI Sinh Câu Trả Lời
+    </button>
+  </section>
+
+  <!-- KẾT QUẢ AI SINH & TÁC VỤ GỬI -->
+  <section class="tool-section" style="background: #fcfcfd;">
+    <div class="section-head" style="margin-bottom: 6px;">
+      <h2 style="color: #0f172a; font-size: 12px;">📝 Câu trả lời AI (Có thể sửa trước khi gửi):</h2>
+    </div>
+    <textarea id="chat-ai-output-text" rows="4" placeholder="Câu trả lời do AI tạo sẽ xuất hiện tại đây..." style="width: 100%; padding: 8px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 13px; line-height: 1.4; color: #0f172a; margin-bottom: 8px; box-sizing: border-box; resize: vertical;"></textarea>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 6px;">
+      <button id="chat-ai-btn-copy" type="button" class="secondary" style="background: #64748b; font-size: 11px; padding: 6px 0;">
+        📋 Copy
+      </button>
+      <button id="chat-ai-btn-fill-shopee" type="button" class="secondary" style="background: #2563eb; font-size: 11px; padding: 6px 0;">
+        📝 Điền Chat
+      </button>
+      <button id="chat-ai-btn-send-shopee" type="button" class="primary-action" style="background: #ea580c; font-size: 11px; padding: 6px 0; font-weight: bold;">
+        ⚡ Điền & Gửi Luôn
+      </button>
+    </div>
+    <div id="chat-ai-action-feedback" style="margin-top: 6px; font-size: 12px; font-weight: bold; text-align: center; display: none;"></div>
+  </section>
+</div>
+
 <div id="tab-settings" class="tab-content" hidden>
 <section class="tool-section">
 <div class="section-head">
@@ -1094,6 +1192,7 @@ Kết quả trả về sẽ tự động định dạng bằng HTML cơ bản (&
 <script src="hieu_qua_sp_tab.js"></script>
 <script src="day_sp_tab.js"></script>
 <script src="doanh_thu_tab.js"></script>
+<script src="chat_ai_tab.js"></script>
 </body>
 
 </html>
