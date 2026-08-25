@@ -6631,7 +6631,11 @@ const CAI_DAT_TAB_NAME_TO_ID = {
   "test": "tab-test",
   "tien ich": "tab-tools",
   "flash sale": "tab-flash-sale",
-  "in": "tab-print"
+  "in": "tab-print",
+  "chat ai": "tab-chat-ai",
+  "chat": "tab-chat-ai",
+  "tu van chat": "tab-chat-ai",
+  "chat shopee": "tab-chat-ai"
 };
 
 function normalizeCaiDatTabName(value) {
@@ -6656,30 +6660,48 @@ function applyCaiDatTabOrder(tabNames) {
   const btnById = new Map(tabBtns.map(btn => [btn.dataset.tab, btn]));
   const orderedIds = [];
 
-  tabNames.forEach((name) => {
-    const tabId = caiDatTabNameToId(name);
-    if (tabId && btnById.has(tabId) && !orderedIds.includes(tabId)) {
-      orderedIds.push(tabId);
+  if (Array.isArray(tabNames) && tabNames.length > 0) {
+    tabNames.forEach((name) => {
+      const tabId = caiDatTabNameToId(name);
+      if (tabId && btnById.has(tabId) && !orderedIds.includes(tabId)) {
+        orderedIds.push(tabId);
+      }
+    });
+  }
+
+  // Các tab bị ẩn cố định
+  const explicitlyHiddenTabs = new Set(["tab-flash-sale"]);
+
+  // MẶC ĐỊNH LUÔN HIỂN THỊ TẤT CẢ CÁC TAB (trừ tab bị ẩn cố định)
+  tabBtns.forEach((btn) => {
+    const tId = btn.dataset.tab;
+    if (explicitlyHiddenTabs.has(tId)) {
+      btn.style.display = "none";
+    } else {
+      btn.style.display = "";
     }
   });
 
-  const allowedIds = new Set(orderedIds);
-  tabBtns.forEach((btn) => {
-    btn.style.display = allowedIds.has(btn.dataset.tab) ? "" : "none";
-  });
-
+  // Đưa các tab được khai báo trong Sheet cai_dat lên đầu theo thứ tự
   orderedIds.forEach((tabId) => {
     const btn = btnById.get(tabId);
     if (btn) tabHeader.appendChild(btn);
   });
 
-  const firstVisibleTab = orderedIds.map(tabId => btnById.get(tabId)).find(Boolean) || null;
+  // Đưa các tab mới (chưa có trong Sheet) về phía sau để luôn hiển thị cho người dùng bấm
+  tabBtns.forEach((btn) => {
+    if (!orderedIds.includes(btn.dataset.tab) && !explicitlyHiddenTabs.has(btn.dataset.tab)) {
+      tabHeader.appendChild(btn);
+    }
+  });
+
   const activeBtn = document.querySelector(".tab-btn.active");
-  if (activeBtn && activeBtn.style.display === "none" && firstVisibleTab) {
-    firstVisibleTab.click();
+  if (!activeBtn || activeBtn.style.display === "none") {
+    const firstVisible = tabBtns.find(b => b.style.display !== "none");
+    if (firstVisible) firstVisible.click();
   }
 
-  return { orderedIds, firstVisibleTab };
+  return { orderedIds };
 }
 
 window.hideAllTabsExceptSettings = function() {
