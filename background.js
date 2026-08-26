@@ -319,6 +319,14 @@ async function uploadImageToFreeImageHost(imageUrl) {
     return true;
   }
 
+  if (message?.type === "FETCH_DH") {
+    Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
+      .then(([token, sheetId]) => fetchSheetValues("DH!A:AZ", token, GOOGLE_REQUEST_TIMEOUT_MS, sheetId))
+      .then(values => sendResponse({ ok: true, values }))
+      .catch(error => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   if (message?.type === "FETCH_SP_SHOPEE") {
     Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
       .then(([token, sheetId]) => fetchSheetValues("SP_SHOPEE!A:Z", token, GOOGLE_REQUEST_TIMEOUT_MS, sheetId))

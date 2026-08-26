@@ -20,6 +20,7 @@
 <button class="tab-btn" data-tab="tab-flash-sale" style="display: none;">Flash Sale</button>
 <button class="tab-btn" data-tab="tab-print">In</button>
 <button class="tab-btn" data-tab="tab-chat-ai" style="background: #eff6ff; color: #1d4ed8; font-weight: bold; border-color: #bfdbfe;">💬 Chat AI</button>
+<button class="tab-btn" data-tab="tab-nhieu-don-hang" style="background: #f0fdf4; color: #047857; font-weight: bold; border-color: #86efac;">Nhiều đơn hàng</button>
 <button class="tab-btn" data-tab="tab-don-hang-detail">Đơn hàng</button>
 <button class="tab-btn" data-tab="tab-ds-sp">DS SP</button>
 <button class="tab-btn" data-tab="tab-sp">SP</button>
@@ -397,6 +398,60 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 </div>
 </section>
 
+</div>
+
+
+<div id="tab-nhieu-don-hang" class="tab-content" hidden>
+  <section class="tool-section" style="border-left: 4px solid #10b981; padding: 10px;">
+    <div class="section-head" style="margin-bottom: 8px;">
+      <h2 style="color: #047857; display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0;">
+        <span>📦</span> Danh Sách Đơn Hàng (Sheet DH)
+      </h2>
+    </div>
+
+    <!-- THANH CÔNG CỤ TÌM KIẾM VÀ LỌC MÃ GIAN -->
+    <div style="display: flex; gap: 6px; margin-bottom: 8px; align-items: center; flex-wrap: wrap;">
+      <!-- Ô lọc Mã Gian -->
+      <div style="flex: 1; min-width: 100px;">
+        <input list="nhieu-don-hang-gian-list" id="nhieu-don-hang-gian-filter" placeholder="🔍 Mã Gian..." style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 11px; font-weight: bold; color: #0369a1; box-sizing: border-box; background: #f0f9ff;">
+        <datalist id="nhieu-don-hang-gian-list"></datalist>
+      </div>
+
+      <!-- Ô tìm kiếm từ khóa -->
+      <div style="flex: 2; min-width: 130px;">
+        <input type="text" id="nhieu-don-hang-search" placeholder="Tìm MDH, MVD, SKU, Tên SP..." style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 11px; box-sizing: border-box;">
+      </div>
+
+      <!-- Nút Tải lại -->
+      <button id="btn-reload-nhieu-don-hang" type="button" class="secondary" style="padding: 6px 8px; font-size: 11px; background: #f1f5f9; white-space: nowrap;" title="Tải lại từ Sheet">
+        🔄 Tải lại
+      </button>
+      <!-- Nút Copy TSV -->
+      <button id="btn-copy-tsv-nhieu-don-hang" type="button" class="secondary" style="padding: 6px 8px; font-size: 11px; background: #f8fafc; white-space: nowrap;" title="Copy bảng dữ liệu">
+        📋 Copy
+      </button>
+      <!-- Nút Xuất Excel -->
+      <button id="btn-export-excel-nhieu-don-hang" type="button" class="secondary" style="padding: 6px 8px; font-size: 11px; background: #107c41; color: white; border-color: #107c41; font-weight: bold; white-space: nowrap;" title="Xuất file Excel .xlsx">
+        📊 Excel
+      </button>
+    </div>
+
+    <!-- THANH TRẠNG THÁI -->
+    <div id="nhieu-don-hang-status" style="font-size: 11px; color: #64748b; margin-bottom: 8px; line-height: 1.4;">
+      Đang tải dữ liệu...
+    </div>
+
+    <!-- BẢNG DỮ LIỆU ĐƠN HÀNG (TỪ DƯỚI LÊN TRÊN) -->
+    <div class="table-responsive" style="max-height: calc(100vh - 180px); min-height: 420px; overflow: auto; border: 1px solid #cbd5e1; border-radius: 6px; background: white; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);">
+      <table id="table-nhieu-don-hang" style="width: max-content; min-width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
+        <thead id="nhieu-don-hang-thead">
+        </thead>
+        <tbody id="nhieu-don-hang-tbody">
+          <tr><td colspan="15" style="padding: 20px; text-align: center; color: #64748b;">Đang chuẩn bị dữ liệu...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 </div>
 
 <div id="tab-don-hang-detail" class="tab-content" hidden>
@@ -1193,6 +1248,7 @@ Kết quả trả về sẽ tự động định dạng bằng HTML cơ bản (&
 <script src="day_sp_tab.js"></script>
 <script src="doanh_thu_tab.js"></script>
 <script src="chat_ai_tab.js"></script>
+<script src="nhieu_don_hang_tab.js"></script>
 </body>
 
 </html>
