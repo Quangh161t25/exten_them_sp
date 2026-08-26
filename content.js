@@ -12777,10 +12777,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         // 2. LẤY DANH SÁCH TIN NHẮN
+        // 2. LẤY DANH SÁCH TIN NHẮN
         const messages = [];
         let lastCustomerMessage = "";
 
-        const msgElements = detailChat.querySelectorAll('#messagesContainer .DEwekPN7v2, #messagesContainer .RtO616EACf, [data-cy^="webchat-message"]');
+        const rawMsgElements = Array.from(detailChat.querySelectorAll('#messagesContainer .DEwekPN7v2, #messagesContainer .RtO616EACf, [data-cy^="webchat-message"]'));
+        // Chỉ lấy phần tử cấp ngoài cùng, loại bỏ phần tử con bị lồng trùng khớp
+        const msgElements = rawMsgElements.filter(el => !rawMsgElements.some(other => other !== el && other.contains(el)));
+
         msgElements.forEach(msgEl => {
           const isReceive = msgEl.querySelector('[data-cy="webchat-message-receive"]') || msgEl.classList.contains('x_vjYCA89K') || msgEl.getAttribute('data-cy') === 'webchat-message-receive';
           const isSend = msgEl.querySelector('[data-cy="webchat-message-send"]') || msgEl.classList.contains('IjkExKWyR_') || msgEl.getAttribute('data-cy') === 'webchat-message-send';
@@ -12811,15 +12815,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
           const fullContent = text || cardText;
           if (fullContent && !fullContent.includes("LƯU Ý: Shopee KHÔNG cho phép")) {
-            messages.push({
-              sender,
-              text: fullContent,
-              time: timeStr,
-              isAutoReply
-            });
+            // Khử trùng lặp tin nhắn
+            const lastMsg = messages[messages.length - 1];
+            const isDuplicate = lastMsg &&
+              lastMsg.sender === sender &&
+              lastMsg.text === fullContent &&
+              (!timeStr || !lastMsg.time || lastMsg.time === timeStr);
 
-            if (sender === "customer" && text) {
-              lastCustomerMessage = text;
+            if (!isDuplicate) {
+              messages.push({
+                sender,
+                text: fullContent,
+                time: timeStr,
+                isAutoReply
+              });
+
+              if (sender === "customer" && text) {
+                lastCustomerMessage = text;
+              }
             }
           }
         });
