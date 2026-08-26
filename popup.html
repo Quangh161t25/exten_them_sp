@@ -1150,6 +1150,28 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
     </button>
   </section>
 
+  <!-- KHUNG MẪU TRẢ LỜI NHANH TỪ CỘT H (chat) SHEET CAI_DAT -->
+  <section class="tool-section" style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+      <h2 style="color: #0f172a; font-size: 12px; margin: 0; display: flex; align-items: center; gap: 4px;">
+        <span>⚡</span> <b>Mẫu trả lời nhanh (Cột H sheet CAI_DAT):</b>
+      </h2>
+      <div style="display: flex; gap: 4px; align-items: center;">
+        <button id="chat-ai-btn-refresh-templates" type="button" class="ghost" style="padding: 2px 6px; font-size: 10px; border: 1px solid #cbd5e1; background: white; border-radius: 3px; cursor: pointer;" title="Tải lại mẫu từ Sheet CAI_DAT">🔄 Làm mới</button>
+      </div>
+    </div>
+
+    <!-- Ô tìm kiếm mẫu nhanh -->
+    <div style="margin-bottom: 6px;">
+      <input type="text" id="chat-ai-search-template" placeholder="🔍 Tìm mẫu câu trả lời nhanh..." style="width: 100%; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 11px; box-sizing: border-box;">
+    </div>
+
+    <!-- Danh sách mẫu câu trả lời -->
+    <div id="chat-ai-templates-list" style="max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 2px;">
+      <div style="text-align: center; color: #94a3b8; font-size: 11px; padding: 6px;">Đang tải mẫu trả lời nhanh từ sheet CAI_DAT...</div>
+    </div>
+  </section>
+
   <!-- KẾT QUẢ AI SINH & TÁC VỤ GỬI -->
   <section class="tool-section" style="background: #fcfcfd;">
     <div class="section-head" style="margin-bottom: 6px;">

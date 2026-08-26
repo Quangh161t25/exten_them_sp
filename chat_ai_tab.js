@@ -39,6 +39,12 @@
   const btnFillAndSend = document.getElementById("chat-ai-btn-send-shopee");
   const actionFeedback = document.getElementById("chat-ai-action-feedback");
 
+  // Quick Templates Elements (Cột H sheet CAI_DAT)
+  const templatesContainer = document.getElementById("chat-ai-templates-list");
+  const searchTemplateInput = document.getElementById("chat-ai-search-template");
+  const btnRefreshTemplates = document.getElementById("chat-ai-btn-refresh-templates");
+  let chatTemplates = [];
+
   // Style mapping descriptions (Đơn giản, súc tích)
   const STYLE_PROMPTS = {
     tu_van: "Trả lời ngắn gọn 1-2 câu, giải đáp thẳng câu hỏi của khách.",
@@ -534,9 +540,119 @@ QUY TẮC BẮT BUỘC TRẢ LỜI:
     }
   }
 
-  // 6. Điền câu trả lời vào Shopee Chat
-  async function fillToShopeeChat(autoSend = false) {
-    const text = aiOutputTextarea ? aiOutputTextarea.value.trim() : "";
+  // =========================================================================
+  // 6. MẪU TRẢ LỜI NHANH TỪ CỘT H (chat) SHEET CAI_DAT
+  // =========================================================================
+  async function loadCaiDatChatTemplates(forceRefresh = false) {
+    if (!templatesContainer) return;
+
+    if (!forceRefresh) {
+      const storage = await new Promise(r => chrome.storage.local.get(["cai_dat_chat_templates"], r));
+      if (storage.cai_dat_chat_templates && Array.isArray(storage.cai_dat_chat_templates) && storage.cai_dat_chat_templates.length > 0) {
+        chatTemplates = storage.cai_dat_chat_templates;
+        renderChatTemplates();
+        return;
+      }
+    }
+
+    templatesContainer.innerHTML = '<div style="text-align:center; color:#64748b; font-size:11px; padding:6px;">Đang tải mẫu từ sheet CAI_DAT (Cột H)...</div>';
+
+    chrome.runtime.sendMessage({ type: "FETCH_CAI_DAT" }, (res) => {
+      if (res && res.ok && res.values && res.values.length > 0) {
+        const rows = res.values;
+        const headers = rows[0].map(h => String(h || "").trim().toLowerCase());
+
+        // Tìm cột chat / chat_mau / mẫu chat hoặc mặc định Cột H (index 7)
+        let chatColIdx = headers.findIndex(h => h === "chat" || h === "chat_mau" || h.includes("chat") || h.includes("trả lời nhanh") || h.includes("mẫu tin") || h.includes("tin nhắn"));
+        if (chatColIdx === -1) chatColIdx = 7; // Cột H (index 7: A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7)
+
+        const extracted = [];
+        for (let i = 1; i < rows.length; i++) {
+          const val = String(rows[i][chatColIdx] || "").trim();
+          if (val) {
+            extracted.push(val);
+          }
+        }
+
+        chatTemplates = extracted;
+        chrome.storage.local.set({ cai_dat_chat_templates: chatTemplates });
+        renderChatTemplates();
+      } else {
+        templatesContainer.innerHTML = '<div style="text-align:center; color:#ef4444; font-size:11px; padding:6px;">Không thể tải mẫu từ sheet CAI_DAT. Hãy kiểm tra kết nối Google Sheet!</div>';
+      }
+    });
+  }
+
+  function renderChatTemplates() {
+    if (!templatesContainer) return;
+
+    const query = searchTemplateInput ? searchTemplateInput.value.trim().toLowerCase() : "";
+    let filtered = chatTemplates;
+    if (query) {
+      filtered = chatTemplates.filter(t => t.toLowerCase().includes(query));
+    }
+
+    if (!filtered || filtered.length === 0) {
+      templatesContainer.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:11px; padding:6px;">${query ? "Không tìm thấy mẫu phù hợp" : "Chưa có mẫu nào ở Cột H (chat) sheet CAI_DAT"}</div>`;
+      return;
+    }
+
+    templatesContainer.innerHTML = filtered.map((tpl, idx) => {
+      return `
+        <div class="chat-template-card" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:5px; padding:5px 8px; display:flex; align-items:center; justify-content:space-between; gap:6px; transition:all 0.15s ease;">
+          <div class="chat-template-text-click" data-index="${idx}" style="flex:1; min-width:0; font-size:11px; color:#1e293b; line-height:1.35; cursor:pointer; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;" title="Bấm để chọn vào ô trả lời">
+            ${escapeHtml(tpl)}
+          </div>
+          <div style="display:flex; gap:3px; flex-shrink:0;">
+            <button type="button" class="btn-use-template" data-index="${idx}" style="padding:3px 6px; font-size:10px; background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1; border-radius:3px; cursor:pointer; font-weight:500;" title="Điền vào ô trả lời">📝 Chọn</button>
+            <button type="button" class="btn-fill-template-shopee" data-index="${idx}" style="padding:3px 6px; font-size:10px; background:#2563eb; color:white; border:none; border-radius:3px; cursor:pointer; font-weight:500;" title="Điền thẳng vào ô chat Shopee">💬 Điền</button>
+            <button type="button" class="btn-send-template-shopee" data-index="${idx}" style="padding:3px 6px; font-size:10px; background:#ea580c; color:white; border:none; border-radius:3px; cursor:pointer; font-weight:bold;" title="Điền và gửi luôn cho khách">⚡ Gửi</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    // Gán sự kiện cho các nút trong danh sách mẫu
+    templatesContainer.querySelectorAll(".chat-template-text-click, .btn-use-template").forEach(el => {
+      el.addEventListener("click", () => {
+        const idx = parseInt(el.getAttribute("data-index"), 10);
+        const text = filtered[idx];
+        if (text && aiOutputTextarea) {
+          aiOutputTextarea.value = text;
+          aiOutputTextarea.focus();
+          showActionFeedback("✓ Đã chọn mẫu câu trả lời!", "#16a34a");
+        }
+      });
+    });
+
+    templatesContainer.querySelectorAll(".btn-fill-template-shopee").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.getAttribute("data-index"), 10);
+        const text = filtered[idx];
+        if (text) {
+          fillToShopeeChat(false, text);
+        }
+      });
+    });
+
+    templatesContainer.querySelectorAll(".btn-send-template-shopee").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.getAttribute("data-index"), 10);
+        const text = filtered[idx];
+        if (text) {
+          fillToShopeeChat(true, text);
+        }
+      });
+    });
+  }
+
+  // =========================================================================
+  // 7. ĐIỀN CÂU TRẢ LỜI VÀO SHOPEE CHAT
+  // =========================================================================
+  async function fillToShopeeChat(autoSend = false, explicitText = null) {
+    const text = explicitText !== null ? String(explicitText).trim() : (aiOutputTextarea ? aiOutputTextarea.value.trim() : "");
     if (!text) {
       alert("Chưa có nội dung câu trả lời để điền!");
       return;
@@ -576,7 +692,7 @@ QUY TẮC BẮT BUỘC TRẢ LỜI:
     });
   }
 
-  // 7. Copy câu trả lời
+  // 8. Copy câu trả lời
   function copyAiReply() {
     const text = aiOutputTextarea ? aiOutputTextarea.value.trim() : "";
     if (!text) {
@@ -589,7 +705,7 @@ QUY TẮC BẮT BUỘC TRẢ LỜI:
     });
   }
 
-  // 8. Hiển thị thông báo phản hồi
+  // 9. Hiển thị thông báo phản hồi
   function showActionFeedback(msg, color = "#16a34a") {
     if (!actionFeedback) return;
     actionFeedback.textContent = msg;
@@ -621,6 +737,16 @@ QUY TẮC BẮT BUỘC TRẢ LỜI:
     });
   }
 
+  if (btnRefreshTemplates) {
+    btnRefreshTemplates.addEventListener("click", () => {
+      loadCaiDatChatTemplates(true);
+    });
+  }
+
+  if (searchTemplateInput) {
+    searchTemplateInput.addEventListener("input", renderChatTemplates);
+  }
+
   if (styleButtons) {
     styleButtons.forEach(btn => {
       btn.addEventListener("click", () => {
@@ -647,10 +773,14 @@ QUY TẮC BẮT BUỘC TRẢ LỜI:
     btnFillAndSend.addEventListener("click", () => fillToShopeeChat(true));
   }
 
+  // Khởi tạo tải mẫu tin nhắn trả lời nhanh từ sheet CAI_DAT
+  loadCaiDatChatTemplates(false);
+
   // Tự động quét khi người dùng chuyển sang tab Chat AI
   document.querySelectorAll('.tab-btn[data-tab="tab-chat-ai"]').forEach(btn => {
     btn.addEventListener("click", () => {
       setTimeout(scanShopeeChatData, 200);
+      loadCaiDatChatTemplates(false);
     });
   });
 
