@@ -653,13 +653,14 @@ async function uploadImageToFreeImageHost(imageUrl) {
         await ensureSheetExists("DH", token);
         const mdh = String(message.mdh || "").trim().toLowerCase();
         const currentMaGian = String(message.maGian || "").trim().toLowerCase();
+        const forceRefresh = !!message.forceRefresh;
 
         if (!mdh) {
           sendResponse({ ok: true, exists: false, rows: [] });
           return;
         }
 
-        const values = await getCachedDhRows(token, sheetId);
+        const values = await getCachedDhRows(token, sheetId, forceRefresh);
         if (!values || values.length <= 1) {
           sendResponse({ ok: true, exists: false, rows: [] });
           return;
@@ -902,6 +903,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
           })
         });
         if (!res.ok) throw new Error(data.error?.message || "Không thể ghi vào sheet DH");
+        invalidateDhCache();
         sendResponse({ ok: true, updated: false, count: newValues.length });
       } catch (err) {
         sendResponse({ ok: false, error: err.message });
@@ -1082,6 +1084,12 @@ async function uploadImageToFreeImageHost(imageUrl) {
       throw new Error("Sheet DH chưa có dữ liệu đơn hàng nào để cập nhật.");
     }
 
+    const headers = rows[0].map(h => String(h || "").trim().toLowerCase());
+    let mdhIdx = headers.findIndex(h => h === "mdh" || h.includes("mã đơn") || h.includes("ma don") || h === "order sn");
+    if (mdhIdx === -1) mdhIdx = 3;
+    let gianIdx = headers.findIndex(h => h === "gian" || h.includes("mã gian") || h.includes("ma gian"));
+    if (gianIdx === -1) gianIdx = 0;
+
     let reqOrderId = String(message.orderId || "").trim().toLowerCase();
     reqOrderId = reqOrderId.replace(/copy|sao\s*ch[eé]p|m[aã]\s*([đd][oơ]n\s*h[aà]ng|y[eê]u\s*c[aầ]u\s*tr[aả]\s*h[aà]ng)/gi, " ").trim();
     const mReq = reqOrderId.match(/([0-9]{6}[a-z0-9]{7,14})/i);
@@ -1095,26 +1103,34 @@ async function uploadImageToFreeImageHost(imageUrl) {
     // 3. Tìm các dòng khớp mã đơn hàng (và mã gian nếu có)
     let matchingRows = [];
 
+    const isCodeMatch = (cellVal, targetCode) => {
+      if (!cellVal || !targetCode) return false;
+      const c = String(cellVal).trim().toLowerCase();
+      if (c === targetCode || c.includes(targetCode) || targetCode.includes(c)) return true;
+      const m = c.match(/([0-9]{6}[a-z0-9]{7,14})/i);
+      return m && (m[1].toLowerCase() === targetCode);
+    };
+
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i];
-      const rowGian = String(r[0] || "").trim().toLowerCase();
-      const rowMdh = String(r[3] || "").trim().toLowerCase().replace(/copy|sao\s*ch[eé]p/gi, "").trim();
+      const rowGian = String(r[gianIdx] || "").trim().toLowerCase();
+      const rowMdh = String(r[mdhIdx] || "").trim();
       const rowNum = i + 1;
 
-      if (rowMdh === reqOrderId) {
-        if (!reqGian || rowGian === reqGian) {
+      if (isCodeMatch(rowMdh, reqOrderId)) {
+        if (!reqGian || rowGian === reqGian || !rowGian) {
           matchingRows.push({ rowNum, rowData: r });
         }
       }
     }
 
-    // Nếu lọc theo cả gian không thấy, fallback tìm theo mã đơn hàng
+    // Nếu lọc theo cả gian không thấy, fallback tìm theo mã đơn hàng bất kể gian
     if (matchingRows.length === 0) {
       for (let i = 1; i < rows.length; i++) {
         const r = rows[i];
-        const rowMdh = String(r[3] || "").trim().toLowerCase().replace(/copy|sao\s*ch[eé]p/gi, "").trim();
+        const rowMdh = String(r[mdhIdx] || "").trim();
         const rowNum = i + 1;
-        if (rowMdh === reqOrderId) {
+        if (isCodeMatch(rowMdh, reqOrderId)) {
           matchingRows.push({ rowNum, rowData: r });
         }
       }
@@ -1194,6 +1210,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
       if (!updateRes.ok) {
         throw new Error(updateResult.error?.message || "Không thể cập nhật Sheet DH.");
       }
+      invalidateDhCache();
     }
 
     return {

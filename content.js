@@ -7358,79 +7358,103 @@ function downloadExcelFileBypass(wb, filename) {
       btn.textContent = "⏳...";
       btn.disabled = true;
 
+      let isFinished = false;
+      const resetBtnState = (newText = originalText, delayMs = 0) => {
+        if (isFinished) return;
+        isFinished = true;
+        clearTimeout(timer);
+        if (delayMs > 0) {
+          btn.textContent = newText;
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = originalText;
+          }, delayMs);
+        } else {
+          btn.disabled = false;
+          btn.textContent = newText;
+        }
+      };
+
       const timer = setTimeout(() => {
-          if (btn.disabled) {
-              btn.disabled = false;
-              btn.textContent = originalText;
-          }
+        if (!isFinished) {
+          resetBtnState("Lỗi!", 2500);
+          alert(`Hết thời gian chờ khi cập nhật đơn "${data.orderId}". Vui lòng thử lại!`);
+        }
       }, 70000);
 
       chrome.storage.local.get(["maGian", "dhHoanTextValue"], (result) => {
           const maGian = (result.maGian || result.dhHoanTextValue || "").trim();
           
           const sendUpdateReq = (isRetry = false) => {
-            chrome.runtime.sendMessage({ 
-                type: "UPDATE_DH_RETURN_STATUS", 
-                status: action === "Cập nhật" ? "" : action,
-                orderId: data.orderId, 
-                reason: data.reason, 
-                returnId: data.returnId, 
-                tracking: data.tracking,
-                maGian: maGian
-            }, (response) => {
-                if (response && response.ok) {
-                    clearTimeout(timer);
-                    btn.disabled = false;
-                    cachedDhHoanIds.add(data.orderId);
-                    cachedDhHoanStatusMap.set(data.orderId, action);
-                    updateCopyButtonColors();
-                    btn.textContent = "OK!";
-                    setTimeout(() => { btn.textContent = originalText; }, 2000);
-                } else if (response && (response.notFound || (response.error && response.error.includes("Không tìm thấy Mã đơn hàng")))) {
-                    // Chưa có trong Sheet DH -> Mở trực tiếp 1 cửa sổ Chrome mới (tuyệt đối không gọi .click() để tránh mở đúp 2 tab)
-                    btn.textContent = "⏳ Mở Chrome...";
-                    const targetUrl = findOrderRowHref(orderIdEl, data.orderId);
-                    chrome.runtime.sendMessage({
-                        type: "OPEN_ORDER_IN_NEW_WINDOW",
-                        url: targetUrl,
-                        orderId: data.orderId,
-                        autoCloseDelay: 60000
-                    });
+            try {
+              chrome.runtime.sendMessage({ 
+                  type: "UPDATE_DH_RETURN_STATUS", 
+                  status: action === "Cập nhật" ? "" : action,
+                  orderId: data.orderId, 
+                  reason: data.reason, 
+                  returnId: data.returnId, 
+                  tracking: data.tracking,
+                  maGian: maGian
+              }, (response) => {
+                  if (chrome.runtime.lastError) {
+                    resetBtnState("Lỗi!", 2500);
+                    alert("Lỗi kết nối tiện ích: " + chrome.runtime.lastError.message);
+                    return;
+                  }
 
-                    // Tự động kiểm tra và cập nhật lại khi đơn hàng được lưu xong vào Sheet DH
-                    let pollCount = 0;
-                    const pollInterval = setInterval(() => {
-                        pollCount++;
-                        if (pollCount > 20) { // Sau 60s nếu chưa xong
+                  if (response && response.ok) {
+                      cachedDhHoanIds.add(data.orderId);
+                      cachedDhHoanStatusMap.set(data.orderId, action);
+                      updateCopyButtonColors();
+                      resetBtnState("OK!", 2000);
+                  } else if (response && (response.notFound || (response.error && response.error.includes("Không tìm thấy Mã đơn hàng")))) {
+                      // Chưa có trong Sheet DH -> Mở trực tiếp 1 cửa sổ Chrome mới (tuyệt đối không gọi .click() để tránh mở đúp 2 tab)
+                      btn.textContent = "⏳ Mở Chrome...";
+                      const targetUrl = findOrderRowHref(orderIdEl, data.orderId);
+                      chrome.runtime.sendMessage({
+                          type: "OPEN_ORDER_IN_NEW_WINDOW",
+                          url: targetUrl,
+                          orderId: data.orderId,
+                          autoCloseDelay: 60000
+                      });
+
+                      // Tự động kiểm tra và cập nhật lại khi đơn hàng được lưu xong vào Sheet DH
+                      let pollCount = 0;
+                      const pollInterval = setInterval(() => {
+                          if (isFinished) {
                             clearInterval(pollInterval);
-                            clearTimeout(timer);
-                            btn.disabled = false;
-                            btn.textContent = "Lỗi!";
-                            setTimeout(() => { btn.textContent = originalText; }, 2500);
-                            alert(`Không tìm thấy đơn hàng "${data.orderId}" sau khi mở cửa sổ chi tiết đơn.`);
                             return;
-                        }
+                          }
+                          pollCount++;
+                          if (pollCount > 20) { // Sau 50s nếu chưa xong
+                              clearInterval(pollInterval);
+                              resetBtnState("Lỗi!", 2500);
+                              alert(`Không tìm thấy đơn hàng "${data.orderId}" sau khi mở cửa sổ chi tiết đơn.`);
+                              return;
+                          }
 
-                        chrome.runtime.sendMessage({
-                            type: "CHECK_AND_GET_DH_ORDER",
-                            mdh: data.orderId,
-                            maGian: maGian
-                        }, (chkRes) => {
-                            if (chkRes && chkRes.exists && chkRes.rows.length > 0) {
-                                clearInterval(pollInterval);
-                                btn.textContent = "⏳ Cập nhật...";
-                                sendUpdateReq(true);
-                            }
-                        });
-                    }, 3000);
-                } else {
-                    clearTimeout(timer);
-                    btn.disabled = false;
-                    btn.textContent = "Lỗi!";
-                    setTimeout(() => { btn.textContent = originalText; }, 2500);
-                    alert("Lỗi cập nhật: " + (response?.error || "Không có phản hồi từ Background Service"));
-                }
-            });
+                          chrome.runtime.sendMessage({
+                              type: "CHECK_AND_GET_DH_ORDER",
+                              mdh: data.orderId,
+                              maGian: maGian,
+                              forceRefresh: true
+                          }, (chkRes) => {
+                              if (chkRes && chkRes.exists && chkRes.rows.length > 0) {
+                                  clearInterval(pollInterval);
+                                  btn.textContent = "⏳ Cập nhật...";
+                                  sendUpdateReq(true);
+                              }
+                          });
+                      }, 2500);
+                  } else {
+                      resetBtnState("Lỗi!", 2500);
+                      alert("Lỗi cập nhật: " + (response?.error || "Không có phản hồi từ Background Service"));
+                  }
+              });
+            } catch (err) {
+              resetBtnState("Lỗi!", 2500);
+              alert("Lỗi gửi yêu cầu: " + err.message);
+            }
           };
 
           sendUpdateReq(false);
