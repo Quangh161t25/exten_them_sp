@@ -1,8 +1,9 @@
 // =========================================================================
-// TAB NHIỀU ĐƠN HÀNG - LẤY DỮ LIỆU TỪ SHEET "DH", HIỂN THỊ TỪ DƯỚI LÊN TRÊN, LỌC MÃ GIAN
+// TAB NHIỀU ĐƠN HÀNG - LẤY DỮ LIỆU TỪ SHEET "DH", HIỂN THỊ TỪ DƯỚI LÊN TRÊN, LỌC MÃ GIAN & REALTIME SYNC
 // =========================================================================
 
 (function () {
+  const tabContent = document.getElementById("tab-nhieu-don-hang");
   const tabBtn = document.querySelector('.tab-btn[data-tab="tab-nhieu-don-hang"]');
   const thead = document.getElementById("nhieu-don-hang-thead");
   const tbody = document.getElementById("nhieu-don-hang-tbody");
@@ -10,6 +11,7 @@
   const inputGian = document.getElementById("nhieu-don-hang-gian-filter");
   const gianDatalist = document.getElementById("nhieu-don-hang-gian-list");
   const statusEl = document.getElementById("nhieu-don-hang-status");
+  const realtimeToggle = document.getElementById("nhieu-don-hang-realtime-toggle");
   const btnReload = document.getElementById("btn-reload-nhieu-don-hang");
   const btnCopyTsv = document.getElementById("btn-copy-tsv-nhieu-don-hang");
   const btnExportExcel = document.getElementById("btn-export-excel-nhieu-don-hang");
@@ -21,24 +23,40 @@
   let mvdColumnIdx = 4;
   let skuColumnIdx = 16;
   let dataLoaded = false;
+  let isFetching = false;
+  let lastDataHash = "";
+  let lastFetchTime = 0;
+  let realtimeTimer = null;
 
-  // Lắng nghe khi bấm vào tab để tự tải/đồng bộ dữ liệu
+  // Kiểm tra tab có đang được mở không
+  function isTabActive() {
+    return tabContent && !tabContent.hidden && tabContent.classList.contains("active");
+  }
+
+  // Lắng nghe khi bấm vào tab để tự tải/đồng bộ dữ liệu ngay lập tức
   if (tabBtn) {
     tabBtn.addEventListener("click", () => {
-      loadDhSheetData();
+      loadDhSheetData(false);
     });
   }
 
   // Tự động tải dữ liệu khi mở tiện ích
-  setTimeout(loadDhSheetData, 300);
+  setTimeout(() => loadDhSheetData(false), 200);
 
-  // 1. Tải dữ liệu từ Sheet "DH"
-  function loadDhSheetData() {
-    if (tbody) {
+  // 1. Tải dữ liệu từ Sheet "DH" (hỗ trợ chế độ ngầm silent để không giật màn hình)
+  function loadDhSheetData(silent = false) {
+    if (isFetching) return;
+    const now = Date.now();
+    if (silent && now - lastFetchTime < 3000) return;
+
+    isFetching = true;
+    lastFetchTime = now;
+
+    if (!silent && tbody && !dataLoaded) {
       tbody.innerHTML = '<tr><td colspan="15" style="padding: 18px; text-align: center; color: #2563eb; font-weight: 500;">⏳ Đang tải dữ liệu từ sheet "DH"...</td></tr>';
     }
-    if (statusEl) {
-      statusEl.innerHTML = "Đang tải dữ liệu sheet DH...";
+    if (!silent && statusEl) {
+      statusEl.innerHTML = "⏳ Đang tải dữ liệu sheet DH...";
     }
 
     chrome.storage.local.get(["maGian", "dhHoanTextValue"], (storageRes) => {
@@ -48,12 +66,16 @@
       }
 
       chrome.runtime.sendMessage({ type: "FETCH_DH" }, (res) => {
+        isFetching = false;
+
         if (!res || !res.ok || !res.values || res.values.length <= 1) {
-          if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="15" style="padding: 18px; text-align: center; color: #dc2626; font-weight: 500;">⚠️ ${res?.error || 'Sheet "DH" trống hoặc không thể đọc được dữ liệu.'}</td></tr>`;
-          }
-          if (statusEl) {
-            statusEl.innerHTML = '<span style="color:#dc2626;">Lỗi tải dữ liệu sheet DH</span>';
+          if (!silent) {
+            if (tbody) {
+              tbody.innerHTML = `<tr><td colspan="15" style="padding: 18px; text-align: center; color: #dc2626; font-weight: 500;">⚠️ ${res?.error || 'Sheet "DH" trống hoặc không thể đọc được dữ liệu.'}</td></tr>`;
+            }
+            if (statusEl) {
+              statusEl.innerHTML = '<span style="color:#dc2626;">Lỗi tải dữ liệu sheet DH</span>';
+            }
           }
           return;
         }
@@ -70,26 +92,29 @@
           if (lower === "sku" || lower === "mã sku" || lower === "id_sp_ct") skuColumnIdx = idx;
         });
 
-        // Tạo Header bảng động
-        buildTableHeader(headers);
+        // Tạo chữ ký dữ liệu để kiểm tra xem có đơn mới hoặc thay đổi gì không
+        const currentHash = `${rows.length}_${rows[rows.length - 1]?.join('|') || ''}_${rows[1]?.join('|') || ''}`;
+        const hasChanged = (currentHash !== lastDataHash);
+        lastDataHash = currentHash;
 
         // Thu thập danh sách các gian duy nhất và các dòng dữ liệu (ĐẢO NGƯỢC: DƯỚI LÊN TRÊN)
         const uniqueGians = new Set();
-        allData = [];
+        const newData = [];
 
         for (let i = rows.length - 1; i >= 1; i--) {
           const row = rows[i];
-          // Chỉ lấy các dòng có dữ liệu (ít nhất 1 ô có chữ)
           if (row.some(cell => String(cell || "").trim())) {
             const gianVal = String(row[gianColumnIdx] || "").trim();
             if (gianVal) uniqueGians.add(gianVal);
 
-            allData.push({
+            newData.push({
               rowOriginalIndex: i + 1, // Số dòng trên Google Sheet
               cells: row
             });
           }
         }
+
+        allData = newData;
 
         // Đổ danh sách gian vào datalist để người dùng chọn nhanh
         if (gianDatalist) {
@@ -101,8 +126,19 @@
           });
         }
 
-        dataLoaded = true;
-        renderTable();
+        // Render header nếu chưa có
+        if (!thead || thead.children.length === 0) {
+          buildTableHeader(headers);
+        }
+
+        // Nếu dữ liệu có thay đổi hoặc tải lần đầu thì render lại bảng
+        if (hasChanged || !dataLoaded || !silent) {
+          dataLoaded = true;
+          renderTable();
+        } else {
+          // Chỉ cập nhật trạng thái thời gian Realtime
+          updateStatusText();
+        }
       });
     });
   }
@@ -208,13 +244,53 @@
       });
     });
 
-    if (statusEl) {
-      const gianLabel = filterGian ? `Gian: <b>${escapeHtml(filterGian)}</b> | ` : '';
-      statusEl.innerHTML = `${gianLabel}Hiển thị: <b style="color:#2563eb;">${count}</b> / <b>${allData.length}</b> đơn (mới nhất ở trên cùng).`;
-    }
+    updateStatusText(count);
   }
 
-  // 4. Copy TSV
+  // 4. Cập nhật thanh trạng thái (Hiển thị thời gian Realtime)
+  function updateStatusText(currentCount) {
+    if (!statusEl) return;
+    const filterGian = inputGian ? inputGian.value.trim() : "";
+    const filterQuery = inputSearch ? inputSearch.value.trim() : "";
+
+    let count = currentCount;
+    if (typeof count !== 'number') {
+      const rows = tbody ? tbody.querySelectorAll('tr') : [];
+      count = (rows.length === 1 && rows[0].textContent.includes('Không tìm thấy')) ? 0 : rows.length;
+    }
+
+    const now = new Date();
+    const timeStr = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+
+    const isRealtime = realtimeToggle ? realtimeToggle.checked : true;
+    const realtimeBadge = isRealtime 
+      ? `<span style="background: #dcfce7; color: #15803d; padding: 1px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">🟢 Realtime [${timeStr}]</span>`
+      : `<span style="background: #f1f5f9; color: #64748b; padding: 1px 6px; border-radius: 4px; font-size: 10px;">⚪ Thủ công [${timeStr}]</span>`;
+
+    const gianLabel = filterGian ? `Gian: <b>${escapeHtml(filterGian)}</b> | ` : '';
+    statusEl.innerHTML = `${realtimeBadge} ${gianLabel}Hiển thị: <b style="color:#2563eb;">${count}</b> / <b>${allData.length}</b> đơn (mới nhất ở trên cùng).`;
+  }
+
+  // 5. Khởi chạy bộ đếm Realtime Polling (Mỗi 5 giây)
+  function setupRealtimePolling() {
+    if (realtimeTimer) clearInterval(realtimeTimer);
+
+    realtimeTimer = setInterval(() => {
+      const isEnabled = realtimeToggle ? realtimeToggle.checked : true;
+      if (isEnabled && isTabActive()) {
+        loadDhSheetData(true);
+      }
+    }, 5000);
+  }
+
+  // 6. Lắng nghe các sự kiện cập nhật đơn hàng từ toàn bộ Extension
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg?.action === "DH_DATA_UPDATED" || msg?.type === "DH_DATA_UPDATED" || msg?.action === "REFRESH_DH_TABLE") {
+      setTimeout(() => loadDhSheetData(false), 500);
+    }
+  });
+
+  // 7. Copy TSV
   function copyTableTsv() {
     if (!allData.length) {
       alert("Không có dữ liệu để copy!");
@@ -245,7 +321,7 @@
     });
   }
 
-  // 5. Xuất Excel
+  // 8. Xuất Excel
   function exportTableExcel() {
     if (typeof XLSX === "undefined") {
       alert("Thư viện Excel chưa được tải!");
@@ -301,7 +377,16 @@
   }
 
   if (btnReload) {
-    btnReload.addEventListener("click", loadDhSheetData);
+    btnReload.addEventListener("click", () => loadDhSheetData(false));
+  }
+
+  if (realtimeToggle) {
+    realtimeToggle.addEventListener("change", () => {
+      updateStatusText();
+      if (realtimeToggle.checked) {
+        loadDhSheetData(true);
+      }
+    });
   }
 
   if (btnCopyTsv) {
@@ -311,5 +396,8 @@
   if (btnExportExcel) {
     btnExportExcel.addEventListener("click", exportTableExcel);
   }
+
+  // Bắt đầu Realtime Polling
+  setupRealtimePolling();
 
 })();
