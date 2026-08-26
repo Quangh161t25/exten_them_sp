@@ -7185,8 +7185,6 @@ function downloadExcelFileBypass(wb, filename) {
       });
   }
 
-
-
   function extractShopeeCode(elementOrText) {
     if (!elementOrText) return "";
     let text = typeof elementOrText === "string" ? elementOrText : (elementOrText.textContent || "");
@@ -7201,66 +7199,85 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function extractReturnRowData(orderIdEl) {
-    let orderId = "";
-    const contentEl = orderIdEl.querySelector(".id-content, a[href*='order'], a");
-    if (contentEl) {
-      orderId = extractShopeeCode(contentEl.textContent);
-    }
-    if (!orderId) {
-      orderId = extractShopeeCode(orderIdEl.textContent);
-    }
-
     let current = orderIdEl;
     let rowContainer = orderIdEl;
     while(current && current.parentElement && current.parentElement !== document.body) {
-        if (current.parentElement.querySelectorAll(".id.order-id").length > 1) {
+        if (current.parentElement.querySelectorAll(".id.order-id, .order-id, .return-row-item").length > 1) {
             break;
         }
         current = current.parentElement;
         rowContainer = current;
     }
 
-    if (!rowContainer) return { orderId, reason: "", returnId: "", tracking: "" };
-
-    let returnId = "";
-    const returnIdEl_ = rowContainer.querySelector(".id.return-id, .return-id, [class*=\"return-id\"]");
-    if (returnIdEl_) {
-      returnId = extractShopeeCode(returnIdEl_.textContent);
+    // 1. Trích xuất chính xác Mã đơn hàng (orderId)
+    let orderId = "";
+    const orderNode = (rowContainer && rowContainer.querySelector(".order-id .id-content, .id.order-id .id-content, .order-id, .id.order-id")) || orderIdEl;
+    if (orderNode) {
+      const contentEl = orderNode.querySelector(".id-content") || orderNode;
+      orderId = extractShopeeCode(contentEl.textContent);
+    }
+    if (!orderId && orderIdEl) {
+      orderId = extractShopeeCode(orderIdEl.textContent);
     }
 
-    let tracking = "";
-    const trackingEl = rowContainer.querySelector(".item-return-logistic .tracking-number, .tracking-number, [class*=\"tracking\"]");
-    if (trackingEl) {
-      tracking = trackingEl.textContent.replace(/#\s*/, "").replace(/copy|sao\s*ch[eé]p/gi, "").trim();
-    } else {
-      const logisticHint = rowContainer.querySelector(".logistics-hint-text");
-      if (logisticHint && logisticHint.parentElement) {
-         const tEl = logisticHint.parentElement.querySelector(".tracking-number");
-         if (tEl) tracking = tEl.textContent.replace(/#\s*/, "").replace(/copy|sao\s*ch[eé]p/gi, "").trim();
+    // 2. Trích xuất chính xác Mã yêu cầu trả hàng (returnId)
+    let returnId = "";
+    if (rowContainer) {
+      const returnIdNode = rowContainer.querySelector(".return-id .id-content, .id.return-id .id-content, .return-id, .id.return-id");
+      if (returnIdNode) {
+        const returnContent = returnIdNode.querySelector(".id-content") || returnIdNode;
+        returnId = extractShopeeCode(returnContent.textContent);
       }
     }
 
+    // Đảm bảo orderId không bị lấy nhầm thành returnId
+    if (orderId && returnId && orderId === returnId) {
+      const distinctOrderNode = rowContainer?.querySelector(".order-id .id-content");
+      if (distinctOrderNode) {
+        orderId = extractShopeeCode(distinctOrderNode.textContent);
+      }
+    }
+
+    // 3. Trích xuất mã vận đơn trả hàng
+    let tracking = "";
+    if (rowContainer) {
+      const trackingEl = rowContainer.querySelector(".item-return-logistic .tracking-number, .tracking-number, [class*=\"tracking\"]");
+      if (trackingEl) {
+        tracking = trackingEl.textContent.replace(/#\s*/, "").replace(/copy|sao\s*ch[eé]p/gi, "").trim();
+      } else {
+        const logisticHint = rowContainer.querySelector(".logistics-hint-text");
+        if (logisticHint && logisticHint.parentElement) {
+           const tEl = logisticHint.parentElement.querySelector(".tracking-number");
+           if (tEl) tracking = tEl.textContent.replace(/#\s*/, "").replace(/copy|sao\s*ch[eé]p/gi, "").trim();
+        }
+      }
+    }
+
+    // 4. Trích xuất lý do
     let reason = "";
-    const rowText = rowContainer.innerText || rowContainer.textContent || "";
-    const commonReasons = [
-      "Khác với mô tả", "Tôi muốn thay đổi sản phẩm", "Thiếu hàng", "Hàng lỗi",
-      "Không hoạt động", "Hư hỏng", "Giao sai", "Hàng giả", "Chưa nhận được hàng",
-      "hàng không nguyên vẹn", "Bể vỡ", "Hết hạn sử dụng", "Tôi muốn cập nhật địa chỉ/sđt nhận hàng", "Tôi muốn thêm/thay đổi Mã giảm giá"
-    ];
-    for (const cr of commonReasons) {
-       if (rowText.includes(cr)) {
-           reason = cr;
-           break;
-       }
+    if (rowContainer) {
+      const rowText = rowContainer.innerText || rowContainer.textContent || "";
+      const commonReasons = [
+        "Khác với mô tả", "Tôi muốn thay đổi sản phẩm", "Thiếu hàng", "Hàng lỗi",
+        "Không hoạt động", "Hư hỏng", "Giao sai", "Hàng giả", "Chưa nhận được hàng",
+        "hàng không nguyên vẹn", "Bể vỡ", "Hết hạn sử dụng", "Tôi muốn cập nhật địa chỉ/sđt nhận hàng", "Tôi muốn thêm/thay đổi Mã giảm giá"
+      ];
+      for (const cr of commonReasons) {
+         if (rowText.includes(cr)) {
+             reason = cr;
+             break;
+         }
+      }
+      if (!reason) {
+          const allDivs = Array.from(rowContainer.querySelectorAll("div"));
+          const reasonDiv = allDivs.find(div => {
+              const txt = div.textContent.trim();
+              return txt && !div.children.length && txt.length > 5 && txt.length < 100 && !txt.includes("Mã") && !txt.includes("đơn hàng") && !txt.includes("Ngày") && !txt.includes("Giao") && !txt.includes("hoàn") && !txt.includes("yêu cầu");
+          });
+          if (reasonDiv) reason = reasonDiv.textContent.trim();
+      }
     }
-    if (!reason) {
-        const allDivs = Array.from(rowContainer.querySelectorAll("div"));
-        const reasonDiv = allDivs.find(div => {
-            const txt = div.textContent.trim();
-            return txt && !div.children.length && txt.length > 5 && txt.length < 100 && !txt.includes("Mã") && !txt.includes("đơn hàng") && !txt.includes("Ngày") && !txt.includes("Giao") && !txt.includes("hoàn") && !txt.includes("yêu cầu");
-        });
-        if (reasonDiv) reason = reasonDiv.textContent.trim();
-    }
+
     return { orderId, reason, returnId, tracking };
   }
 
@@ -7314,36 +7331,19 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function findOrderRowHref(orderIdEl, fallbackOrderId) {
-    if (orderIdEl) {
-      const closestA = orderIdEl.closest("a[href]");
-      if (closestA) {
-        const h = closestA.getAttribute("href") || closestA.href;
-        if (h && h !== "#" && !h.startsWith("javascript:")) {
-          return h.startsWith("http") ? h : `https://banhang.shopee.vn${h.startsWith("/") ? "" : "/"}${h}`;
-        }
-      }
-
-      let current = orderIdEl;
-      let rowContainer = orderIdEl;
-      while(current && current.parentElement && current.parentElement !== document.body) {
-          if (current.parentElement.querySelectorAll(".id.order-id").length > 1) {
-              break;
-          }
-          current = current.parentElement;
-          rowContainer = current;
-      }
-
-      if (rowContainer) {
-        const containerA = rowContainer.closest("a[href]") || rowContainer.querySelector("a[href*='/order/'], a[href*='/sale/order'], a[href*='/portal/sale/order'], a[href]");
-        if (containerA) {
-          const h = containerA.getAttribute("href") || containerA.href;
-          if (h && h !== "#" && !h.startsWith("javascript:")) {
-            return h.startsWith("http") ? h : `https://banhang.shopee.vn${h.startsWith("/") ? "" : "/"}${h}`;
-          }
-        }
-      }
+    let orderId = fallbackOrderId;
+    if (!orderId && orderIdEl) {
+      const data = extractReturnRowData(orderIdEl);
+      orderId = data.orderId;
     }
-    return `https://banhang.shopee.vn/portal/sale/order/${fallbackOrderId}`;
+    if (!orderId && orderIdEl) {
+      orderId = extractShopeeCode(orderIdEl.textContent);
+    }
+    // Tuyệt đối không mở link /portal/sale/return/... (Mã yêu cầu trả hàng), mà luôn mở đúng trang Chi tiết đơn hàng (/portal/sale/order/...)
+    if (orderId) {
+      return `https://banhang.shopee.vn/portal/sale/order/${orderId}`;
+    }
+    return `https://banhang.shopee.vn/portal/sale/order`;
   }
 
   function handleDhHoanAction(action, orderIdEl, btn) {
@@ -7475,7 +7475,11 @@ function downloadExcelFileBypass(wb, filename) {
       btn.style.backgroundColor = color;
       btn.style.border = "none";
       btn.style.color = "#fff";
-      btn.addEventListener("click", onClick);
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        onClick(e);
+      }, true);
       return btn;
   }
 
@@ -7489,10 +7493,18 @@ function downloadExcelFileBypass(wb, filename) {
     updateHhBhMvdIdsCache().then(() => updateTrackingNumberColors());
     updateTrackingNumberColors();
 
-    const orderIdElements = document.querySelectorAll('.id.order-id');
+    const orderIdElements = document.querySelectorAll('.order-id, .id.order-id');
     for (const orderIdEl of orderIdElements) {
-      // Gắn sự kiện click trực tiếp và style cho span.id-content
-      const orderIdContentEl = orderIdEl.querySelector('.id-content');
+      if (orderIdEl.dataset.shopeeQlspCopyReturnInfo === "1") {
+        continue;
+      }
+      orderIdEl.dataset.shopeeQlspCopyReturnInfo = "1";
+
+      const data = extractReturnRowData(orderIdEl);
+      const directOrderId = data.orderId || extractShopeeCode(orderIdEl.textContent);
+
+      // Gắn sự kiện click trực tiếp và style cho span.id-content của Mã đơn hàng
+      const orderIdContentEl = orderIdEl.querySelector('.id-content') || orderIdEl;
       if (orderIdContentEl) {
         orderIdContentEl.style.cursor = "pointer";
         orderIdContentEl.style.color = "#1890ff";
@@ -7504,37 +7516,35 @@ function downloadExcelFileBypass(wb, filename) {
           orderIdContentEl.addEventListener("click", (e) => {
             e.stopPropagation();
             e.preventDefault();
-            const data = extractReturnRowData(orderIdEl);
-            const targetUrl = findOrderRowHref(orderIdEl, data.orderId);
+            const targetUrl = `https://banhang.shopee.vn/portal/sale/order/${directOrderId}`;
             chrome.runtime.sendMessage({
               type: "OPEN_ORDER_IN_NEW_WINDOW",
               url: targetUrl,
-              orderId: data.orderId,
+              orderId: directOrderId,
               autoCloseDelay: 60000
             });
           }, true);
         }
       }
 
-      if (orderIdEl.dataset.shopeeQlspCopyReturnInfo === "1") {
-        continue;
-      }
-      orderIdEl.dataset.shopeeQlspCopyReturnInfo = "1";
-
       const container = document.createElement("div");
       container.style.display = "inline-flex";
       container.style.alignItems = "center";
       container.style.marginLeft = "12px";
+      // Ngăn chặn nổi bọt lên thẻ cha
+      container.addEventListener("click", (e) => {
+        e.stopPropagation();
+      }, true);
 
       const btnCopy = createActionBtn("Copy Data", "#ee4d2d", (e) => {
         e.stopPropagation(); e.preventDefault();
-        const data = extractReturnRowData(orderIdEl);
-        if (!data) return;
+        const rowData = extractReturnRowData(orderIdEl);
+        if (!rowData) return;
         const copyLines = [];
-        if (data.orderId) copyLines.push(`Mã đơn hàng: ${data.orderId}`);
-        if (data.reason) copyLines.push(`Lý do: ${data.reason}`);
-        if (data.returnId) copyLines.push(`Mã yêu cầu trả hàng: ${data.returnId}`);
-        if (data.tracking) copyLines.push(`Vận chuyển hàng hoàn: ${data.tracking}`);
+        if (rowData.orderId) copyLines.push(`Mã đơn hàng: ${rowData.orderId}`);
+        if (rowData.reason) copyLines.push(`Lý do: ${rowData.reason}`);
+        if (rowData.returnId) copyLines.push(`Mã yêu cầu trả hàng: ${rowData.returnId}`);
+        if (rowData.tracking) copyLines.push(`Vận chuyển hàng hoàn: ${rowData.tracking}`);
         const copyText = copyLines.join('\n');
         
         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -7554,7 +7564,6 @@ function downloadExcelFileBypass(wb, filename) {
         }
       });
       
-      const directOrderId = extractShopeeCode(orderIdEl.textContent);
       btnCopy.dataset.shopeeQlspCopyReturnOrderId = directOrderId;
       btnCopy.classList.add("btn-copy-return-data-check");
       
@@ -7571,7 +7580,7 @@ function downloadExcelFileBypass(wb, filename) {
               btnCopy.style.fontWeight = "bold";
           }
       }
-            container.appendChild(btnCopy);
+      container.appendChild(btnCopy);
 
       const btnHuy = createActionBtn("Hủy", "#ef4444", (e) => { e.stopPropagation(); e.preventDefault(); handleDhHoanAction("Hủy", orderIdEl, btnHuy); });
       container.appendChild(btnHuy);
@@ -7585,12 +7594,8 @@ function downloadExcelFileBypass(wb, filename) {
       const btnUpdate = createActionBtn("Cập nhật", "#64748b", (e) => { e.stopPropagation(); e.preventDefault(); handleDhHoanAction("Cập nhật", orderIdEl, btnUpdate); });
       container.appendChild(btnUpdate);
 
-      const returnIdContainer = orderIdEl.parentElement.querySelector('.id.return-id');
-      if (returnIdContainer) {
-          returnIdContainer.appendChild(container);
-      } else {
-          orderIdEl.appendChild(container);
-      }
+      // Gắn cụm nút vào đúng vị trí Mã đơn hàng
+      orderIdEl.appendChild(container);
     }
   }
 
