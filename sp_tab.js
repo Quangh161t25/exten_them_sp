@@ -230,6 +230,13 @@
       const variationCount = (response.rows || []).filter((row) => row.variationImageLinks).length;
       const videoCount = (response.videos || []).length;
       status.textContent = `Da doc ${rowCount} dong SKU. Anh chinh: ${mainCount}. Anh mo ta: ${descCount}. Anh phan loai: ${variationCount}. Video: ${videoCount}.`;
+
+      // Lưu vào storage để tab KM dùng ghép SKU
+      if (latestRows.length > 0) {
+        chrome.storage.local.set({ sp_page_cache_data: latestRows }, () => {
+          status.textContent += ' (Da luu cache cho tab KM)';
+        });
+      }
     } catch (error) {
       renderRows([]);
       status.textContent = `Loi: ${error.message}`;

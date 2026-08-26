@@ -19,6 +19,43 @@
   let lastScrapedFingerprint = "";
   let isScrapingInProgress = false;
 
+  // Lấy giá trị nguồn đối chiếu SKU đã chọn
+  function getSelectedSkuSource() {
+    const checked = document.querySelector('input[name="km-sku-source"]:checked');
+    return checked ? checked.value : 'sheet';
+  }
+
+  // Khởi tạo lựa chọn nguồn SKU từ storage
+  chrome.storage.local.get(['km_sku_source'], (res) => {
+    const savedSource = res.km_sku_source || 'sheet';
+    const radio = document.querySelector(`input[name="km-sku-source"][value="${savedSource}"]`);
+    if (radio) radio.checked = true;
+  });
+
+  // Lắng nghe khi người dùng đổi nguồn đối chiếu (Sheet / Tab / Cả 2)
+  document.querySelectorAll('input[name="km-sku-source"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      const newSource = e.target.value;
+      chrome.storage.local.set({ km_sku_source: newSource });
+      if (allRows && allRows.length > 0) {
+        getActiveTab().then(tab => {
+          matchSkuFromSheetAndInject(allRows, tab ? tab.id : null, false);
+        });
+      }
+    });
+  });
+
+  // Theo dõi thay đổi của dữ liệu SP để tự động khớp lại SKU
+  chrome.storage.onChanged.addListener((changes) => {
+    if (changes.sp_shopee_cache_data || changes.sp_page_cache_data || changes.km_sku_source) {
+      if (allRows && allRows.length > 0) {
+        getActiveTab().then(tab => {
+          matchSkuFromSheetAndInject(allRows, tab ? tab.id : null, true);
+        });
+      }
+    }
+  });
+
   function isShopeePromotionUrl(url) {
     if (!url) return false;
     const cleanUrl = url.toLowerCase();
@@ -151,7 +188,7 @@
     if (!str) return "";
     return String(str)
       .normalize("NFC")
-      .replace(/[\u200B-\u200D\uFEFF]/g, '')
+      .replace(/[\u200B-\u200D\uFEFF\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]/g, ' ')
       .replace(/\.\.\.$/, '')
       .replace(/\u2026$/, '')
       .replace(/\s+/g, ' ')
@@ -159,148 +196,261 @@
       .toLowerCase();
   }
 
-  function findSkuForShopeeVariation(pName, vName, spRows, currentMaGian) {
-    if (!spRows || spRows.length <= 1) return "";
-    
+  // Chuẩn hóa bỏ dấu câu & khoảng trắng để so khớp cấu trúc từ
+  function compactString(str) {
+    if (!str) return "";
+    return String(str)
+      .normalize("NFC")
+      .replace(/[\u200B-\u200D\uFEFF\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]/g, '')
+      .replace(/\.\.\.$/, '')
+      .replace(/\u2026$/, '')
+      .replace(/[\s\-_,.:;()\/+*&~`!@#$%^=?'"|\\\[\]{}<>]/g, '')
+      .toLowerCase();
+  }
+
+  // Chuẩn hóa bỏ dấu tiếng Việt (chống tuyệt đối lỗi font chữ / bảng mã Unicode NFD/NFC/VNI)
+  function unaccentedString(str) {
+    if (!str) return "";
+    return String(str)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[đĐ]/g, 'd')
+      .replace(/[\u200B-\u200D\uFEFF\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]/g, '')
+      .replace(/\.\.\.$/, '')
+      .replace(/\u2026$/, '')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toLowerCase();
+  }
+
+  // =========================================================================
+  // 1. TÌM SKU TRONG DỮ LIỆU TAB SP (spPageRows - Đọc từ trang web sản phẩm)
+  // =========================================================================
+  function findSkuInPageRows(pName, vName, spPageRows) {
+    if (!spPageRows || !Array.isArray(spPageRows) || spPageRows.length === 0) return "";
+
     const cleanP = cleanString(pName);
     const cleanV = cleanString(vName);
-    if (!cleanV && !cleanP) return "";
+    const compP = compactString(pName);
+    const compV = compactString(vName);
+    const unaccP = unaccentedString(pName);
+    const unaccV = unaccentedString(vName);
 
-    // 1. Xác định vị trí các cột
+    // CẤP 1: Khớp chính xác sạch nguyên văn
+    for (const r of spPageRows) {
+      const rP = cleanString(r.productName);
+      const rV = cleanString(r.variationName);
+      const sku = String(r.sku || "").trim();
+      if (!sku) continue;
+
+      const pMatch = !cleanP || !rP || (rP === cleanP);
+      const vMatch = (!cleanV || cleanV === "-") ? (!rV || rV === "-") : (rV === cleanV);
+      if (pMatch && vMatch) return sku;
+    }
+
+    // CẤP 2: Khớp Tên SP rút gọn / chứa nhau + chính xác phân loại
+    for (const r of spPageRows) {
+      const rP = cleanString(r.productName);
+      const rV = cleanString(r.variationName);
+      const sku = String(r.sku || "").trim();
+      if (!sku) continue;
+
+      const pMatch = !cleanP || !rP || (rP === cleanP || rP.startsWith(cleanP) || cleanP.startsWith(rP) || rP.includes(cleanP) || cleanP.includes(rP));
+      const vMatch = (!cleanV || cleanV === "-") ? (!rV || rV === "-") : (rV === cleanV);
+      if (pMatch && vMatch) return sku;
+    }
+
+    // CẤP 3: Khớp Compact (Bỏ khoảng trắng & dấu câu)
+    for (const r of spPageRows) {
+      const rCompP = compactString(r.productName);
+      const rCompV = compactString(r.variationName);
+      const sku = String(r.sku || "").trim();
+      if (!sku) continue;
+
+      const pMatch = !compP || !rCompP || (rCompP === compP || rCompP.startsWith(compP) || compP.startsWith(rCompP) || rCompP.includes(compP) || compP.includes(rCompP));
+      const vMatch = (!compV || compV === "-") ? (!rCompV || rCompV === "-") : (rCompV === compV);
+      if (pMatch && vMatch) return sku;
+    }
+
+    // CẤP 4: Khớp Unaccented (Chống lệch font / bảng mã tiếng Việt)
+    for (const r of spPageRows) {
+      const rUnaccP = unaccentedString(r.productName);
+      const rUnaccV = unaccentedString(r.variationName);
+      const sku = String(r.sku || "").trim();
+      if (!sku) continue;
+
+      const pMatch = !unaccP || !rUnaccP || (rUnaccP === unaccP || rUnaccP.startsWith(unaccP) || unaccP.startsWith(rUnaccP) || rUnaccP.includes(unaccP) || unaccP.includes(rUnaccP));
+      const vMatch = (!unaccV || unaccV === "-") ? (!rUnaccV || rUnaccV === "-") : (rUnaccV === unaccV);
+      if (pMatch && vMatch) return sku;
+    }
+
+    // CẤP 5: Khớp phân loại chứa nhau
+    for (const r of spPageRows) {
+      const rCompP = compactString(r.productName);
+      const rCompV = compactString(r.variationName);
+      const sku = String(r.sku || "").trim();
+      if (!sku) continue;
+
+      const pMatch = !compP || !rCompP || (rCompP === compP || rCompP.startsWith(compP) || compP.startsWith(rCompP) || rCompP.includes(compP) || compP.includes(rCompP));
+      const vMatch = (!compV || compV === "-") ? (!rCompV || rCompV === "-") : (rCompV.includes(compV) || compV.includes(rCompV));
+      if (pMatch && vMatch) return sku;
+    }
+
+    return "";
+  }
+
+  // =========================================================================
+  // 2. TÌM SKU TRONG GOOGLE SHEET SP_SHOPEE (spRows)
+  // =========================================================================
+  function findSkuInSheetRows(pName, vName, spRows, currentMaGian) {
+    if (!spRows || spRows.length <= 1) return "";
+
+    const cleanP = cleanString(pName);
+    const cleanV = cleanString(vName);
+    if (!cleanP && !cleanV) return "";
+
+    const compP = compactString(pName);
+    const compV = compactString(vName);
+
+    const unaccP = unaccentedString(pName);
+    const unaccV = unaccentedString(vName);
+
+    // 1. Xác định vị trí các cột trong sheet SP_SHOPEE
     const headers = spRows[0].map(v => cleanString(v));
-    let pIdx = headers.findIndex(col => col.includes('tên sản phẩm') || col === 'ten sp' || col === 'name');
+    
+    // Cột Tên sản phẩm (thường là Cột B - index 1)
+    let pIdx = headers.findIndex(col => col === 'tên sản phẩm' || col === 'ten san pham' || col.includes('tên sản phẩm') || col === 'ten sp' || col === 'name');
     if (pIdx === -1) pIdx = 1;
-    let vIdx = headers.findIndex(col => (col.includes('phân loại') || col.includes('variation')) && !col.includes('mã') && !col.includes('ma'));
+
+    // Cột Tên phân loại (thường là Cột D - index 3)
+    let vIdx = headers.findIndex(col => (col === 'tên phân loại' || col === 'ten phan loai' || col.includes('phân loại') || col.includes('variation')) && !col.includes('mã') && !col.includes('ma') && !col.includes('ảnh') && !col.includes('anh'));
     if (vIdx === -1) vIdx = 3;
-    let sIdx = headers.findIndex(col => (col === 'sku' || col === 'mã sku' || col === 'sku phân loại') && !col.includes('chi tiết'));
+
+    // Cột SKU phân loại (thường là Cột F - index 5, tránh nhầm với Cột E - 'SKU Sản phẩm' index 4)
+    let sIdx = headers.findIndex(col => col === 'sku' || col === 'mã sku' || col === 'sku phân loại' || col === 'mã sku phân loại' || col === 'số sku phân loại hàng (tùy chọn)' || col === 'ma sku' || col === 'sku_ct');
+    if (sIdx === -1) {
+      sIdx = headers.findIndex(col => col.includes('sku') && !col.includes('sản phẩm') && !col.includes('san pham') && !col.includes('chi tiết'));
+    }
     if (sIdx === -1) sIdx = 5;
-    let gIdx = headers.findIndex(col => col === 'gian' || col === 'mã gian' || col === 'ma gian');
+
+    // Cột Gian hàng (thường là Cột L - index 11)
+    let gIdx = headers.findIndex(col => col === 'gian' || col === 'mã gian' || col === 'ma gian' || col === 'ma_gian');
     if (gIdx === -1) gIdx = 11;
 
-    // BƯỚC 1: LỌC MÃ GIAN HÀNG TRƯỚC TIÊN (Shop Code Filtering)
-    let candidateRows = [];
     const targetGian = cleanString(currentMaGian);
 
+    const getRowSku = (row) => {
+      let sku = String(row[sIdx] || "").trim();
+      if (!sku && row[5]) sku = String(row[5]).trim();
+      if (!sku && row[4]) sku = String(row[4]).trim();
+      return sku;
+    };
+
+    const matchInRows = (rowList) => {
+      // CẤP 1: Khớp chính xác 100% nguyên chuỗi (chuẩn hóa NFC)
+      for (const row of rowList) {
+        const sheetP = cleanString(row[pIdx]);
+        const sheetV = cleanString(row[vIdx]);
+        const sku = getRowSku(row);
+        if (!sku) continue;
+
+        const pMatch = (sheetP === cleanP);
+        const vMatch = (!cleanV || cleanV === "-") ? (!sheetV || sheetV === "-") : (sheetV === cleanV);
+
+        if (pMatch && vMatch) return sku;
+      }
+
+      // CẤP 2: Khớp Tên SP (rút gọn/chứa nhau) VÀ khớp chính xác phân loại
+      for (const row of rowList) {
+        const sheetP = cleanString(row[pIdx]);
+        const sheetV = cleanString(row[vIdx]);
+        const sku = getRowSku(row);
+        if (!sku) continue;
+
+        const pMatch = (sheetP === cleanP || sheetP.startsWith(cleanP) || cleanP.startsWith(sheetP) || sheetP.includes(cleanP) || cleanP.includes(sheetP));
+        const vMatch = (!cleanV || cleanV === "-") ? (!sheetV || sheetV === "-") : (sheetV === cleanV);
+
+        if (pMatch && vMatch) return sku;
+      }
+
+      // CẤP 3: So khớp Compact (Bỏ khoảng trắng thừa & toàn bộ dấu câu)
+      for (const row of rowList) {
+        const rowCompP = compactString(row[pIdx]);
+        const rowCompV = compactString(row[vIdx]);
+        const sku = getRowSku(row);
+        if (!sku) continue;
+
+        const pMatch = (rowCompP === compP || rowCompP.startsWith(compP) || compP.startsWith(rowCompP) || rowCompP.includes(compP) || compP.includes(rowCompP));
+        const vMatch = (!compV || compV === "-") ? (!rowCompV || rowCompV === "-") : (rowCompV === compV);
+
+        if (pMatch && vMatch) return sku;
+      }
+
+      // CẤP 4: So khớp Chống Lỗi Font / Bảng Mã (Unaccented Matching)
+      for (const row of rowList) {
+        const rowUnaccP = unaccentedString(row[pIdx]);
+        const rowUnaccV = unaccentedString(row[vIdx]);
+        const sku = getRowSku(row);
+        if (!sku) continue;
+
+        const pMatch = (rowUnaccP === unaccP || rowUnaccP.startsWith(unaccP) || unaccP.startsWith(rowUnaccP) || rowUnaccP.includes(unaccP) || unaccP.includes(rowUnaccP));
+        const vMatch = (!unaccV || unaccV === "-") ? (!rowUnaccV || rowUnaccV === "-") : (rowUnaccV === unaccV);
+
+        if (pMatch && vMatch) return sku;
+      }
+
+      // CẤP 5: Khớp Phân loại chứa nhau
+      for (const row of rowList) {
+        const rowCompP = compactString(row[pIdx]);
+        const rowCompV = compactString(row[vIdx]);
+        const sku = getRowSku(row);
+        if (!sku) continue;
+
+        const pMatch = (rowCompP === compP || rowCompP.startsWith(compP) || compP.startsWith(rowCompP) || rowCompP.includes(compP) || compP.includes(rowCompP));
+        const vMatch = (!compV || compV === "-") ? (!rowCompV || rowCompV === "-") : (rowCompV.includes(compV) || compV.includes(rowCompV));
+
+        if (pMatch && vMatch) return sku;
+      }
+
+      return "";
+    };
+
+    // BƯỚC 1: LỌC THEO MÃ GIAN HÀNG NẾU CÓ
     if (targetGian) {
+      let filteredRows = [];
       for (let i = 1; i < spRows.length; i++) {
         const row = spRows[i];
         const sG = cleanString(row[gIdx]);
         if (sG === targetGian || sG.includes(targetGian) || targetGian.includes(sG)) {
-          candidateRows.push(row);
+          filteredRows.push(row);
         }
       }
-    }
-
-    // Nếu không lọc được theo gian hoặc chưa chọn gian, dùng toàn bộ dữ liệu
-    if (candidateRows.length === 0) {
-      candidateRows = spRows.slice(1);
-    }
-
-    // BƯỚC 2: TÌM SẢN PHẨM CHA (Parent Product Matching)
-    const getWordOverlap = (s1, s2) => {
-      if (!s1 || !s2) return 0;
-      const w1 = s1.split(' ').filter(w => w.length > 1);
-      const w2 = s2.split(' ').filter(w => w.length > 1);
-      let count = 0;
-      for (const w of w1) {
-        if (w2.includes(w)) count++;
-      }
-      return count;
-    };
-
-    const extractCodes = (str) => {
-      const matches = str.match(/[a-z0-9]+[0-9]+[a-z0-9]*/gi) || [];
-      return matches.map(m => m.toLowerCase());
-    };
-
-    const pCodes = extractCodes(cleanP);
-
-    let bestParentScore = -1;
-    let bestParentRows = [];
-    
-    // Gom nhóm các dòng theo Tên sản phẩm cha trong sheet
-    const productGroups = new Map();
-    for (const row of candidateRows) {
-      const sP = cleanString(row[pIdx]);
-      if (!sP) continue;
-      if (!productGroups.has(sP)) {
-        productGroups.set(sP, []);
-      }
-      productGroups.get(sP).push(row);
-    }
-
-    for (const [sheetParentName, rows] of productGroups.entries()) {
-      let pScore = 0;
-
-      if (sheetParentName === cleanP) {
-        pScore += 10000;
-      } else if (sheetParentName.startsWith(cleanP) || cleanP.startsWith(sheetParentName)) {
-        pScore += 5000;
-      } else if (sheetParentName.includes(cleanP) || cleanP.includes(sheetParentName)) {
-        pScore += 3000;
-      } else {
-        // Kiểm tra trùng mã model (ví dụ CIM382, SK-09, PA516...)
-        const sheetCodes = extractCodes(sheetParentName);
-        let codeMatch = false;
-        for (const c of pCodes) {
-          if (c.length >= 3 && sheetCodes.includes(c)) {
-            pScore += 2000;
-            codeMatch = true;
-          }
-        }
-
-        const overlap = getWordOverlap(cleanP, sheetParentName);
-        if (overlap >= 2 || codeMatch) {
-          pScore += overlap * 100;
-        }
-      }
-
-      if (pScore > bestParentScore && pScore > 0) {
-        bestParentScore = pScore;
-        bestParentRows = rows;
+      if (filteredRows.length > 0) {
+        const found = matchInRows(filteredRows);
+        if (found) return found;
       }
     }
 
-    if (bestParentRows.length === 0) {
-      bestParentRows = candidateRows;
-    }
+    // BƯỚC 2: TÌM TRÊN TOÀN BỘ SHEET NẾU BƯỚC 1 CHƯA RA
+    const allDataRows = spRows.slice(1);
+    return matchInRows(allDataRows);
+  }
 
-    // BƯỚC 3: TÌM PHÂN LOẠI CON TRONG ĐÚNG NHÓM SẢN PHẨM CHA ĐÃ KHỚP (Variation Matching)
-    let bestVarScore = -1;
-    let bestSku = "";
-
-    for (const row of bestParentRows) {
-      const sV = cleanString(row[vIdx]);
-      const sku = String(row[sIdx] || "").trim();
-      if (!sku) continue;
-
-      let vScore = 0;
-      if (cleanV) {
-        if (sV === cleanV) {
-          vScore += 1000;
-        } else if (sV.startsWith(cleanV) || cleanV.startsWith(sV)) {
-          vScore += 500;
-        } else if (sV.includes(cleanV) || cleanV.includes(sV)) {
-          vScore += 300;
-        } else {
-          const overlap = getWordOverlap(cleanV, sV);
-          if (overlap > 0) vScore += overlap * 50;
-        }
-      } else {
-        if (!sV || sV === "-") vScore += 100;
+  // =========================================================================
+  // 3. ĐIỀU HƯỚNG THEO LỰA CHỌN NGUỒN (Sheet / Tab / Cả hai)
+  // =========================================================================
+  function findSkuForShopeeVariation(pName, vName, spRows, currentMaGian, spPageRows = [], sourceMode = 'sheet') {
+    if (sourceMode === 'tab') {
+      return findSkuInPageRows(pName, vName, spPageRows);
+    } else if (sourceMode === 'sheet') {
+      return findSkuInSheetRows(pName, vName, spRows, currentMaGian);
+    } else {
+      // sourceMode === 'both': Ưu tiên Tab SP trước, nếu không có thì tìm Sheet SP_SHOPEE
+      let sku = findSkuInPageRows(pName, vName, spPageRows);
+      if (!sku) {
+        sku = findSkuInSheetRows(pName, vName, spRows, currentMaGian);
       }
-
-      if (vScore > bestVarScore) {
-        bestVarScore = vScore;
-        bestSku = sku;
-      }
+      return sku;
     }
-
-    if (!bestSku && bestParentRows.length > 0) {
-      bestSku = String(bestParentRows[0][sIdx] || "").trim();
-    }
-
-    return bestSku;
   }
 
   async function getActiveTab() {
@@ -336,14 +486,26 @@
         func: async () => {
           const delay = ms => new Promise(r => setTimeout(r, ms));
 
+          const formatVietnameseText = (str) => {
+            if (!str) return "";
+            return String(str)
+              .normalize("NFC")
+              .replace(/&amp;/g, '&')
+              .replace(/&quot;/g, '"')
+              .replace(/&#39;/g, "'")
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/[\u200B-\u200D\uFEFF\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+          };
+
           const cleanNodeText = (el) => {
             if (!el) return "";
             const clone = el.cloneNode(true);
             clone.querySelectorAll('.eds-popper, .eds-popover__popper, .eds-tooltip__popper, [class*="popper"], [class*="tooltip"], .ext-km-injected-sku').forEach(p => p.remove());
-            return (clone.getAttribute('title') || clone.innerText || clone.textContent || "")
-              .replace(/[\u200B-\u200D\uFEFF]/g, '')
-              .replace(/\s+/g, ' ')
-              .trim();
+            const text = (clone.getAttribute('title') || clone.innerText || clone.textContent || "");
+            return formatVietnameseText(text);
           };
 
           const parsePrice = (str) => {
@@ -371,7 +533,7 @@
                 // Cách 1: link sản phẩm
                 const linkEl = card.querySelector('a[href*="/portal/product/"]');
                 if (linkEl) {
-                  const t = (linkEl.getAttribute('title') || linkEl.innerText || "").replace(/\s+/g,' ').trim();
+                  const t = formatVietnameseText(linkEl.getAttribute('title') || linkEl.innerText || "");
                   if (t && t.length > 1) return t;
                 }
                 // Cách 2: ellipsis-content trong phần header
@@ -381,13 +543,13 @@
                   if (ec) {
                     const clone = ec.cloneNode(true);
                     clone.querySelectorAll('.eds-popper,.eds-tooltip__popper,.ext-km-injected-sku').forEach(x=>x.remove());
-                    const t = (clone.getAttribute('title') || clone.innerText || "").replace(/\s+/g,' ').trim();
+                    const t = formatVietnameseText(clone.getAttribute('title') || clone.innerText || "");
                     if (t && t.length > 1) return t;
                   }
                   // innerText của toàn header (bỏ model rows)
                   const headerClone = headerArea.cloneNode(true);
                   headerClone.querySelectorAll('.discount-view-item-model-component,.discount-edit-item-model-component,.discount-item-model-component,.eds-popper,.ext-km-injected-sku').forEach(x=>x.remove());
-                  const t2 = (headerClone.innerText || "").replace(/\s+/g,' ').trim();
+                  const t2 = formatVietnameseText(headerClone.innerText || "");
                   if (t2 && t2.length > 1) return t2;
                 }
                 // Cách 3: fallback lấy ellipsis-content đầu tiên không thuộc variation
@@ -395,14 +557,14 @@
                 for (const el of allEllipsis) {
                   // Đảm bảo không nằm trong dòng model
                   if (!el.closest('.discount-view-item-model-component, .discount-edit-item-model-component, .discount-item-model-component')) {
-                    const t = (el.getAttribute('title') || el.innerText || "").replace(/\s+/g,' ').trim();
+                    const t = formatVietnameseText(el.getAttribute('title') || el.innerText || "");
                     if (t && t.toLowerCase() !== "sản phẩm" && t.length > 1) return t;
                   }
                 }
                 // Cách 4: title attribute bất kỳ
                 const titleEl = card.querySelector('[title]:not(.ext-km-injected-sku)');
                 if (titleEl) {
-                  const t = titleEl.getAttribute('title').trim();
+                  const t = formatVietnameseText(titleEl.getAttribute('title'));
                   if (t && t.toLowerCase() !== "sản phẩm" && t.length > 1) return t;
                 }
                 return "";
@@ -414,13 +576,13 @@
                 // Cách 1: .ellipsis-content.single (chính xác nhất theo HTML thực tế)
                 const singleEl = mEl.querySelector('.ellipsis-content.single');
                 if (singleEl) {
-                  const t = (singleEl.innerText || singleEl.textContent || "").replace(/\s+/g,' ').trim();
+                  const t = formatVietnameseText(singleEl.innerText || singleEl.textContent || "");
                   if (t) return t;
                 }
                 // Cách 2: .eds-popover__content (nội dung tooltip = text đầy đủ khi bị cắt ...)
                 const tooltipContent = mEl.querySelector('.eds-popover__content');
                 if (tooltipContent) {
-                  const t = (tooltipContent.innerText || "").replace(/\s+/g,' ').trim();
+                  const t = formatVietnameseText(tooltipContent.innerText || "");
                   if (t) return t;
                 }
                 // Cách 3: toàn bộ .ellipsis-content nhưng strip tooltip
@@ -428,7 +590,7 @@
                 if (ecEl) {
                   const clone = ecEl.cloneNode(true);
                   clone.querySelectorAll('.eds-popper,.eds-tooltip__popper,[class*="popper"],.ext-km-injected-sku').forEach(x=>x.remove());
-                  const t = (clone.innerText || clone.textContent || "").replace(/\s+/g,' ').trim();
+                  const t = formatVietnameseText(clone.innerText || clone.textContent || "");
                   if (t) return t;
                 }
                 return "";
@@ -641,30 +803,40 @@
 
   async function matchSkuFromSheetAndInject(items, tabId, isSilent = false) {
     try {
-      const storage = await new Promise(resolve => chrome.storage.local.get(["maGian", "dhHoanTextValue", "sp_shopee_cache_data", "ds_sp_cache_data"], resolve));
+      const storage = await new Promise(resolve => chrome.storage.local.get(["maGian", "dhHoanTextValue", "sp_shopee_cache_data", "sp_page_cache_data", "ds_sp_cache_data", "km_sku_source"], resolve));
       const currentMaGian = (storage.maGian || storage.dhHoanTextValue || "").trim().toLowerCase();
+      const sourceMode = storage.km_sku_source || getSelectedSkuSource();
 
       let spRows = storage.sp_shopee_cache_data;
+      let spPageRows = storage.sp_page_cache_data || [];
       let dsRows = storage.ds_sp_cache_data;
 
-      // If cache is empty, fetch fresh from Google Sheets
-      if (!spRows || !Array.isArray(spRows) || spRows.length === 0) {
-        const res = await new Promise(resolve => {
-          chrome.runtime.sendMessage({ type: "FETCH_SP_SHOPEE" }, resolve);
-        });
-        if (res && res.ok && res.values) {
-          spRows = res.values;
-          chrome.storage.local.set({ sp_shopee_cache_data: spRows });
+      // Luôn làm mới hoặc nạp dữ liệu từ Google Sheet SP_SHOPEE nếu cần
+      if (sourceMode !== 'tab' && (!spRows || !Array.isArray(spRows) || spRows.length === 0 || !isSilent)) {
+        try {
+          const res = await new Promise(resolve => {
+            chrome.runtime.sendMessage({ type: "FETCH_SP_SHOPEE" }, resolve);
+          });
+          if (res && res.ok && res.values && res.values.length > 0) {
+            spRows = res.values;
+            chrome.storage.local.set({ sp_shopee_cache_data: spRows });
+          }
+        } catch (err) {
+          console.warn("Không thể fetch SP_SHOPEE:", err);
         }
       }
 
-      if (!dsRows || !Array.isArray(dsRows) || dsRows.length === 0) {
-        const resDs = await new Promise(resolve => {
-          chrome.runtime.sendMessage({ type: "FETCH_DS_SP" }, resolve);
-        });
-        if (resDs && resDs.ok && resDs.values) {
-          dsRows = resDs.values;
-          chrome.storage.local.set({ ds_sp_cache_data: dsRows });
+      if (!dsRows || !Array.isArray(dsRows) || dsRows.length === 0 || !isSilent) {
+        try {
+          const resDs = await new Promise(resolve => {
+            chrome.runtime.sendMessage({ type: "FETCH_DS_SP" }, resolve);
+          });
+          if (resDs && resDs.ok && resDs.values && resDs.values.length > 0) {
+            dsRows = resDs.values;
+            chrome.storage.local.set({ ds_sp_cache_data: dsRows });
+          }
+        } catch (err) {
+          console.warn("Không thể fetch DS_SP:", err);
         }
       }
 
@@ -683,31 +855,55 @@
         if (giaCol !== -1) dsGiaThapNhatIdx = giaCol;
       }
 
+      // ✅ ĐỐI CHIẾU CHÍNH XÁC TÊN SP & PHÂN LOẠI THEO NGUỒN ĐÃ CHỌN (Sheet / Tab / Cả 2)
       items.forEach(item => {
-        if (!item.isParent && !item.sku && spRows && spRows.length > 0) {
-          item.sku = findSkuForShopeeVariation(item.name, item.variationName, spRows, currentMaGian);
+        if (!item.isParent) {
+          const matchedSku = findSkuForShopeeVariation(item.name, item.variationName, spRows, currentMaGian, spPageRows, sourceMode);
+          item.sku = matchedSku || "";
         }
-        // Match gia_thap_nhat based on 4-char prefix of SKU
+        // Tra cứu Giá Min từ DS_SP theo độ ưu tiên: Full SKU -> 14 ký tự -> 10 ký tự -> 4 ký tự đầu
         if (!item.isParent && item.sku && dsRows && dsRows.length > 1 && dsGiaThapNhatIdx !== -1) {
-          const skuPrefix = String(item.sku).trim().substring(0, 4).toUpperCase();
-          const matchRows = dsRows.filter((r, idx) => idx > 0 && String(r[dsIdSpIdx] || "").trim().toUpperCase() === skuPrefix);
-          
-          if (matchRows.length > 0) {
-            let minPrice = null;
-            for (const r of matchRows) {
-              const rawVal = r[dsGiaThapNhatIdx];
-              if (rawVal) {
-                const numericMatch = parseInt(String(rawVal).replace(/[^\d]/g, ''), 10);
-                if (!isNaN(numericMatch) && numericMatch > 0) {
-                  if (minPrice === null || numericMatch < minPrice) {
-                    minPrice = numericMatch;
-                  }
-                }
+          const cleanSku = String(item.sku).trim().toUpperCase();
+          const sku14 = cleanSku.substring(0, 14);
+          const sku10 = cleanSku.substring(0, 10);
+          const skuPrefix4 = cleanSku.substring(0, 4);
+
+          let matchedPrice = null;
+          let bestPriority = -1; // 3: exact/full, 2: 14 chars, 1: 10 chars, 0: 4 chars
+
+          for (let idx = 1; idx < dsRows.length; idx++) {
+            const r = dsRows[idx];
+            if (!r) continue;
+            const rowId = String(r[dsIdSpIdx] || "").trim().toUpperCase();
+            const rawVal = r[dsGiaThapNhatIdx];
+            if (!rowId || !rawVal) continue;
+
+            const numericPrice = parseInt(String(rawVal).replace(/[^\d]/g, ''), 10);
+            if (isNaN(numericPrice) || numericPrice <= 0) continue;
+
+            let priority = -1;
+            if (rowId === cleanSku || cleanSku.startsWith(rowId) || rowId.startsWith(cleanSku)) {
+              priority = 3;
+            } else if (sku14 && (rowId === sku14 || rowId.startsWith(sku14) || sku14.startsWith(rowId))) {
+              priority = 2;
+            } else if (sku10 && (rowId === sku10 || rowId.startsWith(sku10) || sku10.startsWith(rowId))) {
+              priority = 1;
+            } else if (skuPrefix4 && rowId.startsWith(skuPrefix4)) {
+              priority = 0;
+            }
+
+            if (priority > bestPriority) {
+              bestPriority = priority;
+              matchedPrice = numericPrice;
+            } else if (priority === bestPriority && priority !== -1) {
+              if (matchedPrice === null || numericPrice < matchedPrice) {
+                matchedPrice = numericPrice;
               }
             }
-            if (minPrice !== null) {
-              item.lowestPrice = minPrice;
-            }
+          }
+
+          if (matchedPrice !== null) {
+            item.lowestPrice = matchedPrice;
           }
         }
       });
@@ -1061,7 +1257,7 @@
       const nameStyle = isParent ? 'font-weight: bold; color: #0f172a; font-size: 12px;' : 'color: #475569; font-size: 11px;';
 
       const formattedMinPrice = row.lowestPrice ? `<b style="color: #059669; font-size: 12px;">${Number(row.lowestPrice).toLocaleString('vi-VN')}</b>` : '-';
-      const formattedSku = row.sku ? `<b style="color: #0284c7;">${escapeHtml(String(row.sku).trim().substring(0, 14))}</b>` : '<span style="color: #cbd5e1;">-</span>';
+      const formattedSku = row.sku ? `<b style="color: #0284c7; background: #e0f2fe; border: 1px solid #bae6fd; padding: 2px 6px; border-radius: 4px; display: inline-block;">${escapeHtml(String(row.sku).trim())}</b>` : '<span style="color: #cbd5e1;">-</span>';
 
       html += `
         <tr style="background-color: ${rowBg}; border-top: ${borderTop};">

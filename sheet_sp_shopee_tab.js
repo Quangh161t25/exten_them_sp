@@ -28,6 +28,7 @@
             chrome.runtime.sendMessage({ type: "FETCH_SP_SHOPEE" }, (res) => {
                 if (res && res.ok && res.values && res.values.length > 0) {
                     const rows = res.values;
+                    chrome.storage.local.set({ sp_shopee_cache_data: rows });
                     headers = rows[0].map(h => String(h || "").trim());
                     
                     // Find indices

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="vi">
 
 <head>
@@ -755,6 +755,20 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 
     <!-- Status message -->
     <p id="km-status" style="margin: 0 0 8px; font-size: 12px; color: #64748b; line-height: 1.4;"></p>
+
+    <!-- Chọn nguồn đối chiếu SKU -->
+    <div style="display: flex; gap: 8px; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px 10px; border-radius: 6px; margin-bottom: 8px; font-size: 11px; flex-wrap: wrap;">
+      <span style="font-weight: bold; color: #334155; white-space: nowrap;">🔍 Nguồn lấy SKU:</span>
+      <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; color: #0f172a; font-weight: 500;">
+        <input type="radio" name="km-sku-source" value="sheet" checked style="cursor: pointer;"> 📑 Sheet SP_SHOPEE
+      </label>
+      <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; color: #0f172a; font-weight: 500;">
+        <input type="radio" name="km-sku-source" value="tab" style="cursor: pointer;"> 🌐 Tab SP (Web)
+      </label>
+      <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; color: #0f172a; font-weight: 500;">
+        <input type="radio" name="km-sku-source" value="both" style="cursor: pointer;"> 🔄 Cả 2 nguồn
+      </label>
+    </div>
 
     <!-- Search filter -->
     <div style="margin-bottom: 8px;">
