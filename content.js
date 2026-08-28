@@ -4921,61 +4921,39 @@ function downloadExcelFileBypass(wb, filename) {
     return Boolean(control?.disabled || control?.getAttribute?.("aria-disabled") === "true" || control?.classList?.contains("disabled") || control?.classList?.contains("is-disabled"));
   }
 
+  function findPrintFlowCheckboxIndicator() {
+    const indicators = Array.from(document.querySelectorAll("span.eds-checkbox__indicator, .eds-checkbox__indicator"));
+    const visibleIndicators = indicators
+      .filter((indicator) => isVisible(indicator) && !isDisabledControl(indicator))
+      .sort((left, right) => {
+        const leftRect = left.getBoundingClientRect();
+        const rightRect = right.getBoundingClientRect();
+        return leftRect.top - rightRect.top || leftRect.left - rightRect.left;
+      });
+
+    return visibleIndicators[0] || null;
+  }
+
   async function selectPrintFlowCheckbox() {
     for (let attempt = 0; attempt < 30; attempt += 1) {
-      // 1. Check if there's a Select All checkbox in table header or batch bar
-      const headerCheckboxes = Array.from(document.querySelectorAll(
-        "thead input[type='checkbox'], th input[type='checkbox'], thead .eds-checkbox, th .eds-checkbox, thead span.eds-checkbox__indicator, [data-testid='select-all'], .eds-table__header-cell .eds-checkbox, .select-all-container .eds-checkbox, .batch-action-bar .eds-checkbox, div[class*='select-all']"
-      )).filter(isElementInteractable);
+      const indicator = findPrintFlowCheckboxIndicator();
 
-      for (const headerCheckbox of headerCheckboxes) {
-        if (isDisabledControl(headerCheckbox)) continue;
+      if (indicator) {
+        const target = indicator.closest("label, .eds-checkbox, [role='checkbox']") || indicator;
 
-        const input = headerCheckbox.tagName === "INPUT" ? headerCheckbox : headerCheckbox.querySelector("input[type='checkbox']");
-        const isChecked = input ? input.checked : (headerCheckbox.classList.contains("eds-checkbox--checked") || headerCheckbox.getAttribute("aria-checked") === "true");
-        
-        if (!isChecked) {
-          const target = headerCheckbox.closest("label, .eds-checkbox") || headerCheckbox;
-          target.scrollIntoView({ block: "center", inline: "nearest" });
-          await sleep(80);
+        target.scrollIntoView({ block: "center", inline: "nearest" });
+        await sleep(100);
+
+        if (typeof indicator.click === "function") indicator.click();
+        emitRealClick(indicator);
+        if (target !== indicator) {
           if (typeof target.click === "function") target.click();
-          if (input && typeof input.click === "function") input.click();
           emitRealClick(target);
-          await sleep(200);
         }
 
-        const checkedCount = document.querySelectorAll("tbody input[type='checkbox']:checked, tbody .eds-checkbox--checked, .eds-table__row .eds-checkbox--checked").length;
-        if (checkedCount > 0 || (input && input.checked)) {
-          return {
-            ok: true,
-            message: `Đã chọn tất cả đơn hàng trên trang (${checkedCount || "tất cả"} đơn).`
-          };
-        }
-      }
-
-      // 2. Fallback to all row checkboxes
-      const rowCheckboxes = Array.from(document.querySelectorAll(
-        "tbody input[type='checkbox'], tbody .eds-checkbox, .eds-table__body .eds-checkbox, .eds-table__row .eds-checkbox, .order-item .eds-checkbox, .order-card .eds-checkbox, span.eds-checkbox__indicator"
-      )).filter(el => isElementInteractable(el) && !el.closest("thead, th"));
-
-      if (rowCheckboxes.length > 0) {
-        let count = 0;
-        for (const cb of rowCheckboxes) {
-          if (isDisabledControl(cb)) continue;
-          const input = cb.tagName === "INPUT" ? cb : cb.querySelector("input[type='checkbox']");
-          const isChecked = input ? input.checked : (cb.classList.contains("eds-checkbox--checked") || cb.getAttribute("aria-checked") === "true");
-          if (!isChecked) {
-            const target = cb.closest("label, .eds-checkbox") || cb;
-            if (typeof target.click === "function") target.click();
-            if (input && typeof input.click === "function") input.click();
-            emitRealClick(target);
-            count++;
-            await sleep(40);
-          }
-        }
         return {
           ok: true,
-          message: `Đã tích chọn ${rowCheckboxes.length} đơn hàng.`
+          message: "Đã bấm chọn hộp kiểm."
         };
       }
 
@@ -4984,7 +4962,7 @@ function downloadExcelFileBypass(wb, filename) {
 
     return {
       ok: false,
-      message: "Không tìm thấy hộp kiểm đơn hàng trên trang."
+      message: "Không thấy hộp kiểm trên trang in đơn."
     };
   }
 
