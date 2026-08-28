@@ -62,8 +62,7 @@ const reloadPrintFolderButton = document.querySelector("#reload-print-folder");
 const printFileCountText = document.querySelector("#print-file-count");
 const printPdfTable = document.querySelector("#print-pdf-table");
 const printExcelTable = document.querySelector("#print-excel-table");
-const MAX_IMAGES = 9;
-const PRINT_FLOW_URL = "https://banhang.shopee.vn/portal/sale/mass/ship?filter.product_location_id=VNZ&mass_shipment_tab=201&filter.shipping_method=50021&filter.order_item_filter_type=item0&filter.order_process_status=1&filter.sort.sort_type=2&filter.sort.ascending=true&filter.pre_order=2&filter.shipping_urgency_filter.current_time=1779674835&filter.shipping_urgency_filter.shipping_urgency=1";
+const PRINT_FLOW_URL = "https://banhang.shopee.vn/portal/sale/mass/ship?mass_shipment_tab=201";
 const IMGBB_API_KEY = "1bad1429a242d7040fda3f2cfddb3a25";
 let SAMPLE_IMAGE_PREVIEWS = [
   {
@@ -374,13 +373,29 @@ async function sendMessageToTab(tabId, message) {
 }
 
 function isPrintFlowPage(url) {
-  return String(url || "").startsWith("https://banhang.shopee.vn/portal/sale/mass/ship");
+  const u = String(url || "");
+  return u.includes("banhang.shopee.vn/portal/sale/mass/ship") || u.includes("banhang.shopee.vn/portal/sale/order");
 }
 
 async function getOrOpenPrintFlowTab() {
   const activeTab = await getActiveTab();
 
   if (activeTab?.id && isPrintFlowPage(activeTab.url)) {
+    return activeTab;
+  }
+
+  // Check if any tab is currently open on Shopee Mass Ship
+  const massShipTabs = await chrome.tabs.query({ url: "*://banhang.shopee.vn/portal/sale/mass/ship*" });
+  if (massShipTabs && massShipTabs.length > 0) {
+    const existingTab = massShipTabs[0];
+    await chrome.tabs.update(existingTab.id, { active: true });
+    return existingTab;
+  }
+
+  // Check if active tab is any Shopee seller tab
+  if (activeTab?.id && activeTab.url?.startsWith("https://banhang.shopee.vn/")) {
+    await chrome.tabs.update(activeTab.id, { url: PRINT_FLOW_URL });
+    await waitForTabLoad(activeTab.id);
     return activeTab;
   }
 
@@ -3313,16 +3328,16 @@ button.addEventListener("click", async () => {
 if (openPrintFlowButton) {
   openPrintFlowButton.addEventListener("click", async () => {
     openPrintFlowButton.disabled = true;
-    statusText.textContent = "Dang mo quy trinh in don...";
+    statusText.textContent = "Đang mở quy trình in đơn...";
 
     try {
       await chrome.tabs.create({
         url: PRINT_FLOW_URL,
         active: true
       });
-      statusText.textContent = "Da mo quy trinh in don o tab moi.";
+      statusText.textContent = "Đã mở trang Giao hàng loạt ở tab mới.";
     } catch (error) {
-      statusText.textContent = "Khong mo duoc quy trinh in don.";
+      statusText.textContent = "Không mở được trang Giao hàng loạt.";
     } finally {
       openPrintFlowButton.disabled = false;
     }
@@ -3332,13 +3347,13 @@ if (openPrintFlowButton) {
 if (printFlowSelectCheckboxButton) {
   printFlowSelectCheckboxButton.addEventListener("click", async () => {
     printFlowSelectCheckboxButton.disabled = true;
-    statusText.textContent = "Dang chon hop kiem...";
+    statusText.textContent = "Đang chọn hộp kiểm đơn hàng...";
 
     try {
       const tab = await getOrOpenPrintFlowTab();
 
       if (!tab?.id) {
-        statusText.textContent = "Khong tim thay tab quy trinh in don.";
+        statusText.textContent = "Không tìm thấy tab Shopee Giao hàng loạt.";
         return;
       }
 
@@ -3346,9 +3361,9 @@ if (printFlowSelectCheckboxButton) {
         type: "PRINT_FLOW_SELECT_CHECKBOX"
       });
 
-      statusText.textContent = response?.message || "Da gui lenh chon hop kiem.";
+      statusText.textContent = response?.message || "Đã gửi lệnh chọn hộp kiểm.";
     } catch (error) {
-      statusText.textContent = "Khong chon duoc hop kiem, hay tai lai trang.";
+      statusText.textContent = "Không chọn được hộp kiểm, hãy tải lại trang Shopee.";
     } finally {
       printFlowSelectCheckboxButton.disabled = false;
     }
@@ -3358,15 +3373,15 @@ if (printFlowSelectCheckboxButton) {
 if (loadPrintWarehousesButton) {
   loadPrintWarehousesButton.addEventListener("click", async () => {
     loadPrintWarehousesButton.disabled = true;
-    statusText.textContent = "Dang tai danh sach kho...";
+    statusText.textContent = "Đang tải danh sách kho...";
 
     try {
       const warehouses = await loadPrintWarehouses();
       statusText.textContent = warehouses.length
-        ? `Da tai ${warehouses.length} kho.`
-        : "Khong thay kho nao.";
+        ? `Đã tải ${warehouses.length} kho.`
+        : "Không thấy kho nào.";
     } catch (error) {
-      statusText.textContent = error?.message || "Khong tai duoc danh sach kho.";
+      statusText.textContent = error?.message || "Không tải được danh sách kho.";
     } finally {
       loadPrintWarehousesButton.disabled = false;
     }
@@ -3376,15 +3391,15 @@ if (loadPrintWarehousesButton) {
 if (loadPrintAddressesButton) {
   loadPrintAddressesButton.addEventListener("click", async () => {
     loadPrintAddressesButton.disabled = true;
-    statusText.textContent = "Dang mo danh sach dia chi...";
+    statusText.textContent = "Đang mở danh sách địa chỉ...";
 
     try {
       const addresses = await loadPrintAddresses();
       statusText.textContent = addresses.length
-        ? `Da tai ${addresses.length} dia chi.`
-        : "Khong thay dia chi nao.";
+        ? `Đã tải ${addresses.length} địa chỉ.`
+        : "Không thấy địa chỉ nào.";
     } catch (error) {
-      statusText.textContent = error?.message || "Khong tai duoc dia chi lay hang.";
+      statusText.textContent = error?.message || "Không tải được địa chỉ lấy hàng.";
     } finally {
       loadPrintAddressesButton.disabled = false;
     }
@@ -3392,31 +3407,31 @@ if (loadPrintAddressesButton) {
 }
 
 if (selectWarehouseHanoiButton) {
-  selectWarehouseHanoiButton.addEventListener("click", () => selectPrintWarehouse("Ha Noi", selectWarehouseHanoiButton));
+  selectWarehouseHanoiButton.addEventListener("click", () => selectPrintWarehouse("Hà Nội", selectWarehouseHanoiButton));
 }
 
 if (selectWarehouseHcmButton) {
-  selectWarehouseHcmButton.addEventListener("click", () => selectPrintWarehouse("Ho Chi Minh", selectWarehouseHcmButton));
+  selectWarehouseHcmButton.addEventListener("click", () => selectPrintWarehouse("Hồ Chí Minh", selectWarehouseHcmButton));
 }
 
 if (selectAddressHanoiButton) {
-  selectAddressHanoiButton.addEventListener("click", () => selectPrintAddressLocation("Ha Noi", selectAddressHanoiButton));
+  selectAddressHanoiButton.addEventListener("click", () => selectPrintAddressLocation("Hà Nội", selectAddressHanoiButton));
 }
 
 if (selectAddressHcmButton) {
-  selectAddressHcmButton.addEventListener("click", () => selectPrintAddressLocation("Ho Chi Minh", selectAddressHcmButton));
+  selectAddressHcmButton.addEventListener("click", () => selectPrintAddressLocation("Hồ Chí Minh", selectAddressHcmButton));
 }
 
 if (arrangePickupConfirmButton) {
   arrangePickupConfirmButton.addEventListener("click", async () => {
     arrangePickupConfirmButton.disabled = true;
-    statusText.textContent = "Dang yeu cau VC toi lay hang...";
+    statusText.textContent = "Đang yêu cầu VC tới lấy hàng...";
 
     try {
       const response = await arrangePickupConfirm();
-      statusText.textContent = response?.message || "Da bam yeu cau VC toi lay hang.";
+      statusText.textContent = response?.message || "Đã bấm yêu cầu VC tới lấy hàng.";
     } catch (error) {
-      statusText.textContent = error?.message || "Khong bam duoc nut yeu cau VC toi lay hang.";
+      statusText.textContent = error?.message || "Không bấm được nút yêu cầu VC tới lấy hàng.";
     } finally {
       arrangePickupConfirmButton.disabled = false;
     }
@@ -3426,13 +3441,13 @@ if (arrangePickupConfirmButton) {
 if (generatePrintDocButton) {
   generatePrintDocButton.addEventListener("click", async () => {
     generatePrintDocButton.disabled = true;
-    statusText.textContent = "Dang tao phieu PDF...";
+    statusText.textContent = "Đang tạo phiếu in PDF...";
 
     try {
       const response = await generatePrintDoc();
-      statusText.textContent = response?.message || "Da chon tao phieu PDF. Trang PDF se co nut Tai PDF.";
+      statusText.textContent = response?.message || "Đã chọn tạo phiếu PDF. Trang PDF sẽ có nút Tải PDF.";
     } catch (error) {
-      statusText.textContent = error?.message || "Khong tao duoc phieu PDF.";
+      statusText.textContent = error?.message || "Không tạo được phiếu PDF.";
     } finally {
       generatePrintDocButton.disabled = false;
     }
@@ -3442,13 +3457,13 @@ if (generatePrintDocButton) {
 if (exportWaitingOrdersButton) {
   exportWaitingOrdersButton.addEventListener("click", async () => {
     exportWaitingOrdersButton.disabled = true;
-    statusText.textContent = "Dang xuat don hang...";
+    statusText.textContent = "Đang xuất đơn hàng...";
 
     try {
       const response = await exportWaitingOrders();
-      statusText.textContent = response?.message || "Da bam xuat don hang.";
+      statusText.textContent = response?.message || "Đã bấm xuất đơn hàng.";
     } catch (error) {
-      statusText.textContent = error?.message || "Khong xuat duoc don hang.";
+      statusText.textContent = error?.message || "Không xuất được đơn hàng.";
     } finally {
       exportWaitingOrdersButton.disabled = false;
     }

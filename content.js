@@ -4917,13 +4917,19 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function findPrintFlowCheckboxIndicator() {
-    const indicators = Array.from(document.querySelectorAll("span.eds-checkbox__indicator"));
+    // 1. Try finding Table Header (Select All) Checkbox first
+    const headerCb = document.querySelector("thead input[type='checkbox'], th input[type='checkbox'], thead .eds-checkbox, th .eds-checkbox, [data-testid='select-all'], .eds-table__header-cell .eds-checkbox");
+    if (headerCb && isVisible(headerCb) && !isDisabledControl(headerCb)) {
+      return headerCb;
+    }
+
+    // 2. Fallback to visible checkboxes sorted top to bottom
+    const indicators = Array.from(document.querySelectorAll("span.eds-checkbox__indicator, .eds-checkbox, input[type='checkbox']"));
     const visibleIndicators = indicators
       .filter((indicator) => isVisible(indicator) && !isDisabledControl(indicator))
       .sort((a, b) => {
         const rectA = a.getBoundingClientRect();
         const rectB = b.getBoundingClientRect();
-
         return rectA.top - rectB.top || rectA.left - rectB.left;
       });
 
@@ -4932,18 +4938,47 @@ function downloadExcelFileBypass(wb, filename) {
 
   async function selectPrintFlowCheckbox() {
     for (let attempt = 0; attempt < 30; attempt += 1) {
-      const indicator = findPrintFlowCheckboxIndicator();
+      // 1. Check if there's a Select All checkbox in table header
+      const table = document.querySelector(".eds-table, table, .mass-ship-table, [class*='table']");
+      const headerCheckbox = table?.querySelector("thead input[type='checkbox'], th input[type='checkbox'], thead .eds-checkbox, th .eds-checkbox")
+        || document.querySelector("[data-testid='select-all'], .select-all .eds-checkbox, .eds-table__header-cell .eds-checkbox");
 
-      if (indicator) {
-        const target = indicator.closest("label, .eds-checkbox, [role='checkbox']") || indicator;
-
-        target.scrollIntoView({ block: "center", inline: "nearest" });
-        await sleep(100);
-        emitRealClick(target);
-
+      if (headerCheckbox && isVisible(headerCheckbox) && !isDisabledControl(headerCheckbox)) {
+        const input = headerCheckbox.tagName === "INPUT" ? headerCheckbox : headerCheckbox.querySelector("input[type='checkbox']");
+        const isChecked = input ? input.checked : (headerCheckbox.classList.contains("eds-checkbox--checked") || headerCheckbox.getAttribute("aria-checked") === "true");
+        
+        if (!isChecked) {
+          const target = headerCheckbox.closest("label, .eds-checkbox") || headerCheckbox;
+          target.scrollIntoView({ block: "center", inline: "nearest" });
+          await sleep(100);
+          emitRealClick(target);
+          await sleep(200);
+        }
         return {
           ok: true,
-          message: "Da bam hop kiem."
+          message: "Đã chọn tất cả đơn hàng trên trang."
+        };
+      }
+
+      // 2. Fallback to row checkboxes
+      const rowCheckboxes = Array.from(document.querySelectorAll("tbody input[type='checkbox'], tbody .eds-checkbox, .eds-table__body .eds-checkbox, .order-item .eds-checkbox, span.eds-checkbox__indicator"))
+        .filter(el => isVisible(el) && !isDisabledControl(el));
+
+      if (rowCheckboxes.length > 0) {
+        let count = 0;
+        for (const cb of rowCheckboxes) {
+          const input = cb.tagName === "INPUT" ? cb : cb.querySelector("input[type='checkbox']");
+          const isChecked = input ? input.checked : (cb.classList.contains("eds-checkbox--checked") || cb.getAttribute("aria-checked") === "true");
+          if (!isChecked) {
+            const target = cb.closest("label, .eds-checkbox") || cb;
+            emitRealClick(target);
+            count++;
+            await sleep(50);
+          }
+        }
+        return {
+          ok: true,
+          message: `Đã tích chọn ${rowCheckboxes.length} đơn hàng.`
         };
       }
 
@@ -4952,7 +4987,7 @@ function downloadExcelFileBypass(wb, filename) {
 
     return {
       ok: false,
-      message: "Khong thay hop kiem tren trang in don."
+      message: "Không tìm thấy hộp kiểm trên trang in đơn."
     };
   }
 
@@ -4963,7 +4998,14 @@ function downloadExcelFileBypass(wb, filename) {
       return directSelect;
     }
 
-    return Array.from(document.querySelectorAll(".eds-select")).find((select) => {
+    const selects = Array.from(document.querySelectorAll(".eds-select, .shopee-selector, .eds-dropdown, div[class*='select']")).filter(isVisible);
+    const warehouseSelect = selects.find(s => {
+      const parentText = normalizeSearchText(s.closest(".filter-item, .filter-row, .eds-form-item, div")?.textContent || "");
+      return parentText.includes("kho") || parentText.includes("dia diem") || parentText.includes("vi tri");
+    });
+    if (warehouseSelect) return warehouseSelect;
+
+    return selects.find((select) => {
       return select.querySelector(".eds-selector__inner") && isVisible(select);
     }) || null;
   }
@@ -4973,12 +5015,12 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function findVisibleWarehouseOptions() {
-    return Array.from(document.querySelectorAll(".eds-select__options .eds-option, .eds-option"))
+    return Array.from(document.querySelectorAll(".eds-select__options .eds-option, .eds-dropdown-item, .eds-popover .eds-option, .eds-option, li.eds-dropdown-item"))
       .filter((option) => isVisible(option))
       .map((option) => ({
         element: option,
         name: normalizeText(option.textContent),
-        selected: option.classList.contains("selected")
+        selected: option.classList.contains("selected") || option.classList.contains("eds-option--selected")
       }))
       .filter((option) => option.name);
   }
@@ -5001,6 +5043,23 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   async function getPrintWarehouses() {
+    // 1. Check for direct tabs / chips
+    const directButtons = Array.from(document.querySelectorAll("button, [role='tab'], .eds-radio, .eds-tag, .filter-item, span, div")).filter(isVisible);
+    const directTabs = directButtons.filter(el => {
+      const txt = normalizeSearchText(el.textContent);
+      return (txt.includes("ha noi") || txt.includes("ho chi minh") || txt.includes("kho")) &&
+             (el.tagName === "BUTTON" || el.getAttribute("role") === "tab" || el.classList.contains("eds-radio") || el.classList.contains("filter-item"));
+    });
+
+    if (directTabs.length > 0) {
+      return {
+        ok: true,
+        warehouses: directTabs.map(t => ({ name: normalizeText(t.textContent), selected: t.classList.contains("active") || t.classList.contains("selected") })),
+        message: `Đã tìm ${directTabs.length} kho.`
+      };
+    }
+
+    // 2. Check dropdown
     for (let attempt = 0; attempt < 20; attempt += 1) {
       await openPrintWarehouseMenu();
 
@@ -5013,7 +5072,7 @@ function downloadExcelFileBypass(wb, filename) {
             name: option.name,
             selected: option.selected
           })),
-          message: `Da tim ${options.length} kho.`
+          message: `Đã tìm ${options.length} kho.`
         };
       }
 
@@ -5023,24 +5082,47 @@ function downloadExcelFileBypass(wb, filename) {
     return {
       ok: false,
       warehouses: [],
-      message: "Khong thay danh sach kho."
+      message: "Không tìm thấy danh sách kho."
     };
   }
 
   async function selectPrintWarehouse(name) {
-    const wantedName = normalizeText(name);
+    const wantedName = normalizeSearchText(name);
 
     if (!wantedName) {
       return {
         ok: false,
-        message: "Chua co ten kho de chon."
+        message: "Chưa có tên kho để chọn."
       };
     }
 
+    // 1. Check for direct clickable tab/button
+    const directButtons = Array.from(document.querySelectorAll("button, [role='tab'], .eds-radio, .eds-tag, .filter-item, span, div")).filter(isVisible);
+    const directTab = directButtons.find(el => {
+      const txt = normalizeSearchText(el.textContent);
+      return (txt === wantedName || txt === `kho ${wantedName}` || txt.includes(wantedName)) &&
+             (el.tagName === "BUTTON" || el.getAttribute("role") === "tab" || el.classList.contains("eds-radio") || el.classList.contains("eds-tag") || el.classList.contains("filter-item"));
+    });
+
+    if (directTab) {
+      directTab.scrollIntoView({ block: "center", inline: "nearest" });
+      await sleep(100);
+      emitRealClick(directTab);
+      return {
+        ok: true,
+        message: `Đã chọn kho ${name}.`
+      };
+    }
+
+    // 2. Open dropdown and select option
     for (let attempt = 0; attempt < 20; attempt += 1) {
       await openPrintWarehouseMenu();
 
-      const option = findVisibleWarehouseOptions().find((item) => normalizeText(item.name) === wantedName);
+      const options = findVisibleWarehouseOptions();
+      const option = options.find((item) => {
+        const itemNorm = normalizeSearchText(item.name);
+        return itemNorm.includes(wantedName) || wantedName.includes(itemNorm);
+      });
 
       if (option?.element) {
         option.element.scrollIntoView({ block: "nearest", inline: "nearest" });
@@ -5049,7 +5131,7 @@ function downloadExcelFileBypass(wb, filename) {
 
         return {
           ok: true,
-          message: `Da chon kho ${option.name}.`
+          message: `Đã chọn kho ${option.name}.`
         };
       }
 
@@ -5058,7 +5140,7 @@ function downloadExcelFileBypass(wb, filename) {
 
     return {
       ok: false,
-      message: `Khong thay kho ${wantedName}.`
+      message: `Không tìm thấy kho ${name}.`
     };
   }
 
@@ -5069,16 +5151,17 @@ function downloadExcelFileBypass(wb, filename) {
       return directButton;
     }
 
-    return Array.from(document.querySelectorAll("button, [role='button'], .action, div, span")).find((element) => {
-      return normalizeSearchText(element.textContent) === "doi" && isVisible(element);
+    return Array.from(document.querySelectorAll("button, [role='button'], .action, div, span, a")).find((element) => {
+      const text = normalizeSearchText(element.textContent);
+      return (text === "doi" || text === "doi dia chi" || text === "thay doi" || text === "chinh sua" || text === "change") && isVisible(element);
     }) || null;
   }
 
   function findPickupAddressModal() {
-    return Array.from(document.querySelectorAll(".eds-modal__content")).find((modal) => {
-      const title = normalizeSearchText(modal.querySelector(".eds-modal__title")?.textContent);
-
-      return title === "chon dia chi lay hang" && isVisible(modal);
+    return Array.from(document.querySelectorAll(".eds-modal__content, .shopee-modal__content, div[role='dialog']")).find((modal) => {
+      const title = normalizeSearchText(modal.querySelector(".eds-modal__title, .modal-title, h3, h2, div")?.textContent || "");
+      const text = normalizeSearchText(modal.textContent);
+      return (title.includes("chon dia chi lay hang") || title.includes("dia chi lay hang") || text.includes("dia chi lay hang") || text.includes("chon dia chi")) && isVisible(modal);
     }) || null;
   }
 
@@ -5112,18 +5195,18 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function getPickupAddressItems(modal) {
-    return Array.from(modal.querySelectorAll(".pickup-address-select-item"))
+    return Array.from(modal.querySelectorAll(".pickup-address-select-item, .eds-radio, label.eds-radio, div[class*='address-item'], div[class*='address']"))
       .map((item, index) => {
-        const input = item.querySelector("input[type='radio'][name='address-item']");
-        const name = normalizeText(item.querySelector(".name")?.textContent);
-        const addr = normalizeText(item.querySelector(".addr")?.innerText || item.querySelector(".addr")?.textContent);
-        const selected = Boolean(input?.checked || item.querySelector(".eds-radio__input:checked"));
-        const normalizedAddr = normalizeSearchText(addr);
-        const shortText = normalizedAddr.includes("ha noi")
-          ? "Ha Noi"
-          : normalizedAddr.includes("ho chi minh") || normalizedAddr.includes("hcm")
-            ? "Ho Chi Minh"
-            : `Dia chi ${index + 1}`;
+        const input = item.querySelector("input[type='radio']") || (item.tagName === "INPUT" ? item : null);
+        const name = normalizeText(item.querySelector(".name, .user-name, strong, b")?.textContent);
+        const addr = normalizeText(item.querySelector(".addr, .address-detail, .address, p")?.innerText || item.textContent);
+        const selected = Boolean(input?.checked || item.querySelector(".eds-radio__input:checked") || item.classList.contains("eds-radio--checked"));
+        const normalizedAddr = normalizeSearchText(addr + " " + name);
+        const shortText = normalizedAddr.includes("ha noi") || normalizedAddr.includes("hn")
+          ? "Hà Nội"
+          : normalizedAddr.includes("ho chi minh") || normalizedAddr.includes("hcm") || normalizedAddr.includes("sai gon")
+            ? "Hồ Chí Minh"
+            : `Địa chỉ ${index + 1}`;
 
         return {
           element: item,
@@ -5136,7 +5219,7 @@ function downloadExcelFileBypass(wb, filename) {
           fullText: [name, addr].filter(Boolean).join(" - ")
         };
       })
-      .filter((address) => address.input && address.fullText);
+      .filter((address) => address.fullText);
   }
 
   async function getPickupAddresses() {
@@ -5146,7 +5229,7 @@ function downloadExcelFileBypass(wb, filename) {
       return {
         ok: false,
         addresses: [],
-        message: "Khong thay nut Doi dia chi lay hang."
+        message: "Không thấy nút Đổi địa chỉ lấy hàng."
       };
     }
 
@@ -5162,14 +5245,15 @@ function downloadExcelFileBypass(wb, filename) {
         selected: address.selected,
         fullText: address.fullText
       })),
-      message: addresses.length ? `Da tim ${addresses.length} dia chi.` : "Khong thay dia chi trong popup."
+      message: addresses.length ? `Đã tìm ${addresses.length} địa chỉ.` : "Không thấy địa chỉ trong popup."
     };
   }
 
   function findConfirmPickupAddressButton(modal) {
     return Array.from(modal.querySelectorAll("button")).find((button) => {
-      return normalizeText(button.textContent) === "Confirm" && isVisible(button);
-    }) || null;
+      const text = normalizeSearchText(button.textContent);
+      return (text === "confirm" || text === "xac nhan" || text === "dong y" || text === "luu") && isVisible(button);
+    }) || modal.querySelector(".eds-modal__footer button.eds-button--primary, button.eds-button--primary") || null;
   }
 
   async function selectPickupAddress(id) {
@@ -5178,7 +5262,7 @@ function downloadExcelFileBypass(wb, filename) {
     if (!modal) {
       return {
         ok: false,
-        message: "Khong thay popup chon dia chi lay hang."
+        message: "Không thấy popup chọn địa chỉ lấy hàng."
       };
     }
 
@@ -5188,16 +5272,16 @@ function downloadExcelFileBypass(wb, filename) {
     if (!address) {
       return {
         ok: false,
-        message: "Khong thay dia chi can chon."
+        message: "Không thấy địa chỉ cần chọn."
       };
     }
 
-    const target = address.input.closest("label") || address.element;
+    const target = address.input ? (address.input.closest("label, .eds-radio") || address.element) : address.element;
 
     target.scrollIntoView({ block: "center", inline: "nearest" });
-    await sleep(80);
+    await sleep(100);
     emitRealClick(target);
-    await sleep(150);
+    await sleep(200);
 
     const confirmButton = findConfirmPickupAddressButton(modal);
 
@@ -5205,13 +5289,13 @@ function downloadExcelFileBypass(wb, filename) {
       emitRealClick(confirmButton);
       return {
         ok: true,
-        message: `Da chon ${address.shortText} va bam Confirm.`
+        message: `Đã chọn ${address.shortText} và bấm Xác nhận.`
       };
     }
 
     return {
       ok: true,
-      message: `Da chon ${address.shortText}, nhung khong thay nut Confirm.`
+      message: `Đã chọn ${address.shortText}.`
     };
   }
 
@@ -5221,21 +5305,21 @@ function downloadExcelFileBypass(wb, filename) {
     if (!modal) {
       return {
         ok: false,
-        message: "Khong thay popup chon dia chi lay hang."
+        message: "Không thấy popup chọn địa chỉ lấy hàng."
       };
     }
 
     const normalizedLocation = normalizeSearchText(location);
     const addresses = getPickupAddressItems(modal);
     const address = addresses.find((item) => {
-      const normalizedAddr = normalizeSearchText(item.addr);
+      const normalizedAddr = normalizeSearchText(item.addr + " " + item.name);
 
-      if (normalizedLocation.includes("ha noi")) {
-        return normalizedAddr.includes("ha noi");
+      if (normalizedLocation.includes("ha noi") || normalizedLocation.includes("hn")) {
+        return normalizedAddr.includes("ha noi") || normalizedAddr.includes("hn");
       }
 
-      if (normalizedLocation.includes("ho chi minh") || normalizedLocation.includes("hcm")) {
-        return normalizedAddr.includes("ho chi minh") || normalizedAddr.includes("hcm");
+      if (normalizedLocation.includes("ho chi minh") || normalizedLocation.includes("hcm") || normalizedLocation.includes("sai gon")) {
+        return normalizedAddr.includes("ho chi minh") || normalizedAddr.includes("hcm") || normalizedAddr.includes("sai gon") || normalizedAddr.includes("tphcm");
       }
 
       return normalizedAddr.includes(normalizedLocation);
@@ -5244,16 +5328,16 @@ function downloadExcelFileBypass(wb, filename) {
     if (!address) {
       return {
         ok: false,
-        message: `Khong thay dia chi ${location}.`
+        message: `Không tìm thấy địa chỉ ${location} trong popup.`
       };
     }
 
-    const target = address.input.closest("label") || address.element;
+    const target = address.input ? (address.input.closest("label, .eds-radio") || address.element) : address.element;
 
     target.scrollIntoView({ block: "center", inline: "nearest" });
-    await sleep(80);
+    await sleep(100);
     emitRealClick(target);
-    await sleep(150);
+    await sleep(200);
 
     const confirmButton = findConfirmPickupAddressButton(modal);
 
@@ -5261,13 +5345,13 @@ function downloadExcelFileBypass(wb, filename) {
       emitRealClick(confirmButton);
       return {
         ok: true,
-        message: `Da chon dia chi ${address.shortText} va bam Confirm.`
+        message: `Đã chọn địa chỉ ${address.shortText} và bấm Xác nhận.`
       };
     }
 
     return {
       ok: true,
-      message: `Da chon dia chi ${address.shortText}, nhung khong thay nut Confirm.`
+      message: `Đã chọn địa chỉ ${address.shortText}.`
     };
   }
 
@@ -5278,8 +5362,14 @@ function downloadExcelFileBypass(wb, filename) {
       return directButton;
     }
 
-    return Array.from(document.querySelectorAll("button")).find((button) => {
-      return normalizeSearchText(button.textContent).includes("yeu cau don vi van chuyen den lay hang") && isVisible(button);
+    return Array.from(document.querySelectorAll("button, [role='button'], .eds-button")).find((button) => {
+      const text = normalizeSearchText(button.textContent);
+      return (text.includes("yeu cau don vi van chuyen") || 
+              text.includes("yeu cau vc") || 
+              text.includes("yeu cau lay hang") || 
+              text.includes("sap xep giao hang") || 
+              text.includes("gui hang") ||
+              (text.includes("xac nhan") && button.closest(".eds-modal__footer, .mass-ship-action"))) && isVisible(button);
     }) || null;
   }
 
@@ -5292,9 +5382,16 @@ function downloadExcelFileBypass(wb, filename) {
         await sleep(100);
         emitRealClick(confirmButton);
 
+        // Check if there is an additional confirmation modal
+        await sleep(400);
+        const modalConfirm = document.querySelector(".eds-modal__footer button.eds-button--primary, [role='dialog'] button.eds-button--primary");
+        if (modalConfirm && isVisible(modalConfirm)) {
+          emitRealClick(modalConfirm);
+        }
+
         return {
           ok: true,
-          message: "Da bam Yeu cau don vi van chuyen den lay hang."
+          message: "Đã bấm Yêu cầu đơn vị vận chuyển đến lấy hàng."
         };
       }
 
@@ -5303,7 +5400,7 @@ function downloadExcelFileBypass(wb, filename) {
 
     return {
       ok: false,
-      message: "Khong thay nut Yeu cau don vi van chuyen den lay hang."
+      message: "Không tìm thấy nút Yêu cầu đơn vị vận chuyển đến lấy hàng."
     };
   }
 
@@ -5314,8 +5411,9 @@ function downloadExcelFileBypass(wb, filename) {
       return directButton;
     }
 
-    return Array.from(document.querySelectorAll("button")).find((button) => {
-      return normalizeSearchText(button.textContent).startsWith("tao") && isVisible(button);
+    return Array.from(document.querySelectorAll("button, [role='button'], .eds-button")).find((button) => {
+      const text = normalizeSearchText(button.textContent);
+      return (text.includes("tao phieu") || text.includes("in phieu") || text.includes("in don") || text.includes("tao tai lieu") || text.startsWith("tao") || text.includes("generate")) && isVisible(button);
     }) || null;
   }
 
@@ -5326,10 +5424,9 @@ function downloadExcelFileBypass(wb, filename) {
       return directOption;
     }
 
-    return Array.from(document.querySelectorAll("[data-testid], .eds-dropdown-menu div, .eds-dropdown-item, div")).find((element) => {
+    return Array.from(document.querySelectorAll("[data-testid], .eds-dropdown-menu div, .eds-dropdown-item, .eds-popover div, div, li, span")).find((element) => {
       const text = normalizeSearchText(element.textContent);
-
-      return text.includes("pdf") && text.includes("phieu gui hang") && text.includes("phieu dong goi") && isVisible(element);
+      return (text.includes("pdf") || text.includes("phieu gui hang") || text.includes("phieu dong goi") || text.includes("in phieu")) && isVisible(element);
     }) || null;
   }
 
@@ -5355,7 +5452,7 @@ function downloadExcelFileBypass(wb, filename) {
     if (!foundGenerateButton) {
       return {
         ok: false,
-        message: "Khong thay nut Tao phieu."
+        message: "Không tìm thấy nút Tạo phiếu."
       };
     }
 
@@ -5375,7 +5472,7 @@ function downloadExcelFileBypass(wb, filename) {
 
         return {
           ok: true,
-          message: "Da chon PDF: Phieu gui hang va Phieu dong goi. Trang PDF se hien nut Tai PDF."
+          message: "Đã chọn Tạo phiếu PDF. Trang in sẽ hiện nút Tải PDF tự động."
         };
       }
 
@@ -5384,7 +5481,7 @@ function downloadExcelFileBypass(wb, filename) {
 
     return {
       ok: false,
-      message: "Khong thay muc PDF: Phieu gui hang va Phieu dong goi."
+      message: "Không tìm thấy mục Phiếu gửi hàng / Phiếu đóng gói PDF."
     };
   }
 
@@ -5395,28 +5492,30 @@ function downloadExcelFileBypass(wb, filename) {
       return directButton;
     }
 
-    return Array.from(document.querySelectorAll("button")).find((button) => {
-      return normalizeSearchText(button.textContent) === "xuat" && isVisible(button) && !button.closest(".eds-modal__content");
+    return Array.from(document.querySelectorAll("button, [role='button'], .eds-button")).find((button) => {
+      const text = normalizeSearchText(button.textContent);
+      return (text === "xuat" || text.includes("xuat don hang") || text.includes("xuat danh sach")) && isVisible(button) && !button.closest(".eds-modal__content");
     }) || null;
   }
 
   function findExportWaitingOrdersModal() {
-    return Array.from(document.querySelectorAll(".eds-modal__content")).find((modal) => {
-      const title = normalizeSearchText(modal.querySelector(".eds-modal__title")?.textContent);
-
-      return title.includes("xuat don hang cho lay hang") && isVisible(modal);
+    return Array.from(document.querySelectorAll(".eds-modal__content, .shopee-modal__content, div[role='dialog']")).find((modal) => {
+      const title = normalizeSearchText(modal.querySelector(".eds-modal__title, h3, h2, div")?.textContent || "");
+      return (title.includes("xuat don hang") || title.includes("xuat") || normalizeSearchText(modal.textContent).includes("xuat don hang")) && isVisible(modal);
     }) || null;
   }
 
   function findExportWaitingOrdersModalButton(modal) {
-    return Array.from(modal.querySelectorAll(".eds-modal__footer-buttons button, button")).find((button) => {
-      return normalizeSearchText(button.textContent) === "xuat" && isVisible(button);
+    return Array.from(modal.querySelectorAll(".eds-modal__footer-buttons button, button, .eds-button--primary")).find((button) => {
+      const text = normalizeSearchText(button.textContent);
+      return (text === "xuat" || text.includes("xac nhan") || text.includes("xuat")) && isVisible(button);
     }) || null;
   }
 
   function findExportDownloadButton() {
-    return Array.from(document.querySelectorAll(".eds-modal__content button, button")).find((button) => {
-      return normalizeSearchText(button.textContent) === "tai ve" && isVisible(button);
+    return Array.from(document.querySelectorAll(".eds-modal__content button, button, a.download-link")).find((button) => {
+      const text = normalizeSearchText(button.textContent);
+      return (text.includes("tai ve") || text.includes("download") || text.includes("tai")) && isVisible(button);
     }) || null;
   }
 
@@ -5429,7 +5528,7 @@ function downloadExcelFileBypass(wb, filename) {
       if (!exportButton) {
         return {
           ok: false,
-          message: "Khong thay nut Xuat."
+          message: "Không tìm thấy nút Xuất."
         };
       }
 
@@ -5450,7 +5549,7 @@ function downloadExcelFileBypass(wb, filename) {
     if (!modal) {
       return {
         ok: false,
-        message: "Khong thay hop xuat don hang."
+        message: "Không thấy hộp thoại xuất đơn hàng."
       };
     }
 
@@ -5459,7 +5558,7 @@ function downloadExcelFileBypass(wb, filename) {
     if (!modalExportButton) {
       return {
         ok: false,
-        message: "Khong thay nut Xuat trong hop xuat don hang."
+        message: "Không thấy nút Xuất trong hộp thoại xuất đơn hàng."
       };
     }
 
@@ -5479,14 +5578,14 @@ function downloadExcelFileBypass(wb, filename) {
 
         return {
           ok: true,
-          message: "Da bam Xuat va Tai ve."
+          message: "Đã bấm Xuất và Tải về file Excel thành công."
         };
       }
     }
 
     return {
       ok: true,
-      message: "Da bam Xuat, nhung chua thay nut Tai ve."
+      message: "Đã bấm Xuất đơn hàng."
     };
   }
 

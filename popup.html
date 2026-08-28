@@ -369,32 +369,32 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 <div id="tab-print" class="tab-content" hidden>
 <section class="tool-section">
 <div class="section-head">
-<h2>Quy trình in đơn</h2>
+<h2>Quy trình in đơn hàng</h2>
 </div>
 <div class="print-flow-tools">
-<button id="open-print-flow" type="button" class="primary-action">Mo Quy TrảẢnh</button>
+<button id="open-print-flow" type="button" class="primary-action" style="width: 100%; font-weight: bold; background: #ea580c; border-color: #c2410c;">Mở Quy Trình In Đơn (Giao Hàng Loạt)</button>
 </div>
-<div class="print-flow-result">
-<div class="print-flow-label">Kho xử lý</div>
-<div id="print-warehouse-buttons" class="print-warehouse-buttons" aria-live="polite">
-<button id="select-warehouse-hanoi" type="button" class="secondary">Kho Hà Nội</button>
-<button id="select-warehouse-hcm" type="button" class="primary-action">Kho Hồ Chí MẢnh</button>
-</div>
-</div>
-<div class="print-flow-tools">
-<button id="print-flow-select-checkbox" type="button" class="secondary">1. Chọn Hộp Kiểm</button>
-</div>
-<div class="print-flow-result">
-<div class="print-flow-label">Địa chỉ lấy hàng</div>
-<div id="print-address-buttons" class="print-address-buttons" aria-live="polite">
-<button id="select-address-hanoi" type="button" class="secondary">Địa chỉ Hà Nội</button>
-<button id="select-address-hcm" type="button" class="primary-action">Địa chỉ Hồ Chí MẢnh</button>
+<div class="print-flow-result" style="margin-top: 10px;">
+<div class="print-flow-label" style="font-weight: 600; margin-bottom: 4px;">Kho xử lý</div>
+<div id="print-warehouse-buttons" class="print-warehouse-buttons" aria-live="polite" style="display: flex; gap: 8px;">
+<button id="select-warehouse-hanoi" type="button" class="secondary" style="flex: 1;">Kho Hà Nội</button>
+<button id="select-warehouse-hcm" type="button" class="primary-action" style="flex: 1;">Kho Hồ Chí Minh</button>
 </div>
 </div>
-<div class="print-flow-tools">
-<button id="arrange-pickup-confirm" type="button" class="primary-action">Yêu Cầu VC Tới Lấy Hàng</button>
-<button id="generate-print-doc" type="button" class="primary-action">Tạo Phiếu</button>
-<button id="export-waiting-orders" type="button" class="secondary">Xuất</button>
+<div class="print-flow-tools" style="margin-top: 10px;">
+<button id="print-flow-select-checkbox" type="button" class="secondary" style="width: 100%; font-weight: bold; background: #3b82f6; color: white; border-color: #2563eb;">1. Chọn Hộp Kiểm (Tất Cả Đơn)</button>
+</div>
+<div class="print-flow-result" style="margin-top: 10px;">
+<div class="print-flow-label" style="font-weight: 600; margin-bottom: 4px;">Địa chỉ lấy hàng</div>
+<div id="print-address-buttons" class="print-address-buttons" aria-live="polite" style="display: flex; gap: 8px;">
+<button id="select-address-hanoi" type="button" class="secondary" style="flex: 1;">Địa chỉ Hà Nội</button>
+<button id="select-address-hcm" type="button" class="primary-action" style="flex: 1;">Địa chỉ Hồ Chí Minh</button>
+</div>
+</div>
+<div class="print-flow-tools" style="margin-top: 12px; display: grid; grid-template-columns: 1fr; gap: 8px;">
+<button id="arrange-pickup-confirm" type="button" class="primary-action" style="background: #16a34a; border-color: #15803d; font-weight: bold;">2. Yêu Cầu VC Tới Lấy Hàng</button>
+<button id="generate-print-doc" type="button" class="primary-action" style="background: #9333ea; border-color: #7e22ce; font-weight: bold;">3. Tạo Phiếu In (PDF)</button>
+<button id="export-waiting-orders" type="button" class="secondary" style="font-weight: bold;">4. Xuất Excel Đơn Chờ Giao</button>
 </div>
 </section>
 
