@@ -57,12 +57,26 @@ const selectAddressHcmButton = document.querySelector("#select-address-hcm");
 const arrangePickupConfirmButton = document.querySelector("#arrange-pickup-confirm");
 const generatePrintDocButton = document.querySelector("#generate-print-doc");
 const exportWaitingOrdersButton = document.querySelector("#export-waiting-orders");
+const autoRunPrintFlowButton = document.querySelector("#auto-run-print-flow");
+const stopPrintFlowButton = document.querySelector("#stop-print-flow");
+const autoStepCheckboxes = Array.from(document.querySelectorAll(".auto-step"));
+const autoWarehouseLocationSelect = document.querySelector("#auto-warehouse-location");
+const autoAddressLocationSelect = document.querySelector("#auto-address-location");
+const autoStepDelayInput = document.querySelector("#auto-step-delay");
+const autoShopCodeInput = document.querySelector("#auto-shop-code");
+const autoConfigNameInput = document.querySelector("#auto-config-name");
+const savedAutoConfigsTable = document.querySelector("#saved-auto-configs-table");
+const saveAutoConfigButton = document.querySelector("#save-auto-config");
+const loadAutoConfigButton = document.querySelector("#load-auto-config");
 const choosePrintFolderButton = document.querySelector("#choose-print-folder");
 const reloadPrintFolderButton = document.querySelector("#reload-print-folder");
 const printFileCountText = document.querySelector("#print-file-count");
 const printPdfTable = document.querySelector("#print-pdf-table");
 const printExcelTable = document.querySelector("#print-excel-table");
 const PRINT_FLOW_URL = "https://banhang.shopee.vn/portal/sale/mass/ship?mass_shipment_tab=201";
+const AUTO_CONFIGS_KEY = "autoRunConfigs";
+let isAutoRunningPrintFlow = false;
+let printDirectoryHandle = null;
 const IMGBB_API_KEY = "1bad1429a242d7040fda3f2cfddb3a25";
 let SAMPLE_IMAGE_PREVIEWS = [
   {
@@ -411,6 +425,319 @@ async function getOrOpenPrintFlowTab() {
   return printTab;
 }
 
+function getAutoStepDelayMs() {
+  const seconds = Number(autoStepDelayInput?.value || 3);
+  const safeSeconds = Math.min(60, Math.max(1, Number.isFinite(seconds) ? seconds : 3));
+
+  if (autoStepDelayInput) {
+    autoStepDelayInput.value = String(safeSeconds);
+  }
+
+  return safeSeconds * 1000;
+}
+
+function getSelectedAutoStepIds() {
+  return autoStepCheckboxes
+    .filter((checkbox) => checkbox.checked)
+    .map((checkbox) => checkbox.value);
+}
+
+function getAutoConfigName() {
+  const name = String(autoConfigNameInput?.value || "").trim() || "mac-dinh";
+
+  if (autoConfigNameInput) {
+    autoConfigNameInput.value = name;
+  }
+
+  return name;
+}
+
+function getAutoRunConfig() {
+  return {
+    steps: getSelectedAutoStepIds(),
+    warehouseLocation: autoWarehouseLocationSelect?.value || "Ho Chi Minh",
+    addressLocation: autoAddressLocationSelect?.value || "Ho Chi Minh",
+    delaySeconds: getAutoStepDelayMs() / 1000,
+    shopCode: String(autoShopCodeInput?.value || "").trim()
+  };
+}
+
+function applyAutoRunConfig(config) {
+  const steps = new Set(Array.isArray(config?.steps) ? config.steps : []);
+
+  autoStepCheckboxes.forEach((checkbox) => {
+    checkbox.checked = steps.size ? steps.has(checkbox.value) : checkbox.checked;
+  });
+
+  if (autoWarehouseLocationSelect && config?.warehouseLocation) {
+    autoWarehouseLocationSelect.value = config.warehouseLocation;
+  }
+
+  if (autoAddressLocationSelect && config?.addressLocation) {
+    autoAddressLocationSelect.value = config.addressLocation;
+  }
+
+  if (autoStepDelayInput && config?.delaySeconds) {
+    autoStepDelayInput.value = String(config.delaySeconds);
+    getAutoStepDelayMs();
+  }
+
+  if (autoShopCodeInput && config?.shopCode !== undefined) {
+    autoShopCodeInput.value = String(config.shopCode);
+  }
+}
+
+async function saveAutoRunConfig() {
+  const name = getAutoConfigName();
+  const data = await chrome.storage.local.get(AUTO_CONFIGS_KEY);
+  const configs = data[AUTO_CONFIGS_KEY] || {};
+
+  configs[name] = getAutoRunConfig();
+  await chrome.storage.local.set({ [AUTO_CONFIGS_KEY]: configs });
+  renderSavedAutoConfigs(configs, name);
+  if (statusText) statusText.textContent = `Đã lưu cấu hình tự động: ${name}.`;
+}
+
+async function loadAutoRunConfig(name = getAutoConfigName()) {
+  const configName = String(name || "").trim() || "mac-dinh";
+  const data = await chrome.storage.local.get(AUTO_CONFIGS_KEY);
+  const config = data[AUTO_CONFIGS_KEY]?.[configName];
+
+  if (!config) {
+    if (statusText) statusText.textContent = `Chưa có cấu hình: ${configName}.`;
+    return;
+  }
+
+  if (autoConfigNameInput) {
+    autoConfigNameInput.value = configName;
+  }
+  applyAutoRunConfig(config);
+  if (statusText) statusText.textContent = `Đã tải cấu hình tự động: ${configName}.`;
+}
+
+function renderSavedAutoConfigs(configs, selectedName = "") {
+  if (!savedAutoConfigsTable) {
+    return;
+  }
+
+  const names = Object.keys(configs || {}).sort((left, right) => left.localeCompare(right, "vi"));
+
+  savedAutoConfigsTable.textContent = "";
+
+  if (!names.length) {
+    const empty = document.createElement("div");
+    empty.className = "print-flow-empty";
+    empty.textContent = "Chưa có cấu hình đã lưu";
+    savedAutoConfigsTable.append(empty);
+    return;
+  }
+
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  const tbody = document.createElement("tbody");
+
+  thead.innerHTML = "<tr><th>Tên</th><th>Bước</th><th>Giây</th><th>Kho</th><th>Địa chỉ</th><th></th></tr>";
+
+  for (const name of names) {
+    const config = configs[name] || {};
+    const row = document.createElement("tr");
+    const nameCell = document.createElement("td");
+    const stepCell = document.createElement("td");
+    const delayCell = document.createElement("td");
+    const warehouseCell = document.createElement("td");
+    const addressCell = document.createElement("td");
+    const actionCell = document.createElement("td");
+    const loadButton = document.createElement("button");
+
+    if (name === selectedName) {
+      row.className = "selected-config-row";
+    }
+
+    nameCell.className = "config-name";
+    nameCell.textContent = name;
+    nameCell.title = name;
+    stepCell.textContent = String(Array.isArray(config.steps) ? config.steps.length : 0);
+    delayCell.textContent = String(config.delaySeconds || 3);
+    warehouseCell.textContent = config.warehouseLocation || "";
+    addressCell.textContent = config.addressLocation || "";
+    loadButton.type = "button";
+    loadButton.className = "ghost";
+    loadButton.textContent = "Tải";
+    loadButton.addEventListener("click", () => loadAutoRunConfig(name));
+
+    actionCell.append(loadButton);
+    row.append(nameCell, stepCell, delayCell, warehouseCell, addressCell, actionCell);
+    tbody.append(row);
+  }
+
+  table.append(thead, tbody);
+  savedAutoConfigsTable.append(table);
+}
+
+async function refreshSavedAutoConfigs(selectedName = "") {
+  const data = await chrome.storage.local.get(AUTO_CONFIGS_KEY);
+  renderSavedAutoConfigs(data[AUTO_CONFIGS_KEY] || {}, selectedName);
+}
+
+function setPrintFlowButtonsDisabled(disabled) {
+  [
+    autoRunPrintFlowButton,
+    printFlowSelectCheckboxButton,
+    selectWarehouseHanoiButton,
+    selectWarehouseHcmButton,
+    selectAddressHanoiButton,
+    selectAddressHcmButton,
+    arrangePickupConfirmButton,
+    generatePrintDocButton,
+    exportWaitingOrdersButton
+  ].forEach((button) => {
+    if (button) {
+      button.disabled = disabled;
+    }
+  });
+}
+
+async function waitBeforeNextAutoStep(index, total) {
+  if (index >= total - 1) {
+    return;
+  }
+
+  const delayMs = getAutoStepDelayMs();
+
+  if (statusText) statusText.textContent = `Chờ ${delayMs / 1000} giây để chạy bước tiếp theo...`;
+  for (let waited = 0; waited < delayMs; waited += 200) {
+    if (!isAutoRunningPrintFlow) break;
+    await sleep(200);
+  }
+}
+
+async function selectPrintWarehouseByName(name) {
+  const tab = await getOrOpenPrintFlowTab();
+  const response = await sendMessageToTab(tab.id, {
+    type: "PRINT_FLOW_SELECT_WAREHOUSE",
+    name
+  });
+
+  if (!response?.ok) {
+    throw new Error(response?.message || `Không chọn được kho ${name}.`);
+  }
+
+  return response;
+}
+
+async function selectPrintAddressByLocation(location) {
+  const tab = await getOrOpenPrintFlowTab();
+  const response = await sendMessageToTab(tab.id, {
+    type: "PRINT_FLOW_SELECT_ADDRESS_LOCATION",
+    location
+  });
+
+  if (!response?.ok) {
+    throw new Error(response?.message || `Không chọn được địa chỉ ${location}.`);
+  }
+
+  return response;
+}
+
+async function runAutomaticPrintFlow() {
+  if (isAutoRunningPrintFlow) {
+    return;
+  }
+
+  const warehouseLocation = autoWarehouseLocationSelect?.value || "Ho Chi Minh";
+  const addressLocation = autoAddressLocationSelect?.value || "Ho Chi Minh";
+  const selectedStepIds = new Set(getSelectedAutoStepIds());
+  const allSteps = [
+    {
+      id: "warehouse",
+      label: `Chọn kho ${warehouseLocation}`,
+      run: () => selectPrintWarehouseByName(warehouseLocation)
+    },
+    {
+      id: "checkbox",
+      label: "Chọn hộp kiểm",
+      run: async () => {
+        const tab = await getOrOpenPrintFlowTab();
+        return sendMessageToTab(tab.id, { type: "PRINT_FLOW_SELECT_CHECKBOX" });
+      }
+    },
+    {
+      id: "address",
+      label: `Chọn địa chỉ ${addressLocation}`,
+      run: () => selectPrintAddressByLocation(addressLocation)
+    },
+    {
+      id: "pickup",
+      label: "Yêu cầu lấy hàng",
+      run: async () => {
+        const tab = await getOrOpenPrintFlowTab();
+        return sendMessageToTab(tab.id, { type: "PRINT_FLOW_ARRANGE_PICKUP" });
+      }
+    },
+    {
+      id: "doc",
+      label: "Tạo phiếu",
+      run: async () => {
+        const tab = await getOrOpenPrintFlowTab();
+        return sendMessageToTab(tab.id, { type: "PRINT_FLOW_GENERATE_DOC" });
+      }
+    },
+    {
+      id: "export",
+      label: "Xuất đơn",
+      run: async () => {
+        const tab = await getOrOpenPrintFlowTab();
+        return sendMessageToTab(tab.id, { type: "PRINT_FLOW_EXPORT_WAITING_ORDERS" });
+      }
+    }
+  ];
+  const steps = allSteps.filter((step) => selectedStepIds.has(step.id));
+
+  if (!steps.length) {
+    if (statusText) statusText.textContent = "Hãy chọn ít nhất một bước để chạy tự động.";
+    return;
+  }
+
+  isAutoRunningPrintFlow = true;
+  setPrintFlowButtonsDisabled(true);
+  if (autoRunPrintFlowButton) {
+    autoRunPrintFlowButton.classList.add("auto-running");
+    autoRunPrintFlowButton.style.display = "none";
+  }
+  if (stopPrintFlowButton) stopPrintFlowButton.style.display = "inline-block";
+
+  try {
+    for (const [index, step] of steps.entries()) {
+      if (!isAutoRunningPrintFlow) {
+        if (statusText) statusText.textContent = "Đã dừng chạy tự động.";
+        break;
+      }
+      if (statusText) statusText.textContent = `Đang chạy ${index + 1}/${steps.length}: ${step.label}...`;
+      const response = await step.run();
+      if (statusText) statusText.textContent = response?.message || `Đã xong: ${step.label}.`;
+      if (!isAutoRunningPrintFlow) {
+        if (statusText) statusText.textContent = "Đã dừng chạy tự động.";
+        break;
+      }
+      await waitBeforeNextAutoStep(index, steps.length);
+    }
+
+    if (isAutoRunningPrintFlow) {
+      if (statusText) statusText.textContent = `Đã chạy xong ${steps.length} bước, mỗi bước cách nhau ${getAutoStepDelayMs() / 1000} giây.`;
+    }
+  } catch (error) {
+    if (statusText) statusText.textContent = error?.message || "Chạy tự động bị lỗi.";
+  } finally {
+    isAutoRunningPrintFlow = false;
+    setPrintFlowButtonsDisabled(false);
+    if (autoRunPrintFlowButton) {
+      autoRunPrintFlowButton.classList.remove("auto-running");
+      autoRunPrintFlowButton.style.display = "";
+    }
+    if (stopPrintFlowButton) stopPrintFlowButton.style.display = "none";
+  }
+}
+
 function renderPrintWarehouseButtons(warehouses) {
   if (!printWarehouseButtons) {
     return;
@@ -421,7 +748,7 @@ function renderPrintWarehouseButtons(warehouses) {
   if (!warehouses?.length) {
     const empty = document.createElement("div");
     empty.className = "print-flow-empty";
-    empty.textContent = "Khong thay kho";
+    empty.textContent = "Không thấy kho";
     printWarehouseButtons.append(empty);
     return;
   }
@@ -440,7 +767,7 @@ async function loadPrintWarehouses() {
   const tab = await getOrOpenPrintFlowTab();
 
   if (!tab?.id) {
-    throw new Error("Khong tim thay tab quy trinh in don.");
+    throw new Error("Không tìm thấy tab Shopee.");
   }
 
   const response = await sendMessageToTab(tab.id, {
@@ -448,7 +775,7 @@ async function loadPrintWarehouses() {
   });
 
   if (!response?.ok) {
-    throw new Error(response?.message || "Khong tai duoc danh sach kho.");
+    throw new Error(response?.message || "Không tải được danh sách kho.");
   }
 
   renderPrintWarehouseButtons(response.warehouses || []);
@@ -460,13 +787,13 @@ async function selectPrintWarehouse(name, warehouseButton) {
     warehouseButton.disabled = true;
   }
 
-  statusText.textContent = `Dang chon kho ${name}...`;
+  if (statusText) statusText.textContent = `Đang chọn kho ${name}...`;
 
   try {
     const tab = await getOrOpenPrintFlowTab();
 
     if (!tab?.id) {
-      statusText.textContent = "Khong tim thay tab quy trinh in don.";
+      if (statusText) statusText.textContent = "Không tìm thấy tab Shopee.";
       return;
     }
 
@@ -475,10 +802,10 @@ async function selectPrintWarehouse(name, warehouseButton) {
       name
     });
 
-    statusText.textContent = response?.message || `Da chon kho ${name}.`;
+    if (statusText) statusText.textContent = response?.message || `Đã chọn kho ${name}.`;
     await loadPrintWarehouses();
   } catch (error) {
-    statusText.textContent = error?.message || "Khong chon duoc kho.";
+    if (statusText) statusText.textContent = error?.message || "Không chọn được kho.";
   } finally {
     if (warehouseButton && document.contains(warehouseButton)) {
       warehouseButton.disabled = false;
@@ -496,7 +823,7 @@ function renderPrintAddressButtons(addresses) {
   if (!addresses?.length) {
     const empty = document.createElement("div");
     empty.className = "print-flow-empty";
-    empty.textContent = "Khong thay dia chi";
+    empty.textContent = "Không thấy địa chỉ";
     printAddressButtons.append(empty);
     return;
   }
@@ -505,7 +832,7 @@ function renderPrintAddressButtons(addresses) {
     const addressButton = document.createElement("button");
     addressButton.type = "button";
     addressButton.className = address.selected ? "primary-action" : "secondary";
-    addressButton.textContent = `Dia chi ${address.shortText || address.name || address.id}`;
+    addressButton.textContent = `Địa chỉ ${address.shortText || address.name || address.id}`;
     addressButton.title = address.fullText || addressButton.textContent;
     addressButton.addEventListener("click", () => selectPrintAddress(address.id, addressButton));
     printAddressButtons.append(addressButton);
@@ -516,7 +843,7 @@ async function loadPrintAddresses() {
   const tab = await getOrOpenPrintFlowTab();
 
   if (!tab?.id) {
-    throw new Error("Khong tim thay tab quy trinh in don.");
+    throw new Error("Không tìm thấy tab Shopee.");
   }
 
   const response = await sendMessageToTab(tab.id, {
@@ -524,7 +851,7 @@ async function loadPrintAddresses() {
   });
 
   if (!response?.ok) {
-    throw new Error(response?.message || "Khong tai duoc dia chi lay hang.");
+    throw new Error(response?.message || "Không tải được địa chỉ lấy hàng.");
   }
 
   renderPrintAddressButtons(response.addresses || []);
@@ -536,13 +863,13 @@ async function selectPrintAddress(id, addressButton) {
     addressButton.disabled = true;
   }
 
-  statusText.textContent = "Dang chon dia chi lay hang...";
+  if (statusText) statusText.textContent = "Đang chọn địa chỉ lấy hàng...";
 
   try {
     const tab = await getOrOpenPrintFlowTab();
 
     if (!tab?.id) {
-      statusText.textContent = "Khong tim thay tab quy trinh in don.";
+      if (statusText) statusText.textContent = "Không tìm thấy tab Shopee.";
       return;
     }
 
@@ -551,9 +878,9 @@ async function selectPrintAddress(id, addressButton) {
       id
     });
 
-    statusText.textContent = response?.message || "Da chon dia chi lay hang.";
+    if (statusText) statusText.textContent = response?.message || "Đã chọn địa chỉ lấy hàng.";
   } catch (error) {
-    statusText.textContent = error?.message || "Khong chon duoc dia chi.";
+    if (statusText) statusText.textContent = error?.message || "Không chọn được địa chỉ.";
   } finally {
     if (addressButton && document.contains(addressButton)) {
       addressButton.disabled = false;
@@ -566,13 +893,13 @@ async function selectPrintAddressLocation(location, addressButton) {
     addressButton.disabled = true;
   }
 
-  statusText.textContent = `Dang chon dia chi ${location}...`;
+  if (statusText) statusText.textContent = `Đang chọn địa chỉ ${location}...`;
 
   try {
     const tab = await getOrOpenPrintFlowTab();
 
     if (!tab?.id) {
-      statusText.textContent = "Khong tim thay tab quy trinh in don.";
+      if (statusText) statusText.textContent = "Không tìm thấy tab Shopee.";
       return;
     }
 
@@ -581,9 +908,9 @@ async function selectPrintAddressLocation(location, addressButton) {
       location
     });
 
-    statusText.textContent = response?.message || `Da chon dia chi ${location}.`;
+    if (statusText) statusText.textContent = response?.message || `Đã chọn địa chỉ ${location}.`;
   } catch (error) {
-    statusText.textContent = error?.message || "Khong chon duoc dia chi.";
+    if (statusText) statusText.textContent = error?.message || "Không chọn được địa chỉ.";
   } finally {
     if (addressButton && document.contains(addressButton)) {
       addressButton.disabled = false;
@@ -595,7 +922,7 @@ async function arrangePickupConfirm() {
   const tab = await getOrOpenPrintFlowTab();
 
   if (!tab?.id) {
-    throw new Error("Khong tim thay tab quy trinh in don.");
+    throw new Error("Không tìm thấy tab Shopee.");
   }
 
   const response = await sendMessageToTab(tab.id, {
@@ -603,7 +930,7 @@ async function arrangePickupConfirm() {
   });
 
   if (!response?.ok) {
-    throw new Error(response?.message || "Khong bam duoc nut yeu cau VC toi lay hang.");
+    throw new Error(response?.message || "Không bấm được nút yêu cầu VC tới lấy hàng.");
   }
 
   return response;
@@ -613,7 +940,7 @@ async function generatePrintDoc() {
   const tab = await getOrOpenPrintFlowTab();
 
   if (!tab?.id) {
-    throw new Error("Khong tim thay tab quy trinh in don.");
+    throw new Error("Không tìm thấy tab Shopee.");
   }
 
   const response = await sendMessageToTab(tab.id, {
@@ -621,7 +948,7 @@ async function generatePrintDoc() {
   });
 
   if (!response?.ok) {
-    throw new Error(response?.message || "Khong tao duoc phieu PDF.");
+    throw new Error(response?.message || "Không tạo được phiếu PDF.");
   }
 
   return response;
@@ -634,7 +961,7 @@ async function exportWaitingOrders() {
     : await getOrOpenPrintFlowTab();
 
   if (!tab?.id) {
-    throw new Error("Khong tim thay tab Shopee.");
+    throw new Error("Không tìm thấy tab Shopee.");
   }
 
   const response = await sendMessageToTab(tab.id, {
@@ -642,7 +969,7 @@ async function exportWaitingOrders() {
   });
 
   if (!response?.ok) {
-    throw new Error(response?.message || "Khong xuat duoc don hang.");
+    throw new Error(response?.message || "Không xuất được đơn hàng.");
   }
 
   return response;
@@ -3388,6 +3715,24 @@ if (loadPrintWarehousesButton) {
   });
 }
 
+if (autoRunPrintFlowButton) {
+  autoRunPrintFlowButton.addEventListener("click", runAutomaticPrintFlow);
+}
+
+if (stopPrintFlowButton) {
+  stopPrintFlowButton.addEventListener("click", () => {
+    isAutoRunningPrintFlow = false;
+  });
+}
+
+if (saveAutoConfigButton) {
+  saveAutoConfigButton.addEventListener("click", saveAutoRunConfig);
+}
+
+if (loadAutoConfigButton) {
+  loadAutoConfigButton.addEventListener("click", () => loadAutoRunConfig());
+}
+
 if (loadPrintAddressesButton) {
   loadPrintAddressesButton.addEventListener("click", async () => {
     loadPrintAddressesButton.disabled = true;
@@ -4425,6 +4770,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       loadAndSortTabsFromCaiDat();
       if (typeof window.fetchGianSuggestions === "function") window.fetchGianSuggestions();
   });
+
+  refreshSavedAutoConfigs(getAutoConfigName()).catch(() => {});
+  loadPrintDirectoryHandle().then((handle) => {
+    if (handle) {
+      printDirectoryHandle = handle;
+      loadPrintFilesFromHandle(handle).catch(() => {});
+    }
+  }).catch(() => {});
 
   // Tự động đọc danh sách vị trí Tab từ sheet CÀI ĐẶT (Cột A: tap) và sắp xếp lại
   async function loadAndSortTabsFromCaiDat() {

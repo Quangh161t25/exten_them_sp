@@ -670,6 +670,105 @@ textarea {
   font-size: 13px;
 }
 
+.auto-running {
+  background: #16a34a !important;
+}
+
+.auto-run-panel {
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px solid #e6e9ef;
+  border-radius: 4px;
+  background: #f8fafc;
+}
+
+.auto-run-save {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 58px 58px;
+  gap: 8px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.saved-configs-table {
+  max-height: 132px;
+  margin-bottom: 10px;
+  overflow: auto;
+  border: 1px solid #d8dee8;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.saved-configs-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.saved-configs-table th,
+.saved-configs-table td {
+  padding: 6px 7px;
+  border-bottom: 1px solid #edf0f2;
+  color: #1f2937;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.saved-configs-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fafc;
+  font-weight: 700;
+}
+
+.saved-configs-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.saved-configs-table .config-name {
+  max-width: 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.saved-configs-table button {
+  min-width: 44px;
+  width: 44px;
+  min-height: 24px;
+  padding: 0;
+  font-size: 12px;
+}
+
+.auto-run-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+}
+
+.auto-run-options label,
+.auto-run-settings label,
+.auto-run-save label {
+  color: #344054;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.auto-run-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.auto-run-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr 80px 80px;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: end;
+}
+
 .income-table {
   margin-top: 8px;
   max-height: 260px;
