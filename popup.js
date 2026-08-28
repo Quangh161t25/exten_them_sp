@@ -2735,7 +2735,7 @@ function renderFixedImagePreview(files) {
   copyBtn.style.whiteSpace = "nowrap";
   copyBtn.onclick = () => {
     navigator.clipboard.writeText(textBlock.textContent).then(() => {
-      copyBtn.textContent = "ÄÃ£ Copy";
+      copyBtn.textContent = "Đã Copy";
       copyBtn.style.backgroundColor = "#22c55e";
       setTimeout(() => {
         copyBtn.textContent = "Copy";
@@ -4881,7 +4881,7 @@ saveToSheetTestButton.addEventListener("click", async () => {
 
     if (!res.ok) {
       const err = await res.json();
-      throw new Error(err.error?.message || 'Lỗi thao tÃ¡c Google Sheet');
+      throw new Error(err.error?.message || 'Lỗi thao tác Google Sheet');
     }
 
     statusText.textContent = foundRowIndex >= 0 ? `Da cap nhat ID ${id} thanh cong!` : "Da them moi vao Sheet thanh cong!";
@@ -6460,7 +6460,7 @@ document.getElementById('btn-export-flash-sale')?.addEventListener('click', asyn
 
           const worksheet = workbook.Sheets[sheetName];
           const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-          const dataRows = json.slice(1); // Bá» qua dÃ²ng tiÃªu Ä‘á» cá»§a file Excel
+          const dataRows = json.slice(1); // Bỏ qua dòng tiêu đề của file Excel
           
           // Thêm mã gian vào cột L (index 11)
           const maGian = document.getElementById("dh-hoan-text") ? document.getElementById("dh-hoan-text").value.trim() : "";
@@ -6491,7 +6491,7 @@ document.getElementById('btn-export-flash-sale')?.addEventListener('click', asyn
         } catch (err) {
           console.error('Error reading Excel', err);
           if (statusUploadSpShopee) {
-            statusUploadSpShopee.textContent = 'Lá»—i Ä‘á»c file: ' + err.message;
+            statusUploadSpShopee.textContent = 'Lỗi đọc file: ' + err.message;
             statusUploadSpShopee.style.color = 'red';
           }
         }
@@ -6813,7 +6813,7 @@ document.addEventListener("DOMContentLoaded", () => {
     btnTaiDsSp.addEventListener('click', () => {
       chrome.tabs.create({ url: "https://banhang.shopee.vn/portal/product-mass/mass-update/download?auto_download_ds_sp=1", active: true });
       const statusEl = document.getElementById("ds-sp-download-status");
-      if (statusEl) statusEl.textContent = "Äang má»Ÿ tab Shopee Ä‘á»ƒ táº£i DS_SP...";
+      if (statusEl) statusEl.textContent = "Đang mở tab Shopee để tải DS_SP...";
     });
   }
 
@@ -6836,7 +6836,7 @@ document.addEventListener("DOMContentLoaded", () => {
               if (gianStatus) { gianStatus.textContent = "Vui lòng nhập mã gian"; gianStatus.style.color = "red"; }
               return;
           }
-          if (gianStatus) { gianStatus.textContent = "Äang lÆ°u lÃªn sheet..."; gianStatus.style.color = "#3b82f6"; }
+          if (gianStatus) { gianStatus.textContent = "Đang lưu lên sheet..."; gianStatus.style.color = "#3b82f6"; }
           
           chrome.storage.local.set({ maGian: maGian, dhHoanTextValue: maGian });
           chrome.storage.local.remove("dhHoanText"); // Xóa triệt để biến cũ gây lỗi chữ JOY
@@ -6910,7 +6910,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   return;
               }
               
-              if (statusEl) { statusEl.textContent = "Äang má»Ÿ tab Shopee Ä‘á»ƒ táº£i giáº£m giÃ¡..."; statusEl.style.color = "#16a34a"; }
+              if (statusEl) { statusEl.textContent = "Đang mở tab Shopee để tải giảm giá..."; statusEl.style.color = "#16a34a"; }
               
               let finalUrl = url;
               if (url.includes("?")) finalUrl += "&auto_download_giam_gia=1";

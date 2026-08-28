@@ -561,7 +561,7 @@ function downloadExcelFileBypass(wb, filename) {
         return;
       }
 
-      const headers = ["Ma don hang", "Ma Kien Hang", "Ngay dat hang", "Trang Thai Don Hang", "Nhan xet tu Nguoi mua", "Ma van don", "Don Vi Van Chuyen", "Phuong thuc giao hang", "Loai don hang", "Ngay giao hang du kien", "Ngay gui hang", "Thoi gian giao hang", "Trang thai Tra hang/Hoan tien", "SKU san pham", "Ten san pham", "Can nang san pham", "Tong can nang", "Ten kho hang", "SKU phan loai hang", "Ten phan loai hang", "Gia goc", "Nguoi ban tro gia", "Duoc Shopee tro gia", "Tong so tien duoc nguoi ban tro gia", "Gia goc (Y)", "So luong", "So luong san pham duoc hoan tra", "Tong so tien Nguoi mua thanh toan"];
+      const headers = ["Mã đơn hàng", "Mã Kiện Hàng", "Ngày đặt hàng", "Trạng Thái Đơn Hàng", "Nhận xét từ Người mua", "Mã vận đơn", "Đơn Vị Vận Chuyển", "Phương thức giao hàng", "Loại đơn hàng", "Ngày giao hàng dự kiến", "Ngày gửi hàng", "Thời gian giao hàng", "Trạng thái Trả hàng/Hoàn tiền", "SKU sản phẩm", "Tên sản phẩm", "Cân nặng sản phẩm", "Tổng cân nặng", "Tên kho hàng", "SKU phân loại hàng", "Tên phân loại hàng", "Giá gốc", "Người bán trợ giá", "Được Shopee trợ giá", "Tổng số tiền được người bán trợ giá", "Giá gốc (Y)", "Số lượng", "Số lượng sản phẩm được hoàn trả", "Tổng số tiền Người mua thanh toán"];
       const rowsData = [headers];
 
       const getCleanText = (el) => {
@@ -4061,7 +4061,7 @@ function downloadExcelFileBypass(wb, filename) {
         customCb.style.marginRight = "10px";
         customCb.style.transform = "scale(1.5)";
         customCb.style.cursor = "pointer";
-        customCb.title = "TÃ­ch Ä‘á»ƒ táº£i file Excel hÃ ng loáº¡t";
+        customCb.title = "Tích để tải file Excel hàng loạt";
         orderSnElement.parentNode.insertBefore(customCb, orderSnElement);
       }
 
@@ -4262,7 +4262,7 @@ function downloadExcelFileBypass(wb, filename) {
 
         const items = orderContainer.querySelectorAll("div.item");
         
-        const headers = ["MÃ£ Ä‘Æ¡n hÃ ng", "MÃ£ Kiá»‡n HÃ ng", "NgÃ y Ä‘áº·t hÃ ng", "Tráº¡ng ThÃ¡i ÄÆ¡n HÃ ng", "Nháº­n xÃ©t tá»« NgÆ°á»i mua", "MÃ£ váº­n Ä‘Æ¡n", "ÄÆ¡n Vá»‹ Váº­n Chuyá»ƒn", "PhÆ°Æ¡ng thá»©c giao hÃ ng", "Loáº¡i Ä‘Æ¡n hÃ ng", "NgÃ y giao hÃ ng dá»± kiáº¿n", "NgÃ y gá»­i hÃ ng", "Thá»i gian giao hÃ ng", "Tráº¡ng thÃ¡i Tráº£ hÃ ng/HoÃ n tiá»n", "SKU sáº£n pháº©m", "TÃªn sáº£n pháº©m", "CÃ¢n náº·ng sáº£n pháº©m", "Tá»•ng cÃ¢n náº·ng", "TÃªn kho hÃ ng", "SKU phÃ¢n loáº¡i hÃ ng", "TÃªn phÃ¢n loáº¡i hÃ ng", "GiÃ¡ gá»‘c", "NgÆ°á»i bÃ¡n trá»£ giÃ¡", "ÄÆ°á»£c Shopee trá»£ giÃ¡", "Tá»•ng sá»‘ tiá»n Ä‘Æ°á»£c ngÆ°á»i bÃ¡n trá»£ giÃ¡", "GiÃ¡ gá»‘c (Y)", "Sá»‘ lÆ°á»£ng", "Sá»‘ lÆ°á»£ng sáº£n pháº©m Ä‘Æ°á»£c hoÃ n tráº£", "Tá»•ng sá»‘ tiá»n NgÆ°á»i mua thanh toÃ¡n"];
+        const headers = ["Mã đơn hàng", "Mã Kiện Hàng", "Ngày đặt hàng", "Trạng Thái Đơn Hàng", "Nhận xét từ Người mua", "Mã vận đơn", "Đơn Vị Vận Chuyển", "Phương thức giao hàng", "Loại đơn hàng", "Ngày giao hàng dự kiến", "Ngày gửi hàng", "Thời gian giao hàng", "Trạng thái Trả hàng/Hoàn tiền", "SKU sản phẩm", "Tên sản phẩm", "Cân nặng sản phẩm", "Tổng cân nặng", "Tên kho hàng", "SKU phân loại hàng", "Tên phân loại hàng", "Giá gốc", "Người bán trợ giá", "Được Shopee trợ giá", "Tổng số tiền được người bán trợ giá", "Giá gốc (Y)", "Số lượng", "Số lượng sản phẩm được hoàn trả", "Tổng số tiền Người mua thanh toán"];
         
         const rowsData = [headers];
         
