@@ -4910,70 +4910,67 @@ function downloadExcelFileBypass(wb, filename) {
     return { ok: true, message: `Da dien kho ${value}.` };
   }
 
-  function isDisabledControl(element) {
-    const control = element.closest("button, [aria-disabled='true'], .disabled, .is-disabled, .eds-checkbox--disabled");
-
-    return Boolean(control?.disabled || control?.getAttribute?.("aria-disabled") === "true" || control?.classList?.contains("disabled") || control?.classList?.contains("is-disabled"));
+  function isElementInteractable(element) {
+    if (!element) return false;
+    const style = window.getComputedStyle(element);
+    return style.display !== "none" && style.visibility !== "hidden";
   }
 
-  function findPrintFlowCheckboxIndicator() {
-    // 1. Try finding Table Header (Select All) Checkbox first
-    const headerCb = document.querySelector("thead input[type='checkbox'], th input[type='checkbox'], thead .eds-checkbox, th .eds-checkbox, [data-testid='select-all'], .eds-table__header-cell .eds-checkbox");
-    if (headerCb && isVisible(headerCb) && !isDisabledControl(headerCb)) {
-      return headerCb;
-    }
-
-    // 2. Fallback to visible checkboxes sorted top to bottom
-    const indicators = Array.from(document.querySelectorAll("span.eds-checkbox__indicator, .eds-checkbox, input[type='checkbox']"));
-    const visibleIndicators = indicators
-      .filter((indicator) => isVisible(indicator) && !isDisabledControl(indicator))
-      .sort((a, b) => {
-        const rectA = a.getBoundingClientRect();
-        const rectB = b.getBoundingClientRect();
-        return rectA.top - rectB.top || rectA.left - rectB.left;
-      });
-
-    return visibleIndicators[0] || null;
+  function isDisabledControl(element) {
+    const control = element.closest("button, [aria-disabled='true'], .disabled, .is-disabled, .eds-checkbox--disabled");
+    return Boolean(control?.disabled || control?.getAttribute?.("aria-disabled") === "true" || control?.classList?.contains("disabled") || control?.classList?.contains("is-disabled"));
   }
 
   async function selectPrintFlowCheckbox() {
     for (let attempt = 0; attempt < 30; attempt += 1) {
-      // 1. Check if there's a Select All checkbox in table header
-      const table = document.querySelector(".eds-table, table, .mass-ship-table, [class*='table']");
-      const headerCheckbox = table?.querySelector("thead input[type='checkbox'], th input[type='checkbox'], thead .eds-checkbox, th .eds-checkbox")
-        || document.querySelector("[data-testid='select-all'], .select-all .eds-checkbox, .eds-table__header-cell .eds-checkbox");
+      // 1. Check if there's a Select All checkbox in table header or batch bar
+      const headerCheckboxes = Array.from(document.querySelectorAll(
+        "thead input[type='checkbox'], th input[type='checkbox'], thead .eds-checkbox, th .eds-checkbox, thead span.eds-checkbox__indicator, [data-testid='select-all'], .eds-table__header-cell .eds-checkbox, .select-all-container .eds-checkbox, .batch-action-bar .eds-checkbox, div[class*='select-all']"
+      )).filter(isElementInteractable);
 
-      if (headerCheckbox && isVisible(headerCheckbox) && !isDisabledControl(headerCheckbox)) {
+      for (const headerCheckbox of headerCheckboxes) {
+        if (isDisabledControl(headerCheckbox)) continue;
+
         const input = headerCheckbox.tagName === "INPUT" ? headerCheckbox : headerCheckbox.querySelector("input[type='checkbox']");
         const isChecked = input ? input.checked : (headerCheckbox.classList.contains("eds-checkbox--checked") || headerCheckbox.getAttribute("aria-checked") === "true");
         
         if (!isChecked) {
           const target = headerCheckbox.closest("label, .eds-checkbox") || headerCheckbox;
           target.scrollIntoView({ block: "center", inline: "nearest" });
-          await sleep(100);
+          await sleep(80);
+          if (typeof target.click === "function") target.click();
+          if (input && typeof input.click === "function") input.click();
           emitRealClick(target);
           await sleep(200);
         }
-        return {
-          ok: true,
-          message: "Đã chọn tất cả đơn hàng trên trang."
-        };
+
+        const checkedCount = document.querySelectorAll("tbody input[type='checkbox']:checked, tbody .eds-checkbox--checked, .eds-table__row .eds-checkbox--checked").length;
+        if (checkedCount > 0 || (input && input.checked)) {
+          return {
+            ok: true,
+            message: `Đã chọn tất cả đơn hàng trên trang (${checkedCount || "tất cả"} đơn).`
+          };
+        }
       }
 
-      // 2. Fallback to row checkboxes
-      const rowCheckboxes = Array.from(document.querySelectorAll("tbody input[type='checkbox'], tbody .eds-checkbox, .eds-table__body .eds-checkbox, .order-item .eds-checkbox, span.eds-checkbox__indicator"))
-        .filter(el => isVisible(el) && !isDisabledControl(el));
+      // 2. Fallback to all row checkboxes
+      const rowCheckboxes = Array.from(document.querySelectorAll(
+        "tbody input[type='checkbox'], tbody .eds-checkbox, .eds-table__body .eds-checkbox, .eds-table__row .eds-checkbox, .order-item .eds-checkbox, .order-card .eds-checkbox, span.eds-checkbox__indicator"
+      )).filter(el => isElementInteractable(el) && !el.closest("thead, th"));
 
       if (rowCheckboxes.length > 0) {
         let count = 0;
         for (const cb of rowCheckboxes) {
+          if (isDisabledControl(cb)) continue;
           const input = cb.tagName === "INPUT" ? cb : cb.querySelector("input[type='checkbox']");
           const isChecked = input ? input.checked : (cb.classList.contains("eds-checkbox--checked") || cb.getAttribute("aria-checked") === "true");
           if (!isChecked) {
             const target = cb.closest("label, .eds-checkbox") || cb;
+            if (typeof target.click === "function") target.click();
+            if (input && typeof input.click === "function") input.click();
             emitRealClick(target);
             count++;
-            await sleep(50);
+            await sleep(40);
           }
         }
         return {
@@ -4987,18 +4984,17 @@ function downloadExcelFileBypass(wb, filename) {
 
     return {
       ok: false,
-      message: "Không tìm thấy hộp kiểm trên trang in đơn."
+      message: "Không tìm thấy hộp kiểm đơn hàng trên trang."
     };
   }
 
   function findPrintWarehouseSelect() {
     const directSelect = document.querySelector("[data-testid='warehouse-filter']");
-
-    if (directSelect && isVisible(directSelect)) {
+    if (directSelect && isElementInteractable(directSelect)) {
       return directSelect;
     }
 
-    const selects = Array.from(document.querySelectorAll(".eds-select, .shopee-selector, .eds-dropdown, div[class*='select']")).filter(isVisible);
+    const selects = Array.from(document.querySelectorAll(".eds-select, .shopee-selector, .eds-dropdown, div[class*='select']")).filter(isElementInteractable);
     const warehouseSelect = selects.find(s => {
       const parentText = normalizeSearchText(s.closest(".filter-item, .filter-row, .eds-form-item, div")?.textContent || "");
       return parentText.includes("kho") || parentText.includes("dia diem") || parentText.includes("vi tri");
@@ -5006,7 +5002,7 @@ function downloadExcelFileBypass(wb, filename) {
     if (warehouseSelect) return warehouseSelect;
 
     return selects.find((select) => {
-      return select.querySelector(".eds-selector__inner") && isVisible(select);
+      return select.querySelector(".eds-selector__inner") && isElementInteractable(select);
     }) || null;
   }
 
@@ -5016,7 +5012,7 @@ function downloadExcelFileBypass(wb, filename) {
 
   function findVisibleWarehouseOptions() {
     return Array.from(document.querySelectorAll(".eds-select__options .eds-option, .eds-dropdown-item, .eds-popover .eds-option, .eds-option, li.eds-dropdown-item"))
-      .filter((option) => isVisible(option))
+      .filter(isElementInteractable)
       .map((option) => ({
         element: option,
         name: normalizeText(option.textContent),
@@ -5027,24 +5023,20 @@ function downloadExcelFileBypass(wb, filename) {
 
   async function openPrintWarehouseMenu() {
     const select = findPrintWarehouseSelect();
-
-    if (!select) {
-      return null;
-    }
+    if (!select) return null;
 
     const target = getPrintWarehouseSelectTarget(select);
-
     target.scrollIntoView({ block: "center", inline: "nearest" });
-    await sleep(100);
+    await sleep(80);
+    if (typeof target.click === "function") target.click();
     emitRealClick(target);
     await sleep(250);
-
     return select;
   }
 
   async function getPrintWarehouses() {
-    // 1. Check for direct tabs / chips
-    const directButtons = Array.from(document.querySelectorAll("button, [role='tab'], .eds-radio, .eds-tag, .filter-item, span, div")).filter(isVisible);
+    // 1. Check direct tabs
+    const directButtons = Array.from(document.querySelectorAll("button, [role='tab'], .eds-radio, .eds-tag, .filter-item, span, div")).filter(isElementInteractable);
     const directTabs = directButtons.filter(el => {
       const txt = normalizeSearchText(el.textContent);
       return (txt.includes("ha noi") || txt.includes("ho chi minh") || txt.includes("kho")) &&
@@ -5062,9 +5054,7 @@ function downloadExcelFileBypass(wb, filename) {
     // 2. Check dropdown
     for (let attempt = 0; attempt < 20; attempt += 1) {
       await openPrintWarehouseMenu();
-
       const options = findVisibleWarehouseOptions();
-
       if (options.length) {
         return {
           ok: true,
@@ -5075,7 +5065,6 @@ function downloadExcelFileBypass(wb, filename) {
           message: `Đã tìm ${options.length} kho.`
         };
       }
-
       await sleep(200);
     }
 
@@ -5088,16 +5077,12 @@ function downloadExcelFileBypass(wb, filename) {
 
   async function selectPrintWarehouse(name) {
     const wantedName = normalizeSearchText(name);
-
     if (!wantedName) {
-      return {
-        ok: false,
-        message: "Chưa có tên kho để chọn."
-      };
+      return { ok: false, message: "Chưa có tên kho để chọn." };
     }
 
-    // 1. Check for direct clickable tab/button
-    const directButtons = Array.from(document.querySelectorAll("button, [role='tab'], .eds-radio, .eds-tag, .filter-item, span, div")).filter(isVisible);
+    // 1. Check direct tab / button
+    const directButtons = Array.from(document.querySelectorAll("button, [role='tab'], .eds-radio, .eds-tag, .filter-item, span, div")).filter(isElementInteractable);
     const directTab = directButtons.find(el => {
       const txt = normalizeSearchText(el.textContent);
       return (txt === wantedName || txt === `kho ${wantedName}` || txt.includes(wantedName)) &&
@@ -5106,18 +5091,15 @@ function downloadExcelFileBypass(wb, filename) {
 
     if (directTab) {
       directTab.scrollIntoView({ block: "center", inline: "nearest" });
-      await sleep(100);
+      await sleep(80);
+      if (typeof directTab.click === "function") directTab.click();
       emitRealClick(directTab);
-      return {
-        ok: true,
-        message: `Đã chọn kho ${name}.`
-      };
+      return { ok: true, message: `Đã chọn kho ${name}.` };
     }
 
-    // 2. Open dropdown and select option
+    // 2. Dropdown
     for (let attempt = 0; attempt < 20; attempt += 1) {
       await openPrintWarehouseMenu();
-
       const options = findVisibleWarehouseOptions();
       const option = options.find((item) => {
         const itemNorm = normalizeSearchText(item.name);
@@ -5127,79 +5109,79 @@ function downloadExcelFileBypass(wb, filename) {
       if (option?.element) {
         option.element.scrollIntoView({ block: "nearest", inline: "nearest" });
         await sleep(80);
+        if (typeof option.element.click === "function") option.element.click();
         emitRealClick(option.element);
-
-        return {
-          ok: true,
-          message: `Đã chọn kho ${option.name}.`
-        };
+        return { ok: true, message: `Đã chọn kho ${option.name}.` };
       }
-
       await sleep(200);
     }
 
-    return {
-      ok: false,
-      message: `Không tìm thấy kho ${name}.`
-    };
+    return { ok: false, message: `Không tìm thấy kho ${name}.` };
   }
 
   function findChangePickupAddressButton() {
-    const directButton = document.querySelector("[data-testid='change-pickup-address-button']");
-
-    if (directButton && isVisible(directButton)) {
+    const directButton = document.querySelector("[data-testid='change-pickup-address-button'], [data-testid*='change-address']");
+    if (directButton && isElementInteractable(directButton)) {
       return directButton;
     }
 
-    return Array.from(document.querySelectorAll("button, [role='button'], .action, div, span, a")).find((element) => {
+    // Tìm section chứa Địa chỉ lấy hàng
+    const allContainers = Array.from(document.querySelectorAll(".eds-card, .eds-form-item, section, div[class*='address'], div[class*='pickup'], div[class*='panel'], div")).filter(isElementInteractable);
+    const addressSection = allContainers.find(sec => {
+      const txt = normalizeSearchText(sec.textContent || "");
+      return (txt.includes("dia chi lay hang") || txt.includes("dia chi gui hang") || txt.includes("pickup address")) && sec.querySelectorAll("div, section").length < 20;
+    });
+
+    if (addressSection) {
+      const btnInSection = Array.from(addressSection.querySelectorAll("button, a, span.eds-link, div[role='button'], span, div")).find(el => {
+        const t = normalizeSearchText(el.textContent);
+        return t === "thay doi" || t === "doi" || t === "chinh sua" || t === "change" || t === "chon dia chi" || t.includes("thay doi") || t.includes("doi dia chi");
+      });
+      if (btnInSection) return btnInSection;
+    }
+
+    // Fallback tìm toàn trang
+    return Array.from(document.querySelectorAll("button, a, span.eds-link, div[role='button'], div.eds-link, [class*='change'], [class*='edit']")).find((element) => {
       const text = normalizeSearchText(element.textContent);
-      return (text === "doi" || text === "doi dia chi" || text === "thay doi" || text === "chinh sua" || text === "change") && isVisible(element);
+      return (text === "thay doi" || text === "doi" || text === "doi dia chi" || text === "thay doi dia chi" || text === "chinh sua" || text === "change") && isElementInteractable(element);
     }) || null;
   }
 
   function findPickupAddressModal() {
-    return Array.from(document.querySelectorAll(".eds-modal__content, .shopee-modal__content, div[role='dialog']")).find((modal) => {
-      const title = normalizeSearchText(modal.querySelector(".eds-modal__title, .modal-title, h3, h2, div")?.textContent || "");
-      const text = normalizeSearchText(modal.textContent);
-      return (title.includes("chon dia chi lay hang") || title.includes("dia chi lay hang") || text.includes("dia chi lay hang") || text.includes("chon dia chi")) && isVisible(modal);
+    return Array.from(document.querySelectorAll(".eds-modal__content, .shopee-modal__content, div[role='dialog'], .eds-modal, .eds-drawer, .eds-drawer__content, .modal-container")).find((modal) => {
+      const text = normalizeSearchText(modal.textContent || "");
+      return (text.includes("dia chi lay hang") || text.includes("dia chi gui hang") || text.includes("chon dia chi") || text.includes("so dia chi") || text.includes("pickup address")) && isElementInteractable(modal);
     }) || null;
   }
 
   async function openPickupAddressModal() {
     let modal = findPickupAddressModal();
-
-    if (modal) {
-      return modal;
-    }
+    if (modal) return modal;
 
     const changeButton = findChangePickupAddressButton();
-
-    if (!changeButton) {
-      return null;
-    }
+    if (!changeButton) return null;
 
     changeButton.scrollIntoView({ block: "center", inline: "nearest" });
-    await sleep(100);
+    await sleep(80);
+    if (typeof changeButton.click === "function") changeButton.click();
     emitRealClick(changeButton);
 
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      await sleep(200);
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      await sleep(150);
       modal = findPickupAddressModal();
-
-      if (modal) {
-        return modal;
-      }
+      if (modal) return modal;
     }
 
     return null;
   }
 
   function getPickupAddressItems(modal) {
-    return Array.from(modal.querySelectorAll(".pickup-address-select-item, .eds-radio, label.eds-radio, div[class*='address-item'], div[class*='address']"))
+    const root = modal || document;
+    return Array.from(root.querySelectorAll(".pickup-address-select-item, .eds-radio, label.eds-radio, div[class*='address-item'], div[class*='address'], li[class*='address'], tr"))
       .map((item, index) => {
         const input = item.querySelector("input[type='radio']") || (item.tagName === "INPUT" ? item : null);
-        const name = normalizeText(item.querySelector(".name, .user-name, strong, b")?.textContent);
-        const addr = normalizeText(item.querySelector(".addr, .address-detail, .address, p")?.innerText || item.textContent);
+        const name = normalizeText(item.querySelector(".name, .user-name, strong, b")?.textContent || "");
+        const addr = normalizeText(item.querySelector(".addr, .address-detail, .address, p")?.innerText || item.textContent || "");
         const selected = Boolean(input?.checked || item.querySelector(".eds-radio__input:checked") || item.classList.contains("eds-radio--checked"));
         const normalizedAddr = normalizeSearchText(addr + " " + name);
         const shortText = normalizedAddr.includes("ha noi") || normalizedAddr.includes("hn")
@@ -5224,17 +5206,15 @@ function downloadExcelFileBypass(wb, filename) {
 
   async function getPickupAddresses() {
     const modal = await openPickupAddressModal();
-
     if (!modal) {
       return {
         ok: false,
         addresses: [],
-        message: "Không thấy nút Đổi địa chỉ lấy hàng."
+        message: "Không thấy nút Đổi địa chỉ lấy hàng trên trang."
       };
     }
 
     const addresses = getPickupAddressItems(modal);
-
     return {
       ok: addresses.length > 0,
       addresses: addresses.map((address) => ({
@@ -5250,99 +5230,55 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function findConfirmPickupAddressButton(modal) {
-    return Array.from(modal.querySelectorAll("button")).find((button) => {
+    const root = modal || document;
+    return Array.from(root.querySelectorAll("button, [role='button'], .eds-button")).find((button) => {
       const text = normalizeSearchText(button.textContent);
-      return (text === "confirm" || text === "xac nhan" || text === "dong y" || text === "luu") && isVisible(button);
-    }) || modal.querySelector(".eds-modal__footer button.eds-button--primary, button.eds-button--primary") || null;
-  }
-
-  async function selectPickupAddress(id) {
-    const modal = await openPickupAddressModal();
-
-    if (!modal) {
-      return {
-        ok: false,
-        message: "Không thấy popup chọn địa chỉ lấy hàng."
-      };
-    }
-
-    const addresses = getPickupAddressItems(modal);
-    const address = addresses.find((item) => item.id === String(id));
-
-    if (!address) {
-      return {
-        ok: false,
-        message: "Không thấy địa chỉ cần chọn."
-      };
-    }
-
-    const target = address.input ? (address.input.closest("label, .eds-radio") || address.element) : address.element;
-
-    target.scrollIntoView({ block: "center", inline: "nearest" });
-    await sleep(100);
-    emitRealClick(target);
-    await sleep(200);
-
-    const confirmButton = findConfirmPickupAddressButton(modal);
-
-    if (confirmButton) {
-      emitRealClick(confirmButton);
-      return {
-        ok: true,
-        message: `Đã chọn ${address.shortText} và bấm Xác nhận.`
-      };
-    }
-
-    return {
-      ok: true,
-      message: `Đã chọn ${address.shortText}.`
-    };
+      return (text === "confirm" || text === "xac nhan" || text === "dong y" || text === "luu" || text === "hoan tat") && isElementInteractable(button);
+    }) || root.querySelector(".eds-modal__footer button.eds-button--primary, button.eds-button--primary") || null;
   }
 
   async function selectPickupAddressLocation(location) {
     const modal = await openPickupAddressModal();
-
-    if (!modal) {
-      return {
-        ok: false,
-        message: "Không thấy popup chọn địa chỉ lấy hàng."
-      };
-    }
+    const root = modal || document;
 
     const normalizedLocation = normalizeSearchText(location);
-    const addresses = getPickupAddressItems(modal);
+    const addresses = getPickupAddressItems(root);
+    
     const address = addresses.find((item) => {
-      const normalizedAddr = normalizeSearchText(item.addr + " " + item.name);
+      const text = normalizeSearchText(item.fullText + " " + item.addr + " " + item.name);
 
       if (normalizedLocation.includes("ha noi") || normalizedLocation.includes("hn")) {
-        return normalizedAddr.includes("ha noi") || normalizedAddr.includes("hn");
+        return text.includes("ha noi") || text.includes("hn") || text.includes("cau giay") || text.includes("hoan kiem") || text.includes("dong da") || text.includes("ha dong") || text.includes("thanh xuan") || text.includes("hoang mai") || text.includes("long bien") || text.includes("bac tu liem") || text.includes("nam tu liem");
       }
 
       if (normalizedLocation.includes("ho chi minh") || normalizedLocation.includes("hcm") || normalizedLocation.includes("sai gon")) {
-        return normalizedAddr.includes("ho chi minh") || normalizedAddr.includes("hcm") || normalizedAddr.includes("sai gon") || normalizedAddr.includes("tphcm");
+        return text.includes("ho chi minh") || text.includes("hcm") || text.includes("sai gon") || text.includes("tphcm") || text.includes("quan 1") || text.includes("quan 7") || text.includes("quan 12") || text.includes("thu duc") || text.includes("binh thanh") || text.includes("tan binh") || text.includes("go vap");
       }
 
-      return normalizedAddr.includes(normalizedLocation);
+      return text.includes(normalizedLocation);
     });
 
     if (!address) {
       return {
         ok: false,
-        message: `Không tìm thấy địa chỉ ${location} trong popup.`
+        message: `Không tìm thấy địa chỉ ${location} trong danh sách.`
       };
     }
 
+    // Click on target
     const target = address.input ? (address.input.closest("label, .eds-radio") || address.element) : address.element;
-
     target.scrollIntoView({ block: "center", inline: "nearest" });
     await sleep(100);
+    if (typeof target.click === "function") target.click();
+    if (address.input && typeof address.input.click === "function") address.input.click();
     emitRealClick(target);
     await sleep(200);
 
     const confirmButton = findConfirmPickupAddressButton(modal);
-
     if (confirmButton) {
+      if (typeof confirmButton.click === "function") confirmButton.click();
       emitRealClick(confirmButton);
+      await sleep(300);
       return {
         ok: true,
         message: `Đã chọn địa chỉ ${address.shortText} và bấm Xác nhận.`
