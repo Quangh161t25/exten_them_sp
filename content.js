@@ -4989,20 +4989,31 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function findPrintWarehouseSelect() {
-    const directSelect = document.querySelector("[data-testid='warehouse-filter']");
+    const directSelect = document.querySelector("[data-testid='warehouse-filter'], [data-testid*='warehouse']");
     if (directSelect && isElementInteractable(directSelect)) {
       return directSelect;
     }
 
-    const selects = Array.from(document.querySelectorAll(".eds-select, .shopee-selector, .eds-dropdown, div[class*='select']")).filter(isElementInteractable);
-    const warehouseSelect = selects.find(s => {
-      const parentText = normalizeSearchText(s.closest(".filter-item, .filter-row, .eds-form-item, div")?.textContent || "");
-      return parentText.includes("kho") || parentText.includes("dia diem") || parentText.includes("vi tri");
+    // 1. Tìm label "Kho"
+    const allLabels = Array.from(document.querySelectorAll("label, .eds-form-item__label, span, div.filter-label, div")).filter(isElementInteractable);
+    const khoLabel = allLabels.find(el => {
+      const t = normalizeSearchText(el.textContent).trim();
+      return (t === "kho" || t === "kho hang" || t === "kho xu ly") && el.children.length === 0;
     });
-    if (warehouseSelect) return warehouseSelect;
 
-    return selects.find((select) => {
-      return select.querySelector(".eds-selector__inner") && isElementInteractable(select);
+    if (khoLabel) {
+      const container = khoLabel.closest(".eds-form-item, .filter-item, .filter-row, div.filter, div") || khoLabel.parentElement;
+      const select = container ? container.querySelector(".eds-select, .shopee-selector, div[class*='select']") : null;
+      if (select && isElementInteractable(select)) return select;
+    }
+
+    // 2. Fallback: Tìm .eds-select có text "Hà Nội" hoặc "Hồ Chí Minh"
+    const selects = Array.from(document.querySelectorAll(".eds-select, .shopee-selector")).filter(isElementInteractable);
+    return selects.find(s => {
+      const txt = normalizeSearchText(s.textContent);
+      const isWarehouse = (txt === "ho chi minh" || txt === "ha noi" || txt.includes("ho chi minh") || txt.includes("ha noi"));
+      const isNotLangOrSort = !txt.includes("vietnamese") && !txt.includes("english") && !txt.includes("don hang") && !txt.includes("san pham") && !txt.includes("han gui");
+      return isWarehouse && isNotLangOrSort;
     }) || null;
   }
 
@@ -5018,7 +5029,11 @@ function downloadExcelFileBypass(wb, filename) {
         name: normalizeText(option.textContent),
         selected: option.classList.contains("selected") || option.classList.contains("eds-option--selected")
       }))
-      .filter((option) => option.name);
+      .filter((option) => {
+        const norm = normalizeSearchText(option.name);
+        const isLangOrFilter = norm.includes("vietnamese") || norm.includes("english") || norm.includes("don hang") || norm.includes("san pham") || norm.includes("nguoi mua") || norm.includes("dat don") || norm.includes("han gui") || norm.includes("sku");
+        return !isLangOrFilter && (norm.includes("ha noi") || norm.includes("ho chi minh") || norm.includes("kho"));
+      });
   }
 
   async function openPrintWarehouseMenu() {
@@ -5039,8 +5054,8 @@ function downloadExcelFileBypass(wb, filename) {
     const directButtons = Array.from(document.querySelectorAll("button, [role='tab'], .eds-radio, .eds-tag, .filter-item, span, div")).filter(isElementInteractable);
     const directTabs = directButtons.filter(el => {
       const txt = normalizeSearchText(el.textContent);
-      return (txt.includes("ha noi") || txt.includes("ho chi minh") || txt.includes("kho")) &&
-             (el.tagName === "BUTTON" || el.getAttribute("role") === "tab" || el.classList.contains("eds-radio") || el.classList.contains("filter-item"));
+      const isWarehouse = (txt.includes("ha noi") || txt.includes("ho chi minh")) && !txt.includes("vietnamese") && !txt.includes("english");
+      return isWarehouse && (el.tagName === "BUTTON" || el.getAttribute("role") === "tab" || el.classList.contains("eds-radio") || el.classList.contains("filter-item"));
     });
 
     if (directTabs.length > 0) {
@@ -5085,7 +5100,7 @@ function downloadExcelFileBypass(wb, filename) {
     const directButtons = Array.from(document.querySelectorAll("button, [role='tab'], .eds-radio, .eds-tag, .filter-item, span, div")).filter(isElementInteractable);
     const directTab = directButtons.find(el => {
       const txt = normalizeSearchText(el.textContent);
-      return (txt === wantedName || txt === `kho ${wantedName}` || txt.includes(wantedName)) &&
+      return (txt === wantedName || txt === `kho ${wantedName}`) &&
              (el.tagName === "BUTTON" || el.getAttribute("role") === "tab" || el.classList.contains("eds-radio") || el.classList.contains("eds-tag") || el.classList.contains("filter-item"));
     });
 
@@ -5103,7 +5118,13 @@ function downloadExcelFileBypass(wb, filename) {
       const options = findVisibleWarehouseOptions();
       const option = options.find((item) => {
         const itemNorm = normalizeSearchText(item.name);
-        return itemNorm.includes(wantedName) || wantedName.includes(itemNorm);
+        if (wantedName.includes("ha noi")) {
+          return itemNorm.includes("ha noi") || itemNorm.includes("hn");
+        }
+        if (wantedName.includes("ho chi minh") || wantedName.includes("hcm")) {
+          return itemNorm.includes("ho chi minh") || itemNorm.includes("hcm");
+        }
+        return itemNorm.includes(wantedName);
       });
 
       if (option?.element) {

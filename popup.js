@@ -739,27 +739,26 @@ async function runAutomaticPrintFlow() {
 }
 
 function renderPrintWarehouseButtons(warehouses) {
-  if (!printWarehouseButtons) {
+  if (!selectWarehouseHanoiButton || !selectWarehouseHcmButton) {
     return;
   }
 
-  printWarehouseButtons.textContent = "";
+  const isHanoi = warehouses?.some(w => {
+    const n = String(w.name || "").toLowerCase();
+    return (n.includes("hà nội") || n.includes("ha noi")) && w.selected;
+  });
 
-  if (!warehouses?.length) {
-    const empty = document.createElement("div");
-    empty.className = "print-flow-empty";
-    empty.textContent = "Không thấy kho";
-    printWarehouseButtons.append(empty);
-    return;
-  }
+  const isHcm = warehouses?.some(w => {
+    const n = String(w.name || "").toLowerCase();
+    return (n.includes("hồ chí minh") || n.includes("ho chi minh")) && w.selected;
+  });
 
-  for (const warehouse of warehouses) {
-    const warehouseButton = document.createElement("button");
-    warehouseButton.type = "button";
-    warehouseButton.className = warehouse.selected ? "primary-action" : "secondary";
-    warehouseButton.textContent = `Kho ${warehouse.name}`;
-    warehouseButton.addEventListener("click", () => selectPrintWarehouse(warehouse.name, warehouseButton));
-    printWarehouseButtons.append(warehouseButton);
+  if (isHanoi) {
+    selectWarehouseHanoiButton.className = "primary-action";
+    selectWarehouseHcmButton.className = "secondary";
+  } else if (isHcm) {
+    selectWarehouseHanoiButton.className = "secondary";
+    selectWarehouseHcmButton.className = "primary-action";
   }
 }
 
@@ -803,7 +802,13 @@ async function selectPrintWarehouse(name, warehouseButton) {
     });
 
     if (statusText) statusText.textContent = response?.message || `Đã chọn kho ${name}.`;
-    await loadPrintWarehouses();
+    if (name.includes("Hà Nội") || name.includes("Ha Noi")) {
+      selectWarehouseHanoiButton.className = "primary-action";
+      selectWarehouseHcmButton.className = "secondary";
+    } else {
+      selectWarehouseHanoiButton.className = "secondary";
+      selectWarehouseHcmButton.className = "primary-action";
+    }
   } catch (error) {
     if (statusText) statusText.textContent = error?.message || "Không chọn được kho.";
   } finally {
@@ -814,28 +819,26 @@ async function selectPrintWarehouse(name, warehouseButton) {
 }
 
 function renderPrintAddressButtons(addresses) {
-  if (!printAddressButtons) {
+  if (!selectAddressHanoiButton || !selectAddressHcmButton) {
     return;
   }
 
-  printAddressButtons.textContent = "";
+  const isHanoi = addresses?.some(a => {
+    const t = String(a.shortText || a.fullText || "").toLowerCase();
+    return (t.includes("hà nội") || t.includes("ha noi")) && a.selected;
+  });
 
-  if (!addresses?.length) {
-    const empty = document.createElement("div");
-    empty.className = "print-flow-empty";
-    empty.textContent = "Không thấy địa chỉ";
-    printAddressButtons.append(empty);
-    return;
-  }
+  const isHcm = addresses?.some(a => {
+    const t = String(a.shortText || a.fullText || "").toLowerCase();
+    return (t.includes("hồ chí minh") || t.includes("ho chi minh")) && a.selected;
+  });
 
-  for (const address of addresses) {
-    const addressButton = document.createElement("button");
-    addressButton.type = "button";
-    addressButton.className = address.selected ? "primary-action" : "secondary";
-    addressButton.textContent = `Địa chỉ ${address.shortText || address.name || address.id}`;
-    addressButton.title = address.fullText || addressButton.textContent;
-    addressButton.addEventListener("click", () => selectPrintAddress(address.id, addressButton));
-    printAddressButtons.append(addressButton);
+  if (isHanoi) {
+    selectAddressHanoiButton.className = "primary-action";
+    selectAddressHcmButton.className = "secondary";
+  } else if (isHcm) {
+    selectAddressHanoiButton.className = "secondary";
+    selectAddressHcmButton.className = "primary-action";
   }
 }
 
