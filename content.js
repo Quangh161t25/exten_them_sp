@@ -47,7 +47,9 @@ function downloadExcelFileBypass(wb, filename) {
   const PRODUCT_LIST_QUICK_ACTION_CLASS = "shopee-qlsp-product-list-actions";
   const PRODUCT_LIST_ACTIONS = ["Xem tr\u01b0\u1edbc", "\u0110\u1ea9y s\u1ea3n ph\u1ea9m"];
   const PRODUCT_LIST_COPY_LINK_TEXT = "Copy link";
-  const PRODUCT_LIST_COPY_NAME_TEXT = "Copy t\u00ean";
+  const PRODUCT_LIST_COPY_NAME_TEXT = "Copy tên";
+  const PRODUCT_LIST_COPY_ID_TEXT = "Copy ID";
+  const PRODUCT_LIST_OPEN_KM_TEXT = "Mở KM";
   const ORDER_SN_COPY_STYLE_ID = "shopee-qlsp-order-sn-copy-style";
   const ORDER_SN_COPY_BUTTON_CLASS = "shopee-qlsp-order-sn-copy";
   const WEIGHT_STYLE_ID = "shopee-qlsp-weight-style";
@@ -1684,32 +1686,50 @@ function downloadExcelFileBypass(wb, filename) {
 
       html.${PRODUCT_LIST_CLASS} .${PRODUCT_LIST_QUICK_ACTION_CLASS} {
         display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        gap: 4px !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 3px !important;
         width: 100% !important;
-        padding: 6px !important;
+        padding: 4px 2px !important;
         border-top: 1px solid #f0f0f0 !important;
         background: #fff !important;
+        box-sizing: border-box !important;
       }
 
       html.${PRODUCT_LIST_CLASS} .${PRODUCT_LIST_QUICK_ACTION_CLASS} button {
         min-width: 0 !important;
-        min-height: 28px !important;
-        padding: 0 5px !important;
+        min-height: 24px !important;
+        height: 24px !important;
+        padding: 0 2px !important;
         border: 1px solid #ffd7ca !important;
-        border-radius: 4px !important;
+        border-radius: 3px !important;
         color: #ee4d2d !important;
         background: #fff7f4 !important;
-        font: 600 12px/1 Arial, sans-serif !important;
+        font: 600 11px/1.1 Arial, sans-serif !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         cursor: pointer !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        box-sizing: border-box !important;
       }
 
       html.${PRODUCT_LIST_CLASS} .${PRODUCT_LIST_QUICK_ACTION_CLASS} button:hover {
         border-color: #ee4d2d !important;
         background: #fff0ea !important;
+      }
+
+      html.${PRODUCT_LIST_CLASS} .${PRODUCT_LIST_QUICK_ACTION_CLASS} button.shopee-qlsp-btn-km {
+        border-color: #fed7aa !important;
+        color: #ea580c !important;
+        background: #fffbeb !important;
+      }
+
+      html.${PRODUCT_LIST_CLASS} .${PRODUCT_LIST_QUICK_ACTION_CLASS} button.shopee-qlsp-btn-km:hover {
+        border-color: #ea580c !important;
+        background: #fef3c7 !important;
       }
 
       html.${PRODUCT_LIST_CLASS} .${PRODUCT_LIST_QUICK_ACTION_CLASS} button.shopee-qlsp-copy-done {
@@ -3923,10 +3943,10 @@ function downloadExcelFileBypass(wb, filename) {
 
       const value = await Promise.resolve(getValue());
 
-      if (await copyTextToClipboard(value)) {
-        showCopyButtonState(button, "\u0110\u00e3 copy");
+      if (value && await copyTextToClipboard(value)) {
+        showCopyButtonState(button, "Đã copy");
       } else {
-        showCopyButtonState(button, "Thi\u1ebfu link");
+        showCopyButtonState(button, "Trống");
       }
     });
 
@@ -4580,6 +4600,256 @@ function downloadExcelFileBypass(wb, filename) {
       return globalSpShopeePromise;
   }
 
+  let globalCaiDatPromise = null;
+  function getCaiDatDataList(forceRefresh = false) {
+    if (!forceRefresh && window.cachedCaiDat) return Promise.resolve(window.cachedCaiDat);
+    if (!forceRefresh && globalCaiDatPromise) return globalCaiDatPromise;
+
+    globalCaiDatPromise = new Promise(resolve => {
+      chrome.runtime.sendMessage({ type: "FETCH_CAI_DAT" }, (res) => {
+        globalCaiDatPromise = null;
+        if (res && res.ok && res.values) {
+          window.cachedCaiDat = res.values;
+        }
+        resolve(window.cachedCaiDat || []);
+      });
+    });
+    return globalCaiDatPromise;
+  }
+
+  async function getLinkKmByMaGian(maGian) {
+    try {
+      const rows = await getCaiDatDataList();
+      if (!rows || rows.length <= 1) return "";
+
+      const headers = (rows[0] || []).map(h => String(h || "").trim().toLowerCase());
+
+      // Tìm cột gian: header là "gian", "mã gian", "ma gian", "ma_gian" hoặc mặc định index 1 (Cột B)
+      let gianIdx = headers.findIndex(h => h === "gian" || h === "ma gian" || h === "mã gian" || h === "ma_gian");
+      if (gianIdx === -1) gianIdx = 1;
+
+      // Tìm cột link_km: header là "link_km", "link km", "km", "khuyen mai", "link_giam_gia" hoặc mặc định index 8 (Cột I: A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7, I=8)
+      let linkKmIdx = headers.findIndex(h => h === "link_km" || h === "link km" || h === "link_giam_gia" || h === "km" || h === "khuyen mai" || h.includes("link_km") || h.includes("link km"));
+      if (linkKmIdx === -1) linkKmIdx = 8; // Cột I (index 8)
+
+      const targetGian = String(maGian || "").trim().toLowerCase();
+
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const rowGian = String(row[gianIdx] || "").trim().toLowerCase();
+        if (rowGian && (!targetGian || rowGian === targetGian)) {
+          const linkKm = String(row[linkKmIdx] || "").trim();
+          if (linkKm) return linkKm;
+        }
+      }
+
+      // Nếu không khớp mã gian cụ thể, nhưng có dòng chứa link KM ở cột I thì lấy dòng đầu tiên có link
+      for (let i = 1; i < rows.length; i++) {
+        const linkKm = String(rows[i][linkKmIdx] || "").trim();
+        if (linkKm) return linkKm;
+      }
+    } catch (e) {
+      console.warn("Lỗi đọc link_km từ sheet CAI_DAT:", e);
+    }
+    return "";
+  }
+
+  // =========================================================================
+  // TỰ ĐỘNG BẤM "CHỈNH SỬA" VÀ DÁN TÊN SẢN PHẨM VÀO Ô TÌM KIẾM TRÊN TRANG KM
+  // =========================================================================
+  let hasAutoClickedEditPromotion = false;
+  let hasAutoSearchedPromotion = false;
+
+  function findEditPromotionButton() {
+    // 1. Selector trực tiếp theo class của Shopee
+    const directBtn = document.querySelector("button.edit-button, button.eds-button--link.edit-button, button.eds-button.edit-button, .edit-button");
+    if (directBtn && isVisible(directBtn) && !directBtn.disabled && !directBtn.classList.contains("eds-button--disabled")) {
+      return directBtn;
+    }
+
+    // 2. Tìm theo text "Chỉnh sửa Chương Trình Khuyến Mãi" hoặc "Chỉnh sửa"
+    const allButtons = Array.from(document.querySelectorAll("button, .eds-button, a[role='button']"));
+    return allButtons.find((btn) => {
+      const text = normalizeText(btn.textContent);
+      const isDisabled = btn.disabled || btn.classList.contains("eds-button--disabled") || btn.getAttribute("aria-disabled") === "true";
+      return (
+        text.includes("chinh sua chuong trinh khuyen mai") ||
+        text.includes("chinh sua chuong trinh") ||
+        text === "chinh sua" ||
+        text.includes("chinh sua khuyen mai") ||
+        text.includes("edit promotion")
+      ) && isVisible(btn) && !isDisabled;
+    }) || null;
+  }
+
+  function fillShopeeEdsInput(input, text) {
+    if (!input) return;
+    const value = String(text || "");
+
+    input.scrollIntoView({ block: "center", inline: "nearest" });
+    input.focus();
+
+    // 1. Dùng document.execCommand để trình duyệt giả lập gõ ký tự thật
+    try {
+      input.select();
+      document.execCommand("selectAll", false, null);
+      document.execCommand("delete", false, null);
+      document.execCommand("insertText", false, value);
+    } catch (e) {
+      console.warn("execCommand insertText failed:", e);
+    }
+
+    // 2. Gán native setter để đảm bảo giá trị luôn được lưu trong Vue
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+    if (nativeSetter) {
+      nativeSetter.call(input, value);
+    } else {
+      input.value = value;
+    }
+
+    if ("_value" in input) {
+      input._value = value;
+    }
+
+    // 3. Dispatch sự kiện input & change
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+  }
+
+  function triggerSearchIconClick(searchBtn) {
+    if (!searchBtn) return;
+    // Tuyệt đối không bấm vào nút clear-btn xoá chữ của Shopee
+    if (searchBtn.classList.contains("eds-input__clear-btn") || searchBtn.closest(".eds-input__clear-btn")) {
+      return;
+    }
+
+    const searchIcon = searchBtn.querySelector(".search-btn i, .search-btn svg, i.icon, svg") || searchBtn;
+
+    emitRealHover(searchIcon);
+    if (typeof searchIcon.click === "function") searchIcon.click();
+    emitRealClick(searchIcon);
+  }
+
+  function findPromotionSearchInput() {
+    // 1. Tìm chính xác phần tử .search-btn (LOẠI TRỪ .eds-input__clear-btn)
+    const searchBtns = Array.from(document.querySelectorAll(".search-btn, [class*='search-btn']"))
+      .filter(el => isVisible(el) && !el.classList.contains("eds-input__clear-btn") && !el.closest(".eds-input__clear-btn"));
+
+    for (const btn of searchBtns) {
+      const container = btn.closest(".eds-input__inner, .eds-input, .eds-input-number, div");
+      const input = container?.querySelector("input.eds-input__input, input[type='text'], input");
+      if (input && isVisible(input)) {
+        const searchIcon = btn.querySelector("i.icon, i.eds-icon, svg") || btn;
+        return { input, searchBtn: btn, icon: searchIcon };
+      }
+    }
+
+    // 2. Fallback tìm theo input
+    const allInputs = Array.from(document.querySelectorAll("input.eds-input__input, input[type='text']")).filter(isVisible);
+    for (const input of allInputs) {
+      const parent = input.closest(".eds-input__inner, .eds-input, .search-container, div");
+      const searchBtn = parent?.querySelector(".search-btn");
+      if (searchBtn && isVisible(searchBtn)) {
+        const searchIcon = searchBtn.querySelector("i.icon, i.eds-icon, svg") || searchBtn;
+        return { input, searchBtn, icon: searchIcon };
+      }
+    }
+
+    return null;
+  }
+
+  async function autoFillAndSearchPromotionProduct(productName) {
+    if (!productName || hasAutoSearchedPromotion) return;
+
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const searchTarget = findPromotionSearchInput();
+      if (searchTarget && searchTarget.input) {
+        hasAutoSearchedPromotion = true;
+        chrome.storage.local.remove(["autoSearchKmProductName"]);
+
+        const { input, searchBtn, icon } = searchTarget;
+
+        input.scrollIntoView({ block: "center", inline: "nearest" });
+        await sleep(200);
+
+        // 1. Điền tên sản phẩm vào ô tìm kiếm qua execCommand + Vue setter
+        fillShopeeEdsInput(input, productName);
+        await sleep(300);
+
+        // 2. Bấm chính xác vào .search-btn (không đụng vào clear-btn)
+        const targetSearchBtn = searchBtn || icon;
+        if (targetSearchBtn) {
+          targetSearchBtn.scrollIntoView({ block: "center", inline: "nearest" });
+          await sleep(150);
+          triggerSearchIconClick(targetSearchBtn);
+        }
+
+        // 3. Dispatch phím Enter trên ô input
+        input.dispatchEvent(new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          which: 13
+        }));
+        input.dispatchEvent(new KeyboardEvent("keyup", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          which: 13
+        }));
+
+        // 4. Đảm bảo sau khi search, input vẫn giữ nguyên text
+        await sleep(300);
+        if (input && input.value !== productName) {
+          fillShopeeEdsInput(input, productName);
+        }
+
+        console.log("Shopee QLSP: Đã dán tên sản phẩm và bấm Tìm kiếm:", productName);
+        break;
+      }
+      await sleep(300);
+    }
+  }
+
+  async function autoClickEditPromotionButton() {
+    const isMarketingPage = window.location.pathname.includes("/portal/marketing/") || window.location.href.includes("/portal/marketing/");
+    const hasAutoHash = window.location.hash.includes("auto_edit_km") || window.location.search.includes("auto_edit_km");
+
+    if (!isMarketingPage && !hasAutoHash) return;
+
+    // 1. Kiểm tra và bấm nút Chỉnh sửa nếu chưa bấm
+    if (!hasAutoClickedEditPromotion) {
+      const btn = findEditPromotionButton();
+      if (btn) {
+        hasAutoClickedEditPromotion = true;
+        chrome.storage.local.remove(["autoClickEditKmTimestamp"]);
+        btn.scrollIntoView({ block: "center", inline: "nearest" });
+        await sleep(150);
+        emitRealHover(btn);
+        await sleep(100);
+        if (typeof btn.click === "function") btn.click();
+        emitRealClick(btn);
+        console.log("Shopee QLSP: Đã tự động bấm nút Chỉnh sửa Chương Trình Khuyến Mãi");
+      }
+    }
+
+    // 2. Kiểm tra có tên sản phẩm cần tìm kiếm không
+    if (!hasAutoSearchedPromotion) {
+      chrome.storage.local.get(["autoSearchKmProductName"], (res) => {
+        const productName = res.autoSearchKmProductName ? String(res.autoSearchKmProductName).trim() : "";
+        if (productName) {
+          autoFillAndSearchPromotionProduct(productName);
+        }
+      });
+    }
+  }
+
   function createProductListQuickActions(moreButton, productCard) {
     const wrap = document.createElement("div");
 
@@ -4612,9 +4882,57 @@ function downloadExcelFileBypass(wb, filename) {
       wrap.append(button);
     }
 
+    // Nút Mở KM (Tự động copy tên sản phẩm vào Clipboard + Mở link Cột I sheet CAI_DAT + Tự dán tìm kiếm)
+    const kmBtn = document.createElement("button");
+    kmBtn.type = "button";
+    kmBtn.textContent = PRODUCT_LIST_OPEN_KM_TEXT;
+    kmBtn.title = "Mở Khuyến Mãi & Copy Tên (Cột I sheet CAI_DAT)";
+    kmBtn.className = "shopee-qlsp-btn-km";
+    kmBtn.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+
+      const productName = getProductListName(productCard).trim();
+
+      // 1. Tự động Copy tên sản phẩm vào Clipboard ngay lập tức
+      if (productName) {
+        await copyTextToClipboard(productName);
+      }
+
+      const origText = kmBtn.textContent;
+      kmBtn.textContent = "Đã copy tên & đang mở...";
+
+      chrome.storage.local.get(["maGian", "dhHoanTextValue"], async (res) => {
+        const maGian = (res.maGian || res.dhHoanTextValue || "").trim();
+        const linkKm = await getLinkKmByMaGian(maGian);
+
+        setTimeout(() => { kmBtn.textContent = origText; }, 1500);
+
+        if (linkKm) {
+          // Lưu cờ autoClickEditKm và tên sản phẩm để tab mới tự động click Chỉnh sửa + Dán tìm kiếm
+          chrome.storage.local.set({
+            autoClickEditKmTimestamp: Date.now(),
+            autoSearchKmProductName: productName
+          });
+
+          let finalUrl = (linkKm.startsWith("http://") || linkKm.startsWith("https://")) ? linkKm : `https://${linkKm}`;
+          if (!finalUrl.includes("#auto_edit_km")) {
+            finalUrl = finalUrl.includes("#") ? finalUrl.replace("#", "#auto_edit_km=1&") : `${finalUrl}#auto_edit_km=1`;
+          }
+          window.open(finalUrl, "_blank");
+        } else {
+          alert(`Không tìm thấy link KM cho mã gian "${maGian || '(chưa chọn)'}" tại Cột I (link_km) sheet CAI_DAT.\n\nVui lòng điền link KM vào Cột I sheet CAI_DAT!`);
+        }
+      });
+    });
+    wrap.append(kmBtn);
+
+    // Hàng 2: 3 nút Copy link, Copy tên, Copy ID
     wrap.append(
       createCopyButton(PRODUCT_LIST_COPY_LINK_TEXT, () => getProductListLink(productCard)),
-      createCopyButton(PRODUCT_LIST_COPY_NAME_TEXT, () => getProductListName(productCard))
+      createCopyButton(PRODUCT_LIST_COPY_NAME_TEXT, () => getProductListName(productCard)),
+      createCopyButton(PRODUCT_LIST_COPY_ID_TEXT, () => getProductListItemId(productCard))
     );
     
     const skuContainer = document.createElement("div");
@@ -9245,6 +9563,8 @@ function downloadExcelFileBypass(wb, filename) {
   window.setInterval(renderOrderProfit, 1500);
   window.setInterval(renderReturnInfoCopyButtons, 1500);
   window.setInterval(renderDonHangButtons, 600);
+  window.setTimeout(autoClickEditPromotionButton, 800);
+  window.setInterval(autoClickEditPromotionButton, 1000);
 
   // ===== BACKGROUND AUTO-FILL =====
   // Listens for autoFillText saved to chrome.storage by popup.js
