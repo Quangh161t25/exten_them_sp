@@ -625,13 +625,7 @@ function downloadExcelFileBypass(wb, filename) {
           const ws = XLSX.utils.aoa_to_sheet(rowsData);
           const wb = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(wb, ws, "Orders");
-          const base64 = XLSX.write(wb, { bookType: "xlsx", type: "base64" });
-          const dataUrl = "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + base64;
-          chrome.runtime.sendMessage({
-            type: "FORCE_DOWNLOAD",
-            url: dataUrl,
-            filename: getCustomExcelFilename(maGian)
-          });
+          downloadExcelFileBypass(wb, getCustomExcelFilename(maGian));
         } catch (e) {
           console.error(e);
           alert("Loi tai Excel: " + e.message);
@@ -4304,13 +4298,7 @@ function downloadExcelFileBypass(wb, filename) {
             const ws = XLSX.utils.aoa_to_sheet(rowsData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Orders");
-            const base64 = XLSX.write(wb, { bookType: "xlsx", type: "base64" });
-            const dataUrl = "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + base64;
-            chrome.runtime.sendMessage({
-              type: "FORCE_DOWNLOAD",
-              url: dataUrl,
-              filename: getCustomExcelFilename(maGian)
-            });
+            downloadExcelFileBypass(wb, getCustomExcelFilename(maGian));
             showCopyButtonState(excelBtn, "OK");
           } catch (e) {
             console.error(e);
@@ -4922,6 +4910,19 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function findPrintFlowCheckboxIndicator() {
+    // 1. Nhắm trực diện vào data-testid chuẩn của Shopee
+    const directTestId = document.querySelector("[data-testid='mass-ship-checkbox-all']");
+    if (directTestId && isVisible(directTestId) && !isDisabledControl(directTestId)) {
+      return directTestId.querySelector(".eds-checkbox__indicator") || directTestId;
+    }
+
+    // 2. Nhắm vào class header bảng giao hàng loạt của Shopee
+    const headerCb = document.querySelector(".mass-ship-header.checkbox .eds-checkbox__indicator, .mass-ship-header.checkbox label, .mass-ship-header .eds-checkbox__indicator");
+    if (headerCb && isVisible(headerCb) && !isDisabledControl(headerCb)) {
+      return headerCb.classList.contains("eds-checkbox__indicator") ? headerCb : (headerCb.querySelector(".eds-checkbox__indicator") || headerCb);
+    }
+
+    // 3. Fallback: Quét tất cả thẻ indicator hiển thị từ trên xuống dưới
     const indicators = Array.from(document.querySelectorAll("span.eds-checkbox__indicator, .eds-checkbox__indicator"));
     const visibleIndicators = indicators
       .filter((indicator) => isVisible(indicator) && !isDisabledControl(indicator))
@@ -4939,21 +4940,30 @@ function downloadExcelFileBypass(wb, filename) {
       const indicator = findPrintFlowCheckboxIndicator();
 
       if (indicator) {
-        const target = indicator.closest("label, .eds-checkbox, [role='checkbox']") || indicator;
+        const target = indicator.closest("[data-testid='mass-ship-checkbox-all'], label.eds-checkbox, .eds-checkbox, [role='checkbox']") || indicator;
+        const input = target.querySelector ? target.querySelector("input[type='checkbox']") : null;
 
         target.scrollIntoView({ block: "center", inline: "nearest" });
         await sleep(100);
 
+        // Kích hoạt click trực tiếp vào indicator
         if (typeof indicator.click === "function") indicator.click();
         emitRealClick(indicator);
+
+        // Kích hoạt click vào thẻ label/container
         if (target !== indicator) {
           if (typeof target.click === "function") target.click();
           emitRealClick(target);
         }
 
+        // Kích hoạt click vào thẻ input nếu có
+        if (input && typeof input.click === "function" && !input.checked) {
+          input.click();
+        }
+
         return {
           ok: true,
-          message: "Đã bấm chọn hộp kiểm."
+          message: "Đã bấm chọn hộp kiểm tất cả đơn."
         };
       }
 
@@ -5119,37 +5129,27 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function findChangePickupAddressButton() {
-    const directButton = document.querySelector("[data-testid='change-pickup-address-button'], [data-testid*='change-address']");
-    if (directButton && isElementInteractable(directButton)) {
+    // 1. Nhắm trực diện vào data-testid chuẩn của nút Đổi trên Shopee
+    const directButton = document.querySelector("[data-testid='change-pickup-address-button']");
+    if (directButton && isVisible(directButton)) {
       return directButton;
     }
 
-    // Tìm section chứa Địa chỉ lấy hàng
-    const allContainers = Array.from(document.querySelectorAll(".eds-card, .eds-form-item, section, div[class*='address'], div[class*='pickup'], div[class*='panel'], div")).filter(isElementInteractable);
-    const addressSection = allContainers.find(sec => {
-      const txt = normalizeSearchText(sec.textContent || "");
-      return (txt.includes("dia chi lay hang") || txt.includes("dia chi gui hang") || txt.includes("pickup address")) && sec.querySelectorAll("div, section").length < 20;
+    // 2. Nhắm vào class action chứa chữ "Đổi"
+    const actionBtn = Array.from(document.querySelectorAll(".action, .eds-link, button, [role='button'], span, div")).find(el => {
+      const txt = normalizeSearchText(el.textContent).trim();
+      return (txt === "doi" || txt === "thay doi" || txt === "chinh sua" || txt === "change") && isVisible(el) && !el.closest(".eds-modal__content");
     });
+    if (actionBtn) return actionBtn;
 
-    if (addressSection) {
-      const btnInSection = Array.from(addressSection.querySelectorAll("button, a, span.eds-link, div[role='button'], span, div")).find(el => {
-        const t = normalizeSearchText(el.textContent);
-        return t === "thay doi" || t === "doi" || t === "chinh sua" || t === "change" || t === "chon dia chi" || t.includes("thay doi") || t.includes("doi dia chi");
-      });
-      if (btnInSection) return btnInSection;
-    }
-
-    // Fallback tìm toàn trang
-    return Array.from(document.querySelectorAll("button, a, span.eds-link, div[role='button'], div.eds-link, [class*='change'], [class*='edit']")).find((element) => {
-      const text = normalizeSearchText(element.textContent);
-      return (text === "thay doi" || text === "doi" || text === "doi dia chi" || text === "thay doi dia chi" || text === "chinh sua" || text === "change") && isElementInteractable(element);
-    }) || null;
+    return null;
   }
 
   function findPickupAddressModal() {
-    return Array.from(document.querySelectorAll(".eds-modal__content, .shopee-modal__content, div[role='dialog'], .eds-modal, .eds-drawer, .eds-drawer__content, .modal-container")).find((modal) => {
-      const text = normalizeSearchText(modal.textContent || "");
-      return (text.includes("dia chi lay hang") || text.includes("dia chi gui hang") || text.includes("chon dia chi") || text.includes("so dia chi") || text.includes("pickup address")) && isElementInteractable(modal);
+    return Array.from(document.querySelectorAll(".eds-modal__box, .eds-modal__content, div[role='dialog']")).find((modal) => {
+      const title = modal.querySelector(".eds-modal__title")?.textContent || modal.textContent || "";
+      const text = normalizeSearchText(title);
+      return (text.includes("dia chi lay hang") || text.includes("chon dia chi") || modal.querySelector(".modal-address, .pickup-address-select-item")) && isVisible(modal);
     }) || null;
   }
 
@@ -5161,11 +5161,11 @@ function downloadExcelFileBypass(wb, filename) {
     if (!changeButton) return null;
 
     changeButton.scrollIntoView({ block: "center", inline: "nearest" });
-    await sleep(80);
+    await sleep(100);
     if (typeof changeButton.click === "function") changeButton.click();
     emitRealClick(changeButton);
 
-    for (let attempt = 0; attempt < 25; attempt += 1) {
+    for (let attempt = 0; attempt < 30; attempt += 1) {
       await sleep(150);
       modal = findPickupAddressModal();
       if (modal) return modal;
@@ -5176,21 +5176,24 @@ function downloadExcelFileBypass(wb, filename) {
 
   function getPickupAddressItems(modal) {
     const root = modal || document;
-    return Array.from(root.querySelectorAll(".pickup-address-select-item, .eds-radio, label.eds-radio, div[class*='address-item'], div[class*='address'], li[class*='address'], tr"))
-      .map((item, index) => {
-        const input = item.querySelector("input[type='radio']") || (item.tagName === "INPUT" ? item : null);
-        const name = normalizeText(item.querySelector(".name, .user-name, strong, b")?.textContent || "");
-        const addr = normalizeText(item.querySelector(".addr, .address-detail, .address, p")?.innerText || item.textContent || "");
-        const selected = Boolean(input?.checked || item.querySelector(".eds-radio__input:checked") || item.classList.contains("eds-radio--checked"));
-        const normalizedAddr = normalizeSearchText(addr + " " + name);
-        const shortText = normalizedAddr.includes("ha noi") || normalizedAddr.includes("hn")
+    const items = Array.from(root.querySelectorAll(".pickup-address-select-item"));
+    if (items.length > 0) {
+      return items.map((item, index) => {
+        const input = item.querySelector("input.eds-radio__input") || item.querySelector("input[type='radio']");
+        const radioIndicator = item.querySelector(".eds-radio__indicator") || item.querySelector(".eds-radio");
+        const name = normalizeText(item.querySelector(".name")?.textContent || "");
+        const addr = normalizeText(item.querySelector(".addr")?.innerText || item.querySelector(".addr")?.textContent || "");
+        const selected = Boolean(input?.checked || item.querySelector(".eds-radio--checked") || item.querySelector("input:checked"));
+        const normalized = normalizeSearchText(addr + " " + name);
+        const shortText = (normalized.includes("ha noi") || normalized.includes("hn") || normalized.includes("ha dong") || normalized.includes("phu luong"))
           ? "Hà Nội"
-          : normalizedAddr.includes("ho chi minh") || normalizedAddr.includes("hcm") || normalizedAddr.includes("sai gon")
+          : (normalized.includes("ho chi minh") || normalized.includes("hcm") || normalized.includes("thu duc") || normalized.includes("linh xuan"))
             ? "Hồ Chí Minh"
             : `Địa chỉ ${index + 1}`;
 
         return {
           element: item,
+          radioIndicator,
           input,
           id: input?.value || String(index),
           name,
@@ -5199,8 +5202,42 @@ function downloadExcelFileBypass(wb, filename) {
           selected,
           fullText: [name, addr].filter(Boolean).join(" - ")
         };
-      })
-      .filter((address) => address.fullText);
+      });
+    }
+
+    // Fallback nếu không có class pickup-address-select-item
+    return Array.from(root.querySelectorAll(".eds-radio, label.eds-radio")).map((radio, index) => {
+      const input = radio.querySelector("input[type='radio']") || (radio.tagName === "INPUT" ? radio : null);
+      const container = radio.closest(".pickup-address-select-item, div") || radio;
+      const addr = normalizeText(container.textContent || "");
+      const normalized = normalizeSearchText(addr);
+      const shortText = (normalized.includes("ha noi") || normalized.includes("hn")) ? "Hà Nội" : "Hồ Chí Minh";
+      return {
+        element: container,
+        radioIndicator: radio.querySelector(".eds-radio__indicator") || radio,
+        input,
+        id: input?.value || String(index),
+        name: "",
+        addr,
+        shortText,
+        selected: Boolean(input?.checked),
+        fullText: addr
+      };
+    });
+  }
+
+  function findConfirmPickupAddressButton(modal) {
+    const root = modal || document;
+    // Nút Confirm dạng primary trong footer của modal
+    const footerPrimary = root.querySelector(".eds-modal__footer-buttons button.eds-button--primary, .eds-modal__footer button.eds-button--primary");
+    if (footerPrimary && isVisible(footerPrimary)) {
+      return footerPrimary;
+    }
+
+    return Array.from(root.querySelectorAll("button, [role='button'], .eds-button")).find((button) => {
+      const text = normalizeSearchText(button.textContent);
+      return (text === "confirm" || text === "xac nhan" || text === "dong y" || text === "luu") && isVisible(button);
+    }) || null;
   }
 
   async function getPickupAddresses() {
@@ -5228,56 +5265,60 @@ function downloadExcelFileBypass(wb, filename) {
     };
   }
 
-  function findConfirmPickupAddressButton(modal) {
-    const root = modal || document;
-    return Array.from(root.querySelectorAll("button, [role='button'], .eds-button")).find((button) => {
-      const text = normalizeSearchText(button.textContent);
-      return (text === "confirm" || text === "xac nhan" || text === "dong y" || text === "luu" || text === "hoan tat") && isElementInteractable(button);
-    }) || root.querySelector(".eds-modal__footer button.eds-button--primary, button.eds-button--primary") || null;
-  }
-
   async function selectPickupAddressLocation(location) {
     const modal = await openPickupAddressModal();
-    const root = modal || document;
+    if (!modal) {
+      return {
+        ok: false,
+        message: "Không mở được popup Chọn địa chỉ lấy hàng."
+      };
+    }
 
+    await sleep(200);
     const normalizedLocation = normalizeSearchText(location);
-    const addresses = getPickupAddressItems(root);
-    
+    const addresses = getPickupAddressItems(modal);
+
     const address = addresses.find((item) => {
       const text = normalizeSearchText(item.fullText + " " + item.addr + " " + item.name);
-
       if (normalizedLocation.includes("ha noi") || normalizedLocation.includes("hn")) {
-        return text.includes("ha noi") || text.includes("hn") || text.includes("cau giay") || text.includes("hoan kiem") || text.includes("dong da") || text.includes("ha dong") || text.includes("thanh xuan") || text.includes("hoang mai") || text.includes("long bien") || text.includes("bac tu liem") || text.includes("nam tu liem");
+        return text.includes("ha noi") || text.includes("hn") || text.includes("ha dong") || text.includes("phu luong");
       }
-
-      if (normalizedLocation.includes("ho chi minh") || normalizedLocation.includes("hcm") || normalizedLocation.includes("sai gon")) {
-        return text.includes("ho chi minh") || text.includes("hcm") || text.includes("sai gon") || text.includes("tphcm") || text.includes("quan 1") || text.includes("quan 7") || text.includes("quan 12") || text.includes("thu duc") || text.includes("binh thanh") || text.includes("tan binh") || text.includes("go vap");
+      if (normalizedLocation.includes("ho chi minh") || normalizedLocation.includes("hcm") || normalizedLocation.includes("thu duc")) {
+        return text.includes("ho chi minh") || text.includes("hcm") || text.includes("thu duc") || text.includes("linh xuan");
       }
-
       return text.includes(normalizedLocation);
     });
 
     if (!address) {
       return {
         ok: false,
-        message: `Không tìm thấy địa chỉ ${location} trong danh sách.`
+        message: `Không tìm thấy địa chỉ ${location} trong popup.`
       };
     }
 
-    // Click on target
-    const target = address.input ? (address.input.closest("label, .eds-radio") || address.element) : address.element;
-    target.scrollIntoView({ block: "center", inline: "nearest" });
+    // 1. Kích hoạt chọn radio của địa chỉ
+    const clickTarget = address.radioIndicator || address.input?.closest("label") || address.element;
+    clickTarget.scrollIntoView({ block: "center", inline: "nearest" });
     await sleep(100);
-    if (typeof target.click === "function") target.click();
-    if (address.input && typeof address.input.click === "function") address.input.click();
-    emitRealClick(target);
-    await sleep(200);
 
+    if (typeof clickTarget.click === "function") clickTarget.click();
+    emitRealClick(clickTarget);
+
+    if (address.input && typeof address.input.click === "function" && !address.input.checked) {
+      address.input.click();
+    }
+
+    await sleep(250);
+
+    // 2. Bấm nút Confirm để lưu
     const confirmButton = findConfirmPickupAddressButton(modal);
     if (confirmButton) {
+      confirmButton.scrollIntoView({ block: "center", inline: "nearest" });
+      await sleep(100);
       if (typeof confirmButton.click === "function") confirmButton.click();
       emitRealClick(confirmButton);
-      await sleep(300);
+      await sleep(350);
+
       return {
         ok: true,
         message: `Đã chọn địa chỉ ${address.shortText} và bấm Xác nhận.`
@@ -5340,75 +5381,89 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function findGenerateDocButton() {
-    const directButton = document.querySelector("[data-testid='generate-doc-for-arranged-shipment-orders']");
+    let container = document;
+    const modals = Array.from(document.querySelectorAll(".eds-modal__content")).filter(isVisible);
+    if (modals.length > 0) {
+      container = modals[modals.length - 1];
+    }
 
-    if (directButton && isVisible(directButton)) {
+    const directButton = container.querySelector("[data-testid='generate-doc-for-arranged-shipment-orders']");
+
+    if (directButton && isVisible(directButton) && !directButton.disabled && !directButton.classList.contains("eds-button--disabled")) {
       return directButton;
     }
 
-    return Array.from(document.querySelectorAll("button, [role='button'], .eds-button")).find((button) => {
+    return Array.from(container.querySelectorAll("button, [role='button'], .eds-button, .eds-dropdown")).find((button) => {
       const text = normalizeSearchText(button.textContent);
-      return (text.includes("tao phieu") || text.includes("in phieu") || text.includes("in don") || text.includes("tao tai lieu") || text.startsWith("tao") || text.includes("generate")) && isVisible(button);
+      const isDisabled = button.disabled || button.classList.contains("eds-button--disabled") || button.getAttribute("aria-disabled") === "true";
+      return (text.includes("tao phieu") || text.includes("in phieu") || text.includes("in don") || text.includes("tao tai lieu") || text.startsWith("tao") || text.includes("generate")) && isVisible(button) && !isDisabled;
     }) || null;
   }
 
   function findNormalPdfDocOption() {
-    const directOption = document.querySelector("[data-testid='doc-type-NORMAL_PDF']");
-
+    // 1. Nhắm trực diện vào data-testid của Shopee
+    const directOption = document.querySelector("[data-testid='doc-type-NORMAL_PDF'], [data-testid*='NORMAL_PDF']");
     if (directOption && isVisible(directOption)) {
       return directOption;
     }
 
-    return Array.from(document.querySelectorAll("[data-testid], .eds-dropdown-menu div, .eds-dropdown-item, .eds-popover div, div, li, span")).find((element) => {
+    // 2. Tìm trong popover hoặc dropdown items
+    const dropdownItems = Array.from(document.querySelectorAll(".eds-dropdown-menu div, .eds-dropdown-item, .eds-popover div, .eds-popover li, .eds-dropdown-menu li, .eds-option, li, div[role='menuitem'], [data-testid]")).filter(isVisible);
+
+    return dropdownItems.find((element) => {
       const text = normalizeSearchText(element.textContent);
-      return (text.includes("pdf") || text.includes("phieu gui hang") || text.includes("phieu dong goi") || text.includes("in phieu")) && isVisible(element);
+      return (text.includes("pdf") || (text.includes("phieu gui hang") && text.includes("phieu dong goi")) || text.includes("phieu gui hang") || text.includes("phieu dong goi") || text.includes("phieu van don")) && isVisible(element);
     }) || null;
   }
 
   async function generateNormalPdfDoc() {
-    let foundGenerateButton = false;
+    let generateButton = null;
 
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      const generateButton = findGenerateDocButton();
-
-      if (generateButton) {
-        generateButton.scrollIntoView({ block: "center", inline: "nearest" });
-        await sleep(100);
-        emitRealHover(generateButton);
-        await sleep(250);
-        emitRealClick(generateButton);
-        foundGenerateButton = true;
-        break;
-      }
-
+    // 1. Tìm nút Tạo phiếu (chờ tối đa 6 giây nếu Shopee đang xử lý mã vận đơn)
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      generateButton = findGenerateDocButton();
+      if (generateButton) break;
       await sleep(200);
     }
 
-    if (!foundGenerateButton) {
+    if (!generateButton) {
       return {
         ok: false,
         message: "Không tìm thấy nút Tạo phiếu."
       };
     }
 
+    // Cuộn đến nút Tạo phiếu
+    generateButton.scrollIntoView({ block: "center", inline: "nearest" });
+    await sleep(100);
+
+    // 2. Di chuyển chuột vào ô nút Tạo phiếu và GIỮ ở đó để Shopee bung menu PDF
     for (let attempt = 0; attempt < 30; attempt += 1) {
-      const generateButton = findGenerateDocButton();
+      const currentGenBtn = findGenerateDocButton() || generateButton;
+      emitRealHover(currentGenBtn);
 
-      if (generateButton) {
-        emitRealHover(generateButton);
-      }
-
+      // Kiểm tra xem menu popup chứa Phiếu PDF đã hiện ra chưa
       const pdfOption = findNormalPdfDocOption();
 
       if (pdfOption) {
+        // 3. Khi menu hiện ra: Di chuyển chuột lên mục Phiếu PDF
         pdfOption.scrollIntoView({ block: "nearest", inline: "nearest" });
-        await sleep(80);
+        emitRealHover(pdfOption);
+        await sleep(150);
+
+        // 4. Click chọn mục Phiếu PDF
+        if (typeof pdfOption.click === "function") pdfOption.click();
         emitRealClick(pdfOption);
 
         return {
           ok: true,
           message: "Đã chọn Tạo phiếu PDF. Trang in sẽ hiện nút Tải PDF tự động."
         };
+      }
+
+      // Nếu sau vài lần hover mà menu chưa bung (do UI cấu hình click), thử kích hoạt click
+      if (attempt === 5 || attempt === 12) {
+        emitRealClick(currentGenBtn);
       }
 
       await sleep(200);

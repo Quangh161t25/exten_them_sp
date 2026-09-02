@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "in đơn shopee",
+  "version": "0.1.0",
+  "description": "Ho tro thao tac tren Shopee Kenh Nguoi Ban.",
+  "icons": {
+    "16": "icon-16.png",
+    "32": "icon-32.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "downloads",
+    "storage",
+    "scripting",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "https://banhang.shopee.vn/*"
+  ],
+  "action": {
+    "default_title": "in đơn shopee",
+    "default_icon": {
+      "16": "icon-16.png",
+      "32": "icon-32.png",
+      "48": "icon-48.png",
+      "128": "icon-128.png"
+    }
+  },
+  "background": {
+    "service_worker": "core-worker.js"
+  },
+  "side_panel": {
+    "default_path": "print-panel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://banhang.shopee.vn/*"
+      ],
+      "js": [
+        "seller-flow.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

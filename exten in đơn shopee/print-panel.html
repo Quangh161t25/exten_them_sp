@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>in đơn shopee</title>
+  <link rel="stylesheet" href="print-panel.css">
+</head>
+
+<body>
+  <main class="panel">
+    <section class="tool-section">
+      <div class="section-head">
+        <h2>Quy trinh in don</h2>
+      </div>
+      <div class="print-flow-result">
+        <div class="print-flow-label">Kho xu ly</div>
+        <div id="print-warehouse-buttons" class="print-warehouse-buttons" aria-live="polite">
+          <button id="select-warehouse-hanoi" type="button" class="secondary">Kho Ha Noi</button>
+          <button id="select-warehouse-hcm" type="button" class="primary-action">Kho Ho Chi Minh</button>
+        </div>
+      </div>
+      <div class="print-flow-tools">
+        <button id="print-flow-select-checkbox" type="button" class="secondary">1. Chon Hop Kiem</button>
+      </div>
+      <div class="print-flow-result">
+        <div class="print-flow-label">Dia chi lay hang</div>
+        <div id="print-address-buttons" class="print-address-buttons" aria-live="polite">
+          <button id="select-address-hanoi" type="button" class="secondary">Dia chi Ha Noi</button>
+          <button id="select-address-hcm" type="button" class="primary-action">Dia chi Ho Chi Minh</button>
+        </div>
+      </div>
+      <div class="print-flow-tools">
+        <button id="arrange-pickup-confirm" type="button" class="primary-action">Yeu Cau VC Toi Lay Hang</button>
+        <button id="generate-print-doc" type="button" class="primary-action">Tao Phieu</button>
+        <button id="export-waiting-orders" type="button" class="secondary">Xuat</button>
+        <button id="auto-run-print-flow" type="button" class="secondary">Chay Tu Dong</button>
+        <button id="stop-print-flow" type="button" class="secondary" style="display: none; background: #dc3545; color: white;">Dung Lai</button>
+      </div>
+      <div class="auto-run-panel">
+        <div class="auto-run-save">
+          <label>
+            Ten cau hinh
+            <input id="auto-config-name" type="text" value="mac-dinh" placeholder="Nhap ten cau hinh">
+          </label>
+          <button id="save-auto-config" type="button" class="secondary">Luu</button>
+          <button id="load-auto-config" type="button" class="ghost">Tai</button>
+        </div>
+        <div id="saved-auto-configs-table" class="saved-configs-table" aria-live="polite">
+          <div class="print-flow-empty">Chua co cau hinh da luu</div>
+        </div>
+        <div class="auto-run-options" aria-label="Chon cac buoc tu dong">
+          <label><input type="checkbox" class="auto-step" value="warehouse" checked> 1. Chon kho</label>
+          <label><input type="checkbox" class="auto-step" value="checkbox" checked> 2. Chon hop kiem</label>
+          <label><input type="checkbox" class="auto-step" value="address" checked> 3. Chon dia chi</label>
+          <label><input type="checkbox" class="auto-step" value="pickup" checked> 4. Yeu cau lay hang</label>
+          <label><input type="checkbox" class="auto-step" value="doc" checked> 5. Tao phieu</label>
+          <label><input type="checkbox" class="auto-step" value="export" checked> 6. Xuat don</label>
+        </div>
+        <div class="auto-run-settings">
+          <label>
+            Kho
+            <select id="auto-warehouse-location">
+              <option value="Ho Chi Minh" selected>Ho Chi Minh</option>
+              <option value="Ha Noi">Ha Noi</option>
+            </select>
+          </label>
+          <label>
+            Dia chi
+            <select id="auto-address-location">
+              <option value="Ho Chi Minh" selected>Ho Chi Minh</option>
+              <option value="Ha Noi">Ha Noi</option>
+            </select>
+          </label>
+          <label>
+            Cach nhau (s)
+            <input id="auto-step-delay" type="number" min="1" max="60" step="1" value="3">
+          </label>
+          <label>
+            Ma gian (ten file)
+            <input id="auto-shop-code" type="text" placeholder="VD: bce" style="width: 80px;">
+          </label>
+        </div>
+      </div>
+      <p id="status" aria-live="polite"></p>
+    </section>
+
+    <section class="tool-section">
+      <div class="section-head">
+        <h2>File in don</h2>
+        <span id="print-file-count" class="file-count">0 file</span>
+      </div>
+      <div class="print-file-actions">
+        <button id="choose-print-folder" type="button" class="secondary">Chon Thu Muc</button>
+        <button id="reload-print-folder" type="button" class="ghost">Load Lai Thu Muc</button>
+      </div>
+      <div class="print-file-grid">
+        <div class="print-file-panel">
+          <div class="print-flow-label">PDF hom nay</div>
+          <div id="print-pdf-table" class="print-file-table">
+            <div class="print-flow-empty">Chua chon file PDF</div>
+          </div>
+        </div>
+        <div class="print-file-panel">
+          <div class="print-flow-label">Excel hom nay</div>
+          <div id="print-excel-table" class="print-file-table">
+            <div class="print-flow-empty">Chua chon file Excel</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="print-panel.js"></script>
+</body>
+
+</html>

@@ -557,4 +557,41 @@
     await navigator.clipboard.writeText(rowsToTsv(latestRows));
     status.textContent = `Da copy ${latestRows.length} dong TSV.`;
   });
+
+  const exportExcelBtn = document.getElementById("btn-export-excel-current-order");
+  exportExcelBtn?.addEventListener("click", async () => {
+    if (!latestRows.length) {
+      status.textContent = "Chưa có dữ liệu để xuất Excel.";
+      return;
+    }
+
+    try {
+      if (typeof XLSX === "undefined") {
+        status.textContent = "Thư viện Excel chưa sẵn sàng.";
+        return;
+      }
+
+      const maGian = await getCurrentMaGian();
+      const rows = [exportColumns.map(col => col.label)];
+      latestRows.forEach(row => {
+        rows.push(exportColumns.map(col => normalizeCellForExport(row, col.key)));
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "DonHang");
+
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, '0');
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const hh = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const filename = `DH_${maGian || 'bce'}_${dd}${mm}_${hh}${m}.xlsx`;
+
+      XLSX.writeFile(wb, filename);
+      status.textContent = `✅ Đã xuất file Excel: ${filename}`;
+    } catch (e) {
+      status.textContent = `Lỗi xuất Excel: ${e.message}`;
+    }
+  });
 })();

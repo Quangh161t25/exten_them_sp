@@ -384,8 +384,8 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
     <div class="print-flow-result">
       <div class="print-flow-label">Địa chỉ lấy hàng</div>
       <div id="print-address-buttons" class="print-address-buttons" aria-live="polite">
-        <button id="select-address-hanoi" type="button" class="secondary">Địa chỉ Hà Nội</button>
-        <button id="select-address-hcm" type="button" class="primary-action">Địa chỉ Hồ Chí Minh</button>
+        <button id="select-address-hanoi" type="button" class="primary-action">Địa chỉ Hà Nội</button>
+        <button id="select-address-hcm" type="button" class="secondary">Địa chỉ Hồ Chí Minh</button>
       </div>
     </div>
     <div class="print-flow-tools">
@@ -533,10 +533,11 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 <div class="section-head">
 <h2>Đơn hàng</h2>
 </div>
-<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px;">
-<button id="btn-read-current-order" type="button" class="primary-action">Doc don hien tai</button>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px;">
+<button id="btn-read-current-order" type="button" class="primary-action">Đọc đơn</button>
 <button id="btn-copy-current-order" type="button" class="secondary">Copy TSV</button>
-<button id="btn-save-current-order-dh" type="button" class="secondary" style="background:#16a34a;color:white;border-color:#15803d;">Luu DH</button>
+<button id="btn-export-excel-current-order" type="button" class="secondary" style="background:#107c41;color:white;border-color:#107c41;font-weight:bold;">📊 Excel</button>
+<button id="btn-save-current-order-dh" type="button" class="secondary" style="background:#16a34a;color:white;border-color:#15803d;">Lưu DH</button>
 </div>
 <p id="current-order-status" style="margin: 0 0 8px; font-size: 12px; color: #64748b;"></p>
 <div class="table-responsive" style="max-height: calc(100vh - 170px); min-height: 400px; overflow: auto; border: 1px solid #d8dee8; border-radius: 4px; background: white;">
@@ -1187,16 +1188,34 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 
   <!-- KHUNG LỊCH SỬ TIN NHẮN GẦN NHẤT -->
   <section class="tool-section">
-    <div class="section-head" style="margin-bottom: 6px;">
-      <h2 style="color: #334155; font-size: 12px;">💬 Tin nhắn gần đây trong cuộc trò chuyện:</h2>
+    <div class="section-head" style="margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+      <h2 style="color: #334155; font-size: 12px; margin: 0;">💬 Tin nhắn gần đây (Chọn nhiều câu hỏi):</h2>
     </div>
-    <div id="chat-ai-history-list" style="max-height: 150px; overflow-y: auto; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
+
+    <!-- THANH CÔNG CỤ CHỌN NHIỀU CÂU HỎI -->
+    <div style="display: flex; gap: 4px; margin-bottom: 6px; flex-wrap: wrap; align-items: center;">
+      <button id="chat-ai-btn-select-all-customer" type="button" class="ghost" style="padding: 3px 6px; font-size: 10px; border: 1px solid #cbd5e1; background: #f0fdf4; color: #166534; font-weight: 600; border-radius: 4px; cursor: pointer;" title="Chọn tất cả câu hỏi của khách">
+        ☑️ Chọn tất cả tin khách
+      </button>
+      <button id="chat-ai-btn-select-latest-customer" type="button" class="ghost" style="padding: 3px 6px; font-size: 10px; border: 1px solid #cbd5e1; background: #eff6ff; color: #1d4ed8; font-weight: 600; border-radius: 4px; cursor: pointer;" title="Chỉ chọn câu hỏi mới nhất">
+        ⚡ Chọn tin mới nhất
+      </button>
+      <button id="chat-ai-btn-clear-selection" type="button" class="ghost" style="padding: 3px 6px; font-size: 10px; border: 1px solid #cbd5e1; background: #fff; color: #64748b; border-radius: 4px; cursor: pointer;" title="Bỏ chọn tất cả">
+        🔄 Bỏ chọn
+      </button>
+      <span id="chat-ai-selected-count-badge" style="margin-left: auto; font-size: 10px; color: #16a34a; font-weight: bold; align-self: center;">Đã chọn: 0 câu</span>
+    </div>
+
+    <div id="chat-ai-history-list" style="max-height: 160px; overflow-y: auto; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
       <div style="text-align: center; color: #94a3b8; padding: 10px; font-size: 12px;">Chưa quét dữ liệu chat</div>
     </div>
 
     <!-- CÂU HỎI CỦA KHÁCH -->
-    <label style="font-size: 11px; font-weight: bold; color: #1e293b; display: block; margin-bottom: 4px;">👤 Câu hỏi của khách hàng (hoặc nội dung cần trả lời):</label>
-    <textarea id="chat-ai-customer-question" rows="2" placeholder="Ví dụ: Mua 3 nồi đặc như thế nào / Có freeship không..." style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; margin-bottom: 6px; resize: vertical; box-sizing: border-box;"></textarea>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+      <label style="font-size: 11px; font-weight: bold; color: #1e293b; margin: 0;">👤 Nội dung / Các câu hỏi đã chọn:</label>
+      <button id="chat-ai-btn-clear-question-input" type="button" class="ghost" style="padding: 1px 5px; font-size: 10px; color: #94a3b8; border: none; background: transparent; cursor: pointer;" title="Xóa ô nhập">Xóa</button>
+    </div>
+    <textarea id="chat-ai-customer-question" rows="3" placeholder="Các câu hỏi của khách hàng được tick chọn ở trên sẽ hiển thị tại đây (có thể chỉnh sửa trực tiếp)..." style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; margin-bottom: 6px; resize: vertical; box-sizing: border-box;"></textarea>
 
     <!-- LƯU Ý RIÊNG CỦA SHOP -->
     <details style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
@@ -1218,14 +1237,36 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
     </button>
   </section>
 
-  <!-- KHUNG MẪU TRẢ LỜI NHANH TỪ CỘT H (chat) SHEET CAI_DAT -->
+  <!-- KHUNG MẪU TRẢ LỜI NHANH TỪ CỘT H (chat) SHEET CAI_DAT VÀ MẪU TÙY CHỈNH -->
   <section class="tool-section" style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
       <h2 style="color: #0f172a; font-size: 12px; margin: 0; display: flex; align-items: center; gap: 4px;">
         <span>⚡</span> <b>Mẫu trả lời nhanh (Cột H sheet CAI_DAT):</b>
       </h2>
       <div style="display: flex; gap: 4px; align-items: center;">
+        <button id="chat-ai-btn-toggle-add-template" type="button" class="secondary" style="padding: 2px 6px; font-size: 10px; background: #10b981; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold;" title="Thêm câu mẫu mới">+ Thêm mẫu</button>
+        <button id="chat-ai-btn-toggle-preset-templates" type="button" class="ghost" style="padding: 2px 6px; font-size: 10px; border: 1px solid #cbd5e1; background: white; border-radius: 3px; cursor: pointer;" title="Gợi ý các mẫu câu thông dụng">💡 Mẫu gợi ý</button>
         <button id="chat-ai-btn-refresh-templates" type="button" class="ghost" style="padding: 2px 6px; font-size: 10px; border: 1px solid #cbd5e1; background: white; border-radius: 3px; cursor: pointer;" title="Tải lại mẫu từ Sheet CAI_DAT">🔄 Làm mới</button>
+      </div>
+    </div>
+
+    <!-- KHUNG THÊM MẪU MỚI (ẨN / HIỆN) -->
+    <div id="chat-ai-add-template-panel" style="display: none; background: #ffffff; border: 1px solid #86efac; border-radius: 5px; padding: 6px; margin-bottom: 6px;">
+      <label style="font-size: 10px; font-weight: bold; color: #166534; display: block; margin-bottom: 3px;">➕ Nhập nội dung câu mẫu mới:</label>
+      <textarea id="chat-ai-new-template-input" rows="2" placeholder="Ví dụ: Dạ sản phẩm bên mình luôn có sẵn và được bảo hành chính hãng 12 tháng ạ..." style="width: 100%; padding: 4px 6px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; resize: vertical; margin-bottom: 4px;"></textarea>
+      <div style="display: flex; justify-content: flex-end; gap: 4px;">
+        <button id="chat-ai-btn-cancel-add-template" type="button" class="ghost" style="padding: 3px 8px; font-size: 10px; border: 1px solid #cbd5e1; border-radius: 3px; cursor: pointer;">Hủy</button>
+        <button id="chat-ai-btn-save-new-template" type="button" class="primary-action" style="padding: 3px 10px; font-size: 10px; background: #16a34a; border-radius: 3px; cursor: pointer; font-weight: bold;">💾 Lưu câu mẫu</button>
+      </div>
+    </div>
+
+    <!-- KHUNG MẪU GỢI Ý CHUẨN SHOPEE (ẨN / HIỆN) -->
+    <div id="chat-ai-preset-templates-panel" style="display: none; background: #fffbeb; border: 1px solid #fde68a; border-radius: 5px; padding: 6px; margin-bottom: 6px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <span style="font-size: 10px; font-weight: bold; color: #92400e;">💡 Mẫu câu chăm sóc khách hàng hay dùng:</span>
+        <button id="chat-ai-btn-close-presets" type="button" class="ghost" style="padding: 0 4px; font-size: 10px; border: none; background: transparent; cursor: pointer; color: #92400e;">✕ Đóng</button>
+      </div>
+      <div id="chat-ai-preset-templates-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 130px; overflow-y: auto;">
       </div>
     </div>
 
@@ -1235,7 +1276,7 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
     </div>
 
     <!-- Danh sách mẫu câu trả lời -->
-    <div id="chat-ai-templates-list" style="max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 2px;">
+    <div id="chat-ai-templates-list" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 2px;">
       <div style="text-align: center; color: #94a3b8; font-size: 11px; padding: 6px;">Đang tải mẫu trả lời nhanh từ sheet CAI_DAT...</div>
     </div>
   </section>
@@ -1362,5 +1403,3 @@ Kết quả trả về sẽ tự động định dạng bằng HTML cơ bản (&
 </body>
 
 </html>
-
-The above content shows the entire, complete file contents of the requested file.
