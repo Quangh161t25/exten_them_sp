@@ -3655,19 +3655,62 @@ button.addEventListener("click", async () => {
   }
 });
 
+// Lấy link_in từ sheet CAI_DAT theo mã gian (nếu có cấu hình)
+async function getLinkInByMaGian() {
+  try {
+    const storage = await new Promise(r => chrome.storage.local.get(["maGian", "dhHoanTextValue"], r));
+    const maGian = String(storage.maGian || storage.dhHoanTextValue || "").trim().toLowerCase();
+    const token = await getAccessToken();
+    if (!GOOGLE_SHEET_CONFIG.spreadsheetId) return "";
+
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}/values/CAI_DAT!A1:Z100`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (data && data.values && data.values.length > 1) {
+      const rows = data.values;
+      const headers = (rows[0] || []).map(h => String(h || "").trim().toLowerCase());
+      let gianIdx = headers.findIndex(h => h === "gian" || h === "ma gian" || h === "mã gian" || h === "ma_gian");
+      if (gianIdx === -1) gianIdx = 1;
+
+      let linkInIdx = headers.findIndex(h => h === "link_in" || h === "link in" || h === "in" || h === "link_in_don" || h === "in_don" || h.includes("link_in") || h.includes("link in"));
+      if (linkInIdx !== -1) {
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          const rowGian = String(row[gianIdx] || "").trim().toLowerCase();
+          if (rowGian && (!maGian || rowGian === maGian)) {
+            const linkIn = String(row[linkInIdx] || "").trim();
+            if (linkIn && (linkIn.startsWith("http://") || linkIn.startsWith("https://"))) {
+              return linkIn;
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Lỗi đọc link_in từ sheet CAI_DAT:", e);
+  }
+  return "";
+}
+
 if (openPrintFlowButton) {
   openPrintFlowButton.addEventListener("click", async () => {
     openPrintFlowButton.disabled = true;
-    statusText.textContent = "Đang mở quy trình in đơn...";
+    statusText.textContent = "Đang mở link in...";
 
     try {
+      let targetUrl = await getLinkInByMaGian();
+      if (!targetUrl) {
+        targetUrl = PRINT_FLOW_URL;
+      }
+
       await chrome.tabs.create({
-        url: PRINT_FLOW_URL,
+        url: targetUrl,
         active: true
       });
-      statusText.textContent = "Đã mở trang Giao hàng loạt ở tab mới.";
+      statusText.textContent = "Đã mở link in ở tab mới.";
     } catch (error) {
-      statusText.textContent = "Không mở được trang Giao hàng loạt.";
+      statusText.textContent = "Không mở được link in: " + error.message;
     } finally {
       openPrintFlowButton.disabled = false;
     }
@@ -4923,13 +4966,58 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
 
-  const DEFAULT_GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite"];
+  const DEFAULT_GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"];
   let geminiConfigState = {
       apiKey: "",
       apiKeys: [],
       model: "gemini-2.5-flash",
       models: [...DEFAULT_GEMINI_MODELS]
   };
+
+  const DEFAULT_XKIRO_MODELS = [
+      "deepseek/deepseek-v4-flash",
+      "deepseek/deepseek-v4-pro",
+      "qwen/qwen3.8-max:free",
+      "qwen/qwen3.7-max:free",
+      "qwen/qwen3.7-plus:free",
+      "qwen/qwen3.6-plus:free",
+      "minimax/minimax-m2.7-highspeed:free"
+  ];
+  let xkiroConfigState = {
+      apiKey: "sk-xt-27e56ff5d3d864c86e4993e85cf95f1695698217d913faf3",
+      model: "deepseek/deepseek-v4-flash",
+      models: [...DEFAULT_XKIRO_MODELS]
+  };
+
+  function renderXkiroModels() {
+      const select = document.getElementById("xkiro-model-select");
+      if (!select) return;
+      select.innerHTML = "";
+      xkiroConfigState.models.forEach(m => {
+          const opt = document.createElement("option");
+          opt.value = m;
+          let label = m;
+          if (m.includes(":free")) label += " (Miễn phí)";
+          else if (m.includes("flash")) label += " (Tốc độ cao)";
+          else if (m.includes("pro")) label += " (Chất lượng cao)";
+          opt.textContent = label;
+          opt.selected = m === xkiroConfigState.model;
+          select.appendChild(opt);
+      });
+  }
+
+  function addXkiroModel() {
+      const input = document.getElementById("xkiro-new-model");
+      const model = input ? input.value.trim() : "";
+      if (!model) return;
+      if (!xkiroConfigState.models.includes(model)) {
+          xkiroConfigState.models.unshift(model);
+      }
+      xkiroConfigState.model = model;
+      if (input) input.value = "";
+      chrome.storage.local.set({ xkiroModels: xkiroConfigState.models, xkiroModel: model });
+      renderXkiroModels();
+  }
 
   function setGeminiStatus(message, color = "#64748b") {
       const status = document.getElementById("gemini-config-status");
@@ -4997,7 +5085,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function loadGeminiConfig() {
-      chrome.storage.local.get(["geminiApiKey", "geminiApiKeys", "geminiModel", "geminiModels", "customSpreadsheetId"], async (res) => {
+      chrome.storage.local.get(["geminiApiKey", "geminiApiKeys", "geminiModel", "geminiModels", "customSpreadsheetId", "xkiroApiKey", "xkiroModel"], async (res) => {
           geminiConfigState.apiKey = res.geminiApiKey || "";
           geminiConfigState.apiKeys = Array.isArray(res.geminiApiKeys) ? res.geminiApiKeys : (geminiConfigState.apiKey ? [geminiConfigState.apiKey] : []);
           geminiConfigState.models = Array.isArray(res.geminiModels) && res.geminiModels.length ? res.geminiModels : [...DEFAULT_GEMINI_MODELS];
@@ -5035,16 +5123,34 @@ document.addEventListener("DOMContentLoaded", async () => {
               keyList.innerHTML = geminiConfigState.apiKeys.map(k => `<option value="${escapeGeminiText(k)}">`).join('');
           }
           
+          // Load XKiro settings
+          xkiroConfigState.apiKey = (res.xkiroApiKey || "").trim() || "sk-xt-27e56ff5d3d864c86e4993e85cf95f1695698217d913faf3";
+          xkiroConfigState.models = Array.isArray(res.xkiroModels) && res.xkiroModels.length ? res.xkiroModels : [...DEFAULT_XKIRO_MODELS];
+          xkiroConfigState.model = res.xkiroModel || xkiroConfigState.models[0] || "deepseek/deepseek-v4-flash";
+          if (!xkiroConfigState.models.includes(xkiroConfigState.model)) xkiroConfigState.models.unshift(xkiroConfigState.model);
+
+          const xkiroKeyInput = document.getElementById("xkiro-api-key");
+          if (xkiroKeyInput) {
+              xkiroKeyInput.value = xkiroConfigState.apiKey;
+          }
+
           renderGeminiModels();
+          renderXkiroModels();
       });
   }
 
   async function saveGeminiConfig() {
       const keyInput = document.getElementById("gemini-api-key");
       const modelSelect = document.getElementById("gemini-model-select");
+      const xkiroKeyInput = document.getElementById("xkiro-api-key");
+      const xkiroSelect = document.getElementById("xkiro-model-select");
+
       geminiConfigState.apiKey = keyInput ? keyInput.value.trim() : "";
       geminiConfigState.model = modelSelect ? modelSelect.value : geminiConfigState.model;
       
+      xkiroConfigState.apiKey = xkiroKeyInput ? xkiroKeyInput.value.trim() : xkiroConfigState.apiKey;
+      xkiroConfigState.model = xkiroSelect ? xkiroSelect.value : xkiroConfigState.model;
+
       if (geminiConfigState.apiKey && !geminiConfigState.apiKeys.includes(geminiConfigState.apiKey)) {
           geminiConfigState.apiKeys.push(geminiConfigState.apiKey);
       }
@@ -5060,7 +5166,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           geminiApiKey: geminiConfigState.apiKey,
           geminiApiKeys: geminiConfigState.apiKeys,
           geminiModel: geminiConfigState.model,
-          geminiModels: geminiConfigState.models
+          geminiModels: geminiConfigState.models,
+          xkiroApiKey: xkiroConfigState.apiKey || "sk-xt-27e56ff5d3d864c86e4993e85cf95f1695698217d913faf3",
+          xkiroModel: xkiroConfigState.model || "deepseek/deepseek-v4-flash",
+          xkiroModels: xkiroConfigState.models
       }, async () => {
           // Lưu API Key vào Google Sheet cột E (E2) của sheet cai_dat
           if (geminiConfigState.apiKey && GOOGLE_SHEET_CONFIG.spreadsheetId) {
@@ -5091,7 +5200,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
           }
           
-          setGeminiStatus("Da luu", "#16a34a");
+          setGeminiStatus("Da luu cau hinh AI", "#16a34a");
           setTimeout(() => setGeminiStatus(""), 2500);
       });
   }
@@ -5157,6 +5266,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
   }
 
+  const xkiroToggleBtn = document.getElementById("btn-toggle-xkiro-key");
+  if (xkiroToggleBtn) {
+      xkiroToggleBtn.addEventListener("click", () => {
+          const input = document.getElementById("xkiro-api-key");
+          if (!input) return;
+          input.type = input.type === "password" ? "text" : "password";
+          xkiroToggleBtn.textContent = input.type === "password" ? "Show" : "Hide";
+      });
+  }
+
   const geminiModelSelect = document.getElementById("gemini-model-select");
   if (geminiModelSelect) {
       geminiModelSelect.addEventListener("change", (e) => {
@@ -5171,6 +5290,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (newGeminiModelInput) {
       newGeminiModelInput.addEventListener("keydown", (e) => {
           if (e.key === "Enter") addGeminiModel();
+      });
+  }
+
+  const xkiroModelSelect = document.getElementById("xkiro-model-select");
+  if (xkiroModelSelect) {
+      xkiroModelSelect.addEventListener("change", (e) => {
+          xkiroConfigState.model = e.target.value;
+      });
+  }
+
+  const addXkiroModelBtn = document.getElementById("btn-add-xkiro-model");
+  if (addXkiroModelBtn) addXkiroModelBtn.addEventListener("click", addXkiroModel);
+
+  const newXkiroModelInput = document.getElementById("xkiro-new-model");
+  if (newXkiroModelInput) {
+      newXkiroModelInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") addXkiroModel();
       });
   }
 
@@ -6979,8 +7115,12 @@ document.getElementById('btn-export-flash-sale')?.addEventListener('click', asyn
 const CAI_DAT_TAB_NAME_TO_ID = {
   "web ban sp": "tab-web-sp",
   "web ban san pham": "tab-web-sp",
-  "tao anh ai": "tab-create-ai-img",
+  "tao anh ai": "tab-api-images",
   "anh api": "tab-api-images",
+  "anh ai & api": "tab-api-images",
+  "tao anh ai & api": "tab-api-images",
+  "anh ai api": "tab-api-images",
+  "tao anh": "tab-api-images",
   "cai dat": "tab-settings",
   "anh": "tab-images",
   "lay anh": "tab-images",
@@ -8003,21 +8143,114 @@ async function rewriteTextUsingGemini(mode) {
   if (btn) btn.disabled = true;
   
   try {
-    const resStore = await chrome.storage.local.get(["geminiApiKey", "geminiModel"]);
+    const resStore = await chrome.storage.local.get(["geminiApiKey", "geminiApiKeys", "geminiModel"]);
     const key = resStore.geminiApiKey;
-    const model = resStore.geminiModel || "gemini-2.5-flash";
     if (!key) throw new Error("Chưa có API Key. Hãy nhập ở tab Cài đặt.");
-    
-    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(key);
-    const res = await fetch(url, {
+
+    const configuredModel = resStore.geminiModel || "gemini-2.5-flash";
+    const modelsToTry = [...new Set([configuredModel, "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"])];
+
+    let result = "";
+    let lastError = null;
+
+    for (const model of modelsToTry) {
+      try {
+        const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(key);
+        const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          const errMsg = data?.error?.message || "Lỗi API " + res.status;
+          if (res.status === 503 || res.status === 429 || errMsg.toLowerCase().includes("high demand")) {
+            lastError = new Error(errMsg);
+            continue;
+          }
+          throw new Error(errMsg);
+        }
+
+        result = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (result) break;
+      } catch (err) {
+        lastError = err;
+        if (err.message?.toLowerCase().includes("high demand") || err.message?.toLowerCase().includes("503") || err.message?.toLowerCase().includes("429")) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+async function callXkiroDeepseek(promptText) {
+  const DEFAULT_XKIRO_KEY = "sk-xt-27e56ff5d3d864c86e4993e85cf95f1695698217d913faf3";
+  const res = await chrome.storage.local.get(["xkiroApiKey", "xkiroModel", "xkiroModels"]);
+  const apiKey = (res.xkiroApiKey || "").trim() || DEFAULT_XKIRO_KEY;
+  const configuredModel = (res.xkiroModel || "").trim() || "deepseek/deepseek-v4-flash";
+
+  const fallbackList = [
+    configuredModel,
+    "deepseek/deepseek-v4-pro",
+    "qwen/qwen3.8-max:free",
+    "deepseek/deepseek-v4-flash",
+    "qwen/qwen3.7-max:free",
+    "qwen/qwen3.7-plus:free",
+    "qwen/qwen3.6-plus:free",
+    "minimax/minimax-m2.7-highspeed:free"
+  ];
+  const modelsToTry = [...new Set(fallbackList)];
+
+  let lastError = null;
+
+  for (const model of modelsToTry) {
+    try {
+      const response = await fetch("https://api.xkiro.com/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data?.error?.message || "Lỗi API " + res.status);
-    
-    let result = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [{ role: "user", content: promptText }]
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        const errMsg = data.error?.message || `Lỗi XKiro HTTP ${response.status}`;
+        lastError = new Error(errMsg);
+        console.warn(`[XKiro AI] Model ${model} gặp lỗi (${errMsg}), thử model tiếp theo...`);
+        await new Promise(r => setTimeout(r, 300));
+        continue;
+      }
+
+      let resultText = data.choices?.[0]?.message?.content || "";
+      resultText = resultText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+      if (resultText) {
+        return resultText;
+      }
+    } catch (err) {
+      lastError = err;
+      console.warn(`[XKiro AI] Lỗi model ${model}:`, err.message);
+      await new Promise(r => setTimeout(r, 300));
+    }
+  }
+
+  throw lastError || new Error("Tất cả các model XKiro đều không phản hồi.");
+}
+
+    // Nếu không có Gemini result hoặc không có key -> Thử qua XKiro DeepSeek
+    if (!result) {
+      try {
+        console.warn("[AI] Gemini lỗi hoặc không có key, chuyển sang XKiro DeepSeek...");
+        result = await callXkiroDeepseek(prompt);
+      } catch (deepseekErr) {
+        if (lastError) throw lastError;
+        throw deepseekErr;
+      }
+    }
+
     result = cleanMarkdownForFacebook(result);
     
     if (mode === "name") {
@@ -8321,11 +8554,13 @@ document.addEventListener("DOMContentLoaded", () => {
     tenWebSpInput.addEventListener("change", updateFinalPrompt);
   }
 
-  // Cập nhật Prompt khi nhấn chuyển sang tab Tạo ảnh AI
+  // Cập nhật Prompt và ảnh mẫu khi nhấn chuyển sang tab Tạo ảnh AI & API
   document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      if (btn.getAttribute("data-tab") === "tab-create-ai-img") {
+      const tabName = btn.getAttribute("data-tab");
+      if (tabName === "tab-api-images" || tabName === "tab-create-ai-img") {
         updateFinalPrompt();
+        loadCaiDatTemplateImages();
       }
     });
   });
@@ -8429,12 +8664,12 @@ document.addEventListener("DOMContentLoaded", () => {
       containerImages.innerHTML = imageUrls.map((url, idx) => {
         const imgId = `ai-template-img-${idx + 1}`;
         return `
-          <div style="position: relative; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; flex-shrink: 0; background: #f8fafc; width: 110px; height: 110px; display: flex; align-items: center; justify-content: center;">
+          <div style="position: relative; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; flex-shrink: 0; background: #f8fafc; width: 62px; height: 62px; display: flex; align-items: center; justify-content: center;">
             <img id="${imgId}" src="${url}" style="width: 100%; height: 100%; object-fit: contain; display: block;" title="Ảnh mẫu ${idx + 1}">
-            <div style="position: absolute; top: 4px; right: 4px; display: flex; gap: 3px; background: rgba(0,0,0,0.4); padding: 2px 4px; border-radius: 4px; backdrop-filter: blur(2px);">
-              <button type="button" class="ai-tab-open-gpt" data-target="${imgId}" style="width: 20px; height: 20px; min-height: 20px; padding: 0; font-size: 11px; background: #10a37f; color: white; border: none; border-radius: 3px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="Mở trên ChatGPT">🤖</button>
-              <button type="button" class="ai-tab-open-gemini" data-target="${imgId}" style="width: 20px; height: 20px; min-height: 20px; padding: 0; font-size: 11px; background: #1a73e8; color: white; border: none; border-radius: 3px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="Mở trên Gemini">✨</button>
-              <button type="button" class="ai-tab-copy-img" data-target="${imgId}" style="width: 20px; height: 20px; min-height: 20px; padding: 0; font-size: 11px; background: #334155; color: white; border: none; border-radius: 3px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="Copy ảnh">📋</button>
+            <div style="position: absolute; top: 2px; right: 2px; display: flex; gap: 2px; background: rgba(0,0,0,0.5); padding: 1px 2px; border-radius: 3px; backdrop-filter: blur(2px);">
+              <button type="button" class="ai-tab-open-gpt" data-target="${imgId}" style="width: 16px !important; height: 16px !important; min-height: unset !important; padding: 0 !important; font-size: 9px; background: #10a37f; color: white; border: none; border-radius: 2px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="Mở trên ChatGPT">🤖</button>
+              <button type="button" class="ai-tab-open-gemini" data-target="${imgId}" style="width: 16px !important; height: 16px !important; min-height: unset !important; padding: 0 !important; font-size: 9px; background: #1a73e8; color: white; border: none; border-radius: 2px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="Mở trên Gemini">✨</button>
+              <button type="button" class="ai-tab-copy-img" data-target="${imgId}" style="width: 16px !important; height: 16px !important; min-height: unset !important; padding: 0 !important; font-size: 9px; background: #334155; color: white; border: none; border-radius: 2px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="Copy ảnh">📋</button>
             </div>
           </div>
         `;
@@ -8514,6 +8749,19 @@ document.addEventListener("DOMContentLoaded", () => {
         containerImages.innerHTML = `<span style="font-size:11px; color:#ef4444;">Lỗi: ${err.message}</span>`;
       }
     }
+  }
+
+  // Nút đóng/mở thu gọn Section 1 Tạo ảnh AI
+  const toggleAiSectionBtn = document.getElementById("ai-section-toggle-btn");
+  const aiSectionBody = document.getElementById("ai-section-body");
+  if (toggleAiSectionBtn && aiSectionBody) {
+    toggleAiSectionBtn.addEventListener("click", () => {
+      const isHidden = aiSectionBody.style.display === "none";
+      aiSectionBody.style.display = isHidden ? "block" : "none";
+      toggleAiSectionBtn.textContent = isHidden ? "Thu gọn ▲" : "Mở rộng ▼";
+      toggleAiSectionBtn.style.background = isHidden ? "#f1f5f9" : "#dbeafe";
+      toggleAiSectionBtn.style.color = isHidden ? "#475569" : "#1d4ed8";
+    });
   }
 
   // Khởi chạy
@@ -8691,9 +8939,11 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
           showStatus(`⚠️ Tải ảnh thành công nhưng lỗi khi lưu Sheet: ${res?.error || "Lỗi không xác định"}`, "#d97706");
         }
+        currentPage = 1;
         renderUploadedItems();
       });
     } else {
+      currentPage = 1;
       renderUploadedItems();
     }
   }
@@ -8703,6 +8953,46 @@ document.addEventListener("DOMContentLoaded", () => {
       statusDiv.textContent = text;
       statusDiv.style.color = color;
     }
+  }
+
+  const PAGE_SIZE = 48;
+  let currentPage = 1;
+
+  // Cập nhật giao diện phân trang
+  function updatePaginationUI(totalItems, totalPages, curPage) {
+    const totalCountEl = document.getElementById("api-img-total-count");
+    const currentPageEl = document.getElementById("api-img-current-page");
+    const totalPagesEl = document.getElementById("api-img-total-pages");
+    const btnFirst = document.getElementById("api-img-btn-first");
+    const btnPrev = document.getElementById("api-img-btn-prev");
+    const btnNext = document.getElementById("api-img-btn-next");
+    const btnLast = document.getElementById("api-img-btn-last");
+    const paginationBar = document.getElementById("api-img-pagination");
+
+    if (totalCountEl) totalCountEl.textContent = totalItems;
+    if (currentPageEl) currentPageEl.textContent = curPage;
+    if (totalPagesEl) totalPagesEl.textContent = totalPages;
+
+    if (btnFirst) btnFirst.disabled = (curPage <= 1);
+    if (btnPrev) btnPrev.disabled = (curPage <= 1);
+    if (btnNext) btnNext.disabled = (curPage >= totalPages);
+    if (btnLast) btnLast.disabled = (curPage >= totalPages);
+
+    [btnFirst, btnPrev, btnNext, btnLast].forEach(btn => {
+      if (btn) {
+        btn.style.opacity = btn.disabled ? "0.4" : "1";
+        btn.style.cursor = btn.disabled ? "not-allowed" : "pointer";
+      }
+    });
+
+    if (paginationBar) {
+      paginationBar.style.display = totalItems > 0 ? "flex" : "none";
+    }
+  }
+
+  function scrollApiViewToTop() {
+    if (tableContainer) tableContainer.scrollTop = 0;
+    if (gridContainer) gridContainer.scrollTop = 0;
   }
 
   // Tải danh sách ảnh đã lưu trong Sheet LUU_ANH_API
@@ -8715,7 +9005,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}/values/LUU_ANH_API!A1:D1000`, {
+      const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}/values/LUU_ANH_API!A:D`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -8764,19 +9054,30 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderUploadedItems() {
     // Đảo ngược danh sách để hiển thị đầy đủ ảnh từ dưới lên trên (dòng dưới cùng trong Sheet = ảnh mới nhất lên đầu)
     const reversedList = [...uploadedList].reverse();
+    const totalItems = reversedList.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    const endIndex = Math.min(startIndex + PAGE_SIZE, totalItems);
+    const pageItems = reversedList.slice(startIndex, endIndex);
+
+    updatePaginationUI(totalItems, totalPages, currentPage);
 
     if (currentViewMode === "table") {
       if (!tbody) return;
-      if (reversedList.length === 0) {
+      if (pageItems.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 15px; color: #94a3b8;">Chưa có ảnh nào trong dữ liệu.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = reversedList.map((item, idx) => `
+      tbody.innerHTML = pageItems.map((item, idx) => `
         <tr style="border-bottom: 1px solid #f1f5f9;">
-          <td style="padding: 6px 8px; text-align: center; color: #64748b;">${reversedList.length - idx}</td>
+          <td style="padding: 6px 8px; text-align: center; color: #64748b;">${totalItems - (startIndex + idx)}</td>
           <td style="padding: 6px 8px;">
-            <img src="${item.link}" style="width: 36px; height: 36px; object-fit: cover; border-radius: 4px; border: 1px solid #e2e8f0; display: block;">
+            <img src="${item.link}" style="width: 36px; height: 36px; object-fit: cover; border-radius: 4px; border: 1px solid #e2e8f0; display: block;" loading="lazy">
           </td>
           <td style="padding: 6px 8px; font-weight: 500; color: #1e293b; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.ten_anh}">${item.ten_anh}</td>
           <td style="padding: 6px 8px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
@@ -8786,25 +9087,82 @@ document.addEventListener("DOMContentLoaded", () => {
             ${item.link_cu ? `<a href="${item.link_cu}" target="_blank" style="color: #64748b; text-decoration: none;" title="${item.link_cu}">${item.link_cu}</a>` : `<span style="color: #94a3b8;">-</span>`}
           </td>
           <td style="padding: 6px 8px; text-align: center;">
-            <button type="button" onclick="navigator.clipboard.writeText('${item.link}')" style="padding: 2px 6px; font-size: 10px; background: #0284c7; color: white; border: none; border-radius: 3px; cursor: pointer;">Copy</button>
+            <button type="button" class="api-copy-btn" data-link="${item.link}" style="padding: 2px 6px; font-size: 10px; background: #0284c7; color: white; border: none; border-radius: 3px; cursor: pointer;">Copy</button>
           </td>
         </tr>
       `).join("");
     } else {
       if (!gridContainer) return;
-      if (reversedList.length === 0) {
+      if (pageItems.length === 0) {
         gridContainer.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 20px; color: #94a3b8; font-size: 11px;">Chưa có ảnh nào trong dữ liệu.</div>`;
         return;
       }
 
-      gridContainer.innerHTML = reversedList.map((item) => `
+      gridContainer.innerHTML = pageItems.map((item) => `
         <div style="position: relative; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; background: #f8fafc; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center;">
-          <img src="${item.link}" style="width: 100%; height: 100%; object-fit: cover; display: block;" title="${item.ten_anh || item.id}">
-          <button type="button" onclick="navigator.clipboard.writeText('${item.link}')" style="position: absolute; bottom: 4px; right: 4px; padding: 2px 6px; font-size: 9px; font-weight: bold; background: rgba(0,0,0,0.65); color: white; border: none; border-radius: 3px; cursor: pointer;" title="Copy Link .jpg">📋 Copy</button>
+          <img src="${item.link}" style="width: 100%; height: 100%; object-fit: cover; display: block;" title="${item.ten_anh || item.id}" loading="lazy">
+          <button type="button" class="api-copy-btn" data-link="${item.link}" style="position: absolute; bottom: 4px; right: 4px; padding: 2px 6px; font-size: 9px; font-weight: bold; background: rgba(0,0,0,0.65); color: white; border: none; border-radius: 3px; cursor: pointer;" title="Copy Link .jpg">📋 Copy</button>
         </div>
       `).join("");
     }
   }
+
+  // Sự kiện copy link ảnh
+  document.addEventListener("click", (e) => {
+    const copyBtn = e.target.closest(".api-copy-btn");
+    if (copyBtn) {
+      const link = copyBtn.getAttribute("data-link");
+      if (link) {
+        navigator.clipboard.writeText(link).then(() => {
+          const orig = copyBtn.textContent;
+          copyBtn.textContent = "✓ Đã copy";
+          setTimeout(() => { copyBtn.textContent = orig; }, 1200);
+        }).catch(err => {
+          console.error("Lỗi copy link ảnh:", err);
+        });
+      }
+    }
+  });
+
+  // Sự kiện chuyển trang
+  const btnFirst = document.getElementById("api-img-btn-first");
+  const btnPrev = document.getElementById("api-img-btn-prev");
+  const btnNext = document.getElementById("api-img-btn-next");
+  const btnLast = document.getElementById("api-img-btn-last");
+
+  if (btnFirst) btnFirst.addEventListener("click", () => {
+    if (currentPage > 1) {
+      currentPage = 1;
+      renderUploadedItems();
+      scrollApiViewToTop();
+    }
+  });
+
+  if (btnPrev) btnPrev.addEventListener("click", () => {
+    if (currentPage > 1) {
+      currentPage--;
+      renderUploadedItems();
+      scrollApiViewToTop();
+    }
+  });
+
+  if (btnNext) btnNext.addEventListener("click", () => {
+    const totalPages = Math.max(1, Math.ceil(uploadedList.length / PAGE_SIZE));
+    if (currentPage < totalPages) {
+      currentPage++;
+      renderUploadedItems();
+      scrollApiViewToTop();
+    }
+  });
+
+  if (btnLast) btnLast.addEventListener("click", () => {
+    const totalPages = Math.max(1, Math.ceil(uploadedList.length / PAGE_SIZE));
+    if (currentPage < totalPages) {
+      currentPage = totalPages;
+      renderUploadedItems();
+      scrollApiViewToTop();
+    }
+  });
 
   // Khởi tạo mặc định ở dạng 3 cột
   setViewMode("grid3");

@@ -587,38 +587,172 @@
         return new Promise((resolve) => chrome.tabs.sendMessage(tab.id, message, resolve));
     }
 
-    // Helper gọi Gemini API trực tiếp
+    // Helper gọi XKiro AI API dự phòng với cơ chế thử nhiều model (DeepSeek, Qwen Free, Minimax...)
+    async function callXkiroDeepseekDirect(promptText) {
+        const DEFAULT_XKIRO_KEY = "sk-xt-27e56ff5d3d864c86e4993e85cf95f1695698217d913faf3";
+        const res = await new Promise(r => chrome.storage.local.get(["xkiroApiKey", "xkiroModel", "xkiroModels"], r));
+        const apiKey = (res.xkiroApiKey || "").trim() || DEFAULT_XKIRO_KEY;
+        const configuredModel = (res.xkiroModel || "").trim() || "deepseek/deepseek-v4-flash";
+
+        const fallbackList = [
+            configuredModel,
+            "deepseek/deepseek-v4-pro",
+            "qwen/qwen3.8-max:free",
+            "deepseek/deepseek-v4-flash",
+            "qwen/qwen3.7-max:free",
+            "qwen/qwen3.7-plus:free",
+            "qwen/qwen3.6-plus:free",
+            "minimax/minimax-m2.7-highspeed:free"
+        ];
+        const modelsToTry = [...new Set(fallbackList)];
+
+        let lastError = null;
+
+        for (const model of modelsToTry) {
+            try {
+                const response = await fetch("https://api.xkiro.com/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${apiKey}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [
+                            { role: "user", content: promptText }
+                        ]
+                    })
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    const errMsg = data.error?.message || `Lỗi XKiro HTTP ${response.status}`;
+                    lastError = new Error(errMsg);
+                    console.warn(`[XKiro AI] Model ${model} gặp lỗi (${errMsg}), thử model tiếp theo...`);
+                    await new Promise(r => setTimeout(r, 300));
+                    continue;
+                }
+
+                let resultText = data.choices?.[0]?.message?.content || "";
+                resultText = resultText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+                if (resultText) {
+                    return resultText;
+                }
+            } catch (err) {
+                lastError = err;
+                console.warn(`[XKiro AI] Lỗi model ${model}:`, err.message);
+                await new Promise(r => setTimeout(r, 300));
+            }
+        }
+
+        throw lastError || new Error("Tất cả model XKiro đều không phản hồi");
+    }
+
+    // Helper gọi Gemini API trực tiếp với cơ chế tự động thử model dự phòng và chuyển sang XKiro DeepSeek khi quá tải hoặc hết hạn
     async function callGeminiApiDirect(promptText) {
         return new Promise((resolve, reject) => {
-            chrome.storage.local.get(["geminiApiKey", "geminiModel"], async (res) => {
-                const apiKey = res.geminiApiKey ? res.geminiApiKey.trim() : "";
-                const model = res.geminiModel || "gemini-2.5-flash";
-
-                if (!apiKey) {
-                    alert("Chưa có API Key Gemini! Vui lòng lưu API Key ở Tab Cài đặt (ô cai_dat!E2) trước.");
-                    return reject(new Error("Thiếu API Key Gemini"));
+            chrome.storage.local.get(["geminiApiKey", "geminiApiKeys", "geminiModel", "geminiModels"], async (res) => {
+                const primaryKey = res.geminiApiKey ? res.geminiApiKey.trim() : "";
+                let apiKeys = Array.isArray(res.geminiApiKeys) && res.geminiApiKeys.length > 0 
+                    ? res.geminiApiKeys.map(k => String(k || "").trim()).filter(Boolean)
+                    : (primaryKey ? [primaryKey] : []);
+                if (primaryKey && !apiKeys.includes(primaryKey)) {
+                    apiKeys.unshift(primaryKey);
                 }
 
-                try {
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-                    const response = await fetch(url, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: promptText }] }]
-                        })
-                    });
-
-                    const data = await response.json();
-                    if (!response.ok) {
-                        throw new Error(data.error?.message || `Lỗi HTTP ${response.status}`);
+                // Nếu không có Gemini API key -> Tự động chuyển thẳng sang XKiro DeepSeek
+                if (apiKeys.length === 0) {
+                    try {
+                        console.log("[AI] Không có Gemini key, tự động dùng XKiro DeepSeek...");
+                        const deepseekResult = await callXkiroDeepseekDirect(promptText);
+                        return resolve(deepseekResult);
+                    } catch (deepseekErr) {
+                        return reject(new Error("Lỗi gọi AI (DeepSeek): " + deepseekErr.message));
                     }
-
-                    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                    resolve(resultText.trim());
-                } catch (err) {
-                    reject(err);
                 }
+
+                const configuredModel = res.geminiModel || "gemini-2.5-flash";
+                // Danh sách model ưu tiên thử khi model chính bị quá tải (high demand)
+                const fallbackModels = [
+                    configuredModel,
+                    "gemini-2.0-flash",
+                    "gemini-1.5-flash",
+                    "gemini-2.5-flash-lite",
+                    "gemini-2.0-flash-lite",
+                    "gemini-2.5-flash",
+                    "gemini-2.5-pro"
+                ];
+                const modelsToTry = [...new Set(fallbackModels)];
+
+                let lastError = null;
+
+                for (const apiKey of apiKeys) {
+                    for (const model of modelsToTry) {
+                        try {
+                            const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+                            const response = await fetch(url, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    contents: [{ parts: [{ text: promptText }] }]
+                                })
+                            });
+
+                            const data = await response.json();
+                            if (!response.ok) {
+                                const errMsg = data.error?.message || `Lỗi HTTP ${response.status}`;
+                                const isOverloadedOrQuota = 
+                                    response.status === 503 || 
+                                    response.status === 429 || 
+                                    response.status === 500 || 
+                                    response.status === 400 || 
+                                    response.status === 403 || 
+                                    errMsg.toLowerCase().includes("high demand") || 
+                                    errMsg.toLowerCase().includes("spikes in demand") || 
+                                    errMsg.toLowerCase().includes("quota") ||
+                                    errMsg.toLowerCase().includes("resource_exhausted") ||
+                                    errMsg.toLowerCase().includes("overloaded") ||
+                                    errMsg.toLowerCase().includes("expired") ||
+                                    errMsg.toLowerCase().includes("invalid");
+
+                                if (isOverloadedOrQuota) {
+                                    console.warn(`[Gemini API] Model ${model} quá tải/lỗi (${errMsg}), tự động thử model tiếp theo...`);
+                                    lastError = new Error(errMsg);
+                                    await new Promise(r => setTimeout(r, 350));
+                                    continue;
+                                } else {
+                                    throw new Error(errMsg);
+                                }
+                            }
+
+                            const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                            if (resultText) {
+                                return resolve(resultText.trim());
+                            } else {
+                                throw new Error("AI không trả về nội dung");
+                            }
+                        } catch (err) {
+                            lastError = err;
+                            console.warn(`[Gemini API] Lỗi model ${model}:`, err.message);
+                            await new Promise(r => setTimeout(r, 350));
+                        }
+                    }
+                }
+
+                // Nếu tất cả model/key Gemini đều quá tải hoặc hết hạn -> Tự động kích hoạt XKiro DeepSeek V4
+                console.warn("[Gemini API] Gemini gặp lỗi hoặc hết hạn, tự động chuyển sang XKiro DeepSeek V4...");
+                try {
+                    const deepseekResult = await callXkiroDeepseekDirect(promptText);
+                    if (deepseekResult) {
+                        console.log("[AI] Đã hoàn thành xử lý qua XKiro DeepSeek V4!");
+                        return resolve(deepseekResult);
+                    }
+                } catch (deepseekErr) {
+                    console.error("[AI] Lỗi khi gọi cả XKiro DeepSeek:", deepseekErr);
+                    return reject(new Error("Gemini lỗi (" + (lastError?.message || "quá tải") + ") và XKiro DeepSeek cũng lỗi: " + deepseekErr.message));
+                }
+
+                reject(lastError || new Error("Không thể kết nối tới Google Gemini. Vui lòng thử lại sau giây lát!"));
             });
         });
     }

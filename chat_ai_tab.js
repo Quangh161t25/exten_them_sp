@@ -523,6 +523,64 @@
     });
   }
 
+  async function callXkiroDeepseekChat(promptText) {
+    const DEFAULT_XKIRO_KEY = "sk-xt-27e56ff5d3d864c86e4993e85cf95f1695698217d913faf3";
+    const res = await chrome.storage.local.get(["xkiroApiKey", "xkiroModel", "xkiroModels"]);
+    const apiKey = (res.xkiroApiKey || "").trim() || DEFAULT_XKIRO_KEY;
+    const configuredModel = (res.xkiroModel || "").trim() || "deepseek/deepseek-v4-flash";
+
+    const fallbackList = [
+      configuredModel,
+      "deepseek/deepseek-v4-pro",
+      "qwen/qwen3.8-max:free",
+      "deepseek/deepseek-v4-flash",
+      "qwen/qwen3.7-max:free",
+      "qwen/qwen3.7-plus:free",
+      "qwen/qwen3.6-plus:free",
+      "minimax/minimax-m2.7-highspeed:free"
+    ];
+    const modelsToTry = [...new Set(fallbackList)];
+
+    let lastError = null;
+
+    for (const model of modelsToTry) {
+      try {
+        const response = await fetch("https://api.xkiro.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [{ role: "user", content: promptText }]
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          const errMsg = data.error?.message || `Lỗi XKiro HTTP ${response.status}`;
+          lastError = new Error(errMsg);
+          console.warn(`[XKiro AI Chat] Model ${model} gặp lỗi (${errMsg}), thử model tiếp theo...`);
+          await new Promise(r => setTimeout(r, 300));
+          continue;
+        }
+
+        let resultText = data.choices?.[0]?.message?.content || "";
+        resultText = resultText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+        if (resultText) {
+          return resultText;
+        }
+      } catch (err) {
+        lastError = err;
+        console.warn(`[XKiro AI Chat] Lỗi model ${model}:`, err.message);
+        await new Promise(r => setTimeout(r, 300));
+      }
+    }
+
+    throw lastError || new Error("Tất cả model XKiro đều không phản hồi");
+  }
+
   // 5. Gọi Gemini API để sinh câu trả lời tư vấn
   async function generateAiChatReply() {
     const question = inputCustomerQuestion ? inputCustomerQuestion.value.trim() : "";
@@ -540,15 +598,6 @@
       const resStore = await chrome.storage.local.get(["geminiApiKey", "geminiModel"]);
       const apiKey = resStore.geminiApiKey ? resStore.geminiApiKey.trim() : "";
       const model = resStore.geminiModel || "gemini-2.5-flash";
-
-      if (!apiKey) {
-        alert("Chưa có API Key Gemini! Vui lòng lưu API Key ở Tab Cài đặt (ô cai_dat!E2) trước.");
-        if (btnGenerateAi) {
-          btnGenerateAi.disabled = false;
-          btnGenerateAi.innerHTML = `✨ AI Sinh Câu Trả Lời`;
-        }
-        return;
-      }
 
       const p = currentChatData?.product || {};
       const customNote = inputCustomNote ? inputCustomNote.value.trim() : "";
@@ -579,21 +628,60 @@ QUY TẮC BẮT BUỘC TRẢ LỜI:
 4. Xưng hô lịch sự, thân thiện tự nhiên (Dạ vâng ạ / Dạ anh/chị...).
 5. Tuyệt đối KHÔNG dùng định dạng markdown như **, *, #, không dùng dấu ngoặc kép bọc câu. Chỉ trả về đúng nội dung tin nhắn gửi khách.`;
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
-      });
+      let reply = "";
+      let lastError = null;
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error?.message || `Lỗi HTTP ${response.status}`);
+      // 1. Thử gọi Gemini nếu có API Key
+      if (apiKey) {
+        const configuredModel = model || "gemini-2.5-flash";
+        const modelsToTry = [...new Set([configuredModel, "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"])];
+
+        for (const m of modelsToTry) {
+          try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+            const response = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+              })
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+              const errMsg = data.error?.message || `Lỗi HTTP ${response.status}`;
+              if (response.status === 503 || response.status === 429 || errMsg.toLowerCase().includes("high demand")) {
+                lastError = new Error(errMsg);
+                await new Promise(r => setTimeout(r, 400));
+                continue;
+              }
+              throw new Error(errMsg);
+            }
+
+            reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            if (reply) break;
+          } catch (err) {
+            lastError = err;
+            if (err.message?.toLowerCase().includes("high demand") || err.message?.toLowerCase().includes("503") || err.message?.toLowerCase().includes("429")) {
+              await new Promise(r => setTimeout(r, 400));
+              continue;
+            }
+            throw err;
+          }
+        }
       }
 
-      let reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      // 2. Nếu Gemini không có key hoặc bị quá tải / lỗi -> Tự động chuyển sang XKiro DeepSeek V4
+      if (!reply) {
+        try {
+          console.warn("[Chat AI] Gemini lỗi hoặc hết hạn, tự động chuyển sang XKiro DeepSeek V4...");
+          reply = await callXkiroDeepseekChat(prompt);
+        } catch (deepseekErr) {
+          if (lastError) throw lastError;
+          throw deepseekErr;
+        }
+      }
+
       if (reply) {
         reply = reply
           .replace(/\*\*/g, '')
