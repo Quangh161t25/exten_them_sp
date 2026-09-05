@@ -4018,11 +4018,22 @@ function downloadExcelFileBypass(wb, filename) {
     document.documentElement.append(style);
   }
 
+  function cleanOrderCode(val) {
+    if (!val) return "";
+    let s = String(val).trim();
+    s = s.replace(/(?:Copy(?:\s*All)?|Sao\s*ch[eéê]p|SaoChep|Excel|In\s*đơn|In\s*phiếu|\bC\b)+$/gi, '').trim();
+    s = s.replace(/copy$/i, '').trim();
+    return s;
+  }
+
   function getOrderSnFromText(text) {
-    const normalized = normalizeText(text);
+    if (!text) return "";
+    let clean = text.replace(/(?:Copy(?:\s*All)?|Sao\s*ch[eéê]p|SaoChep|Excel|In\s*đơn|In\s*phiếu)+$/gi, ' ').trim();
+    const normalized = normalizeText(clean);
     const match = normalized.match(/(?:M[\u00e3a]\s*\u0111\u01a1n\s*h[\u00e0a]ng|ma\s*don\s*hang)?\s*([A-Z0-9]{10,})/i);
 
-    return match?.[1] || "";
+    let sn = match?.[1] || "";
+    return cleanOrderCode(sn);
   }
 
   
@@ -6796,6 +6807,436 @@ function downloadExcelFileBypass(wb, filename) {
       return false;
     }
 
+    // =========================================================================
+    // XỬ LÝ ĐỌC DANH SÁCH ĐƠN TỪ TRANG SHOPEE SELLER LIST (/portal/sale/order)
+    // =========================================================================
+    if (message?.action === "SHOPEE_READ_ORDER_LIST_PAGE" || message?.type === "SHOPEE_READ_ORDER_LIST_PAGE") {
+      if (window.self !== window.top) return false;
+      try {
+        const orders = [];
+        const seenKeys = new Set();
+
+        const containers = Array.from(document.querySelectorAll(
+          'a.order-card, .order-card, [data-testid="order-item"], .order-item, [class*="order-item"], [class*="orderItem"], [class*="orderCard"], [class*="order-box"], tr.shopee-table__row, .shopee-table__row, a[href*="/portal/sale/order/"], a[href*="/portal/sale/order"]'
+        ));
+
+        const uniqueContainers = [];
+        const processedEls = new Set();
+
+        for (const el of containers) {
+          const outerCard = el.closest('.order-card, [data-testid="order-item"], .order-item, tr') || el;
+          if (!processedEls.has(outerCard)) {
+            processedEls.add(outerCard);
+            uniqueContainers.push(outerCard);
+          }
+        }
+
+        uniqueContainers.forEach(container => {
+          try {
+            const containerText = container.innerText || container.textContent || "";
+            if (!containerText && !container.getAttribute('href')) return;
+
+            // 1. Mã đơn hàng (Order SN)
+            let orderSn = "";
+
+            const orderSnEl = container.querySelector('.order-sn, [class*="order-sn"], [class*="ordersn"], [data-testid="order-sn"], .order-id, [class*="order-id"], [class*="orderId"]');
+            if (orderSnEl) {
+              const clone = orderSnEl.cloneNode(true);
+              clone.querySelectorAll('button, [role="button"], i, svg, .eds-icon, [class*="copy"], [class*="btn"], [class*="action"], [data-shopee-qlsp-copy-all-order-id], .ud-ct-badge, .shopee-qlsp-bulk-checkbox').forEach(b => b.remove());
+              const rawSnText = clone.textContent.trim();
+              const snMatch = rawSnText.match(/(?:Mã đơn hàng|Order SN|Mã đơn|Mã ĐH)?[:\s]*([A-Z0-9]{10,30})/i);
+              if (snMatch) {
+                orderSn = cleanOrderCode(snMatch[1]);
+              }
+            }
+
+            if (!orderSn) {
+              const copyAllBtn = container.querySelector('[data-shopee-qlsp-copy-all-order-id]');
+              if (copyAllBtn) {
+                orderSn = cleanOrderCode(copyAllBtn.getAttribute('data-shopee-qlsp-copy-all-order-id') || "");
+              }
+            }
+
+            if (!orderSn) {
+              const attrId = container.getAttribute('data-order-id') || container.getAttribute('data-ordersn') || container.getAttribute('data-sn');
+              if (attrId) orderSn = cleanOrderCode(attrId);
+            }
+
+            let href = (container.getAttribute('href') || container.querySelector('a[href*="/portal/sale/order"]')?.getAttribute('href') || '').trim();
+            let urlId = "";
+            if (href) {
+              const mHref = href.match(/\/portal\/sale\/order\/(?:detail\/)?([a-zA-Z0-9_-]+)/);
+              if (mHref && !/^(order|list|mass|shipping|shipment|return|setting|settings|batch|all|unprocessed|toship|completed|cancelled|inprocess)$/i.test(mHref[1])) {
+                urlId = cleanOrderCode(mHref[1]);
+              }
+            }
+
+            if (!orderSn) {
+              const clone = container.cloneNode(true);
+              clone.querySelectorAll('button, [role="button"], i, svg, .eds-icon, [class*="copy"], [class*="btn"], [class*="action"], [data-shopee-qlsp-copy-all-order-id], .ud-ct-badge, .shopee-qlsp-bulk-checkbox').forEach(b => b.remove());
+              const cText = clone.textContent || "";
+              const snMatch = cText.match(/(?:Mã đơn hàng|Order SN|Mã đơn|Mã ĐH)[:\s]+([A-Z0-9]{10,30})/i)
+                || cText.match(/\b(2[0-9]{5}[A-Z0-9]{6,20})\b/)
+                || cText.match(/\b([0-9]{14,20})\b/);
+              if (snMatch) {
+                orderSn = cleanOrderCode(snMatch[1]);
+              } else if (urlId) {
+                orderSn = urlId;
+              }
+            }
+
+            if (!orderSn && !urlId) return;
+            const finalMdh = cleanOrderCode(orderSn || urlId);
+
+            const dedupKey = finalMdh.toLowerCase();
+            if (seenKeys.has(dedupKey)) return;
+            seenKeys.add(dedupKey);
+
+            // 2. Mã vận đơn (Tracking No)
+            let trackingNo = "";
+            const trackingEl = container.querySelector('.tracking-number, [class*="tracking-number"], .tracking-number-list, [class*="trackingNo"], [class*="tracking-no"], [class*="shipping-carrier"], [data-testid="tracking-number"]');
+            if (trackingEl) {
+              const clone = trackingEl.cloneNode(true);
+              clone.querySelectorAll('button, [role="button"], i, svg, .eds-icon, [class*="copy"], [class*="btn"], [class*="action"]').forEach(b => b.remove());
+              const tText = clone.textContent.trim();
+              const tMatch = tText.match(/([A-Z0-9_-]{6,30})/i);
+              if (tMatch) trackingNo = cleanOrderCode(tMatch[1]);
+            }
+
+            if (!trackingNo) {
+              const clone = container.cloneNode(true);
+              clone.querySelectorAll('button, [role="button"], i, svg, .eds-icon, [class*="copy"], [class*="btn"], [class*="action"]').forEach(b => b.remove());
+              const cText = clone.textContent || "";
+              const mvdMatch = cText.match(/(?:Mã vận đơn|Tracking No|MVD|Tracking|Vận đơn)[:\s]+([A-Z0-9_-]{6,30})/i)
+                || cText.match(/\b(VN[0-9A-Z]{8,22}|SPX[0-9A-Z]{8,22}|GHN[0-9A-Z]{6,22}|JNT[0-9A-Z]{6,22}|LEX[0-9A-Z]{6,22}|VNP[0-9A-Z]{6,22}|BEST[0-9A-Z]{6,22}|NJV[0-9A-Z]{6,22})\b/i);
+              if (mvdMatch) {
+                trackingNo = cleanOrderCode(mvdMatch[1]);
+              }
+            }
+
+            // 3. Link đơn hàng
+            let fullLink = "";
+            if (href) {
+              fullLink = href.startsWith('http') ? href : `https://banhang.shopee.vn${href.startsWith('/') ? '' : '/'}${href}`;
+            } else {
+              fullLink = `https://banhang.shopee.vn/portal/sale/order/${finalMdh}`;
+            }
+
+            // 4. Ngày đặt hàng
+            let orderDate = "";
+            const dateMatch = containerText.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
+            if (dateMatch) {
+              orderDate = dateMatch[1].replace(/\//g, "-");
+            } else {
+              const dateVnMatch = containerText.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+              if (dateVnMatch) {
+                orderDate = `${dateVnMatch[3]}-${dateVnMatch[2].padStart(2, '0')}-${dateVnMatch[1].padStart(2, '0')}`;
+              }
+            }
+
+            // 5. Tên khách hàng (Buyer Username)
+            let buyerUsername = "";
+            const buyerEl = container.querySelector('.buyer-username, [data-testid="buyer-username"], [class*="buyer-username"], [class*="buyerName"], [class*="buyer-name"]');
+            if (buyerEl) {
+              buyerUsername = buyerEl.textContent.trim();
+            }
+
+            // 6. Trạng thái đơn hàng
+            let orderStatus = "";
+            const statusEl = container.querySelector('[data-testid="order-status"], [class*="order-status"], [class*="orderStatus"], [class*="order-card-status"], [class*="status-badge"]');
+            if (statusEl) {
+              orderStatus = statusEl.textContent.trim();
+            } else {
+              const statusMatch = containerText.match(/(Chờ xác nhận|Chờ lấy hàng|Đang giao|Đã giao|Đã hủy|Trả hàng\/Hoàn tiền|Hoàn tiền|Đang xử lý)/i);
+              if (statusMatch) orderStatus = statusMatch[1];
+            }
+
+            // 7. Tổng tiền đơn hàng
+            let totalAmount = 0;
+            const totalEl = container.querySelector('[class*="order-total"], [class*="total-price"], [class*="income-value"], [class*="payment-amount"], [class*="order-price"]');
+            if (totalEl) {
+              const numStr = totalEl.textContent.replace(/[^0-9]/g, '');
+              if (numStr) totalAmount = parseInt(numStr, 10);
+            }
+            if (!totalAmount) {
+              const totalMatch = containerText.match(/(?:Tổng tiền|Tổng thanh toán|Số tiền|Thành tiền|Tổng giá trị)[:\s]*₫?\s*([\d\.,]+)/i);
+              if (totalMatch) {
+                totalAmount = parseInt(totalMatch[1].replace(/[^0-9]/g, ''), 10) || 0;
+              }
+            }
+
+            // 8. SKU / Tên SP / Số lượng (nếu có trên card)
+            let itemSku = "";
+            let itemName = "";
+            let itemQty = 1;
+            let itemPrice = totalAmount;
+
+            const nameEl = container.querySelector('.order-item-name, [class*="product-name"], [class*="item-name"], [class*="goods-name"]');
+            if (nameEl) itemName = nameEl.textContent.trim();
+
+            const skuEl = container.querySelector('.order-item-variation, [class*="variation"], [class*="item-sku"], [class*="sku-name"], [class*="model-name"]');
+            if (skuEl) itemSku = skuEl.textContent.trim();
+
+            const qtyEl = container.querySelector('.order-item-amount, [class*="item-quantity"], [class*="item-count"], [class*="goods-num"]');
+            if (qtyEl) {
+              const qMatch = qtyEl.textContent.match(/x\s*(\d+)/i) || qtyEl.textContent.match(/(\d+)/);
+              if (qMatch) itemQty = parseInt(qMatch[1], 10) || 1;
+            }
+
+            orders.push({
+              mdh: finalMdh,
+              mvd: trackingNo,
+              linkDon: fullLink,
+              ngay: orderDate,
+              tenKhach: buyerUsername,
+              trangThai: orderStatus,
+              tongTien: totalAmount,
+              sku: itemSku,
+              tenSp: itemName,
+              slg: itemQty,
+              donGia: itemPrice,
+              thanhTien: totalAmount
+            });
+          } catch (e) {
+            console.warn("Lỗi trích xuất 1 card đơn hàng:", e);
+          }
+        });
+
+        if (orders.length === 0) {
+          // Quét fallback toàn bộ các link đơn hàng trên trang
+          const allLinks = Array.from(document.querySelectorAll('a[href*="/portal/sale/order/"]'));
+          for (const a of allLinks) {
+            const href = a.getAttribute('href') || '';
+            const m = href.match(/\/portal\/sale\/order\/(?:detail\/)?([a-zA-Z0-9_-]+)/);
+            if (m && !/^(order|list|mass|shipping|shipment|return|setting|settings|batch|all|unprocessed|toship|completed|cancelled|inprocess)$/i.test(m[1])) {
+              const sn = m[1].trim();
+              if (sn && !seenKeys.has(sn.toLowerCase())) {
+                seenKeys.add(sn.toLowerCase());
+                orders.push({
+                  mdh: sn,
+                  mvd: "",
+                  linkDon: href.startsWith('http') ? href : `https://banhang.shopee.vn${href.startsWith('/') ? '' : '/'}${href}`,
+                  ngay: "",
+                  tenKhach: "",
+                  trangThai: "",
+                  tongTien: 0,
+                  sku: "",
+                  tenSp: "",
+                  slg: 1,
+                  donGia: 0,
+                  thanhTien: 0
+                });
+              }
+            }
+          }
+
+          if (orders.length === 0) {
+            const allText = document.body.innerText;
+            const matches = allText.matchAll(/(?:Mã đơn hàng|Order SN|Mã đơn)[:\s]+([A-Z0-9]{10,25})/gi);
+            for (const m of matches) {
+              const sn = m[1].trim();
+              if (sn && !seenKeys.has(sn.toLowerCase())) {
+                seenKeys.add(sn.toLowerCase());
+                orders.push({
+                  mdh: sn,
+                  mvd: "",
+                  linkDon: `https://banhang.shopee.vn/portal/sale/order/${sn}`,
+                  ngay: "",
+                  tenKhach: "",
+                  trangThai: "",
+                  tongTien: 0,
+                  sku: "",
+                  tenSp: "",
+                  slg: 1,
+                  donGia: 0,
+                  thanhTien: 0
+                });
+              }
+            }
+          }
+        }
+
+        sendResponse({ ok: true, count: orders.length, orders });
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message, orders: [] });
+      }
+      return true;
+    }
+
+    if (message?.action === "SHOPEE_CLICK_NEXT_PAGE" || message?.type === "SHOPEE_CLICK_NEXT_PAGE") {
+      if (window.self !== window.top) return false;
+      try {
+        const nextBtn = document.querySelector(
+          '.eds-pager__next:not(.disabled):not([disabled]), ' +
+          'button.shopee-pager__next:not([disabled]), ' +
+          '[class*="pager"] button[aria-label*="next"]:not([disabled]), ' +
+          '[class*="pagination"] button:last-child:not([disabled]), ' +
+          'button.shopee-icon-button--right:not([disabled]), ' +
+          '.eds-pagination__next:not(.disabled):not([disabled]), ' +
+          '[class*="pagination"] li:last-child:not(.disabled) button, ' +
+          '.shopee-icon-next'
+        );
+
+        if (nextBtn && !nextBtn.disabled && !nextBtn.classList.contains("disabled") && !nextBtn.getAttribute("aria-disabled")?.includes("true")) {
+          nextBtn.click();
+          sendResponse({ ok: true, hasNext: true });
+        } else {
+          sendResponse({ ok: true, hasNext: false, message: "Đã ở trang cuối cùng." });
+        }
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message, hasNext: false });
+      }
+      return true;
+    }
+
+    if (message?.action === "upload_video_from_url" || message?.type === "upload_video_from_url") {
+      (async () => {
+        try {
+          const fileInput = Array.from(document.querySelectorAll('input[type="file"]'))
+            .find(input => input.accept && (input.accept.includes('video') || input.accept.includes('mp4')))
+            || document.querySelector('input[type="file"]');
+          if (!fileInput) {
+            sendResponse({ success: false, message: "Không tìm thấy khung tải video trên trang" });
+            return;
+          }
+          const response = await fetch(message.url);
+          if (!response.ok) throw new Error("Không thể tải video từ link gốc");
+          const blob = await response.blob();
+          const filename = `shopee-video-${Date.now()}.mp4`;
+          const file = new File([blob], filename, { type: "video/mp4" });
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+          fileInput.files = dataTransfer.files;
+          fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+          sendResponse({ success: true });
+        } catch (e) {
+          sendResponse({ success: false, message: e.message });
+        }
+      })();
+      return true;
+    }
+
+    if (message?.action === "GET_SHOPEE_CHAT_DATA" || message?.type === "GET_SHOPEE_CHAT_DATA") {
+      try {
+        const detailChat = document.querySelector('._3h5To4QZew, [data-cy="webchat-conversation-detail-chat"], ._2WZcuAW5Qo') || document.body;
+        let productInfo = { name: "", image: "", price: "", originalPrice: "", stock: "", sold: "", discount: "", source: "" };
+        const pinnedProduct = detailChat.querySelector('.Wy5_SjKidw, ._ki3uOms2o, [class*="pinned-product"]');
+        if (pinnedProduct) {
+          const nameEl = pinnedProduct.querySelector('.rFHc1_XxbI, .CFm21BsdMu, [class*="title"]');
+          if (nameEl) productInfo.name = nameEl.textContent.trim();
+          const imgEl = pinnedProduct.querySelector('img.EOkaqhE5Vk, img');
+          if (imgEl) productInfo.image = imgEl.src || "";
+          const priceEl = pinnedProduct.querySelector('.izywe_mFbr, [class*="price"]');
+          if (priceEl) productInfo.price = priceEl.textContent.trim();
+          const origPriceEl = pinnedProduct.querySelector('.NY59qgWgc3, [class*="origin-price"]');
+          if (origPriceEl) productInfo.originalPrice = origPriceEl.textContent.trim();
+          productInfo.source = "Thẻ sản phẩm ghim đầu chat";
+        }
+        const messages = [];
+        let lastCustomerMessage = "";
+        const rawMsgElements = Array.from(detailChat.querySelectorAll('#messagesContainer .DEwekPN7v2, #messagesContainer .RtO616EACf, [data-cy^="webchat-message"]'));
+        const msgElements = rawMsgElements.filter(el => !rawMsgElements.some(other => other !== el && other.contains(el)));
+        msgElements.forEach(msgEl => {
+          const isReceive = msgEl.querySelector('[data-cy="webchat-message-receive"]') || msgEl.classList.contains('x_vjYCA89K') || msgEl.getAttribute('data-cy') === 'webchat-message-receive';
+          const isSend = msgEl.querySelector('[data-cy="webchat-message-send"]') || msgEl.classList.contains('IjkExKWyR_') || msgEl.getAttribute('data-cy') === 'webchat-message-send';
+          const sender = isReceive ? "customer" : (isSend ? "shop" : "system");
+          const isAutoReply = !!msgEl.querySelector('.ufjjFujTb2, [class*="autoreply"]');
+          const timeEl = msgEl.querySelector('.sSIhmxFOh6, .pE0ax8leZo, .ps7_zN15iV');
+          const timeStr = timeEl ? timeEl.textContent.trim() : "";
+          let text = "";
+          const textContainer = msgEl.querySelector('.w2C67vtnXi, .FkK7VxR2qX, .i6xFxbUJy0');
+          if (textContainer) {
+            const clone = textContainer.cloneNode(true);
+            clone.querySelectorAll('.sSIhmxFOh6, .pE0ax8leZo, .ujrf_CG21r, .ChatbotUI-icon, svg').forEach(x => x.remove());
+            text = clone.textContent.trim();
+          }
+          if (text) {
+            messages.push({ sender, text, time: timeStr, isAutoReply });
+            if (sender === "customer") lastCustomerMessage = text;
+          }
+        });
+        sendResponse({ ok: true, url: window.location.href, product: productInfo, messages: messages.slice(-15), lastCustomerQuestion: lastCustomerMessage });
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message });
+      }
+      return true;
+    }
+
+    if (message?.action === "FILL_SHOPEE_CHAT_INPUT" || message?.type === "FILL_SHOPEE_CHAT_INPUT") {
+      try {
+        const textarea = document.querySelector('textarea.E2MWg3w8y6, [data-cy="webchat-conversation-detail-input"] textarea, #inputField textarea, textarea[placeholder*="tin nhắn"], textarea');
+        if (textarea) {
+          textarea.focus();
+          const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
+          if (nativeSetter) nativeSetter.call(textarea, message.text || "");
+          else textarea.value = message.text || "";
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          textarea.dispatchEvent(new Event('change', { bubbles: true }));
+          if (message.autoSend) {
+            setTimeout(() => {
+              const sendBtn = document.querySelector('.XsR3zIeGOc, .kgP1yPCqxR, [data-cy="webchat-conversation-detail-input"] [class*="send"]');
+              if (sendBtn) sendBtn.click();
+              else textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true }));
+            }, 300);
+          }
+          sendResponse({ ok: true });
+        } else {
+          sendResponse({ ok: false, error: "Không tìm thấy ô nhập tin nhắn" });
+        }
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message });
+      }
+      return true;
+    }
+
+    if (message?.action === "SHOPEE_FETCH_ORDER_PAGE" || message?.type === "SHOPEE_FETCH_ORDER_PAGE") {
+      (async () => {
+        try {
+          const { page = 1, pageSize = 40, status = "all", startTime, endTime } = message;
+          const endpoints = [];
+          if (startTime && endTime) {
+            endpoints.push(`/api/v3/order/search_order_list?page_number=${page}&page_size=${pageSize}&order_status=${encodeURIComponent(status)}&source_type=all&start_time=${startTime}&end_time=${endTime}`);
+          }
+          endpoints.push(`/api/v3/order/get_order_list?page_number=${page}&page_size=${pageSize}&total=0&source=&order_status=${encodeURIComponent(status)}&source_type=all`);
+          for (const url of endpoints) {
+            try {
+              const res = await fetch(url, { method: "GET", credentials: "include", headers: { "Accept": "application/json, text/plain, */*" } });
+              if (!res.ok) continue;
+              const json = await res.json();
+              if (json && (json.data || json.orders || json.order_list || json.code === 0)) {
+                sendResponse({ ok: true, data: json });
+                return;
+              }
+            } catch (e) {}
+          }
+          sendResponse({ ok: false, error: "Không thể tải dữ liệu API Shopee" });
+        } catch (err) {
+          sendResponse({ ok: false, error: err.message });
+        }
+      })();
+      return true;
+    }
+
+    if (message?.action === "SHOPEE_FETCH_ORDER_DETAIL_API" || message?.type === "SHOPEE_FETCH_ORDER_DETAIL_API") {
+      (async () => {
+        try {
+          const { orderId } = message;
+          if (!orderId) throw new Error("Thiếu orderId");
+          const res = await fetch(`/api/v3/order/get_order_detail?order_id=${encodeURIComponent(orderId)}`, {
+            method: "GET",
+            credentials: "include",
+            headers: { "Accept": "application/json, text/plain, */*" }
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const json = await res.json();
+          sendResponse({ ok: true, data: json });
+        } catch (err) {
+          sendResponse({ ok: false, error: err.message });
+        }
+      })();
+      return true;
+    }
+
     if (message?.type) {
       return false;
     }
@@ -7753,10 +8194,30 @@ function downloadExcelFileBypass(wb, filename) {
     return `https://banhang.shopee.vn/portal/sale/order`;
   }
 
-  function handleDhHoanAction(action, orderIdEl, btn) {
-      const data = extractReturnRowData(orderIdEl);
+  function handleDhHoanAction(action, orderIdEl, btn, customData = null) {
+      let data = customData;
+      if (!data && orderIdEl) {
+          data = extractReturnRowData(orderIdEl);
+      }
       if (!data || !data.orderId) {
-          alert("Không tìm thấy Mã đơn hàng trên dòng này!");
+          let oId = extractSellerOrderIdFromPage();
+          if (!oId) {
+              const urlMatch = window.location.pathname.match(/\/portal\/sale\/order\/(?:detail\/)?([0-9A-Z]{8,})/i);
+              if (urlMatch && urlMatch[1] && !/^(order|list|mass|shipping|return|setting|batch|all)$/i.test(urlMatch[1])) {
+                  oId = urlMatch[1].trim();
+              }
+          }
+          if (oId) {
+              const pkg = extractSellerOrderPackageInfo() || {};
+              const tracking = pkg.tracking || "";
+              const returnId = extractSellerOrderReturnId() || "";
+              const reason = extractSellerOrderCancelOrReturnReason() || "";
+              data = { orderId: oId, tracking, returnId, reason };
+          }
+      }
+
+      if (!data || !data.orderId) {
+          alert("Không tìm thấy Mã đơn hàng!");
           return;
       }
       
@@ -7813,9 +8274,51 @@ function downloadExcelFileBypass(wb, filename) {
                       cachedDhHoanIds.add(data.orderId);
                       cachedDhHoanStatusMap.set(data.orderId, action);
                       updateCopyButtonColors();
+                      if (typeof updateOrderDetailButtonsStatus === "function") {
+                          updateOrderDetailButtonsStatus(data.orderId);
+                      }
                       resetBtnState("OK!", 2000);
                   } else if (response && (response.notFound || (response.error && response.error.includes("Không tìm thấy Mã đơn hàng")))) {
-                      // Chưa có trong Sheet DH -> Mở trực tiếp 1 cửa sổ Chrome mới (tuyệt đối không gọi .click() để tránh mở đúp 2 tab)
+                      // Nếu đang ở ngay trang chi tiết đơn hàng (/portal/sale/order/*) -> Tự động lưu đơn hàng vào Sheet DH luôn!
+                      if (typeof isSellerOrderDetailPage === "function" && isSellerOrderDetailPage()) {
+                          btn.textContent = "⏳ Lưu vào DH...";
+                          (async () => {
+                              try {
+                                  const orderDetail = await extractSellerOrderDetailFullData();
+                                  if (orderDetail && orderDetail.ok && orderDetail.rows && orderDetail.rows.length > 0) {
+                                      const dhValues = await buildDhValuesFromDetail(orderDetail.rows, maGian);
+                                      const sampleMdh = orderDetail.orderId || orderDetail.rows[0]?.orderId || data.orderId;
+                                      const sampleMvd = orderDetail.packageInfo?.tracking || orderDetail.rows[0]?.tracking || data.tracking || "";
+
+                                      chrome.runtime.sendMessage({
+                                          type: "SAVE_DH_ORDER",
+                                          values: dhValues,
+                                          mdh: sampleMdh,
+                                          mvd: sampleMvd
+                                      }, (saveRes) => {
+                                          if (saveRes && saveRes.ok) {
+                                              btn.textContent = "⏳ Cập nhật...";
+                                              lastFetchDonHangMdhTime = 0;
+                                              if (typeof updateDonHangMdhCache === "function") updateDonHangMdhCache(true);
+                                              sendUpdateReq(true);
+                                          } else {
+                                              resetBtnState("Lỗi!", 2500);
+                                              alert("Không thể lưu đơn vào Sheet DH: " + (saveRes?.error || "Lỗi không xác định"));
+                                          }
+                                      });
+                                  } else {
+                                      resetBtnState("Lỗi!", 2500);
+                                      alert(`Không tìm thấy đơn hàng "${data.orderId}" trong Sheet DH và không thể đọc dữ liệu đơn trên trang để lưu.`);
+                                  }
+                              } catch (saveErr) {
+                                  resetBtnState("Lỗi!", 2500);
+                                  alert("Lỗi khi tự động lưu đơn: " + saveErr.message);
+                              }
+                          })();
+                          return;
+                      }
+
+                      // Chưa có trong Sheet DH (ở trang danh sách hoàn tiền) -> Mở trực tiếp 1 cửa sổ Chrome mới (tuyệt đối không gọi .click() để tránh mở đúp 2 tab)
                       btn.textContent = "⏳ Mở Chrome...";
                       const targetUrl = findOrderRowHref(orderIdEl, data.orderId);
                       chrome.runtime.sendMessage({
@@ -8113,8 +8616,8 @@ function downloadExcelFileBypass(wb, filename) {
     const searchMatch = location.search.match(/order_sn=([0-9]{6}[A-Z0-9]{6,12})/i);
     if (searchMatch && /[A-Z]/i.test(searchMatch[1])) return searchMatch[1].toUpperCase();
 
-    // 6. Pathname chỉ lấy nếu có chứa chữ cái (Order SN thực sự), TUYỆT ĐỐI KHÔNG lấy dãy số ID nội bộ (240520694230100)
-    const urlMatch = location.pathname.match(/\/sale\/order\/(2[0-9]{5}[A-Z0-9]{7,10})/i);
+    // 6. Pathname chỉ lấy nếu có chứa chữ cái (Order SN thực sự, ví dụ 2609032Y4756JF), TUYỆT ĐỐI KHÔNG lấy dãy số ID nội bộ (242102147201615)
+    const urlMatch = location.pathname.match(/\/sale\/order\/(?:detail\/)?(2[0-9]{5}[A-Z0-9]{7,10})/i);
     if (urlMatch && /[A-Z]/i.test(urlMatch[1])) return urlMatch[1].toUpperCase();
 
     return "";
@@ -8269,36 +8772,51 @@ function downloadExcelFileBypass(wb, filename) {
           const cleanLabel = cleanOrderDetailText(label);
           const cleanValue = cleanOrderDetailText(value);
           if (!cleanLabel || !cleanValue || !extractOrderMoneyValues(cleanValue).length) return;
-          const key = `${normalizeOrderDetailText(cleanLabel)}|||${cleanValue}`;
+          const norm = normalizeOrderDetailText(cleanLabel);
+          const key = `${norm}|||${cleanValue}`;
           if (!items.some((item) => item.key === key)) {
-              items.push({ key, label: cleanLabel, normalizedLabel: normalizeOrderDetailText(cleanLabel), value: cleanValue });
+              items.push({ key, label: cleanLabel, normalizedLabel: norm, value: cleanValue });
           }
       };
 
-      const itemContainers = document.querySelectorAll(
-        ".income-item, .income-detail-item, .payment-item, .order-income-item, " +
-        "[class*='income-item'], [class*='incomeItem'], [class*='cost-item'], " +
-        ".order-income-section div, .order-panel-income div, .order-income div"
-      );
-      itemContainers.forEach((item) => {
+      // Tìm đúng các khối Doanh thu / Chi phí của Shopee (Bỏ qua hoàn toàn các khối tiện ích chèn vào)
+      const incomeRoots = Array.from(document.querySelectorAll(
+        ".order-income-section, .order-panel-income, .order-income, .income-section, " +
+        "[class*='order-income'], [class*='income-detail'], [data-testid*='income'], [data-testid*='payment'], .income-info"
+      )).filter(el => !el.closest("#ext-sidebar-root, .ext-panel, .shopee-qlsp-container, [id*='nhieu-don'], [id*='tab-']"));
+
+      const searchRoots = incomeRoots.length > 0 ? incomeRoots : [document.body];
+
+      for (const root of searchRoots) {
+        const itemContainers = root.querySelectorAll(
+          ".income-item, .income-detail-item, .payment-item, .order-income-item, " +
+          "[class*='income-item'], [class*='incomeItem'], [class*='cost-item'], .item, tr, dt"
+        );
+        itemContainers.forEach((item) => {
+          if (item.closest("#ext-sidebar-root, .ext-panel, .shopee-qlsp-container, [id*='nhieu-don'], [id*='tab-']")) return;
+
           const labelEl = item.querySelector(".income-label-text, .label, .income-label, [class*='label'], [class*='title'], dt, span:first-child");
           const valueEl = item.querySelector(".income-value, .amount, .value, [class*='value'], [class*='amount'], dd, span:last-child");
           if (labelEl && valueEl && labelEl !== valueEl) {
             addItem(labelEl.textContent || "", valueEl.textContent || "");
           }
-      });
+        });
 
-      const lines = getOrderDetailLines();
-      for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          const sameLineMoney = extractOrderMoneyValues(line);
-          if (sameLineMoney.length) {
+        // Chỉ quét text các dòng nằm trong đúng khối incomeRoots của Shopee
+        if (root !== document.body) {
+          const lines = getOrderDetailLines(root);
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const sameLineMoney = extractOrderMoneyValues(line);
+            if (sameLineMoney.length) {
               const label = line.replace(sameLineMoney[sameLineMoney.length - 1], "").trim();
               if (label) addItem(label, sameLineMoney[sameLineMoney.length - 1]);
-          }
-          if (lines[i + 1] && extractOrderMoneyValues(lines[i + 1]).length) {
+            }
+            if (lines[i + 1] && extractOrderMoneyValues(lines[i + 1]).length) {
               addItem(line, lines[i + 1]);
+            }
           }
+        }
       }
 
       return items;
@@ -8349,6 +8867,8 @@ function downloadExcelFileBypass(wb, filename) {
           const seenProductKeys = new Set();
 
           for (const container of productContainers) {
+              const rowElement = container.closest('tr, [class*="table__row"], [class*="table-row"], [class*="order-item-row"], [class*="item-row"], [role="row"]') || container.parentElement || container;
+
               const clone = container.cloneNode(true);
               clone.querySelectorAll('button, .ext-copy-sku-btn, .ext-copy-prod-name-btn, .ext-open-product-wrapper, .ext-product-actions-footer, .shopee-qlsp-sku-display, .shopee-qlsp-copy-button, .btn-copy-price, .injected-sku-ct').forEach(n => n.remove());
 
@@ -8398,48 +8918,126 @@ function downloadExcelFileBypass(wb, filename) {
               finalSku = finalSku.replace(/copy\s*sku|sao\s*ch[eé]p/gi, '').trim();
               if (!finalSku) finalSku = titleBracketCode || "SP";
 
-              // 3. BÓC TÁCH SỐ LƯỢNG CHÍNH XÁC (DOM + TỶ LỆ GIÁ TIỀN)
+              // 3. BÓC TÁCH SỐ LƯỢNG CHÍNH XÁC (TỪ CỘT BẢNG / DOM HÀNG / TỶ LỆ TIỀN)
               let quantity = "";
-              
-              const qtyCandidates = Array.from(clone.querySelectorAll(
-                ".ct-item-product-num, .ct-item-product-qty, .qty, .quantity, [class*='qty'], [class*='quantity'], [class*='num'], [class*='count'], td, div, span"
-              ));
-              for (const el of qtyCandidates) {
-                const txt = (el.innerText || el.textContent || "").trim();
-                if (/^[xX*×]?\s*([1-9]\d{0,3})\s*$/.test(txt) && !el.querySelector('*')) {
-                  const m = txt.match(/^[xX*×]?\s*([1-9]\d{0,3})\s*$/);
+              let unitPriceFromRow = "";
+
+              // 3.1. Tìm từ bảng: Xác định vị trí cột "Số lượng" từ Header thead
+              const tableEl = rowElement.closest('table');
+              if (tableEl) {
+                const headerEls = Array.from(tableEl.querySelectorAll('thead th, thead td, th'));
+                const qtyColIdx = headerEls.findIndex(th => {
+                  const hText = (th.textContent || "").trim().toLowerCase();
+                  return hText === "số lượng" || hText === "so luong" || hText === "qty" || hText === "quantity" || hText.includes("số lượng");
+                });
+                const unitPriceColIdx = headerEls.findIndex(th => {
+                  const hText = (th.textContent || "").trim().toLowerCase();
+                  return hText === "đơn giá" || hText === "don gia" || hText === "unit price" || hText.includes("đơn giá");
+                });
+
+                const cells = Array.from(rowElement.querySelectorAll('td, th'));
+                if (qtyColIdx !== -1 && cells[qtyColIdx]) {
+                  const cText = (cells[qtyColIdx].innerText || cells[qtyColIdx].textContent || "").trim();
+                  const m = cText.match(/^[xX*×]?\s*([1-9]\d{0,4})\s*$/);
                   if (m) {
                     quantity = m[1];
-                    break;
                   }
                 }
-                if (/(?:số lượng|sl|qty|quantity)\s*:\s*([1-9]\d{0,3})/i.test(txt)) {
-                  const m = txt.match(/(?:số lượng|sl|qty|quantity)\s*:\s*([1-9]\d{0,3})/i);
-                  if (m) {
-                    quantity = m[1];
-                    break;
+                if (unitPriceColIdx !== -1 && cells[unitPriceColIdx]) {
+                  const uText = (cells[unitPriceColIdx].innerText || cells[unitPriceColIdx].textContent || "").trim();
+                  const mU = extractOrderMoneyValues(uText);
+                  if (mU.length > 0) {
+                    unitPriceFromRow = mU[0];
                   }
                 }
               }
 
-              const rawMoneyMatches = extractOrderMoneyValues(clone.innerText || clone.textContent || "");
-              const numericAmounts = rawMoneyMatches.map(parseSellerOrderMoneyNumber).filter(n => n > 0);
-              
-              if (numericAmounts.length >= 2) {
-                const p1 = numericAmounts[0];
-                const p2 = numericAmounts[1];
-                if (p1 > 0 && p2 > 0) {
-                  if (p2 > p1 && p2 % p1 === 0) {
-                    const calcQty = Math.round(p2 / p1);
-                    if (calcQty >= 1 && calcQty <= 1000) {
-                      quantity = String(calcQty);
+              // 3.2. Quét DOM trong rowElement tìm nhãn / ô số lượng
+              if (!quantity || quantity === "1") {
+                const rowCells = Array.from(rowElement.querySelectorAll('td, .eds-table__cell, .shopee-table__cell, [class*="cell"]'));
+                for (let cIdx = 0; cIdx < rowCells.length; cIdx++) {
+                  const cell = rowCells[cIdx];
+                  // Bỏ qua cột đầu tiên (STT) nếu có nhiều cột
+                  if (cIdx === 0 && rowCells.length > 2) continue;
+                  // Bỏ qua ô chứa tên sản phẩm
+                  if (cell.querySelector('.product-name, [class*="product-name"], .ct-item-product-name, .item-name')) continue;
+
+                  const cText = (cell.innerText || cell.textContent || "").trim();
+                  // Nhận diện số lượng nguyên vẹn (ví dụ: "12", "x12", "x 12")
+                  if (/^[xX*×]?\s*([1-9]\d{0,4})\s*$/.test(cText) && !cText.includes('.')) {
+                    const numVal = parseInt(cText.replace(/[^0-9]/g, ''), 10);
+                    if (numVal >= 1 && numVal <= 10000) {
+                      quantity = String(numVal);
+                      break;
                     }
                   }
                 }
               }
 
+              // 3.3. Tìm qua class qty/quantity
+              if (!quantity || quantity === "1") {
+                const qtyCandidates = Array.from(rowElement.querySelectorAll(
+                  ".ct-item-product-num, .ct-item-product-qty, .qty, .quantity, [class*='qty'], [class*='quantity'], [class*='num'], [class*='count']"
+                ));
+                for (const el of qtyCandidates) {
+                  if (el.children.length === 0) {
+                    const txt = (el.innerText || el.textContent || "").trim();
+                    if (/^[xX*×]?\s*([1-9]\d{0,4})\s*$/.test(txt)) {
+                      const m = txt.match(/^[xX*×]?\s*([1-9]\d{0,4})\s*$/);
+                      if (m) {
+                        quantity = m[1];
+                        break;
+                      }
+                    }
+                    if (/(?:số lượng|sl|qty|quantity)\s*:\s*([1-9]\d{0,4})/i.test(txt)) {
+                      const m = txt.match(/(?:số lượng|sl|qty|quantity)\s*:\s*([1-9]\d{0,4})/i);
+                      if (m) {
+                        quantity = m[1];
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+
+              // 3.4. Tính toán qua tỷ lệ tiền trong hàng: Thành tiền / Đơn giá (Ví dụ: 2.760.000 / 230.000 = 12)
+              const rawMoneyMatches = extractOrderMoneyValues(rowElement.innerText || rowElement.textContent || "");
+              const numericAmounts = rawMoneyMatches.map(parseSellerOrderMoneyNumber).filter(n => n > 0);
+              
+              if (numericAmounts.length >= 2) {
+                const sortedPrices = [...new Set(numericAmounts)].sort((a, b) => a - b);
+                for (let i = 0; i < sortedPrices.length; i++) {
+                  for (let j = i + 1; j < sortedPrices.length; j++) {
+                    const pLow = sortedPrices[i];
+                    const pHigh = sortedPrices[j];
+                    if (pLow > 0 && pHigh > 0 && pHigh % pLow === 0) {
+                      const calcQty = Math.round(pHigh / pLow);
+                      if (calcQty >= 1 && calcQty <= 10000) {
+                        if (!quantity || quantity === "1") {
+                          quantity = String(calcQty);
+                        }
+                        if (!unitPriceFromRow) {
+                          unitPriceFromRow = String(pLow);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+
+              // Bỏ qua container nếu không có bất kỳ thông tin sản phẩm nào (tên SP, SKU, phân loại, tiền)
+              if (!productName && !skuFromMeta && !variationName && !titleBracketCode && rawMoneyMatches.length === 0) {
+                  continue;
+              }
+
               if (!quantity || quantity === "0") quantity = "1";
-              const productPrice = rawMoneyMatches[0] || "";
+              
+              // Xác định giá sản phẩm (đơn giá)
+              let productPrice = unitPriceFromRow || rawMoneyMatches[0] || "";
+              if (numericAmounts.length >= 2) {
+                const sortedPrices = [...new Set(numericAmounts)].sort((a, b) => a - b);
+                productPrice = String(sortedPrices[0]);
+              }
 
               // Chống thêm dòng sản phẩm trùng lặp trong cùng 1 đơn
               const prodKey = `${finalSku}_${quantity}_${productPrice}_${productName.substring(0, 20)}`;
@@ -8451,7 +9049,9 @@ function downloadExcelFileBypass(wb, filename) {
           if (results.length > 0) return results;
       }
 
-      return [{ sku: "SP", quantity: "1", productPrice: "" }];
+      // Chỉ fallback nếu trang có mã đơn hàng thực sự
+      const hasOrderOnPage = typeof extractSellerOrderIdFromPage === "function" && Boolean(extractSellerOrderIdFromPage());
+      return hasOrderOnPage ? [{ sku: "SP", quantity: "1", productPrice: "" }] : [];
   }
 
   function parseSellerOrderMoneyNumber(value) {
@@ -8570,20 +9170,108 @@ function downloadExcelFileBypass(wb, filename) {
     return { tenKhach, ngNhan, diaChi, linkDon };
   }
 
+  async function waitForOrderDetailDOMReady(maxWaitMs = 12000) {
+    const start = Date.now();
+    let prevCount = 0;
+    let stableCycles = 0;
+
+    while (Date.now() - start < maxWaitMs) {
+      const orderId = extractSellerOrderIdFromPage();
+      const createdAt = extractSellerOrderCreatedAt();
+      const products = extractSellerOrderProducts();
+      
+      const hasOrderId = Boolean(orderId && orderId.length >= 8);
+      const hasCreatedAt = Boolean(createdAt && createdAt.length >= 6);
+
+      // Đảm bảo tất cả các dòng sản phẩm trong bảng đã hiển thị đầy đủ tên, giá và số lượng
+      const hasValidProducts = products.length > 0 && products.every(p => {
+        const hasName = Boolean(p.productName && p.productName.length >= 2);
+        const hasPrice = parseSellerOrderMoneyNumber(p.productPrice) > 0 || parseSellerOrderMoneyNumber(p.itemTotal) > 0;
+        const hasQty = (parseInt(p.quantity || "0", 10) || 0) > 0;
+        return hasName && hasPrice && hasQty;
+      });
+
+      const paymentItems = collectSellerOrderPaymentItems();
+      const totalAmount = findSellerOrderPaymentValue(paymentItems, ["tong tien san pham", "tong tien hang", "tong gia ban", "tong tien", "gia san pham"]);
+      const income = findSellerOrderPaymentValue(paymentItems, ["doanh thu don hang uoc tinh", "doanh thu don hang", "thuc nhan", "so tien thanh toan"]);
+      const hasPayment = Boolean(totalAmount || income);
+
+      const hasLoadingSpinner = Boolean(document.querySelector('.shopee-loading-spinner, .eds-loading, [class*="skeleton"], [class*="loading-spinner"]'));
+
+      // Khi tất cả dữ liệu cốt lõi đã có và không còn spinner -> Kiểm tra tính ổn định trong 2 nhịp liên tiếp
+      if (hasOrderId && hasCreatedAt && hasValidProducts && hasPayment && !hasLoadingSpinner) {
+        if (products.length === prevCount) {
+          stableCycles++;
+          if (stableCycles >= 2) {
+            return true;
+          }
+        } else {
+          prevCount = products.length;
+          stableCycles = 1;
+        }
+      } else {
+        stableCycles = 0;
+        prevCount = products.length;
+      }
+
+      await new Promise(r => setTimeout(r, 200));
+    }
+    return false;
+  }
+
   async function extractSellerOrderDetailFullData() {
       if (!location.pathname.startsWith("/portal/sale/order")) {
           return { ok: false, error: "Hãy mở trang chi tiết đơn hàng Shopee trước." };
       }
 
+      if (typeof isSellerOrderDetailPage === "function" && !isSellerOrderDetailPage()) {
+          return { ok: false, error: "Trang hiện tại không phải là trang chi tiết đơn hàng Shopee." };
+      }
+
+      // ⏳ Chờ cho bảng sản phẩm và chi tiết đơn hàng Shopee tải xong đầy đủ trước khi đọc
+      await waitForOrderDetailDOMReady(10000);
+
       const orderId = extractSellerOrderIdFromPage();
+      if (!orderId) {
+          return { ok: false, error: "Chưa tải xong hoặc không tìm thấy Mã đơn hàng trên trang." };
+      }
+
       const packageInfo = extractSellerOrderPackageInfo();
       const orderCreatedAt = extractSellerOrderCreatedAt();
       const customerInfo = extractSellerOrderCustomerInfo();
       const paymentItems = collectSellerOrderPaymentItems();
       const products = extractSellerOrderProducts();
 
-      let totalProductAmount = findSellerOrderPaymentValue(paymentItems, ["tong tien san pham", "tong tien hang", "tong gia ban", "tong tien", "gia san pham"]);
-      const productPrice = findSellerOrderPaymentValue(paymentItems, ["gia san pham"]);
+      // 🔍 TRÍCH XUẤT CHÍNH XÁC TỪ .income-container CỦA SHOPEE (THÔNG TIN DOANH THU NGƯỜI BÁN)
+      const incomeContainer = document.querySelector(".income-container, [class*='income-container'], .order-income-section, .order-panel-income, .order-income");
+      const incomeItems = [];
+      if (incomeContainer) {
+        const rows = incomeContainer.querySelectorAll(".income-item");
+        rows.forEach(row => {
+          if (row.closest("#ext-sidebar-root, .ext-panel, .shopee-qlsp-container, [id*='nhieu-don'], [id*='tab-']")) return;
+          const labelEl = row.querySelector(".income-label-text, .income-label, .label, [class*='label']");
+          const valueEl = row.querySelector(".income-value, .amount, .value, [class*='value']");
+          if (labelEl && valueEl) {
+            const clone = labelEl.cloneNode(true);
+            clone.querySelectorAll(".eds-popover, .payment-tooltip, svg, i, button").forEach(n => n.remove());
+            const labelText = cleanOrderDetailText(clone.textContent).trim();
+            const valueText = cleanOrderDetailText(valueEl.textContent).trim();
+            if (labelText && valueText) {
+              incomeItems.push({
+                label: labelText,
+                normalizedLabel: normalizeOrderDetailText(labelText),
+                value: valueText,
+                amount: parseSellerOrderMoneyNumber(valueText)
+              });
+            }
+          }
+        });
+      }
+
+      const activePaymentItems = incomeItems.length > 0 ? incomeItems : paymentItems;
+
+      let totalProductAmount = findSellerOrderPaymentValue(activePaymentItems, ["tong tien san pham", "tong tien hang", "tong gia ban", "tong tien", "gia san pham"]);
+      const productPrice = findSellerOrderPaymentValue(activePaymentItems, ["gia san pham"]);
 
       // Fallback nếu chưa bắt được tổng tiền sản phẩm: tính từ dòng sản phẩm
       if (!totalProductAmount || parseSellerOrderMoneyNumber(totalProductAmount) === 0) {
@@ -8598,15 +9286,34 @@ function downloadExcelFileBypass(wb, filename) {
         }
       }
 
-      const estimatedShippingTotal = findSellerOrderPaymentValue(paymentItems, ["tong phi van chuyen uoc tinh", "tong phi van chuyen", "phi van chuyen uoc tinh", "phi van chuyen"]);
-      const buyerPaidShippingFee = findSellerOrderPaymentValue(paymentItems, ["phi van chuyen nguoi mua tra"]);
-      const estimatedShippingFee = findSellerOrderPaymentValue(paymentItems, ["phi van chuyen uoc tinh"]);
+      let netShippingFee = 0;
+      const tongPhiVcVal = findSellerOrderPaymentValue(activePaymentItems, [
+        "tong phi van chuyen uoc tinh",
+        "tong phi van chuyen",
+        "phi van chuyen nguoi ban tra",
+        "phi van chuyen nguoi ban chiu",
+        "phi vc"
+      ]);
+      if (tongPhiVcVal && parseSellerOrderMoneyNumber(tongPhiVcVal) > 0) {
+        netShippingFee = parseSellerOrderMoneyNumber(tongPhiVcVal);
+      } else {
+        const rawEstShipping = parseSellerOrderMoneyNumber(findSellerOrderPaymentValue(activePaymentItems, ["phi van chuyen uoc tinh", "phi van chuyen"]));
+        const shopeeShippingRebate = parseSellerOrderMoneyNumber(findSellerOrderPaymentValue(activePaymentItems, ["phi van chuyen duoc tro gia tu shopee uoc tinh", "phi van chuyen duoc tro gia tu shopee", "phi van chuyen duoc tro gia", "tro gia phi van chuyen"]));
+        const buyerPaidShippingFee = findSellerOrderPaymentValue(activePaymentItems, ["phi van chuyen nguoi mua tra"]);
+        const numBuyerPaid = parseSellerOrderMoneyNumber(buyerPaidShippingFee);
+        if (rawEstShipping > 0) {
+          netShippingFee = Math.max(0, rawEstShipping - shopeeShippingRebate - numBuyerPaid);
+        }
+      }
+      const estimatedShippingTotal = String(netShippingFee);
+      const buyerPaidShippingFee = findSellerOrderPaymentValue(activePaymentItems, ["phi van chuyen nguoi mua tra"]);
+      const estimatedShippingFee = findSellerOrderPaymentValue(activePaymentItems, ["tong phi van chuyen uoc tinh", "tong phi van chuyen", "phi van chuyen uoc tinh", "phi van chuyen"]);
       
-      const fixedFee = findSellerOrderPaymentValue(paymentItems, ["phi co dinh"]);
-      const serviceFee = findSellerOrderPaymentValue(paymentItems, ["phi dich vu"]);
-      const transactionFee = findSellerOrderPaymentValue(paymentItems, ["phi xu ly giao dich", "phi thanh toan", "phi giao dich"]);
+      const fixedFee = findSellerOrderPaymentValue(activePaymentItems, ["phi co dinh"]);
+      const serviceFee = findSellerOrderPaymentValue(activePaymentItems, ["phi dich vu"]);
+      const transactionFee = findSellerOrderPaymentValue(activePaymentItems, ["phi xu ly giao dich", "phi thanh toan", "phi giao dich"]);
       
-      let surcharge = findSellerOrderPaymentValue(paymentItems, ["tong phi san", "phi san", "phu phi", "phi nguoi ban phai tra", "chi phi san"]);
+      let surcharge = findSellerOrderPaymentValue(activePaymentItems, ["tong phi san", "phi san", "phu phi", "phi nguoi ban phai tra", "chi phi san"]);
       if (!surcharge || parseSellerOrderMoneyNumber(surcharge) === 0) {
         const subFeeSum = parseSellerOrderMoneyNumber(fixedFee) + parseSellerOrderMoneyNumber(serviceFee) + parseSellerOrderMoneyNumber(transactionFee);
         if (subFeeSum > 0) {
@@ -8614,9 +9321,9 @@ function downloadExcelFileBypass(wb, filename) {
         }
       }
 
-      const vatTax = findSellerOrderPaymentValue(paymentItems, ["thue gtgt", "thue gia tri gia tang"]);
-      const pitTax = findSellerOrderPaymentValue(paymentItems, ["thue tncn", "thue thu nhap ca nhan"]);
-      let tax = findSellerOrderPaymentValue(paymentItems, ["tong thue", "thue"]);
+      const vatTax = findSellerOrderPaymentValue(activePaymentItems, ["thue gtgt", "thue gia tri gia tang"]);
+      const pitTax = findSellerOrderPaymentValue(activePaymentItems, ["thue tncn", "thue thu nhap ca nhan"]);
+      let tax = findSellerOrderPaymentValue(activePaymentItems, ["tong thue", "thue"]);
       if (!tax || parseSellerOrderMoneyNumber(tax) === 0) {
         const taxSum = parseSellerOrderMoneyNumber(vatTax) + parseSellerOrderMoneyNumber(pitTax);
         if (taxSum > 0) {
@@ -8624,7 +9331,23 @@ function downloadExcelFileBypass(wb, filename) {
         }
       }
 
-      const estimatedOrderIncome = findSellerOrderPaymentValue(paymentItems, ["doanh thu don hang uoc tinh", "doanh thu don hang", "thuc nhan", "so tien thanh toan"]);
+      const estimatedOrderIncome = findSellerOrderPaymentValue(activePaymentItems, ["doanh thu don hang uoc tinh", "doanh thu don hang", "thuc nhan", "so tien thanh toan"]);
+
+      // 🔍 MÃ GIẢM GIÁ CỦA SHOP: CHỈ LẤY TỪ MỤC "Trợ giá" / "Mã giảm giá của shop" trong .income-container
+      // NẾU TRONG .income-container KHÔNG CÓ THÌ MÃ GIẢM GIÁ = 0! (KHÔNG BAO GIỜ LẤY TỪ MỤC "Thanh toán của Người Mua" Ở DƯỚI)
+      let shopVoucher = "0";
+
+      for (const item of activePaymentItems) {
+        const lbl = item.normalizedLabel;
+        if (lbl.includes("phi van chuyen") || lbl.includes("van chuyen") || lbl.includes("shopee") || lbl.includes("nguoi mua")) continue;
+        if (lbl === "tro gia" || lbl.startsWith("tro gia") || lbl.includes("ma giam gia cua shop") || lbl.includes("voucher cua shop") || lbl.includes("tro gia tu nguoi ban") || lbl.includes("voucher cua nguoi ban")) {
+          const num = parseSellerOrderMoneyNumber(item.value);
+          if (num > 0) {
+            shopVoucher = String(num);
+            break;
+          }
+        }
+      }
 
       const payments = {
           totalProductAmount,
@@ -8632,6 +9355,8 @@ function downloadExcelFileBypass(wb, filename) {
           estimatedShippingTotal,
           buyerPaidShippingFee,
           estimatedShippingFee,
+          shopVoucher,
+          maGiamGia: shopVoucher,
           surcharge,
           fixedFee,
           serviceFee,
@@ -8639,7 +9364,7 @@ function downloadExcelFileBypass(wb, filename) {
           tax,
           vatTax,
           pitTax,
-          buyerValueAddedServiceTotal: findSellerOrderPaymentValue(paymentItems, ["tong phu dich vu gia tri gia tang cho nguoi mua", "tong phu dv gtgt"]),
+          buyerValueAddedServiceTotal: findSellerOrderPaymentValue(activePaymentItems, ["tong phu dịch vu gia tri gia tang cho nguoi mua", "tong phu dv gtgt"]),
           estimatedOrderIncome
       };
       const profitData = await calculateSellerOrderProfitData(products, payments);
@@ -8662,6 +9387,8 @@ function downloadExcelFileBypass(wb, filename) {
           lineCost: product.lineCost || "",
           totalProductAmount: payments.totalProductAmount,
           productPrice: product.productPrice || payments.productPrice,
+          shopVoucher: payments.shopVoucher,
+          maGiamGia: payments.shopVoucher,
           estimatedShippingTotal: payments.estimatedShippingTotal,
           buyerPaidShippingFee: payments.buyerPaidShippingFee,
           estimatedShippingFee: payments.estimatedShippingFee,
@@ -8679,10 +9406,20 @@ function downloadExcelFileBypass(wb, filename) {
           profit: profitData.profit
       }));
 
-      return { ok: true, orderId, orderCreatedAt, packageInfo, customerInfo, payments, products, profitData, rows, url: location.href };
+      // Lọc rows chỉ giữ lại các sản phẩm có orderId
+      const validRows = rows.filter(r => r && r.orderId && (r.sku || r.productPrice || r.quantity));
+      if (validRows.length === 0) {
+          return { ok: false, error: "Không tìm thấy sản phẩm hợp lệ trong đơn hàng." };
+      }
+
+      return { ok: true, orderId, orderCreatedAt, packageInfo, customerInfo, payments, products, profitData, rows: validRows, url: location.href };
   }
 
   async function buildDhValuesFromDetail(rows, maGian) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    const validRawRows = rows.filter(r => r && (r.orderId || r.sku || r.totalProductAmount));
+    if (validRawRows.length === 0) return [];
+
     let dsSpMap = new Map();
     try {
       const res = await new Promise((resolve) => chrome.runtime.sendMessage({ type: "FETCH_DS_SP" }, resolve));
@@ -8708,7 +9445,7 @@ function downloadExcelFileBypass(wb, filename) {
       console.warn("Không thể tải sheet DS_SP:", e);
     }
 
-    const processedRows = rows.map((row) => {
+    const processedRows = validRawRows.map((row) => {
       const mdh = String(row.orderId || "").trim();
       const sku = String(row.sku || "").trim();
       const idSp = sku.length >= 10 ? sku.substring(0, 10) : sku;
@@ -8770,19 +9507,24 @@ function downloadExcelFileBypass(wb, filename) {
       return timeStr;
     };
 
-    // 25 CỘT CHUẨN XÁC 100% VỚI SHEET DH
-    return processedRows.map((item) => {
+    // 25 CỘT CHUẨN XÁC 100% VỚI SHEET DH (Loại bỏ mọi dòng không có MDH và SKU)
+    return processedRows
+      .filter(item => item.mdh || item.sku)
+      .map((item) => {
       const { row, mdh, sku, idSp, slg, donGia, thanhTien } = item;
       const tienSp = tienSpMap.get(mdh || "__order__") || 0;
       
       const tongTien = parseMoneyNumber(row.totalProductAmount);
-      const maGiamGia = 0;
+      const maGiamGia = parseMoneyNumber(row.shopVoucher || row.maGiamGia || 0);
       const phiVc = parseMoneyNumber(row.estimatedShippingTotal);
       const phuPhi = parseMoneyNumber(row.surcharge);
       const thue = parseMoneyNumber(row.tax);
       
-      // Doanh thu theo công thức: tong_tien - ma_giam_gia (0) - phi_vc - phu_phi - thue
-      const doanhThu = tongTien - maGiamGia - phiVc - phuPhi - thue;
+      // Doanh thu: ưu tiên số Shopee tính (estimatedOrderIncome), nếu không có thì tính theo công thức
+      let doanhThu = parseMoneyNumber(row.estimatedOrderIncome);
+      if (!doanhThu || doanhThu === 0) {
+        doanhThu = tongTien - maGiamGia - phiVc - phuPhi - thue;
+      }
       const phiKhac = 0;
 
       // Lợi nhuận = doanh_thu - phi_khac - tien_sp
@@ -8862,229 +9604,8 @@ function downloadExcelFileBypass(wb, filename) {
   let pageLoadSettleTime = 0;
 
   async function checkAndAutoSyncDonHang(orderId) {
-    if (!orderId || isAutoProcessingOrder) return;
-
-    // Chỉ chạy khi đang ở trang chi tiết đơn hàng (không phải returnrefundcancel)
-    if (!isSellerOrderDetailPage()) return;
-
-    if (location.href !== lastPageUrlForSync) {
-      lastPageUrlForSync = location.href;
-      pageLoadSettleTime = Date.now() + 3000; // Đợi 3 giây để Shopee Vue render đầy đủ dữ liệu
-      return;
-    }
-
-    if (Date.now() < pageLoadSettleTime) {
-      const btnAdd = document.getElementById('btn-add-don-hang');
-      if (btnAdd && !btnAdd.textContent.includes('✓') && !btnAdd.textContent.includes('Đã có')) {
-        const remainingSec = Math.max(1, Math.ceil((pageLoadSettleTime - Date.now()) / 1000));
-        btnAdd.textContent = `⏳ Đợi load đủ dữ liệu (${remainingSec}s)...`;
-      }
-      return;
-    }
-
-    const orderDetail = await extractSellerOrderDetailFullData();
-    if (!isOrderDetailDataReady(orderDetail)) {
-      // Dữ liệu trang chưa load xong hết, đợi observer chu kỳ tiếp theo
-      return;
-    }
-
-    const parseMoneyNumber = (val) => {
-      if (val === null || val === undefined) return 0;
-      const digits = String(val).replace(/[^0-9]/g, "");
-      return digits ? Number(digits) : 0;
-    };
-
-    const pageTongTien = parseMoneyNumber(orderDetail.payments?.totalProductAmount);
-    const pagePhiVc = parseMoneyNumber(orderDetail.payments?.estimatedShippingTotal);
-    const pagePhuPhi = parseMoneyNumber(orderDetail.payments?.surcharge);
-    const pageThue = parseMoneyNumber(orderDetail.payments?.tax);
-    const pageMvd = String(orderDetail.packageInfo?.tracking || orderDetail.rows[0]?.tracking || "").trim();
-    const pageTenKhach = String(orderDetail.customerInfo?.tenKhach || "").trim();
-    const pageNgNhan = String(orderDetail.customerInfo?.ngNhan || "").trim();
-    const pageDiaChi = String(orderDetail.customerInfo?.diaChi || "").trim();
-    const pageSkuCount = orderDetail.rows.length;
-
-    const orderCreatedAt = String(orderDetail.rows[0]?.orderCreatedAt || "").trim();
-    const currentSnapshotKey = `${orderCreatedAt}_${pageTongTien}_${pagePhiVc}_${pagePhuPhi}_${pageThue}_${pageMvd}_${pageSkuCount}_${pageTenKhach}_${pageNgNhan}`;
-    const lastSnapshot = syncedOrderSnapshots.get(orderId);
-
-    if (lastSnapshot === currentSnapshotKey) {
-      // Dữ liệu hiện tại đã được sync khớp hoàn toàn
-      const btnAdd = document.getElementById('btn-add-don-hang');
-      if (btnAdd && btnAdd.textContent.includes('Thêm mới')) {
-        btnAdd.textContent = '✓ Đã có trong DH';
-        btnAdd.style.backgroundColor = '#00bfa5';
-        btnAdd.style.borderColor = '#00bfa5';
-      }
-      return;
-    }
-
-    isAutoProcessingOrder = true;
-
-    try {
-      const storage = await new Promise(r => chrome.storage.local.get(["maGian", "dhHoanTextValue"], r));
-      const maGian = (storage?.maGian || storage?.dhHoanTextValue || "").trim();
-      if (!maGian) {
-        isAutoProcessingOrder = false;
-        return;
-      }
-
-      const checkResponse = await new Promise(resolve => {
-        chrome.runtime.sendMessage({
-          type: "CHECK_AND_GET_DH_ORDER",
-          mdh: orderId,
-          maGian: maGian
-        }, resolve);
-      });
-
-      const btnAdd = document.getElementById('btn-add-don-hang');
-
-      if (!checkResponse || !checkResponse.exists || checkResponse.rows.length === 0) {
-        // TỰ ĐỘNG THÊM MỚI KHI CHƯA CÓ TRONG SHEET DH
-        if (btnAdd) {
-          btnAdd.textContent = '⚡ Đang tự động thêm vào DH...';
-          btnAdd.disabled = true;
-        }
-
-        const dhValues = await buildDhValuesFromDetail(orderDetail.rows, maGian);
-        const sampleMdh = orderDetail.orderId || orderDetail.rows[0]?.orderId || "";
-        const sampleMvd = pageMvd;
-
-        const saveRes = await new Promise(resolve => {
-          chrome.runtime.sendMessage({
-            type: "SAVE_DH_ORDER",
-            values: dhValues,
-            mdh: sampleMdh,
-            mvd: sampleMvd
-          }, resolve);
-        });
-
-        if (saveRes && saveRes.ok) {
-          syncedOrderSnapshots.set(orderId, currentSnapshotKey);
-          lastFetchDonHangMdhTime = 0;
-          updateDonHangMdhCache(true);
-          if (btnAdd) {
-            btnAdd.disabled = false;
-            btnAdd.textContent = '✓ Đã tự động thêm vào DH';
-            btnAdd.style.backgroundColor = '#00bfa5';
-            btnAdd.style.borderColor = '#00bfa5';
-          }
-          console.log(`[Shopee Ext] Đã tự động thêm mới đơn hàng ${orderId} vào Sheet DH`);
-        } else {
-          if (btnAdd) {
-            btnAdd.disabled = false;
-            btnAdd.textContent = 'Thêm mới vào DH';
-          }
-        }
-      } else {
-        // TỰ ĐỘNG CẬP NHẬT KHI THÔNG TIN TÀI CHÍNH HOẶC THÔNG TIN ĐƠN CHƯA GIỐNG NHAU
-        let isDataMismatch = false;
-
-        // Nếu số lượng dòng trong sheet khác số dòng sản phẩm trên trang -> Cần cập nhật lại
-        if (checkResponse.rows.length !== orderDetail.rows.length) {
-          isDataMismatch = true;
-        } else {
-          for (let i = 0; i < checkResponse.rows.length; i++) {
-            const r = checkResponse.rows[i];
-            const pageRow = orderDetail.rows[i] || orderDetail.rows[0];
-
-            const sheetNgay = String(r.ngay || "").trim();
-            const sheetNgayGio = String(r.ngayGio || "").trim();
-            const sheetTongTien = parseMoneyNumber(r.tongTien);
-            const sheetPhiVc = parseMoneyNumber(r.phiVc);
-            const sheetPhuPhi = parseMoneyNumber(r.phuPhi);
-            const sheetThue = parseMoneyNumber(r.thue);
-            const sheetSku = String(r.sku || "").trim();
-            const sheetSlg = parseMoneyNumber(r.slg);
-            const sheetMvd = String(r.mvd || "").trim();
-            const sheetTenKhach = String(r.tenKhach || "").trim();
-            const sheetNgNhan = String(r.ngNhan || "").trim();
-            const sheetDiaChi = String(r.diaChi || "").trim();
-
-            const pageNgayGio = formatDateTime(orderDetail.rows[0]?.orderCreatedAt);
-            const pageNgay = extractDatePart(orderDetail.rows[0]?.orderCreatedAt);
-            const pageSlg = parseMoneyNumber(pageRow?.quantity || "1");
-            const pageSku = String(pageRow?.sku || "").trim();
-
-            // Nếu trong Sheet DH đang là dữ liệu dummy (sku === "SP" hoặc tongTien === 0 hoặc thiếu ngày giờ)
-            // và trang hiện tại đã bóc tách được SKU thực tế -> Cần cập nhật đè ngay
-            if (sheetSku === "SP" || sheetSku === "" || (sheetTongTien === 0 && pageTongTien > 0) || !sheetNgayGio) {
-              if (pageSku && pageSku !== "SP") {
-                isDataMismatch = true;
-                break;
-              }
-            }
-
-            if ((pageNgay && sheetNgay && sheetNgay !== pageNgay) ||
-                (pageNgayGio && sheetNgayGio && sheetNgayGio !== pageNgayGio) ||
-                (pageTongTien > 0 && sheetTongTien !== pageTongTien) || 
-                (pagePhiVc > 0 && sheetPhiVc !== pagePhiVc) || 
-                (pagePhuPhi > 0 && sheetPhuPhi !== pagePhuPhi) || 
-                (pageThue > 0 && sheetThue !== pageThue) ||
-                (pageSlg > 0 && sheetSlg !== pageSlg) ||
-                (pageSku && pageSku !== "SP" && sheetSku !== pageSku) ||
-                (!sheetMvd && pageMvd) ||
-                (!sheetTenKhach && pageTenKhach) ||
-                (!sheetNgNhan && pageNgNhan) ||
-                (!sheetDiaChi && pageDiaChi)) {
-              isDataMismatch = true;
-              break;
-            }
-          }
-        }
-        
-        if (isDataMismatch) {
-          if (btnAdd) {
-            btnAdd.textContent = '⚡ Đang tự động cập nhật lại DH...';
-            btnAdd.disabled = true;
-          }
-
-          const dhValues = await buildDhValuesFromDetail(orderDetail.rows, maGian);
-          const sampleMdh = orderDetail.orderId || orderDetail.rows[0]?.orderId || "";
-          const sampleMvd = pageMvd;
-
-          const saveRes = await new Promise(resolve => {
-            chrome.runtime.sendMessage({
-              type: "SAVE_DH_ORDER",
-              values: dhValues,
-              mdh: sampleMdh,
-              mvd: sampleMvd
-            }, resolve);
-          });
-
-          if (saveRes && saveRes.ok) {
-            syncedOrderSnapshots.set(orderId, currentSnapshotKey);
-            lastFetchDonHangMdhTime = 0;
-            updateDonHangMdhCache(true);
-            if (btnAdd) {
-              btnAdd.disabled = false;
-              btnAdd.textContent = '✓ Đã cập nhật lại vào DH';
-              btnAdd.style.backgroundColor = '#00bfa5';
-              btnAdd.style.borderColor = '#00bfa5';
-            }
-            console.log(`[Shopee Ext] Đã tự động cập nhật lại đơn ${orderId} vào Sheet DH`);
-          } else {
-            if (btnAdd) {
-              btnAdd.disabled = false;
-              btnAdd.textContent = 'Đã có trong DH';
-              btnAdd.style.backgroundColor = '#00bfa5';
-            }
-          }
-        } else {
-          syncedOrderSnapshots.set(orderId, currentSnapshotKey);
-          if (btnAdd) {
-            btnAdd.disabled = false;
-            btnAdd.textContent = '✓ Đã có trong DH';
-            btnAdd.style.backgroundColor = '#00bfa5';
-            btnAdd.style.borderColor = '#00bfa5';
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("Lỗi auto-sync đơn hàng:", err);
-    } finally {
-      isAutoProcessingOrder = false;
-    }
+    // Đã tắt hoàn toàn tính năng tự động thêm / đồng bộ đơn hàng theo yêu cầu
+    return;
   }
 
   function isSellerOrderDetailPage() {
@@ -9099,21 +9620,14 @@ function downloadExcelFileBypass(wb, filename) {
       return false;
     }
 
+    // CHỈ ĐỌC LINK CÓ ID: ví dụ /portal/sale/order/242102147201615 hoặc 2609032Y4756JF
     const cleanPath = path.replace(/^\/portal\/sale\/order\/?/i, '').replace(/^detail\/?/i, '').trim();
     if (cleanPath) {
       const seg = cleanPath.split('/')[0].split('?')[0].trim();
-      if (/^(order|list|mass|shipping|return|setting|batch|all|unprocessed|toship|completed|cancelled)$/i.test(seg)) {
-        return false;
+      const systemSegments = /^(order|list|mass|shipping|shipment|return|setting|settings|batch|all|unprocessed|toship|completed|cancelled)$/i;
+      if (/^[0-9a-z]{8,}$/i.test(seg) && !systemSegments.test(seg)) {
+        return true;
       }
-    }
-
-    const breadcrumb = document.querySelector('.eds-breadcrumb, [class*="breadcrumb"], .portal-breadcrumb');
-    if (breadcrumb && /chi tiết đơn hàng/i.test(breadcrumb.textContent)) {
-      return true;
-    }
-
-    if (cleanPath && /^[0-9A-Z]{10,}$/i.test(cleanPath)) {
-      return true;
     }
 
     const search = window.location.search || "";
@@ -9124,13 +9638,118 @@ function downloadExcelFileBypass(wb, filename) {
     return false;
   }
 
-    function removeDonHangButtons() {
+  function removeDonHangButtons() {
     const btnContainer = document.getElementById('shopee-ext-donhang-btns');
     if (btnContainer) btnContainer.remove();
     const btnAdd = document.getElementById('btn-add-don-hang');
     if (btnAdd && btnAdd.parentElement) btnAdd.remove();
     const floatingBtn = document.getElementById('shopee-ext-floating-dh-btn');
     if (floatingBtn) floatingBtn.remove();
+    const snActions = document.getElementById('shopee-ext-ordersn-actions');
+    if (snActions) snActions.remove();
+  }
+
+  function extractSellerOrderReturnId() {
+    const allEls = document.querySelectorAll('.label, dt, span, div, p');
+    for (const el of allEls) {
+      const t = normalizeOrderDetailText(el.textContent);
+      if (t.includes("ma yeu cau tra hang") || t.includes("ma yeu cau hoan") || t.includes("return id") || t.includes("ma tra hang")) {
+        const parent = el.parentElement;
+        if (parent) {
+          const bodyEl = parent.querySelector('.body, dd, span:last-child, div:last-child');
+          const txt = (bodyEl && bodyEl !== el ? bodyEl.textContent : parent.textContent).trim();
+          const m = txt.match(/([0-9]{6}[A-Z0-9]{6,14})/i);
+          if (m) return m[1].toUpperCase();
+        }
+      }
+    }
+    return "";
+  }
+
+  function extractSellerOrderCancelOrReturnReason() {
+    const allEls = document.querySelectorAll('.label, dt, span, div, p');
+    for (const el of allEls) {
+      const t = normalizeOrderDetailText(el.textContent);
+      if (t.includes("ly do huy") || t.includes("ly do tra hang") || t.includes("ly do hoan") || t.includes("ly do")) {
+        const parent = el.parentElement;
+        if (parent) {
+          const bodyEl = parent.querySelector('.body, dd, span:last-child, div:last-child');
+          const txt = (bodyEl && bodyEl !== el ? bodyEl.textContent : parent.textContent).trim();
+          const cleanReason = txt.replace(/^(?:Lý do(?: hủy| trả hàng| hoàn tiền)?|Reason)\s*:\s*/i, '').trim();
+          if (cleanReason && cleanReason.length > 2 && cleanReason.length < 100) return cleanReason;
+        }
+      }
+    }
+    return "";
+  }
+
+  function findOrderSnHeaderElement(orderId) {
+    const directSnEl = document.querySelector('.order-sn, [class*="order-sn"], [class*="orderId"], .order-id');
+    if (directSnEl && directSnEl.id !== 'shopee-ext-donhang-btns' && !directSnEl.closest('#shopee-ext-donhang-btns')) return directSnEl;
+
+    const labels = Array.from(document.querySelectorAll('.label, dt, span, div')).filter(el => {
+      const t = normalizeOrderDetailText(el.textContent);
+      return (t === "ma don hang" || t === "order sn" || t.startsWith("ma don hang:")) && el.children.length === 0;
+    });
+
+    for (const lbl of labels) {
+      const parent = lbl.parentElement;
+      if (parent) {
+        const bodyEl = parent.querySelector('.body, .body-content, dd, span:last-child, div:last-child');
+        if (bodyEl && bodyEl !== lbl) return bodyEl;
+        return parent;
+      }
+    }
+
+    if (orderId) {
+      const candidates = document.querySelectorAll('span, div, p');
+      for (const c of candidates) {
+        if (c.children.length === 0 && (c.textContent || "").trim() === orderId) {
+          return c;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function updateOrderDetailButtonsStatus(orderId) {
+    if (!orderId) return;
+    const status = cachedDhHoanStatusMap.get(orderId);
+
+    const btnHuyList = document.querySelectorAll('.btn-ext-order-huy');
+    const btnHoanList = document.querySelectorAll('.btn-ext-order-hoan');
+    const btnTraList = document.querySelectorAll('.btn-ext-order-tra');
+    const btnUpdateList = document.querySelectorAll('.btn-ext-order-update');
+
+    const applyStatusHighlight = (btnList, targetLabel) => {
+      btnList.forEach(btn => {
+        if (status === targetLabel) {
+          btn.style.setProperty("outline", "2px solid #16a34a", "important");
+          btn.style.setProperty("outline-offset", "1px", "important");
+          btn.textContent = `✓ ${targetLabel}`;
+        } else {
+          btn.style.removeProperty("outline");
+          btn.style.removeProperty("outline-offset");
+          btn.textContent = targetLabel;
+        }
+      });
+    };
+
+    applyStatusHighlight(btnHuyList, "Hủy");
+    applyStatusHighlight(btnHoanList, "Hoàn");
+    applyStatusHighlight(btnTraList, "Trả");
+    applyStatusHighlight(btnUpdateList, "Cập nhật");
+
+    const statusTagList = document.querySelectorAll('.shopee-ext-order-status-badge');
+    statusTagList.forEach(tag => {
+      if (status) {
+        tag.style.display = "inline-block";
+        tag.textContent = `Đã cập nhật: ${status}`;
+      } else {
+        tag.style.display = "none";
+      }
+    });
   }
 
   function findTargetContainerForDonHangButton(orderId) {
@@ -9173,13 +9792,13 @@ function downloadExcelFileBypass(wb, filename) {
       if (floatingBtn) floatingBtn.remove();
 
       updateDonHangMdhCache();
+      updateDhHoanIdsCache();
 
-      // 3. Tự động kiểm tra và đồng bộ (auto-add khi chưa có, auto-update khi phí/thuế sai)
-      if (orderId && !/^(order|detail|list|all)$/i.test(orderId)) {
-          checkAndAutoSyncDonHang(orderId);
-      }
+      // Dọn dẹp nút thêm đơn hàng nếu có (đã bỏ tính năng thêm đơn hàng trên trang này)
+      const existingBtnAdd = document.getElementById('btn-add-don-hang');
+      if (existingBtnAdd) existingBtnAdd.remove();
 
-      // 4. Gắn duy nhất 1 nút bấm trực tiếp vào Breadcrumb / Header
+      // 4. Gắn cụm nút vào Breadcrumb / Header
       const targetContainer = findTargetContainerForDonHangButton(orderId);
       if (!targetContainer) return;
 
@@ -9187,94 +9806,120 @@ function downloadExcelFileBypass(wb, filename) {
       if (!btnContainer) {
           btnContainer = document.createElement('div');
           btnContainer.id = 'shopee-ext-donhang-btns';
-          btnContainer.style.cssText = 'display: inline-flex; align-items: center; gap: 8px; margin-left: 14px; vertical-align: middle; z-index: 999;';
+          btnContainer.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; margin-left: 14px; vertical-align: middle; z-index: 999; flex-wrap: wrap;';
           targetContainer.appendChild(btnContainer);
       } else if (btnContainer.parentElement !== targetContainer) {
           targetContainer.appendChild(btnContainer);
       }
 
-      let btnAdd = document.getElementById('btn-add-don-hang');
-      if (!btnAdd) {
-          btnAdd = document.createElement('button');
-          btnAdd.id = 'btn-add-don-hang';
-          btnAdd.className = "eds-btn eds-btn--primary";
-          btnAdd.style.cssText = "padding: 4px 12px; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; border: 1px solid #ee4d2d; background-color: #ee4d2d; color: white; transition: all 0.2s;";
-          
-          btnAdd.addEventListener('click', async () => {
-              const originalText = btnAdd.textContent;
-              btnAdd.textContent = '⏳ Đang tính toán...';
-              btnAdd.disabled = true;
+      // Dữ liệu đơn hàng chi tiết hiện tại
+      const pkg = extractSellerOrderPackageInfo() || {};
+      const curTracking = pkg.tracking || "";
+      const curReturnId = extractSellerOrderReturnId() || "";
+      const curReason = extractSellerOrderCancelOrReturnReason() || "";
+      const curOrderData = { orderId, tracking: curTracking, returnId: curReturnId, reason: curReason };
 
-              try {
-                  const orderDetail = await extractSellerOrderDetailFullData();
-                  if (!orderDetail || !orderDetail.ok || !orderDetail.rows || orderDetail.rows.length === 0) {
-                      alert('Không tìm thấy thông tin chi tiết đơn hàng! Vui lòng cuộn trang xuống để tải hết dữ liệu.');
-                      btnAdd.textContent = originalText;
-                      btnAdd.disabled = false;
-                      return;
-                  }
-
-                  const storage = await new Promise(r => chrome.storage.local.get(["maGian", "dhHoanTextValue"], r));
-                  const maGian = (storage?.maGian || storage?.dhHoanTextValue || "").trim();
-                  if (!maGian) {
-                      alert('Vui lòng vào Popup Extension cài đặt Mã Gian trước khi lưu!');
-                      btnAdd.textContent = originalText;
-                      btnAdd.disabled = false;
-                      return;
-                  }
-
-                  const dhValues = await buildDhValuesFromDetail(orderDetail.rows, maGian);
-                  const sampleMdh = orderDetail.orderId || orderDetail.rows[0]?.orderId || "";
-                  const sampleMvd = orderDetail.packageInfo?.tracking || orderDetail.rows[0]?.tracking || "";
-
-                  btnAdd.textContent = '⏳ Đang đẩy...';
-
-                  chrome.runtime.sendMessage({
-                      type: "SAVE_DH_ORDER",
-                      values: dhValues,
-                      mdh: sampleMdh,
-                      mvd: sampleMvd
-                  }, (response) => {
-                      btnAdd.disabled = false;
-                      if (response && response.ok) {
-                          btnAdd.textContent = 'OK!';
-                          lastFetchDonHangMdhTime = 0;
-                          updateDonHangMdhCache(true);
-                          setTimeout(() => { 
-                              btnAdd.textContent = 'Đã có trong DH'; 
-                              btnAdd.style.backgroundColor = '#00bfa5';
-                              btnAdd.style.borderColor = '#00bfa5';
-                          }, 1500);
-                      } else {
-                          btnAdd.textContent = 'Lỗi!';
-                          alert('Lỗi: ' + (response?.error || 'Unknown'));
-                          setTimeout(() => { btnAdd.textContent = originalText; }, 2000);
-                      }
-                  });
-              } catch (err) {
-                  console.error(err);
-                  alert('Lỗi: ' + err.message);
-                  btnAdd.textContent = originalText;
-                  btnAdd.disabled = false;
-              }
+      // 1. Nút Copy Data (như trong trang trả hàng hoàn tiền)
+      let btnCopy = document.getElementById('btn-order-detail-copy-data');
+      if (!btnCopy) {
+          btnCopy = createActionBtn("Copy Data", "#ee4d2d", () => {
+              const copyLines = [];
+              if (orderId) copyLines.push(`Mã đơn hàng: ${orderId}`);
+              if (curReason) copyLines.push(`Lý do: ${curReason}`);
+              if (curReturnId) copyLines.push(`Mã yêu cầu trả hàng: ${curReturnId}`);
+              if (curTracking) copyLines.push(`Vận chuyển hàng hoàn: ${curTracking}`);
+              const copyText = copyLines.join('\n');
+              
+              navigator.clipboard.writeText(copyText).then(() => {
+                  btnCopy.textContent = "Copied!";
+                  setTimeout(() => { btnCopy.textContent = "Copy Data"; }, 1500);
+              });
           });
+          btnCopy.id = 'btn-order-detail-copy-data';
+          btnCopy.classList.add("btn-copy-return-data-check");
+          btnContainer.appendChild(btnCopy);
+      }
+      btnCopy.dataset.shopeeQlspCopyReturnOrderId = orderId;
 
-          btnContainer.appendChild(btnAdd);
+      // 2. Nút Hủy
+      let btnHuy = document.getElementById('btn-order-detail-huy');
+      if (!btnHuy) {
+          btnHuy = createActionBtn("Hủy", "#ef4444", () => handleDhHoanAction("Hủy", null, btnHuy, curOrderData));
+          btnHuy.id = 'btn-order-detail-huy';
+          btnHuy.classList.add('btn-ext-order-huy');
+          btnContainer.appendChild(btnHuy);
       }
 
-      if (orderId && cachedDonHangMdhIndices.has(orderId) && cachedDonHangMdhIndices.get(orderId).length > 0) {
-          if (!btnAdd.textContent.startsWith('⚡')) {
-              btnAdd.textContent = 'Đã có trong DH';
-              btnAdd.style.backgroundColor = '#00bfa5';
-              btnAdd.style.borderColor = '#00bfa5';
-          }
-      } else {
-          if (!btnAdd.textContent.startsWith('⚡')) {
-              btnAdd.textContent = 'Thêm mới vào DH';
-              btnAdd.style.backgroundColor = '#ee4d2d';
-              btnAdd.style.borderColor = '#ee4d2d';
-          }
+      // 3. Nút Hoàn
+      let btnHoan = document.getElementById('btn-order-detail-hoan');
+      if (!btnHoan) {
+          btnHoan = createActionBtn("Hoàn", "#f59e0b", () => handleDhHoanAction("Hoàn", null, btnHoan, curOrderData));
+          btnHoan.id = 'btn-order-detail-hoan';
+          btnHoan.classList.add('btn-ext-order-hoan');
+          btnContainer.appendChild(btnHoan);
       }
+
+      // 4. Nút Trả
+      let btnTra = document.getElementById('btn-order-detail-tra');
+      if (!btnTra) {
+          btnTra = createActionBtn("Trả", "#3b82f6", () => handleDhHoanAction("Trả", null, btnTra, curOrderData));
+          btnTra.id = 'btn-order-detail-tra';
+          btnTra.classList.add('btn-ext-order-tra');
+          btnContainer.appendChild(btnTra);
+      }
+
+      // 5. Nút Cập nhật
+      let btnUpdate = document.getElementById('btn-order-detail-update');
+      if (!btnUpdate) {
+          btnUpdate = createActionBtn("Cập nhật", "#64748b", () => handleDhHoanAction("Cập nhật", null, btnUpdate, curOrderData));
+          btnUpdate.id = 'btn-order-detail-update';
+          btnUpdate.classList.add('btn-ext-order-update');
+          btnContainer.appendChild(btnUpdate);
+      }
+
+      // 6. Badge trạng thái
+      let statusTag = document.getElementById('shopee-ext-order-status-badge');
+      if (!statusTag) {
+          statusTag = document.createElement('span');
+          statusTag.id = 'shopee-ext-order-status-badge';
+          statusTag.className = 'shopee-ext-order-status-badge';
+          statusTag.style.cssText = 'padding: 2px 8px; font-size: 11px; font-weight: bold; border-radius: 4px; background: #dcfce7; color: #15803d; border: 1px solid #86efac; display: none;';
+          btnContainer.appendChild(statusTag);
+      }
+
+      // 7. Nếu có phần tử hiển thị Mã đơn hàng trên trang, gắn cụm nút trực tiếp bên cạnh
+      const orderSnContainerEl = findOrderSnHeaderElement(orderId);
+      if (orderSnContainerEl && !orderSnContainerEl.querySelector('#shopee-ext-ordersn-actions') && orderSnContainerEl !== targetContainer && !orderSnContainerEl.contains(btnContainer)) {
+          const snActions = document.createElement('span');
+          snActions.id = 'shopee-ext-ordersn-actions';
+          snActions.style.cssText = 'display: inline-flex; align-items: center; margin-left: 10px; vertical-align: middle; gap: 4px;';
+
+          const snBtnHuy = createActionBtn("Hủy", "#ef4444", () => handleDhHoanAction("Hủy", null, snBtnHuy, curOrderData));
+          snBtnHuy.classList.add('btn-ext-order-huy');
+          snActions.appendChild(snBtnHuy);
+
+          const snBtnHoan = createActionBtn("Hoàn", "#f59e0b", () => handleDhHoanAction("Hoàn", null, snBtnHoan, curOrderData));
+          snBtnHoan.classList.add('btn-ext-order-hoan');
+          snActions.appendChild(snBtnHoan);
+
+          const snBtnTra = createActionBtn("Trả", "#3b82f6", () => handleDhHoanAction("Trả", null, snBtnTra, curOrderData));
+          snBtnTra.classList.add('btn-ext-order-tra');
+          snActions.appendChild(snBtnTra);
+
+          const snBtnUpdate = createActionBtn("Cập nhật", "#64748b", () => handleDhHoanAction("Cập nhật", null, snBtnUpdate, curOrderData));
+          snBtnUpdate.classList.add('btn-ext-order-update');
+          snActions.appendChild(snBtnUpdate);
+
+          const snStatusTag = document.createElement('span');
+          snStatusTag.className = 'shopee-ext-order-status-badge';
+          snStatusTag.style.cssText = 'margin-left: 6px; padding: 2px 8px; font-size: 11px; font-weight: bold; border-radius: 4px; background: #dcfce7; color: #15803d; border: 1px solid #86efac; display: none;';
+          snActions.appendChild(snStatusTag);
+
+          orderSnContainerEl.appendChild(snActions);
+      }
+
+      updateOrderDetailButtonsStatus(orderId);
+      updateCopyButtonColors();
   }
   // Injected interceptor for FORCE_DOWNLOAD
   if ((window.location.href.includes("auto_download_ds_sp=1") || window.location.href.includes("auto_download_giam_gia=1")) && !window.hasInjectedDownloadInterceptor) {
@@ -13035,8 +13680,7 @@ QUY TẮC BẮT BUỘC TRẢ LỜI:
     toolbar.appendChild(btn);
   }
 
-
-setInterval(() => {
+  setInterval(() => {
     injectAiDescriptionButton();
     injectStockQuickButtons();
     autoInjectPromotionSkuBadges();
@@ -13050,255 +13694,3 @@ setInterval(() => {
 })();
 
 window.addEventListener('message', (e) => { if (e.data && e.data.action === 'RELOAD_PAGE') { window.location.reload(); } });
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "upload_video_from_url") {
-        (async () => {
-            const statusDiv = document.createElement("div");
-            statusDiv.id = "shopee-auto-video-upload-status";
-            statusDiv.style.cssText = "position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 999999; background: #fffbeb; border: 2px solid #f59e0b; padding: 12px 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; color: #d97706; display: flex; align-items: center; gap: 8px;";
-            statusDiv.innerHTML = "⏳ Đang tải video từ sản phẩm Shopee...";
-            document.body.appendChild(statusDiv);
-
-            const updateStatus = (text, color = "#d97706") => {
-                statusDiv.innerHTML = text;
-                statusDiv.style.color = color;
-                statusDiv.style.borderColor = color;
-            };
-
-            try {
-                const fileInput = Array.from(document.querySelectorAll('input[type="file"]'))
-                    .find(input => input.accept && (input.accept.includes('video') || input.accept.includes('mp4')))
-                    || document.querySelector('input[type="file"]');
-                
-                if (!fileInput) {
-                    updateStatus("❌ Không tìm thấy khung tải video trên trang!", "#dc2626");
-                    setTimeout(() => statusDiv.remove(), 4000);
-                    sendResponse({ success: false, message: "Không tìm thấy khung tải video trên trang" });
-                    return;
-                }
-
-                updateStatus("⏳ Đang tải tệp video xuống bộ nhớ...", "#3b82f6");
-                const response = await fetch(request.url);
-                if (!response.ok) throw new Error("Không thể tải video từ link gốc");
-                const blob = await response.blob();
-
-                const filename = `shopee-video-${Date.now()}.mp4`;
-                const file = new File([blob], filename, { type: "video/mp4" });
-
-                updateStatus("⏳ Đang đẩy tệp video vào Shopee...", "#10b981");
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                fileInput.files = dataTransfer.files;
-
-                fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-                
-                updateStatus("�… Đã đẩy video vào khung tải lên thành công!", "#16a34a");
-                setTimeout(() => statusDiv.remove(), 3000);
-                sendResponse({ success: true });
-            } catch(e) {
-                console.error("Auto video upload error:", e);
-                updateStatus(`❌ Lỗi: ${e.message}`, "#dc2626");
-                setTimeout(() => statusDiv.remove(), 4000);
-                sendResponse({ success: false, message: e.message });
-            }
-        })();
-        return true;
-    }
-
-    // =========================================================================
-    // TRÍCH XUẤT DỮ LIỆU SHOPEE WEBCHAT & TỰ ĐỘNG ĐIỀN TIN NHẮN
-    // =========================================================================
-    if (request.action === "GET_SHOPEE_CHAT_DATA" || request.type === "GET_SHOPEE_CHAT_DATA") {
-      try {
-        const detailChat = document.querySelector('._3h5To4QZew, [data-cy="webchat-conversation-detail-chat"], ._2WZcuAW5Qo') || document.body;
-
-        // 1. LẤY THÔNG TIN SẢN PHẨM KHÁCH HỎI
-        let productInfo = {
-          name: "",
-          image: "",
-          price: "",
-          originalPrice: "",
-          stock: "",
-          sold: "",
-          discount: "",
-          source: ""
-        };
-
-        // A. Thẻ sản phẩm ghim trên đầu khung chat (.Wy5_SjKidw, ._ki3uOms2o)
-        const pinnedProduct = detailChat.querySelector('.Wy5_SjKidw, ._ki3uOms2o, [class*="pinned-product"]');
-        if (pinnedProduct) {
-          const nameEl = pinnedProduct.querySelector('.rFHc1_XxbI, .CFm21BsdMu, [class*="title"]');
-          if (nameEl) productInfo.name = nameEl.textContent.trim();
-
-          const imgEl = pinnedProduct.querySelector('img.EOkaqhE5Vk, img');
-          if (imgEl) productInfo.image = imgEl.src || "";
-
-          const priceEl = pinnedProduct.querySelector('.izywe_mFbr, [class*="price"]');
-          if (priceEl) productInfo.price = priceEl.textContent.trim();
-
-          const origPriceEl = pinnedProduct.querySelector('.NY59qgWgc3, [class*="origin-price"]');
-          if (origPriceEl) productInfo.originalPrice = origPriceEl.textContent.trim();
-
-          productInfo.source = "Thẻ sản phẩm ghim đầu chat";
-        }
-
-        // B. Thẻ sản phẩm trong danh sách tin nhắn (nếu thẻ ghim chưa có tên)
-        if (!productInfo.name) {
-          const chatProductCard = detailChat.querySelector('.P8CcB0wjwY, .HOPL9U0T1c, [class*="productcard"]');
-          if (chatProductCard) {
-            const cardParent = chatProductCard.closest('.P8CcB0wjwY') || chatProductCard.parentElement;
-            const nameEl = cardParent.querySelector('.Qp7M6nTYF_, .xIrlSYpAIZ, [title]');
-            if (nameEl) productInfo.name = nameEl.getAttribute('title') || nameEl.textContent.trim();
-
-            const imgEl = cardParent.querySelector('img.LWnGpseTts, img');
-            if (imgEl && !productInfo.image) productInfo.image = imgEl.src || "";
-
-            const priceEl = cardParent.querySelector('.NMPRLXUCs1, .wWpupCJoha');
-            if (priceEl && !productInfo.price) productInfo.price = priceEl.textContent.trim();
-
-            const origPriceEl = cardParent.querySelector('.eHBPNxGGDK');
-            if (origPriceEl && !productInfo.originalPrice) productInfo.originalPrice = origPriceEl.textContent.trim();
-
-            productInfo.source = "Thẻ sản phẩm trong tin nhắn";
-          }
-        }
-
-        // C. Khung thông tin sản phẩm ở thanh bên phải (Workstation / #workstation)
-        const workstation = document.querySelector('#workstation, ._1wok-igujT, .S3OvW0Hxe8');
-        if (workstation) {
-          if (!productInfo.name) {
-            const nameEl = workstation.querySelector('.PwWXFM7aOY [title], [data-cy*="product"] [title]');
-            if (nameEl) productInfo.name = nameEl.getAttribute('title') || nameEl.textContent.trim();
-          }
-          if (!productInfo.image) {
-            const imgEl = workstation.querySelector('img.IaIV2xKT1C, img');
-            if (imgEl) productInfo.image = imgEl.src || "";
-          }
-          if (!productInfo.price) {
-            const priceEl = workstation.querySelector('.HMBXaKkUSS, .FWKGhSkSNN');
-            if (priceEl) productInfo.price = priceEl.textContent.trim();
-          }
-
-          const stockEl = workstation.querySelector('._46VsRuudzE');
-          if (stockEl) productInfo.stock = stockEl.textContent.trim();
-
-          const soldEl = workstation.querySelector('.yy8KyS7UNN');
-          if (soldEl) productInfo.sold = soldEl.textContent.trim();
-
-          const discEl = workstation.querySelector('.CQcE9c4xWM, [data-cy*="promotion"]');
-          if (discEl) productInfo.discount = discEl.textContent.trim();
-        }
-
-        // 2. LẤY DANH SÁCH TIN NHẮN
-        // 2. LẤY DANH SÁCH TIN NHẮN
-        const messages = [];
-        let lastCustomerMessage = "";
-
-        const rawMsgElements = Array.from(detailChat.querySelectorAll('#messagesContainer .DEwekPN7v2, #messagesContainer .RtO616EACf, [data-cy^="webchat-message"]'));
-        // Chỉ lấy phần tử cấp ngoài cùng, loại bỏ phần tử con bị lồng trùng khớp
-        const msgElements = rawMsgElements.filter(el => !rawMsgElements.some(other => other !== el && other.contains(el)));
-
-        msgElements.forEach(msgEl => {
-          const isReceive = msgEl.querySelector('[data-cy="webchat-message-receive"]') || msgEl.classList.contains('x_vjYCA89K') || msgEl.getAttribute('data-cy') === 'webchat-message-receive';
-          const isSend = msgEl.querySelector('[data-cy="webchat-message-send"]') || msgEl.classList.contains('IjkExKWyR_') || msgEl.getAttribute('data-cy') === 'webchat-message-send';
-          
-          const sender = isReceive ? "customer" : (isSend ? "shop" : "system");
-
-          const isAutoReply = !!msgEl.querySelector('.ufjjFujTb2, [class*="autoreply"]');
-
-          const timeEl = msgEl.querySelector('.sSIhmxFOh6, .pE0ax8leZo, .ps7_zN15iV');
-          const timeStr = timeEl ? timeEl.textContent.trim() : "";
-
-          let text = "";
-          const textContainer = msgEl.querySelector('.w2C67vtnXi, .FkK7VxR2qX, .i6xFxbUJy0');
-          if (textContainer) {
-            const clone = textContainer.cloneNode(true);
-            clone.querySelectorAll('.sSIhmxFOh6, .pE0ax8leZo, .ujrf_CG21r, .ChatbotUI-icon, svg').forEach(x => x.remove());
-            text = clone.textContent.trim();
-          }
-
-          const productCardInMsg = msgEl.querySelector('.Qp7M6nTYF_, .HOPL9U0T1c');
-          let cardText = "";
-          if (productCardInMsg) {
-            const cardParent = productCardInMsg.closest('.P8CcB0wjwY') || productCardInMsg.parentElement;
-            const pName = cardParent.querySelector('.Qp7M6nTYF_')?.textContent?.trim() || "";
-            const pPrice = cardParent.querySelector('.NMPRLXUCs1')?.textContent?.trim() || "";
-            cardText = `[Thẻ sản phẩm: ${pName} ${pPrice ? '(' + pPrice + ')' : ''}]`;
-          }
-
-          const fullContent = text || cardText;
-          if (fullContent && !fullContent.includes("LƯU Ý: Shopee KHÔNG cho phép")) {
-            // Khử trùng lặp tin nhắn
-            const lastMsg = messages[messages.length - 1];
-            const isDuplicate = lastMsg &&
-              lastMsg.sender === sender &&
-              lastMsg.text === fullContent &&
-              (!timeStr || !lastMsg.time || lastMsg.time === timeStr);
-
-            if (!isDuplicate) {
-              messages.push({
-                sender,
-                text: fullContent,
-                time: timeStr,
-                isAutoReply
-              });
-
-              if (sender === "customer" && text) {
-                lastCustomerMessage = text;
-              }
-            }
-          }
-        });
-
-        sendResponse({
-          ok: true,
-          url: window.location.href,
-          product: productInfo,
-          messages: messages.slice(-15),
-          lastCustomerQuestion: lastCustomerMessage
-        });
-      } catch (err) {
-        console.error("Lỗi extractShopeeChatData:", err);
-        sendResponse({ ok: false, error: err.message });
-      }
-      return true;
-    }
-
-    if (request.action === "FILL_SHOPEE_CHAT_INPUT" || request.type === "FILL_SHOPEE_CHAT_INPUT") {
-      try {
-        const textarea = document.querySelector('textarea.E2MWg3w8y6, [data-cy="webchat-conversation-detail-input"] textarea, #inputField textarea, textarea[placeholder*="tin nhắn"], textarea');
-        if (!textarea) {
-          sendResponse({ ok: false, error: "Không tìm thấy ô nhập tin nhắn trên Shopee Chat" });
-          return true;
-        }
-
-        textarea.focus();
-        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
-        if (nativeSetter) {
-          nativeSetter.call(textarea, request.text || "");
-        } else {
-          textarea.value = request.text || "";
-        }
-
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        textarea.dispatchEvent(new Event('change', { bubbles: true }));
-
-        if (request.autoSend) {
-          setTimeout(() => {
-            const sendBtn = document.querySelector('.XsR3zIeGOc, .kgP1yPCqxR, [data-cy="webchat-conversation-detail-input"] [class*="send"]');
-            if (sendBtn) {
-              sendBtn.click();
-            } else {
-              textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true }));
-            }
-          }, 300);
-        }
-
-        sendResponse({ ok: true });
-      } catch (err) {
-        sendResponse({ ok: false, error: err.message });
-      }
-      return true;
-    }
-});

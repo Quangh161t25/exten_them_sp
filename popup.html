@@ -252,10 +252,14 @@ style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); bo
 
 <div id="api-img-status" style="font-size: 11px; font-weight: bold; margin-bottom: 6px; min-height: 16px;"></div>
 
-<!-- Thanh công cụ chuyển đổi chế độ xem -->
-<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-  <div style="font-size: 11px; font-weight: bold; color: #334155;">Danh sách ảnh đã tải:</div>
-  <div style="display: flex; gap: 4px;">
+<!-- Thanh công cụ chuyển đổi chế độ xem & thao tác xóa -->
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+  <div style="display: flex; align-items: center; gap: 6px;">
+    <div style="font-size: 11px; font-weight: bold; color: #334155;">Danh sách ảnh đã tải:</div>
+    <button type="button" id="api-btn-reload-sheet" style="padding: 2px 7px; font-size: 10px; font-weight: bold; background: #10b981; color: white; border: none; border-radius: 3px; cursor: pointer;" title="Tải lại từ Sheet LUU_ANH_API">🔄 Tải lại</button>
+  </div>
+  <div style="display: flex; align-items: center; gap: 4px;">
+    <button type="button" id="api-btn-delete-selected" style="padding: 2px 8px; font-size: 10px; font-weight: bold; background: #ef4444; color: white; border: none; border-radius: 3px; cursor: pointer; display: none;" title="Xóa các ảnh đã chọn khỏi Sheet">🗑️ Xóa đã chọn (0)</button>
     <button type="button" id="api-view-btn-table" style="padding: 2px 8px; font-size: 10px; font-weight: bold; background: #2563eb; color: white; border: none; border-radius: 3px; cursor: pointer;">Bảng</button>
     <button type="button" id="api-view-btn-grid3" style="padding: 2px 8px; font-size: 10px; font-weight: bold; background: #64748b; color: white; border: none; border-radius: 3px; cursor: pointer;">Lưới 3 cột</button>
     <button type="button" id="api-view-btn-grid4" style="padding: 2px 8px; font-size: 10px; font-weight: bold; background: #64748b; color: white; border: none; border-radius: 3px; cursor: pointer;">Lưới 4 cột</button>
@@ -267,12 +271,16 @@ style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); bo
   <table style="width: 100%; border-collapse: collapse; font-size: 11px;" id="api-img-table">
     <thead>
       <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #334155; text-align: left;">
+        <th style="padding: 6px 8px; width: 25px; text-align: center;">
+          <input type="checkbox" id="api-chk-select-all" style="margin: 0; cursor: pointer; transform: scale(1.1);" title="Chọn tất cả trên trang này">
+        </th>
         <th style="padding: 6px 8px; width: 35px;">STT</th>
         <th style="padding: 6px 8px; width: 45px;">Ảnh</th>
         <th style="padding: 6px 8px;">Tên file</th>
         <th style="padding: 6px 8px;">Link API (.jpg)</th>
         <th style="padding: 6px 8px;">Link cũ (link_cu)</th>
         <th style="padding: 6px 8px; width: 45px; text-align: center;">Copy</th>
+        <th style="padding: 6px 8px; width: 35px; text-align: center;">Xóa</th>
       </tr>
     </thead>
     <tbody id="api-img-tbody">
@@ -485,17 +493,122 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
       </h2>
     </div>
 
-    <!-- THANH CÔNG CỤ TÌM KIẾM VÀ LỌC MÃ GIAN -->
-    <div style="display: flex; gap: 6px; margin-bottom: 8px; align-items: center; flex-wrap: wrap;">
-      <!-- Ô lọc Mã Gian -->
-      <div style="flex: 1; min-width: 90px;">
-        <input list="nhieu-don-hang-gian-list" id="nhieu-don-hang-gian-filter" placeholder="🔍 Mã Gian..." style="width: 100%; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 11px; font-weight: bold; color: #0369a1; box-sizing: border-box; background: #f0f9ff;">
-        <datalist id="nhieu-don-hang-gian-list"></datalist>
+    <!-- THANH CÔNG CỤ XỬ LÝ HÀNG LOẠT (2 DÒNG GỌN GÀNG, ĐẸP MẮT) -->
+    <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; background: #f0fdf4; padding: 6px 8px; border-radius: 6px; border: 1px solid #bbf7d0;">
+      <!-- Dòng 1: 4 nút Đọc DS Đơn, Next trang, Đọc đơn, Điền đơn thiếu trên cùng 1 dòng -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
+        <button id="btn-read-order-list-page" type="button" style="padding: 5px 3px; font-size: 11px; background: #0284c7; color: white; border: 1px solid #0369a1; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Đọc tất cả đơn hàng trên trang danh sách Shopee (Lấy Mã ĐH, Mã Vận Đơn, Link Đơn, mỗi đơn 1 dòng, tự động bỏ qua đơn trùng)">
+          📑 Đọc DS Đơn
+        </button>
+        <button id="btn-auto-paginate-order-list" type="button" style="padding: 5px 3px; font-size: 11px; background: #8b5cf6; color: white; border: 1px solid #7c3aed; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Tự động bấm Sang Trang (Next) và đọc toàn bộ đơn hàng trên Shopee (chống trùng lặp 100%)">
+          🔄 Next trang
+        </button>
+        <button id="btn-read-order-to-nhieu-don-hang" type="button" style="padding: 5px 3px; font-size: 11px; background: #059669; color: white; border: 1px solid #047857; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Đọc chi tiết đơn hàng (đầy đủ phân loại, sản phẩm, doanh thu, lợi nhuận) từ tab Shopee chi tiết đơn đang mở">
+          🕹️ Đọc đơn
+        </button>
+        <button id="btn-auto-fill-missing-detail" type="button" style="padding: 5px 3px; font-size: 11px; background: #e11d48; color: white; border: 1px solid #be123c; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Quét các đơn trong Sheet DH chưa có thông tin chi tiết (tổng tiền, phí, doanh thu, SKU sản phẩm), tự động mở link từng đơn, đọc và cập nhật hoàn tất vào Sheet rồi chuyển sang đơn tiếp theo">
+          ⚡ Điền đơn thiếu
+        </button>
       </div>
 
-      <!-- Ô tìm kiếm từ khóa -->
-      <div style="flex: 2; min-width: 110px;">
-        <input type="text" id="nhieu-don-hang-search" placeholder="Tìm MDH, MVD, SKU..." style="width: 100%; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 11px; box-sizing: border-box;">
+      <!-- Dòng 2: Tự động đọc, Tự động lưu và Tải lại (1 dòng) -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; align-items: center;">
+        <label style="display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 600; color: #1d4ed8; cursor: pointer; background: #eff6ff; padding: 4px 6px; border-radius: 4px; border: 1px solid #bfdbfe; white-space: nowrap; box-sizing: border-box;" title="Tự động đọc đơn hàng khi mở tab Shopee chi tiết đơn">
+          <input type="checkbox" id="nhieu-don-hang-autoread-toggle" checked style="cursor: pointer; margin: 0;">
+          <span>⚡ Tự động đọc</span>
+        </label>
+        <label style="display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 600; color: #047857; cursor: pointer; background: #ffffff; padding: 4px 6px; border-radius: 4px; border: 1px solid #a7f3d0; white-space: nowrap; box-sizing: border-box;" title="Tự động lưu vào Sheet DH khi đọc đơn mới thành công">
+          <input type="checkbox" id="nhieu-don-hang-autosave-toggle" style="cursor: pointer; margin: 0;">
+          <span>💾 Tự động lưu</span>
+        </label>
+        <button id="btn-reload-nhieu-don-hang" type="button" style="padding: 4px 10px; font-size: 11px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; font-weight: bold; color: #334155; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05); height: 100%; box-sizing: border-box;" title="Tải lại ngay lập tức dữ liệu từ Sheet DH">
+          🔄 Tải lại
+        </button>
+      </div>
+    </div>
+    <!-- KHỐI TIẾN TRÌNH ĐỌC DANH SÁCH ĐƠN HÀNG (ẨN/HIỆN) -->
+    <div id="nhieu-don-list-scan-status-box" style="display: none; background: #f0f9ff; border: 1.5px solid #0284c7; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <span id="nhieu-don-list-scan-text" style="font-size: 11px; font-weight: bold; color: #0369a1; display: flex; align-items: center; gap: 4px;">
+          <span>⏳</span> Đang đọc danh sách đơn hàng...
+        </span>
+        <button id="btn-stop-list-scan" type="button" class="secondary" style="padding: 2px 8px; font-size: 10px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 3px; cursor: pointer; font-weight: bold;">
+          ⏹ Dừng
+        </button>
+      </div>
+      <div style="width: 100%; height: 5px; background: #e0f2fe; border-radius: 3px; overflow: hidden; margin-top: 4px;">
+        <div id="nhieu-don-list-scan-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0284c7, #10b981); transition: width 0.2s ease;"></div>
+      </div>
+    </div>
+
+    <!-- KHỐI QUÉT ĐƠN HÀNG TỰ ĐỘNG TỪ SHOPEE API (ẨN/HIỆN) -->
+    <div id="nhieu-don-api-scan-panel" style="display: none; background: #fff7ed; border: 1.5px solid #ea580c; border-radius: 6px; padding: 10px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <h3 style="margin: 0; font-size: 12px; color: #c2410c; display: flex; align-items: center; gap: 4px;">
+          <span>⚡</span> Quét Đơn Hàng Shopee API (Tự Động Điền Chi Tiết)
+        </h3>
+        <button id="btn-close-api-scanner" type="button" class="secondary" style="padding: 1px 6px; font-size: 10px; background: #ffedd5; color: #c2410c; border: 1px solid #fdba74; border-radius: 3px; cursor: pointer;">
+          ✕
+        </button>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px;">
+        <label style="font-size: 11px; font-weight: 600; color: #7c2d12;">Thời gian:</label>
+        <select id="nhieu-don-scan-date-preset" style="font-size: 11px; padding: 3px 6px; border: 1px solid #fdba74; border-radius: 4px; background: white;">
+          <option value="today">Hôm nay</option>
+          <option value="yesterday">Hôm qua</option>
+          <option value="7days" selected>7 ngày qua</option>
+          <option value="30days">30 ngày qua</option>
+          <option value="custom">Tùy chọn khoảng ngày</option>
+        </select>
+
+        <div id="nhieu-don-scan-custom-date-container" style="display: none; gap: 4px; align-items: center;">
+          <input type="date" id="nhieu-don-scan-from-date" style="font-size: 11px; padding: 2px 4px; border: 1px solid #fdba74; border-radius: 4px;">
+          <span>-</span>
+          <input type="date" id="nhieu-don-scan-to-date" style="font-size: 11px; padding: 2px 4px; border: 1px solid #fdba74; border-radius: 4px;">
+        </div>
+
+        <label style="font-size: 11px; font-weight: 600; color: #7c2d12; margin-left: 4px;">Trạng thái:</label>
+        <select id="nhieu-don-scan-status-filter" style="font-size: 11px; padding: 3px 6px; border: 1px solid #fdba74; border-radius: 4px; background: white;">
+          <option value="ALL">Tất cả đơn</option>
+          <option value="READY_TO_SHIP">Chờ lấy hàng</option>
+          <option value="PROCESSED">Đã xử lý</option>
+          <option value="SHIPPED">Đang giao</option>
+          <option value="COMPLETED">Đã giao</option>
+          <option value="IN_CANCEL">Đang hủy</option>
+          <option value="CANCELLED">Đã hủy</option>
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <button id="btn-start-api-scan" type="button" class="secondary" style="padding: 4px 10px; font-size: 11px; background: #ea580c; color: white; border: 1px solid #c2410c; font-weight: bold; border-radius: 4px; cursor: pointer;">
+          🚀 Bắt đầu Quét & Tự Lưu
+        </button>
+        <button id="btn-stop-api-scan" type="button" class="secondary" style="display: none; padding: 4px 10px; font-size: 11px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-weight: bold; border-radius: 4px; cursor: pointer;">
+          ⏹ Dừng quét
+        </button>
+      </div>
+
+      <!-- Tiến trình quét API -->
+      <div id="nhieu-don-scan-progress-box" style="display: none; margin-top: 6px;">
+        <div style="display: flex; justify-content: space-between; font-size: 10px; color: #9a3412; margin-bottom: 2px;">
+          <span id="nhieu-don-scan-status-text">Đang lấy danh sách đơn...</span>
+          <span id="nhieu-don-scan-percent-text">0%</span>
+        </div>
+        <div style="width: 100%; height: 5px; background: #fed7aa; border-radius: 3px; overflow: hidden;">
+          <div id="nhieu-don-scan-progress-bar" style="width: 0%; height: 100%; background: #ea580c; transition: width 0.2s ease;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HÀNG BỘ LỌC TÌM KIẾM, MÃ GIAN VÀ CHẾ ĐỘ ĐỒNG BỘ REALTIME -->
+    <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px; flex-wrap: wrap;">
+      <input type="text" id="nhieu-don-hang-search" placeholder="🔍 Tìm MDH, MVD, SKU, tên khách..." style="flex: 2; min-width: 130px; font-size: 11px; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+      
+      <!-- Input Chọn Gian Tự Động (DataList + Input) -->
+      <div style="position: relative; flex: 1.2; min-width: 110px;">
+        <input type="text" id="nhieu-don-hang-gian-filter" list="nhieu-don-hang-gian-list" placeholder="🏢 Mã gian..." style="width: 100%; font-size: 11px; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; background: #fff;" title="Gõ hoặc chọn Mã Gian để lọc">
+        <datalist id="nhieu-don-hang-gian-list"></datalist>
       </div>
 
       <!-- Nút Toggle Realtime -->
@@ -503,19 +616,59 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
         <input type="checkbox" id="nhieu-don-hang-realtime-toggle" checked style="cursor: pointer; margin: 0;">
         <span>⚡ Realtime (5s)</span>
       </label>
+    </div>
 
-      <!-- Nút Tải lại -->
-      <button id="btn-reload-nhieu-don-hang" type="button" class="secondary" style="padding: 5px 8px; font-size: 11px; background: #f1f5f9; white-space: nowrap;" title="Tải lại ngay lập tức từ Sheet">
-        🔄
-      </button>
-      <!-- Nút Copy TSV -->
-      <button id="btn-copy-tsv-nhieu-don-hang" type="button" class="secondary" style="padding: 6px 8px; font-size: 11px; background: #f8fafc; white-space: nowrap;" title="Copy bảng dữ liệu">
-        📋 Copy
-      </button>
-      <!-- Nút Xuất Excel -->
-      <button id="btn-export-excel-nhieu-don-hang" type="button" class="secondary" style="padding: 6px 8px; font-size: 11px; background: #107c41; color: white; border-color: #107c41; font-weight: bold; white-space: nowrap;" title="Xuất file Excel .xlsx">
-        📊 Excel
-      </button>
+    <!-- KHỐI BẢNG NỘI DUNG ĐƠN HÀNG VỪA ĐỌC (LUÔN HIỂN THỊ) -->
+    <div id="nhieu-don-preview-card" style="display: block; margin-bottom: 12px; background: #ffffff; border: 1.5px solid #059669; border-radius: 6px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+      <div class="section-head" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <h3 style="margin: 0; font-size: 13px; color: #047857; display: flex; align-items: center; gap: 6px;">
+          <span>📦</span> <span id="nhieu-don-preview-title">Đơn hàng vừa đọc</span>
+        </h3>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button id="btn-toggle-view-mode-preview" type="button" class="secondary" style="font-size: 11px; padding: 3px 8px; background: #f0fdf4; color: #047857; border: 1px solid #86efac; border-radius: 4px; font-weight: bold; cursor: pointer;" title="Chuyển đổi kiểu xem dạng dòng hoặc dạng thẻ">
+            🔄 Xem dạng thẻ dọc
+          </button>
+          <button id="btn-toggle-preview-body" type="button" class="secondary" style="font-size: 11px; padding: 3px 8px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer;" title="Thu gọn / Mở rộng bảng">
+            ▲ Thu gọn
+          </button>
+          <button id="btn-close-preview" type="button" class="secondary" style="font-size: 11px; padding: 3px 7px; background: #fef2f2; color: #ef4444; border: 1px solid #fca5a5; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Đóng bảng xem trước">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Hàng nút chức năng y hệt tab Đơn hàng -->
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 6px;">
+        <button id="btn-save-preview-to-sheet" type="button" class="secondary" style="background:#16a34a; color:white; border-color:#15803d; font-weight:bold; font-size: 11px; padding: 5px 8px;">💾 Lưu DH</button>
+        <button id="btn-copy-preview-tsv" type="button" class="secondary" style="font-size: 11px; padding: 5px 8px;">📋 Copy TSV</button>
+        <button id="btn-export-excel-preview" type="button" class="secondary" style="background:#107c41; color:white; border-color:#107c41; font-weight:bold; font-size: 11px; padding: 5px 8px;">📊 Excel</button>
+      </div>
+
+      <!-- Hàng nút cập nhật trạng thái Hủy / Hoàn / Trả -->
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 8px;">
+        <button id="btn-preview-status-huy" type="button" class="secondary" style="background:#fef2f2; color:#dc2626; border-color:#fca5a5; font-weight:bold; font-size: 11px; padding: 4px 6px;" title="Cập nhật trạng thái HỦY ĐƠN vào Sheet DH (Doanh thu=0, Vốn=0, Lợi nhuận=0)">🔴 Hủy đơn</button>
+        <button id="btn-preview-status-hoan" type="button" class="secondary" style="background:#fffbeb; color:#d97706; border-color:#fde68a; font-weight:bold; font-size: 11px; padding: 4px 6px;" title="Cập nhật trạng thái HOÀN HÀNG vào Sheet DH (Vốn=0)">🟠 Hoàn hàng</button>
+        <button id="btn-preview-status-tra" type="button" class="secondary" style="background:#faf5ff; color:#7e22ce; border-color:#e9d5ff; font-weight:bold; font-size: 11px; padding: 4px 6px;" title="Cập nhật trạng thái TRẢ HÀNG vào Sheet DH (Vốn=0)">🟣 Trả hàng</button>
+      </div>
+
+      <!-- Trạng thái đơn hàng (Cảnh báo / Thành công) -->
+      <div id="nhieu-don-preview-status" style="margin: 0 0 8px; font-size: 11px; line-height: 1.4;"></div>
+
+      <!-- Thân bảng có thể thu gọn -->
+      <div id="nhieu-don-preview-body">
+        <div class="table-responsive" style="max-height: 280px; overflow: auto; border: 1px solid #d8dee8; border-radius: 4px; background: white;">
+          <table id="table-nhieu-don-preview" style="width: max-content; min-width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
+            <thead id="nhieu-don-preview-thead" style="position: sticky; top: 0; background: #f8fafc; z-index: 1;">
+              <tr>
+                <th style="padding: 6px; border-bottom: 1px solid #cbd5e1;">Thong tin don hang</th>
+              </tr>
+            </thead>
+            <tbody id="nhieu-don-preview-tbody">
+              <tr><td colspan="1" style="text-align: center; padding: 10px; color: #64748b;">Chưa đọc dữ liệu.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- THANH TRẠNG THÁI -->
@@ -538,19 +691,23 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 
 <div id="tab-don-hang-detail" class="tab-content" hidden>
 <section class="tool-section">
-<div class="section-head">
-<h2>Đơn hàng</h2>
+<div class="section-head" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+<h2 style="margin: 0;">Đơn hàng</h2>
+<button id="btn-toggle-view-mode-order" type="button" class="secondary" style="font-size: 11px; padding: 3px 8px; background: #f0fdf4; color: #047857; border: 1px solid #86efac; border-radius: 4px; font-weight: bold; cursor: pointer;" title="Chuyển đổi kiểu xem dạng dòng hoặc dạng thẻ">
+  🔄 Xem dạng thẻ dọc
+</button>
 </div>
-<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px;">
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px;">
 <button id="btn-read-current-order" type="button" class="primary-action">Đọc đơn</button>
 <button id="btn-copy-current-order" type="button" class="secondary">Copy TSV</button>
 <button id="btn-export-excel-current-order" type="button" class="secondary" style="background:#107c41;color:white;border-color:#107c41;font-weight:bold;">📊 Excel</button>
 <button id="btn-save-current-order-dh" type="button" class="secondary" style="background:#16a34a;color:white;border-color:#15803d;">Lưu DH</button>
+<button id="btn-assign-to-nhieu-don-hang" type="button" class="secondary" style="background:#047857;color:white;border: 1px solid #065f46;font-weight:bold;" title="Gán đơn này vào Tab Nhiều đơn hàng dạng dòng & lưu Sheet DH">➕ Gán Nhiều ĐH</button>
 </div>
 <p id="current-order-status" style="margin: 0 0 8px; font-size: 12px; color: #64748b;"></p>
 <div class="table-responsive" style="max-height: calc(100vh - 170px); min-height: 400px; overflow: auto; border: 1px solid #d8dee8; border-radius: 4px; background: white;">
 <table id="table-current-order" style="width: max-content; min-width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
-<thead style="position: sticky; top: 0; background: #f8fafc; z-index: 1;">
+<thead id="thead-current-order" style="position: sticky; top: 0; background: #f8fafc; z-index: 1;">
 <tr>
 <th style="padding: 6px; border-bottom: 1px solid #cbd5e1;">Thong tin don hang</th>
 </tr>

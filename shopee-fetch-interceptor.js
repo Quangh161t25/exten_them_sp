@@ -34,10 +34,29 @@
     const result = await originalFetch.apply(this, args);
     try {
       const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
+      
+      // Bắt các request Order API của Shopee Seller
+      if (url.includes('/api/') && (url.includes('/order') || url.includes('/sale') || url.includes('order_list') || url.includes('search_order'))) {
+        let reqHeaders = args[1]?.headers || {};
+        if (reqHeaders instanceof Headers) {
+          const h = {};
+          reqHeaders.forEach((val, key) => { h[key] = val; });
+          reqHeaders = h;
+        } else if (Array.isArray(reqHeaders)) {
+          const h = {};
+          reqHeaders.forEach(([key, val]) => { h[key] = val; });
+          reqHeaders = h;
+        }
+        window.__LAST_SHOPEE_ORDER_API__ = {
+          url,
+          headers: reqHeaders,
+          timestamp: Date.now()
+        };
+      }
+
       if (url.includes('/api/') && (url.includes('item_id') || url.includes('shop_id') || url.includes('/pdp/'))) {
         const cloned = result.clone();
         cloned.json().then(json => {
-          // Lấy headers từ request options (nếu có)
           let reqHeaders = args[1]?.headers || {};
           if (reqHeaders instanceof Headers) {
             const h = {};

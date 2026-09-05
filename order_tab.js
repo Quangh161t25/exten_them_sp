@@ -16,6 +16,7 @@
     { key: "diaChi", label: "Dia chi" },
     { key: "linkDon", label: "Link don" },
     { key: "totalProductAmount", label: "Tong tien SP" },
+    { key: "shopVoucher", label: "Ma giam gia shop" },
     { key: "productPrice", label: "Gia SP" },
     { key: "estimatedShippingTotal", label: "Tong phi VC uoc tinh" },
     { key: "buyerPaidShippingFee", label: "Phi VC nguoi mua tra" },
@@ -38,6 +39,8 @@
 
   const moneyColumnKeys = new Set([
     "totalProductAmount",
+    "shopVoucher",
+    "maGiamGia",
     "productPrice",
     "estimatedShippingTotal",
     "buyerPaidShippingFee",
@@ -92,7 +95,11 @@
   function renderDisplayValue(row, col) {
     const shownValue = normalizeCellForExport(row, col.key);
     if (col.key === "linkDon" && shownValue) {
-      return `<a href="${escapeHtml(shownValue)}" target="_blank" style="color: #2563eb; text-decoration: underline; word-break: break-all; font-weight: normal; font-size: 11px;">${escapeHtml(shownValue)}</a>`;
+      return `<a href="${escapeHtml(shownValue)}" class="order-link-btn" data-order-link="${escapeHtml(shownValue)}" target="_blank" style="color: #2563eb; text-decoration: underline; word-break: break-all; font-weight: normal; font-size: 11px; cursor: pointer;">${escapeHtml(shownValue)}</a>`;
+    }
+    if (col.key === "orderId" && shownValue) {
+      const link = row.linkDon || row.link_don || (row.orderId ? `https://banhang.shopee.vn/portal/sale/order/${row.orderId}` : "");
+      return `<a href="${escapeHtml(link)}" class="order-link-btn" data-order-link="${escapeHtml(link)}" style="color: #2563eb; text-decoration: underline; font-weight: bold; cursor: pointer;" title="Bấm để mở chi tiết đơn">${escapeHtml(shownValue)}</a>`;
     }
     const html = escapeHtml(shownValue);
     return col.key === "capitalDetails" ? html.replace(/\s+\|\s+/g, "<br>") : html;
@@ -117,6 +124,103 @@
       return `<div style="${rowStyle}"><span style="color:#475569; font-size:11px; white-space: normal;">${escapeHtml(col.label)}</span><div style="text-align:right;"><b style="${valueStyle}">${renderDisplayValue(row, col)}</b>${extraTag}</div></div>`;
     }).join("")}</div>`;
   }
+  const thead = document.getElementById("thead-current-order") || document.querySelector("#table-current-order thead");
+  const toggleViewModeBtn = document.getElementById("btn-toggle-view-mode-order");
+  const assignToNhieuDonHangBtn = document.getElementById("btn-assign-to-nhieu-don-hang");
+
+  let orderViewMode = localStorage.getItem("shopee_order_view_mode") || "row";
+
+  function updateToggleViewBtnText() {
+    if (!toggleViewModeBtn) return;
+    if (orderViewMode === "row") {
+      toggleViewModeBtn.innerHTML = "🔄 Xem: Dạng thẻ dọc";
+      toggleViewModeBtn.title = "Đang ở kiểu xem dạng dòng. Bấm để chuyển sang dạng thẻ dọc";
+      toggleViewModeBtn.style.background = "#f0fdf4";
+      toggleViewModeBtn.style.color = "#047857";
+      toggleViewModeBtn.style.borderColor = "#86efac";
+    } else {
+      toggleViewModeBtn.innerHTML = "🔄 Xem: Dạng dòng";
+      toggleViewModeBtn.title = "Đang ở kiểu xem dạng thẻ. Bấm để chuyển sang dạng dòng";
+      toggleViewModeBtn.style.background = "#eff6ff";
+      toggleViewModeBtn.style.color = "#1d4ed8";
+      toggleViewModeBtn.style.borderColor = "#bfdbfe";
+    }
+  }
+
+  if (toggleViewModeBtn) {
+    updateToggleViewBtnText();
+    toggleViewModeBtn.addEventListener("click", () => {
+      orderViewMode = (orderViewMode === "row") ? "vertical" : "row";
+      localStorage.setItem("shopee_order_view_mode", orderViewMode);
+      updateToggleViewBtnText();
+      renderRows(latestRows, currentOrderExistingInfo);
+    });
+  }
+
+  function openOrderLink(url) {
+    if (!url) return;
+    try {
+      if (typeof chrome !== "undefined" && chrome.tabs && chrome.tabs.create) {
+        chrome.tabs.create({ url: url });
+        return;
+      }
+    } catch (e) {}
+    window.open(url, "_blank");
+  }
+
+  function formatMoneyDisplay(val) {
+    const num = moneyToNumber(val);
+    if (!num) return "";
+    return Number(num).toLocaleString("vi-VN") + "₫";
+  }
+
+  const rowViewColumns = [
+    { label: "STT", render: (r, idx) => idx + 1, style: "text-align:center; color:#64748b;" },
+    { 
+      label: "Mã đơn hàng", 
+      render: (r) => {
+        const link = r.linkDon || r.link_don || (r.orderId ? `https://banhang.shopee.vn/portal/sale/order/${r.orderId}` : "");
+        return `<a href="${escapeHtml(link)}" class="order-link-btn" data-order-link="${escapeHtml(link)}" style="color:#2563eb; font-weight:bold; text-decoration:underline; cursor:pointer;" title="Bấm để mở chi tiết đơn">${escapeHtml(r.orderId || "")}</a>`;
+      }
+    },
+    { label: "Mã vận đơn", render: (r) => `<span style="font-weight:600; color:#0f172a;">${escapeHtml(r.tracking || "")}</span>` },
+    { label: "Tổng tiền SP", render: (r) => `<b style="color:#0f172a;">${formatMoneyDisplay(r.totalProductAmount)}</b>` },
+    { 
+      label: "Mã giảm giá", 
+      render: (r) => {
+        const num = moneyToNumber(r.shopVoucher || r.maGiamGia);
+        return num ? `<span style="color:#ef4444; font-weight:600;">-${Number(num).toLocaleString('vi-VN')}₫</span>` : "-0₫";
+      }
+    },
+    { label: "Phí VC", render: (r) => formatMoneyDisplay(r.estimatedShippingTotal) },
+    { label: "Phụ phí", render: (r) => formatMoneyDisplay(r.surcharge) },
+    { label: "Thuế", render: (r) => formatMoneyDisplay(r.tax) },
+    { label: "Doanh thu", render: (r) => `<b style="color:#16a34a;">${formatMoneyDisplay(r.estimatedOrderIncome)}</b>` },
+    { label: "Tổng vốn", render: (r) => `<span style="color:#b45309; font-weight:600;">${formatMoneyDisplay(r.lineCost || r.totalCapital)}</span>` },
+    { 
+      label: "Lợi nhuận", 
+      render: (r) => {
+        const pNum = moneyToNumber(r.profit);
+        const col = (pNum && Number(pNum) >= 0) ? '#16a34a' : '#dc2626';
+        return `<b style="color:${col};">${formatMoneyDisplay(r.profit)}</b>`;
+      }
+    },
+    { label: "SKU phân loại", render: (r) => `<span style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-weight:600; color:#0f172a;">${escapeHtml(r.sku || "")}</span>` },
+    { label: "Số lượng", render: (r) => `<b style="font-size:12px;">${escapeHtml(r.quantity || "1")}</b>`, style: "text-align:center;" },
+    { label: "Giá SP", render: (r) => formatMoneyDisplay(r.productPrice || r.unitCost) },
+    { label: "Tên khách", render: (r) => escapeHtml(r.tenKhach || "") },
+    { label: "Người nhận", render: (r) => escapeHtml(r.ngNhan || "") },
+    { label: "Địa chỉ", render: (r) => `<span title="${escapeHtml(r.diaChi || "")}" style="display:inline-block; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(r.diaChi || "")}</span>` },
+    { label: "Ngày tạo", render: (r) => `<span style="color:#64748b; font-size:10px;">${escapeHtml(r.orderCreatedAt || "")}</span>` },
+    { 
+      label: "Link đơn", 
+      render: (r) => {
+        const link = r.linkDon || r.link_don || (r.orderId ? `https://banhang.shopee.vn/portal/sale/order/${r.orderId}` : "");
+        return link ? `<a href="${escapeHtml(link)}" class="order-link-btn" data-order-link="${escapeHtml(link)}" target="_blank" style="color:#2563eb; font-weight:600; text-decoration:underline; cursor:pointer;" title="Mở trang chi tiết đơn hàng">Link</a>` : '';
+      }
+    }
+  ];
+
   function shortCell(value, max = 120) {
     const text = String(value || "");
     return text.length > max ? `${text.slice(0, max)}...` : text;
@@ -125,6 +229,9 @@
   function renderRows(rows, existingInfo = currentOrderExistingInfo) {
     latestRows = Array.isArray(rows) ? rows : [];
     if (!latestRows.length) {
+      if (thead) {
+        thead.innerHTML = `<tr><th style="padding: 6px; border-bottom: 1px solid #cbd5e1;">Thong tin don hang</th></tr>`;
+      }
       tbody.innerHTML = `<tr><td colspan="1" style="text-align: center; padding: 10px; color: #ef4444;">Khong co du lieu.</td></tr>`;
       return;
     }
@@ -132,11 +239,62 @@
     const isExisting = !!existingInfo?.exists;
     const rowNums = existingInfo?.rowNums || [];
 
-    tbody.innerHTML = latestRows.map((row) => `
-      <tr>
-        <td style="padding: 6px; border-bottom: 1px solid #edf2f7; vertical-align: top; white-space: normal;">${renderVerticalDetails(row, isExisting, rowNums)}</td>
-      </tr>
-    `).join("");
+    if (orderViewMode === "row") {
+      // 1. Header dạng dòng (Bảng ngang)
+      if (thead) {
+        thead.innerHTML = `<tr>${rowViewColumns.map(c => `<th style="padding: 7px 8px; border-bottom: 2px solid #cbd5e1; background: #f1f5f9; white-space: nowrap; font-size: 11px; font-weight: 600; color: #334155; position: sticky; top: 0; z-index: 2;">${c.label}</th>`).join("")}</tr>`;
+      }
+
+      // 2. Body dạng dòng
+      tbody.innerHTML = latestRows.map((row, idx) => {
+        const isEven = idx % 2 === 0;
+        let rowBg = isEven ? "#ffffff" : "#f8fafc";
+        const rowLink = row.linkDon || row.link_don || (row.orderId ? `https://banhang.shopee.vn/portal/sale/order/${row.orderId}` : "");
+        return `
+          <tr class="order-tab-row-clickable" data-order-link="${escapeHtml(rowLink)}" style="background: ${rowBg}; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='${rowBg}'" title="Bấm vào dòng để mở chi tiết đơn hàng: ${escapeHtml(row.orderId || '')}">
+            ${rowViewColumns.map(col => `
+              <td style="padding: 6px 8px; font-size: 11px; white-space: nowrap; ${col.style || ''}">${col.render(row, idx)}</td>
+            `).join("")}
+          </tr>
+        `;
+      }).join("");
+
+      tbody.querySelectorAll('.order-tab-row-clickable').forEach(tr => {
+        tr.addEventListener('click', (e) => {
+          if (e.target.closest('button') || e.target.closest('input')) return;
+          const aEl = e.target.closest('a');
+          if (aEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            const href = aEl.getAttribute('data-order-link') || aEl.getAttribute('href');
+            if (href && href !== '#' && !href.startsWith('javascript:')) {
+              openOrderLink(href);
+              return;
+            }
+          }
+          const link = tr.getAttribute('data-order-link');
+          if (link) {
+            openOrderLink(link);
+          }
+        });
+      });
+
+      // Thêm banner cảnh báo nếu đơn đã có trong Sheet DH
+      if (isExisting) {
+        const rowText = rowNums && rowNums.length > 0 ? ` (Dòng ${rowNums.join(", ")})` : "";
+        status.innerHTML = `<span style="color: #b45309; font-weight: bold; background: #fef08a; padding: 3px 8px; border-radius: 4px; border: 1px solid #fde047;">⚠️ Đơn hàng đã có trong Sheet DH${rowText}</span>`;
+      }
+    } else {
+      // Header dạng thẻ dọc
+      if (thead) {
+        thead.innerHTML = `<tr><th style="padding: 6px; border-bottom: 1px solid #cbd5e1;">Thong tin don hang</th></tr>`;
+      }
+      tbody.innerHTML = latestRows.map((row) => `
+        <tr>
+          <td style="padding: 6px; border-bottom: 1px solid #edf2f7; vertical-align: top; white-space: normal;">${renderVerticalDetails(row, isExisting, rowNums)}</td>
+        </tr>
+      `).join("");
+    }
   }
 
   function rowsToTsv(rows) {
@@ -272,6 +430,18 @@
   }
 
   async function rowsToDhValues(rows, maGian) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    
+    // Lọc bỏ ngay các dòng rỗng không có mã đơn và không có SKU
+    const validRawRows = rows.filter(r => {
+      if (!r) return false;
+      const mdh = normalizeCell(r.orderId);
+      const sku = normalizeCell(r.sku);
+      const prc = normalizeCell(r.productPrice);
+      return (mdh || sku || prc);
+    });
+    if (validRawRows.length === 0) return [];
+
     // 1. Đọc dữ liệu từ sheet DS_SP để tra cứu giá bán (don_gia)
     let dsSpMap = new Map();
     try {
@@ -299,7 +469,7 @@
     }
 
     // 2. Tính đơn giá (don_gia), thành tiền (thanh_tien) cho từng dòng sản phẩm
-    const processedRows = rows.map((row) => {
+    const processedRows = validRawRows.map((row) => {
       const mdh = normalizeCell(row.orderId);
       const sku = normalizeCell(row.sku);
       // id_sp = left(sku, 10)
@@ -334,17 +504,23 @@
       tienSpMap.set(key, (tienSpMap.get(key) || 0) + item.thanhTien);
     });
 
-    // 4. Trả về mảng 21 cột dữ liệu chuẩn
-    return processedRows.map((item) => {
+    // 4. Trả về mảng 25 cột dữ liệu chuẩn (loại bỏ dòng không có MDH và SKU)
+    return processedRows
+      .filter(item => item.mdh || item.sku)
+      .map((item) => {
       const { row, mdh, sku, idSp, slg, donGia, thanhTien } = item;
       const tienSp = tienSpMap.get(mdh || "__order__") || 0;
       
       const tongTien = numberOrZero(moneyValue(row.totalProductAmount));
-      const maGiamGia = 0;
+      const maGiamGia = numberOrZero(moneyValue(row.shopVoucher || row.maGiamGia || 0));
       const phiVc = numberOrZero(moneyValue(row.estimatedShippingTotal));
       const phuPhi = numberOrZero(moneyValue(row.surcharge));
       const thue = numberOrZero(moneyValue(row.tax));
-      const doanhThu = numberOrZero(moneyValue(row.estimatedOrderIncome));
+      let doanhThu = numberOrZero(moneyValue(row.estimatedOrderIncome));
+
+      if (!doanhThu || doanhThu === 0) {
+        doanhThu = tongTien - maGiamGia - phiVc - phuPhi - thue;
+      }
       const phiKhac = 0;
 
       // Công thức loi_nhuan = (doanh_thu - phi_khac - tien_sp)
@@ -357,12 +533,12 @@
         formatDateTimeValue(row.orderCreatedAt),  // Col C (3): ngay_gio
         mdh,                                      // Col D (4): mdh
         normalizeCell(row.tracking),              // Col E (5): mvd
-        moneyValue(row.totalProductAmount),      // Col F (6): tong_tien
-        "",                                       // Col G (7): ma_giam_gia
-        moneyValue(row.estimatedShippingTotal),   // Col H (8): phi_vc
-        moneyValue(row.surcharge),                // Col I (9): phu_phi
-        moneyValue(row.tax),                      // Col J (10): thue
-        moneyValue(row.estimatedOrderIncome),     // Col K (11): doanh_thu
+        tongTien || moneyValue(row.totalProductAmount), // Col F (6): tong_tien
+        maGiamGia ? maGiamGia : 0,                // Col G (7): ma_giam_gia
+        phiVc || moneyValue(row.estimatedShippingTotal), // Col H (8): phi_vc
+        phuPhi || moneyValue(row.surcharge),      // Col I (9): phu_phi
+        thue || moneyValue(row.tax),              // Col J (10): thue
+        doanhThu,                                 // Col K (11): doanh_thu
         "",                                       // Col L (12): phi_khac
         tienSp,                                   // Col M (13): tien_sp (tổng thanh_tien mdh)
         loiNhuan,                                 // Col N (14): loi_nhuan (theo công thức)
@@ -400,12 +576,33 @@
 
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      const isShopeeOrderUrl = tab?.url && /^https:\/\/banhang\.shopee\.vn\/portal\/sale\/order/.test(tab.url);
+      const isShopeeOrderUrl = (url) => {
+        if (!url || typeof url !== "string") return false;
+        if (!/^https:\/\/banhang\.shopee\.vn\/portal\/sale\/order/i.test(url)) return false;
+        if (/(returnrefundcancel|\/sale\/return|\/cancel|\/refund)/i.test(url)) return false;
+
+        // Bắt buộc link phải có ID đơn hàng: /portal/sale/order/[ID] (ví dụ: /portal/sale/order/242102147201615)
+        const matchPath = url.match(/^https:\/\/banhang\.shopee\.vn\/portal\/sale\/order\/(?:detail\/)?([0-9a-zA-Z]{8,})(?:[?#\/]|$)/i);
+        if (matchPath) {
+          const idSegment = matchPath[1].toLowerCase();
+          const systemSegments = /^(order|list|mass|shipping|shipment|return|setting|settings|batch|all|unprocessed|toship|completed|cancelled)$/i;
+          if (!systemSegments.test(idSegment)) {
+            return true;
+          }
+        }
+
+        const matchQuery = url.match(/^https:\/\/banhang\.shopee\.vn\/portal\/sale\/order.*[?&](?:order_sn|orderId|order_id|ordersn)=([0-9a-zA-Z]{8,})/i);
+        if (matchQuery) {
+          return true;
+        }
+
+        return false;
+      };
       
-      if (!tab?.id || !isShopeeOrderUrl) {
-        if (!auto) throw new Error("Hãy mở trang chi tiết đơn hàng banhang.shopee.vn/portal/sale/order/... trước.");
+      if (!tab?.id || !isShopeeOrderUrl(tab.url)) {
+        if (!auto) throw new Error("Chỉ đọc link chi tiết đơn hàng có ID (ví dụ: https://banhang.shopee.vn/portal/sale/order/242102147201615).");
         if (auto && !latestRows.length) {
-          status.textContent = "Chờ mở trang chi tiết đơn hàng Shopee...";
+          status.textContent = "Chờ mở trang chi tiết đơn hàng Shopee có ID...";
         }
         return;
       }
@@ -430,12 +627,18 @@
       }
 
       if (response.rows && response.rows.length > 0) {
-        const orderId = response.orderId || response.rows[0]?.orderId || "";
-        const tracking = response.tracking || response.rows[0]?.tracking || "";
+        const orderId = String(response.orderId || response.rows[0]?.orderId || "").trim();
+        const tracking = String(response.tracking || response.rows[0]?.tracking || "").trim();
 
-        // Kiểm tra xem đơn hàng đã có trong Sheet DH chưa
+        if (!orderId && !tracking) {
+          if (!auto) throw new Error("Không tìm thấy Mã đơn hàng hoặc Mã vận đơn.");
+          return;
+        }
+
+        // Kiểm tra xem đơn hàng đã có trong Sheet DH chưa và lấy dữ liệu đang lưu trong Sheet
         let exists = false;
         let rowNums = [];
+        let existingRows = [];
         try {
           const checkRes = await sendRuntimeMessage({
             type: "CHECK_DH_ORDER_EXISTS",
@@ -445,25 +648,50 @@
           if (checkRes?.ok && checkRes.exists) {
             exists = true;
             rowNums = checkRes.rowNums || [];
+            existingRows = checkRes.existingRows || [];
           }
         } catch (e) {
           console.warn("Lỗi kiểm tra đơn hàng trong sheet:", e);
         }
 
-        currentOrderExistingInfo = { exists, rowNums };
-        renderRows(response.rows, currentOrderExistingInfo);
+        // Tạo giá trị dòng và đối soát
+        const maGian = await getCurrentMaGian();
+        const currentDhValues = await rowsToDhValues(response.rows, maGian);
+        
+        let comparison = { isMatch: true, diffs: [], isNew: !exists };
+        if (exists && existingRows && existingRows.length > 0) {
+          const compareFn = window.nhieuDonHangTab?.compareOrderRows;
+          if (compareFn) {
+            comparison = compareFn(currentDhValues, existingRows);
+          }
+        }
 
-        if (exists) {
-          status.innerHTML = `<span style="color:#d97706; font-weight:bold;">⚠️ Đơn hàng ĐÃ CÓ trong Sheet DH (Dòng ${rowNums.join(", ")}). Bấm "Lưu ĐH" để cập nhật lại.</span>`;
+        currentOrderExistingInfo = { exists, rowNums, existingRows, comparison };
+        if (comparison && comparison.hasModifiedStatus) {
+          status.innerHTML = `<span style="color:#b45309; font-weight:bold;">ℹ️ Đơn hàng trong Sheet DH (Dòng ${rowNums.join(", ")}) ĐÃ ĐƯỢC ĐỔI TÌNH TRẠNG: ${escapeHtml(comparison.existingStatus || "")}. Bấm "Cập nhật DH" nếu muốn lưu đè.</span>`;
           if (saveDhButton) {
             saveDhButton.textContent = "Cập nhật DH";
             saveDhButton.style.background = "#d97706";
             saveDhButton.style.borderColor = "#b45309";
           }
+        } else if (exists && !comparison.isMatch) {
+          status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Dữ liệu Sheet DH (Dòng ${rowNums.join(", ")}) KHÁC với trang (Khác: ${comparison.diffs[0]}). Bấm "Cập nhật DH" để đồng bộ lại!</span>`;
+          if (saveDhButton) {
+            saveDhButton.textContent = "🔄 Cập nhật khớp DH";
+            saveDhButton.style.background = "#dc2626";
+            saveDhButton.style.borderColor = "#b91c1c";
+          }
+        } else if (exists) {
+          status.innerHTML = `<span style="color:#15803d; font-weight:bold;">✅ Đơn hàng ĐÃ CÓ trong Sheet DH (Dòng ${rowNums.join(", ")}) - Dữ liệu KHỚP 100%.</span>`;
+          if (saveDhButton) {
+            saveDhButton.textContent = "✓ Đã khớp Sheet DH";
+            saveDhButton.style.background = "#10b981";
+            saveDhButton.style.borderColor = "#059669";
+          }
         } else {
           status.textContent = `Đã đọc dữ liệu đơn hàng. Mã đơn: ${orderId || ""}. (Chưa có trong Sheet)`;
           if (saveDhButton) {
-            saveDhButton.textContent = "Luu DH";
+            saveDhButton.textContent = "Lưu DH";
             saveDhButton.style.background = "#16a34a";
             saveDhButton.style.borderColor = "#15803d";
           }
@@ -513,9 +741,16 @@
       const maGian = await getCurrentMaGian();
       if (!maGian) throw new Error("Chua co ma gian trong tab Cai dat.");
 
-      const values = await rowsToDhValues(latestRows, maGian);
       const sampleMdh = latestRows[0]?.orderId || "";
       const sampleMvd = latestRows[0]?.tracking || "";
+      if (!sampleMdh && !sampleMvd) {
+        throw new Error("Không tìm thấy Mã đơn hàng hoặc Mã vận đơn để lưu.");
+      }
+
+      const values = await rowsToDhValues(latestRows, maGian);
+      if (!values.length) {
+        throw new Error("Không có dữ liệu dòng đơn hàng hợp lệ để lưu.");
+      }
 
       const response = await sendRuntimeMessage({
         type: "SAVE_DH_ORDER",
@@ -594,4 +829,75 @@
       status.textContent = `Lỗi xuất Excel: ${e.message}`;
     }
   });
+
+  // Gán đơn hàng hiện tại sang tab Nhiều đơn hàng (và lưu vào Sheet DH)
+  if (assignToNhieuDonHangBtn) {
+    assignToNhieuDonHangBtn.addEventListener("click", async () => {
+      if (!latestRows.length) {
+        status.textContent = "Chưa có dữ liệu đơn hàng. Vui lòng bấm Đọc đơn trước!";
+        return;
+      }
+
+      assignToNhieuDonHangBtn.disabled = true;
+      const originalText = assignToNhieuDonHangBtn.textContent;
+      assignToNhieuDonHangBtn.textContent = "⏳ Đang gán...";
+      status.textContent = "⏳ Đang gán đơn vào Tab Nhiều đơn hàng & lưu Sheet DH...";
+
+      try {
+        const sampleMdh = latestRows[0]?.orderId || "";
+        const sampleMvd = latestRows[0]?.tracking || "";
+        if (!sampleMdh && !sampleMvd) {
+          throw new Error("Không tìm thấy Mã đơn hàng hoặc Mã vận đơn để gán.");
+        }
+
+        const maGian = await getCurrentMaGian();
+        const dhValues = await rowsToDhValues(latestRows, maGian);
+        if (!dhValues.length) {
+          throw new Error("Không có dữ liệu dòng đơn hàng hợp lệ để gán.");
+        }
+
+        if (window.nhieuDonHangTab?.addDhRows) {
+          window.nhieuDonHangTab.addDhRows(dhValues, sampleMdh, sampleMvd, true);
+        } else {
+          await sendRuntimeMessage({
+            type: "SAVE_DH_ORDER",
+            values: dhValues,
+            mdh: sampleMdh,
+            mvd: sampleMvd
+          });
+        }
+
+        status.innerHTML = `<span style="color:#16a34a; font-weight:bold;">✅ Đã gán đơn ${sampleMdh} vào tab Nhiều đơn hàng & lưu Sheet DH!</span>`;
+
+        // Tự động chuyển tab sang Nhiều đơn hàng
+        const tabBtn = document.querySelector('.tab-btn[data-tab="tab-nhieu-don-hang"]');
+        if (tabBtn) tabBtn.click();
+      } catch (err) {
+        status.textContent = `Lỗi gán đơn: ${err.message}`;
+      } finally {
+        assignToNhieuDonHangBtn.disabled = false;
+        assignToNhieuDonHangBtn.textContent = originalText;
+      }
+    });
+  }
+
+  // Chia sẻ các hàm tiện ích cho tab Nhiều đơn hàng sử dụng
+  window.orderTabUtils = {
+    readOrderFromTab,
+    rowsToDhValues,
+    getCurrentMaGian,
+    moneyValue,
+    moneyToNumber,
+    normalizeCell,
+    formatDateTimeValue,
+    extractDatePart,
+    getLatestRows: () => latestRows,
+    rowViewColumns,
+    exportColumns,
+    displayColumns,
+    renderVerticalDetails,
+    formatMoneyDisplay,
+    rowsToTsv,
+    normalizeCellForExport
+  };
 })();

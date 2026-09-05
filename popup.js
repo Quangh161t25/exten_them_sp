@@ -8788,6 +8788,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let uploadedList = [];
   let currentViewMode = "grid3"; // Mặc định là Lưới 3 cột
+  const selectedApiItemIds = new Set();
+
+  function updateDeleteButtonUI() {
+    const btnDeleteSelected = document.getElementById("api-btn-delete-selected");
+    if (!btnDeleteSelected) return;
+    if (selectedApiItemIds.size > 0) {
+      btnDeleteSelected.style.display = "inline-block";
+      btnDeleteSelected.textContent = `🗑️ Xóa đã chọn (${selectedApiItemIds.size})`;
+    } else {
+      btnDeleteSelected.style.display = "none";
+    }
+  }
+
+  function updateSelectAllState(pageItems) {
+    const chkSelectAll = document.getElementById("api-chk-select-all");
+    if (!chkSelectAll) return;
+    if (!pageItems || pageItems.length === 0) {
+      chkSelectAll.checked = false;
+      chkSelectAll.indeterminate = false;
+      return;
+    }
+    const selectedOnPage = pageItems.filter(item => {
+      const key = item.id || item.link;
+      return selectedApiItemIds.has(key);
+    });
+
+    if (selectedOnPage.length === pageItems.length) {
+      chkSelectAll.checked = true;
+      chkSelectAll.indeterminate = false;
+    } else if (selectedOnPage.length > 0) {
+      chkSelectAll.checked = false;
+      chkSelectAll.indeterminate = true;
+    } else {
+      chkSelectAll.checked = false;
+      chkSelectAll.indeterminate = false;
+    }
+  }
 
   // Chuyển đổi chế độ xem
   function setViewMode(mode) {
@@ -8824,6 +8861,152 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btnViewGrid3) btnViewGrid3.addEventListener("click", () => setViewMode("grid3"));
   if (btnViewGrid4) btnViewGrid4.addEventListener("click", () => setViewMode("grid4"));
 
+  const btnReloadSheet = document.getElementById("api-btn-reload-sheet");
+  if (btnReloadSheet) {
+    btnReloadSheet.addEventListener("click", () => {
+      selectedApiItemIds.clear();
+      updateDeleteButtonUI();
+      fetchLuuAnhApiFromSheet();
+    });
+  }
+
+  const btnDeleteSelected = document.getElementById("api-btn-delete-selected");
+  if (btnDeleteSelected) {
+    btnDeleteSelected.addEventListener("click", () => {
+      if (selectedApiItemIds.size === 0) return;
+      const count = selectedApiItemIds.size;
+      if (!confirm(`Bạn có chắc chắn muốn xóa ${count} ảnh đã chọn khỏi Sheet LUU_ANH_API?`)) {
+        return;
+      }
+
+      btnDeleteSelected.disabled = true;
+      showStatus(`⏳ Đang xóa ${count} ảnh khỏi Sheet LUU_ANH_API...`, "#2563eb");
+
+      const idsArr = [];
+      const linksArr = [];
+      selectedApiItemIds.forEach(val => {
+        if (val.startsWith("http://") || val.startsWith("https://")) {
+          linksArr.push(val);
+        } else {
+          idsArr.push(val);
+        }
+      });
+
+      chrome.runtime.sendMessage({
+        type: "DELETE_LUU_ANH_API_ITEMS",
+        ids: idsArr,
+        links: linksArr
+      }, (res) => {
+        btnDeleteSelected.disabled = false;
+        if (res && res.ok) {
+          showStatus(`✅ Đã xóa thành công ${res.deleted || count} ảnh khỏi Sheet LUU_ANH_API!`, "#16a34a");
+          uploadedList = uploadedList.filter(item => {
+            const k1 = item.id;
+            const k2 = item.link;
+            return !selectedApiItemIds.has(k1) && !selectedApiItemIds.has(k2);
+          });
+          selectedApiItemIds.clear();
+          updateDeleteButtonUI();
+          renderUploadedItems();
+        } else {
+          showStatus(`❌ Lỗi khi xóa ảnh: ${res?.error || "Lỗi không xác định"}`, "red");
+        }
+      });
+    });
+  }
+
+  // Select all checkbox listener
+  const chkSelectAll = document.getElementById("api-chk-select-all");
+  if (chkSelectAll) {
+    chkSelectAll.addEventListener("change", () => {
+      const reversedList = [...uploadedList].reverse();
+      const startIndex = (currentPage - 1) * PAGE_SIZE;
+      const endIndex = Math.min(startIndex + PAGE_SIZE, reversedList.length);
+      const pageItems = reversedList.slice(startIndex, endIndex);
+
+      if (chkSelectAll.checked) {
+        pageItems.forEach(item => {
+          const key = item.id || item.link;
+          if (key) selectedApiItemIds.add(key);
+        });
+      } else {
+        pageItems.forEach(item => {
+          const key = item.id || item.link;
+          if (key) selectedApiItemIds.delete(key);
+        });
+      }
+      updateDeleteButtonUI();
+      renderUploadedItems();
+    });
+  }
+
+  // Item checkbox change listener
+  document.addEventListener("change", (e) => {
+    const chk = e.target.closest(".api-item-chk");
+    if (chk) {
+      const id = chk.getAttribute("data-id") || chk.getAttribute("data-link");
+      if (id) {
+        if (chk.checked) {
+          selectedApiItemIds.add(id);
+        } else {
+          selectedApiItemIds.delete(id);
+        }
+      }
+      updateDeleteButtonUI();
+
+      const reversedList = [...uploadedList].reverse();
+      const startIndex = (currentPage - 1) * PAGE_SIZE;
+      const endIndex = Math.min(startIndex + PAGE_SIZE, reversedList.length);
+      const pageItems = reversedList.slice(startIndex, endIndex);
+      updateSelectAllState(pageItems);
+
+      const tr = chk.closest("tr");
+      if (tr) {
+        tr.style.background = chk.checked ? "#eff6ff" : "";
+      }
+      const gridCard = chk.closest("div[style*='aspect-ratio']");
+      if (gridCard) {
+        gridCard.style.outline = chk.checked ? "2px solid #3b82f6" : "";
+        gridCard.style.borderColor = chk.checked ? "#3b82f6" : "#e2e8f0";
+      }
+    }
+  });
+
+  // Single delete button listener
+  document.addEventListener("click", (e) => {
+    const delBtn = e.target.closest(".api-delete-single-btn");
+    if (delBtn) {
+      const id = delBtn.getAttribute("data-id") || "";
+      const link = delBtn.getAttribute("data-link") || "";
+      if (!confirm("Bạn có chắc chắn muốn xóa ảnh này khỏi Sheet LUU_ANH_API?")) return;
+
+      delBtn.disabled = true;
+      showStatus("⏳ Đang xóa ảnh...", "#2563eb");
+
+      chrome.runtime.sendMessage({
+        type: "DELETE_LUU_ANH_API_ITEMS",
+        ids: id ? [id] : [],
+        links: link ? [link] : []
+      }, (res) => {
+        if (res && res.ok) {
+          showStatus("✅ Đã xóa ảnh thành công!", "#16a34a");
+          uploadedList = uploadedList.filter(item => {
+            if (id && item.id === id) return false;
+            if (link && item.link === link) return false;
+            return true;
+          });
+          if (id) selectedApiItemIds.delete(id);
+          if (link) selectedApiItemIds.delete(link);
+          updateDeleteButtonUI();
+          renderUploadedItems();
+        } else {
+          delBtn.disabled = false;
+          showStatus(`❌ Lỗi khi xóa ảnh: ${res?.error || "Lỗi không xác định"}`, "red");
+        }
+      });
+    }
+  });
+
   dropzone.addEventListener("click", () => fileInput.click());
 
   dropzone.addEventListener("dragover", (e) => {
@@ -8847,10 +9030,28 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Hỗ trợ sự kiện Dán ảnh (Ctrl + V) từ Clipboard
+  // Hỗ trợ sự kiện Dán ảnh (Ctrl + V) hoặc Dán Link ảnh từ Clipboard
   function handlePasteImage(e) {
     const tabApi = document.getElementById("tab-api-images");
     if (!tabApi || tabApi.hidden) return; // Chỉ xử lý khi đang ở tab Ảnh API
+
+    // 1. Kiểm tra nếu dán chuỗi text chứa Link ảnh trực tiếp (http/https)
+    const clipboardText = (e.clipboardData || window.clipboardData)?.getData("text") || "";
+    if (clipboardText && clipboardText.trim()) {
+      const lines = clipboardText.split(/\r?\n/).map(l => l.trim()).filter(l => /^https?:\/\/.+/i.test(l));
+      if (lines.length > 0) {
+        e.preventDefault();
+        const urlFiles = lines.map((url, idx) => ({
+          name: `url_image_${Date.now()}_${idx + 1}.jpg`,
+          type: "image/jpeg",
+          originalUrl: url,
+          url: url,
+          isDirectUrl: true
+        }));
+        handleApiImageFiles(urlFiles);
+        return;
+      }
+    }
 
     const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
     if (!items) return;
@@ -8895,32 +9096,39 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function handleApiImageFiles(files) {
-    const imageFiles = files.filter(f => f.type.startsWith("image/"));
+    const imageFiles = files.filter(f => f.isDirectUrl || (f.type && f.type.startsWith("image/")));
     if (imageFiles.length === 0) {
-      showStatus("Vui lòng chọn file hình ảnh hợp lệ!", "red");
+      showStatus("Vui lòng chọn file hình ảnh hợp lệ hoặc dán link ảnh!", "red");
       return;
     }
 
-    showStatus(`Đang tải lên ${imageFiles.length} ảnh lên API...`, "#2563eb");
+    showStatus(`Đang xử lý ${imageFiles.length} ảnh...`, "#2563eb");
 
     const sheetRowsToSave = [];
 
     for (let i = 0; i < imageFiles.length; i++) {
       const file = imageFiles[i];
       try {
-        showStatus(`Đang upload ảnh ${i + 1}/${imageFiles.length}: ${file.name}...`, "#2563eb");
-        
-        let imgUrl = await uploadFileToImgBB(file);
-        // Đổi thành đuôi .jpg theo yêu cầu
-        imgUrl = formatLinkToJpg(imgUrl);
+        let imgUrl = "";
+        const directUrl = file.originalUrl || file.url || "";
+
+        if (file.isDirectUrl || (directUrl && /^https?:\/\//i.test(directUrl))) {
+          // Có link sẵn thì không cần tải lên API nữa, lấy link đó add thẳng vào cột B
+          imgUrl = directUrl;
+        } else {
+          showStatus(`Đang upload ảnh ${i + 1}/${imageFiles.length}: ${file.name}...`, "#2563eb");
+          imgUrl = await uploadFileToImgBB(file);
+          // Đổi thành đuôi .jpg theo yêu cầu
+          imgUrl = formatLinkToJpg(imgUrl);
+        }
 
         const imgId = "API_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
 
         const item = {
           id: imgId,
           link: imgUrl,
-          ten_anh: file.name,
-          link_cu: file.link_cu || file.originalUrl || ""
+          ten_anh: file.name || "Ảnh",
+          link_cu: file.link_cu || file.originalUrl || imgUrl
         };
 
         uploadedList.push(item);
@@ -9000,12 +9208,13 @@ document.addEventListener("DOMContentLoaded", () => {
     showStatus("Đang tải dữ liệu ảnh từ Sheet LUU_ANH_API...", "#2563eb");
     try {
       const token = await getAccessToken();
-      if (!GOOGLE_SHEET_CONFIG.spreadsheetId) {
+      const spreadsheetId = (typeof getSpreadsheetId === "function") ? await getSpreadsheetId() : GOOGLE_SHEET_CONFIG.spreadsheetId;
+      if (!spreadsheetId) {
         showStatus("Chưa cấu hình Spreadsheet ID!", "red");
         return;
       }
 
-      const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_CONFIG.spreadsheetId}/values/LUU_ANH_API!A:D`, {
+      const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/LUU_ANH_API!A:D`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -9065,16 +9274,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const pageItems = reversedList.slice(startIndex, endIndex);
 
     updatePaginationUI(totalItems, totalPages, currentPage);
+    updateSelectAllState(pageItems);
 
     if (currentViewMode === "table") {
       if (!tbody) return;
       if (pageItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 15px; color: #94a3b8;">Chưa có ảnh nào trong dữ liệu.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 15px; color: #94a3b8;">Chưa có ảnh nào trong dữ liệu.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = pageItems.map((item, idx) => `
-        <tr style="border-bottom: 1px solid #f1f5f9;">
+      tbody.innerHTML = pageItems.map((item, idx) => {
+        const key = item.id || item.link;
+        const isSelected = selectedApiItemIds.has(key);
+        return `
+        <tr style="border-bottom: 1px solid #f1f5f9; ${isSelected ? 'background: #eff6ff;' : ''}">
+          <td style="padding: 6px 8px; text-align: center;">
+            <input type="checkbox" class="api-item-chk" data-id="${item.id}" data-link="${item.link}" ${isSelected ? 'checked' : ''} style="margin: 0; cursor: pointer; transform: scale(1.1);">
+          </td>
           <td style="padding: 6px 8px; text-align: center; color: #64748b;">${totalItems - (startIndex + idx)}</td>
           <td style="padding: 6px 8px;">
             <img src="${item.link}" style="width: 36px; height: 36px; object-fit: cover; border-radius: 4px; border: 1px solid #e2e8f0; display: block;" loading="lazy">
@@ -9089,8 +9305,12 @@ document.addEventListener("DOMContentLoaded", () => {
           <td style="padding: 6px 8px; text-align: center;">
             <button type="button" class="api-copy-btn" data-link="${item.link}" style="padding: 2px 6px; font-size: 10px; background: #0284c7; color: white; border: none; border-radius: 3px; cursor: pointer;">Copy</button>
           </td>
+          <td style="padding: 6px 8px; text-align: center;">
+            <button type="button" class="api-delete-single-btn" data-id="${item.id}" data-link="${item.link}" style="padding: 2px 5px; font-size: 10px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 3px; cursor: pointer;" title="Xóa ảnh này">🗑️</button>
+          </td>
         </tr>
-      `).join("");
+      `;
+      }).join("");
     } else {
       if (!gridContainer) return;
       if (pageItems.length === 0) {
@@ -9098,12 +9318,17 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      gridContainer.innerHTML = pageItems.map((item) => `
-        <div style="position: relative; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; background: #f8fafc; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center;">
+      gridContainer.innerHTML = pageItems.map((item) => {
+        const key = item.id || item.link;
+        const isSelected = selectedApiItemIds.has(key);
+        return `
+        <div style="position: relative; border: 1px solid ${isSelected ? '#3b82f6' : '#e2e8f0'}; border-radius: 6px; overflow: hidden; background: #f8fafc; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; ${isSelected ? 'outline: 2px solid #3b82f6;' : ''}">
+          <input type="checkbox" class="api-item-chk" data-id="${item.id}" data-link="${item.link}" ${isSelected ? 'checked' : ''} style="position: absolute; top: 5px; left: 5px; z-index: 2; margin: 0; cursor: pointer; transform: scale(1.2); filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));">
           <img src="${item.link}" style="width: 100%; height: 100%; object-fit: cover; display: block;" title="${item.ten_anh || item.id}" loading="lazy">
           <button type="button" class="api-copy-btn" data-link="${item.link}" style="position: absolute; bottom: 4px; right: 4px; padding: 2px 6px; font-size: 9px; font-weight: bold; background: rgba(0,0,0,0.65); color: white; border: none; border-radius: 3px; cursor: pointer;" title="Copy Link .jpg">📋 Copy</button>
         </div>
-      `).join("");
+      `;
+      }).join("");
     }
   }
 
