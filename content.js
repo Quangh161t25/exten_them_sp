@@ -8733,6 +8733,29 @@ function downloadExcelFileBypass(wb, filename) {
           tracking = trackingLine ? ((trackingLine.match(/#\s*([A-Z0-9-]+)/i) || [])[1] || "") : "";
       }
 
+      if (!tracking) {
+          const directTrkEl = document.querySelector('.tracking-number, [class*="tracking-number"], [data-testid="tracking-number"], .item-return-logistic .tracking-number');
+          if (directTrkEl) {
+              const tText = (directTrkEl.textContent || "").replace(/^#\s*/, '').replace(/copy|sao\s*ch[eé]p/gi, '').trim();
+              if (tText) tracking = tText;
+          }
+      }
+
+      if (!tracking) {
+          for (const line of globalLines) {
+              const mvdMatch = line.match(/(?:Mã vận đơn|Tracking No|MVD|Mã kiện hàng|Tracking)[:\s#]*([A-Z0-9_-]{6,30})/i);
+              if (mvdMatch) {
+                  tracking = mvdMatch[1].trim();
+                  break;
+              }
+              const carrierCodeMatch = line.match(/\b(SPXVN[A-Z0-9]+|VNP[A-Z0-9]+|VN[0-9]{8,}[A-Z0-9]*|JNT[A-Z0-9]+)\b/i);
+              if (carrierCodeMatch) {
+                  tracking = carrierCodeMatch[1].trim();
+                  break;
+              }
+          }
+      }
+
       const container = findOrderPackageContainer(tracking);
       const lines = getOrderDetailLines(container || document.body);
       let packageName = "";
@@ -9647,6 +9670,7 @@ function downloadExcelFileBypass(wb, filename) {
     if (floatingBtn) floatingBtn.remove();
     const snActions = document.getElementById('shopee-ext-ordersn-actions');
     if (snActions) snActions.remove();
+    document.querySelectorAll('[id^="shopee-ext-ordersn-actions"], .shopee-ext-ordersn-actions, .shopee-ext-inline-copy-btn').forEach(el => el.remove());
   }
 
   function extractSellerOrderReturnId() {
@@ -9683,34 +9707,156 @@ function downloadExcelFileBypass(wb, filename) {
     return "";
   }
 
-  function findOrderSnHeaderElement(orderId) {
-    const directSnEl = document.querySelector('.order-sn, [class*="order-sn"], [class*="orderId"], .order-id');
-    if (directSnEl && directSnEl.id !== 'shopee-ext-donhang-btns' && !directSnEl.closest('#shopee-ext-donhang-btns')) return directSnEl;
+  function findOrderSnValueElement(orderId) {
+    if (!orderId) return null;
+    
+    // 1. Tìm thẻ con trực tiếp có text bằng đúng mã đơn hàng
+    const candidates = Array.from(document.querySelectorAll('span, div, p, strong, b, a')).filter(el => {
+      if (el.closest('#shopee-ext-donhang-btns') || el.classList.contains('shopee-ext-inline-copy-btn')) return false;
+      const t = (el.textContent || "").trim();
+      return (t === orderId || t === `#${orderId}`) && el.children.length === 0;
+    });
+    if (candidates.length > 0) return candidates[0];
 
-    const labels = Array.from(document.querySelectorAll('.label, dt, span, div')).filter(el => {
+    // 2. Tìm thẻ bên cạnh nhãn "Mã đơn hàng"
+    const labels = Array.from(document.querySelectorAll('.label, dt, span, div, h3, h4, p')).filter(el => {
       const t = normalizeOrderDetailText(el.textContent);
       return (t === "ma don hang" || t === "order sn" || t.startsWith("ma don hang:")) && el.children.length === 0;
     });
-
     for (const lbl of labels) {
       const parent = lbl.parentElement;
       if (parent) {
-        const bodyEl = parent.querySelector('.body, .body-content, dd, span:last-child, div:last-child');
+        const bodyEl = parent.querySelector('.body, .body-content, dd, [class*="content"], [class*="value"], span:last-child, div:last-child');
         if (bodyEl && bodyEl !== lbl) return bodyEl;
+        if (lbl.nextElementSibling) return lbl.nextElementSibling;
         return parent;
       }
     }
 
-    if (orderId) {
-      const candidates = document.querySelectorAll('span, div, p');
-      for (const c of candidates) {
-        if (c.children.length === 0 && (c.textContent || "").trim() === orderId) {
-          return c;
+    const snEl = document.querySelector('.order-sn, [class*="order-sn"], [class*="orderId"], .order-id');
+    if (snEl && !snEl.closest('#shopee-ext-donhang-btns')) return snEl;
+
+    return null;
+  }
+
+  function findTrackingElements(tracking) {
+    const results = [];
+    if (!tracking) return results;
+
+    const cleanTrk = tracking.replace(/^#\s*/, '').trim().toUpperCase();
+
+    // 1. .tracking-number
+    const trackingNodes = document.querySelectorAll('.tracking-number, [class*="tracking-number"], [data-testid="tracking-number"], .item-return-logistic .tracking-number');
+    trackingNodes.forEach(node => {
+      if (!node.closest('#shopee-ext-donhang-btns') && !results.includes(node)) {
+        results.push(node);
+      }
+    });
+
+    // 2. Tìm phần tử chứa mã vận đơn
+    if (cleanTrk) {
+      const allEls = document.querySelectorAll('span, div, p, a, strong, b');
+      for (const el of allEls) {
+        if (el.closest('#shopee-ext-donhang-btns') || el.classList.contains('shopee-ext-inline-copy-btn') || results.includes(el)) continue;
+        if (el.children.length === 0) {
+          const t = (el.textContent || "").trim().toUpperCase();
+          if (t.includes(cleanTrk)) {
+            results.push(el);
+          }
         }
       }
     }
 
-    return null;
+    return results;
+  }
+
+  function renderInlineOrderDetailCopyButtons(orderId, tracking) {
+      if (!orderId) return;
+
+      // 1. Gắn nút Copy ngay cạnh Mã đơn hàng
+      const snValueEl = findOrderSnValueElement(orderId);
+      if (snValueEl) {
+          if (snValueEl.dataset.shopeeExtMdhClickBound !== "1") {
+              snValueEl.dataset.shopeeExtMdhClickBound = "1";
+              snValueEl.style.cursor = "pointer";
+              snValueEl.title = `Click để copy mã đơn hàng: ${orderId}`;
+              snValueEl.addEventListener("click", async (e) => {
+                  if (e.target.closest('.shopee-ext-inline-copy-btn')) return;
+                  e.stopPropagation();
+                  await copyTextToClipboard(orderId);
+                  const origColor = snValueEl.style.color;
+                  snValueEl.style.color = "#16a34a";
+                  setTimeout(() => { snValueEl.style.color = origColor; }, 1000);
+              }, true);
+          }
+
+          const snParent = snValueEl.parentElement;
+          if (snParent && !snParent.querySelector('.shopee-ext-inline-copy-mdh')) {
+              const inlineCopyBtn = document.createElement("button");
+              inlineCopyBtn.type = "button";
+              inlineCopyBtn.className = "shopee-ext-inline-copy-btn shopee-ext-inline-copy-mdh";
+              inlineCopyBtn.textContent = "📋 Copy MDH";
+              inlineCopyBtn.title = `Copy mã đơn hàng: ${orderId}`;
+              inlineCopyBtn.style.cssText = "background: #ee4d2d; color: #fff; border: none; border-radius: 4px; padding: 1px 8px; font-size: 11px; margin-left: 8px; cursor: pointer; font-weight: bold; height: 22px; line-height: 20px; display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; box-shadow: 0 1px 2px rgba(0,0,0,0.08);";
+              inlineCopyBtn.addEventListener("click", async (e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (await copyTextToClipboard(orderId)) {
+                      inlineCopyBtn.textContent = "✓ Đã copy!";
+                      inlineCopyBtn.style.background = "#16a34a";
+                      setTimeout(() => {
+                          inlineCopyBtn.textContent = "📋 Copy MDH";
+                          inlineCopyBtn.style.background = "#ee4d2d";
+                      }, 1500);
+                  }
+              }, true);
+              snValueEl.insertAdjacentElement("afterend", inlineCopyBtn);
+          }
+      }
+
+      // 2. Gắn nút Copy ngay cạnh Mã vận đơn
+      const trk = tracking || (extractSellerOrderPackageInfo() || {}).tracking || "";
+      if (trk) {
+          const trackingElements = findTrackingElements(trk);
+          for (const trkEl of trackingElements) {
+              if (trkEl.dataset.shopeeExtMvdClickBound !== "1") {
+                  trkEl.dataset.shopeeExtMvdClickBound = "1";
+                  trkEl.style.cursor = "pointer";
+                  trkEl.title = `Click để copy mã vận đơn: ${trk}`;
+                  trkEl.addEventListener("click", async (e) => {
+                      if (e.target.closest('.shopee-ext-inline-copy-btn')) return;
+                      e.stopPropagation();
+                      await copyTextToClipboard(trk);
+                      const origColor = trkEl.style.color;
+                      trkEl.style.color = "#16a34a";
+                      setTimeout(() => { trkEl.style.color = origColor; }, 1000);
+                  }, true);
+              }
+
+              const trkParent = trkEl.parentElement;
+              if (trkParent && !trkParent.querySelector('.shopee-ext-inline-copy-mvd')) {
+                  const inlineMvdBtn = document.createElement("button");
+                  inlineMvdBtn.type = "button";
+                  inlineMvdBtn.className = "shopee-ext-inline-copy-btn shopee-ext-inline-copy-mvd";
+                  inlineMvdBtn.textContent = "📋 Copy MVD";
+                  inlineMvdBtn.title = `Copy mã vận đơn: ${trk}`;
+                  inlineMvdBtn.style.cssText = "background: #2563eb; color: #fff; border: none; border-radius: 4px; padding: 1px 8px; font-size: 11px; margin-left: 8px; cursor: pointer; font-weight: bold; height: 22px; line-height: 20px; display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; box-shadow: 0 1px 2px rgba(0,0,0,0.08);";
+                  inlineMvdBtn.addEventListener("click", async (e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      if (await copyTextToClipboard(trk)) {
+                          inlineMvdBtn.textContent = "✓ Đã copy!";
+                          inlineMvdBtn.style.background = "#16a34a";
+                          setTimeout(() => {
+                              inlineMvdBtn.textContent = "📋 Copy MVD";
+                              inlineMvdBtn.style.background = "#2563eb";
+                          }, 1500);
+                      }
+                  }, true);
+                  trkEl.insertAdjacentElement("afterend", inlineMvdBtn);
+              }
+          }
+      }
   }
 
   function updateOrderDetailButtonsStatus(orderId) {
@@ -9787,30 +9933,15 @@ function downloadExcelFileBypass(wb, filename) {
           }
       }
 
-      // Luôn dọn dẹp nút nổi thừa ở góc màn hình
+      // Luôn dọn dẹp nút nổi thừa ở góc màn hình và cụm nút trùng lặp bên dưới
       const floatingBtn = document.getElementById('shopee-ext-floating-dh-btn');
       if (floatingBtn) floatingBtn.remove();
+      const existingBtnAdd = document.getElementById('btn-add-don-hang');
+      if (existingBtnAdd) existingBtnAdd.remove();
+      document.querySelectorAll('#shopee-ext-ordersn-actions, [id^="shopee-ext-ordersn-actions"]').forEach(el => el.remove());
 
       updateDonHangMdhCache();
       updateDhHoanIdsCache();
-
-      // Dọn dẹp nút thêm đơn hàng nếu có (đã bỏ tính năng thêm đơn hàng trên trang này)
-      const existingBtnAdd = document.getElementById('btn-add-don-hang');
-      if (existingBtnAdd) existingBtnAdd.remove();
-
-      // 4. Gắn cụm nút vào Breadcrumb / Header
-      const targetContainer = findTargetContainerForDonHangButton(orderId);
-      if (!targetContainer) return;
-
-      let btnContainer = document.getElementById('shopee-ext-donhang-btns');
-      if (!btnContainer) {
-          btnContainer = document.createElement('div');
-          btnContainer.id = 'shopee-ext-donhang-btns';
-          btnContainer.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; margin-left: 14px; vertical-align: middle; z-index: 999; flex-wrap: wrap;';
-          targetContainer.appendChild(btnContainer);
-      } else if (btnContainer.parentElement !== targetContainer) {
-          targetContainer.appendChild(btnContainer);
-      }
 
       // Dữ liệu đơn hàng chi tiết hiện tại
       const pkg = extractSellerOrderPackageInfo() || {};
@@ -9819,104 +9950,121 @@ function downloadExcelFileBypass(wb, filename) {
       const curReason = extractSellerOrderCancelOrReturnReason() || "";
       const curOrderData = { orderId, tracking: curTracking, returnId: curReturnId, reason: curReason };
 
-      // 1. Nút Copy Data (như trong trang trả hàng hoàn tiền)
-      let btnCopy = document.getElementById('btn-order-detail-copy-data');
-      if (!btnCopy) {
-          btnCopy = createActionBtn("Copy Data", "#ee4d2d", () => {
-              const copyLines = [];
-              if (orderId) copyLines.push(`Mã đơn hàng: ${orderId}`);
-              if (curReason) copyLines.push(`Lý do: ${curReason}`);
-              if (curReturnId) copyLines.push(`Mã yêu cầu trả hàng: ${curReturnId}`);
-              if (curTracking) copyLines.push(`Vận chuyển hàng hoàn: ${curTracking}`);
-              const copyText = copyLines.join('\n');
-              
-              navigator.clipboard.writeText(copyText).then(() => {
-                  btnCopy.textContent = "Copied!";
-                  setTimeout(() => { btnCopy.textContent = "Copy Data"; }, 1500);
+      // 3. Gắn cụm nút vào Breadcrumb / Header (DUY NHẤT 1 NƠI, KHÔNG TRÙNG LẶP)
+      const targetContainer = findTargetContainerForDonHangButton(orderId);
+      if (targetContainer && orderId) {
+          let btnContainer = document.getElementById('shopee-ext-donhang-btns');
+          if (!btnContainer) {
+              btnContainer = document.createElement('div');
+              btnContainer.id = 'shopee-ext-donhang-btns';
+              btnContainer.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; margin-left: 14px; vertical-align: middle; z-index: 999; flex-wrap: wrap;';
+              targetContainer.appendChild(btnContainer);
+          } else if (btnContainer.parentElement !== targetContainer) {
+              targetContainer.appendChild(btnContainer);
+          }
+
+          // 1. Nút Copy MDH (Mã đơn hàng)
+          let btnCopyMdh = document.getElementById('btn-order-detail-copy-mdh');
+          if (!btnCopyMdh) {
+              btnCopyMdh = createActionBtn("📋 Copy MDH", "#ee4d2d", async () => {
+                  if (await copyTextToClipboard(orderId)) {
+                      btnCopyMdh.textContent = "✓ Đã copy MDH!";
+                      setTimeout(() => { btnCopyMdh.textContent = "📋 Copy MDH"; }, 1500);
+                  }
               });
-          });
-          btnCopy.id = 'btn-order-detail-copy-data';
-          btnCopy.classList.add("btn-copy-return-data-check");
-          btnContainer.appendChild(btnCopy);
+              btnCopyMdh.id = 'btn-order-detail-copy-mdh';
+              btnCopyMdh.title = `Copy mã đơn hàng: ${orderId}`;
+              btnContainer.appendChild(btnCopyMdh);
+          }
+
+          // 2. Nút Copy MVD (Mã vận đơn)
+          let btnCopyMvd = document.getElementById('btn-order-detail-copy-mvd');
+          if (!btnCopyMvd) {
+              btnCopyMvd = createActionBtn("📋 Copy MVD", "#2563eb", async () => {
+                  const currentPkg = extractSellerOrderPackageInfo() || {};
+                  const trk = currentPkg.tracking || curTracking;
+                  if (trk) {
+                      if (await copyTextToClipboard(trk)) {
+                          btnCopyMvd.textContent = "✓ Đã copy MVD!";
+                          setTimeout(() => { btnCopyMvd.textContent = "📋 Copy MVD"; }, 1500);
+                      }
+                  } else {
+                      btnCopyMvd.textContent = "⚠️ Chưa có MVD";
+                      setTimeout(() => { btnCopyMvd.textContent = "📋 Copy MVD"; }, 1500);
+                  }
+              });
+              btnCopyMvd.id = 'btn-order-detail-copy-mvd';
+              btnCopyMvd.title = "Copy mã vận đơn";
+              btnContainer.appendChild(btnCopyMvd);
+          }
+
+          // 3. Nút Copy Đơn + MVD
+          let btnCopyBoth = document.getElementById('btn-order-detail-copy-both');
+          if (!btnCopyBoth) {
+              btnCopyBoth = createActionBtn("📋 Copy Đơn & Vận đơn", "#059669", async () => {
+                  const currentPkg = extractSellerOrderPackageInfo() || {};
+                  const trk = currentPkg.tracking || curTracking;
+                  let copyText = `Mã đơn hàng: ${orderId}`;
+                  if (trk) copyText += `\nMã vận đơn: ${trk}`;
+                  if (await copyTextToClipboard(copyText)) {
+                      btnCopyBoth.textContent = "✓ Đã copy cả 2!";
+                      setTimeout(() => { btnCopyBoth.textContent = "📋 Copy Đơn & Vận đơn"; }, 1500);
+                  }
+              });
+              btnCopyBoth.id = 'btn-order-detail-copy-both';
+              btnCopyBoth.title = "Copy cả Mã đơn hàng và Mã vận đơn";
+              btnContainer.appendChild(btnCopyBoth);
+          }
+
+          // 4. Nút Hủy
+          let btnHuy = document.getElementById('btn-order-detail-huy');
+          if (!btnHuy) {
+              btnHuy = createActionBtn("Hủy", "#ef4444", () => handleDhHoanAction("Hủy", null, btnHuy, curOrderData));
+              btnHuy.id = 'btn-order-detail-huy';
+              btnHuy.classList.add('btn-ext-order-huy');
+              btnContainer.appendChild(btnHuy);
+          }
+
+          // 5. Nút Hoàn
+          let btnHoan = document.getElementById('btn-order-detail-hoan');
+          if (!btnHoan) {
+              btnHoan = createActionBtn("Hoàn", "#f59e0b", () => handleDhHoanAction("Hoàn", null, btnHoan, curOrderData));
+              btnHoan.id = 'btn-order-detail-hoan';
+              btnHoan.classList.add('btn-ext-order-hoan');
+              btnContainer.appendChild(btnHoan);
+          }
+
+          // 6. Nút Trả
+          let btnTra = document.getElementById('btn-order-detail-tra');
+          if (!btnTra) {
+              btnTra = createActionBtn("Trả", "#3b82f6", () => handleDhHoanAction("Trả", null, btnTra, curOrderData));
+              btnTra.id = 'btn-order-detail-tra';
+              btnTra.classList.add('btn-ext-order-tra');
+              btnContainer.appendChild(btnTra);
+          }
+
+          // 7. Nút Cập nhật
+          let btnUpdate = document.getElementById('btn-order-detail-update');
+          if (!btnUpdate) {
+              btnUpdate = createActionBtn("Cập nhật", "#64748b", () => handleDhHoanAction("Cập nhật", null, btnUpdate, curOrderData));
+              btnUpdate.id = 'btn-order-detail-update';
+              btnUpdate.classList.add('btn-ext-order-update');
+              btnContainer.appendChild(btnUpdate);
+          }
+
+          // 8. Badge trạng thái
+          let statusTag = document.getElementById('shopee-ext-order-status-badge');
+          if (!statusTag) {
+              statusTag = document.createElement('span');
+              statusTag.id = 'shopee-ext-order-status-badge';
+              statusTag.className = 'shopee-ext-order-status-badge';
+              statusTag.style.cssText = 'padding: 2px 8px; font-size: 11px; font-weight: bold; border-radius: 4px; background: #dcfce7; color: #15803d; border: 1px solid #86efac; display: none;';
+              btnContainer.appendChild(statusTag);
+          }
       }
-      btnCopy.dataset.shopeeQlspCopyReturnOrderId = orderId;
 
-      // 2. Nút Hủy
-      let btnHuy = document.getElementById('btn-order-detail-huy');
-      if (!btnHuy) {
-          btnHuy = createActionBtn("Hủy", "#ef4444", () => handleDhHoanAction("Hủy", null, btnHuy, curOrderData));
-          btnHuy.id = 'btn-order-detail-huy';
-          btnHuy.classList.add('btn-ext-order-huy');
-          btnContainer.appendChild(btnHuy);
-      }
-
-      // 3. Nút Hoàn
-      let btnHoan = document.getElementById('btn-order-detail-hoan');
-      if (!btnHoan) {
-          btnHoan = createActionBtn("Hoàn", "#f59e0b", () => handleDhHoanAction("Hoàn", null, btnHoan, curOrderData));
-          btnHoan.id = 'btn-order-detail-hoan';
-          btnHoan.classList.add('btn-ext-order-hoan');
-          btnContainer.appendChild(btnHoan);
-      }
-
-      // 4. Nút Trả
-      let btnTra = document.getElementById('btn-order-detail-tra');
-      if (!btnTra) {
-          btnTra = createActionBtn("Trả", "#3b82f6", () => handleDhHoanAction("Trả", null, btnTra, curOrderData));
-          btnTra.id = 'btn-order-detail-tra';
-          btnTra.classList.add('btn-ext-order-tra');
-          btnContainer.appendChild(btnTra);
-      }
-
-      // 5. Nút Cập nhật
-      let btnUpdate = document.getElementById('btn-order-detail-update');
-      if (!btnUpdate) {
-          btnUpdate = createActionBtn("Cập nhật", "#64748b", () => handleDhHoanAction("Cập nhật", null, btnUpdate, curOrderData));
-          btnUpdate.id = 'btn-order-detail-update';
-          btnUpdate.classList.add('btn-ext-order-update');
-          btnContainer.appendChild(btnUpdate);
-      }
-
-      // 6. Badge trạng thái
-      let statusTag = document.getElementById('shopee-ext-order-status-badge');
-      if (!statusTag) {
-          statusTag = document.createElement('span');
-          statusTag.id = 'shopee-ext-order-status-badge';
-          statusTag.className = 'shopee-ext-order-status-badge';
-          statusTag.style.cssText = 'padding: 2px 8px; font-size: 11px; font-weight: bold; border-radius: 4px; background: #dcfce7; color: #15803d; border: 1px solid #86efac; display: none;';
-          btnContainer.appendChild(statusTag);
-      }
-
-      // 7. Nếu có phần tử hiển thị Mã đơn hàng trên trang, gắn cụm nút trực tiếp bên cạnh
-      const orderSnContainerEl = findOrderSnHeaderElement(orderId);
-      if (orderSnContainerEl && !orderSnContainerEl.querySelector('#shopee-ext-ordersn-actions') && orderSnContainerEl !== targetContainer && !orderSnContainerEl.contains(btnContainer)) {
-          const snActions = document.createElement('span');
-          snActions.id = 'shopee-ext-ordersn-actions';
-          snActions.style.cssText = 'display: inline-flex; align-items: center; margin-left: 10px; vertical-align: middle; gap: 4px;';
-
-          const snBtnHuy = createActionBtn("Hủy", "#ef4444", () => handleDhHoanAction("Hủy", null, snBtnHuy, curOrderData));
-          snBtnHuy.classList.add('btn-ext-order-huy');
-          snActions.appendChild(snBtnHuy);
-
-          const snBtnHoan = createActionBtn("Hoàn", "#f59e0b", () => handleDhHoanAction("Hoàn", null, snBtnHoan, curOrderData));
-          snBtnHoan.classList.add('btn-ext-order-hoan');
-          snActions.appendChild(snBtnHoan);
-
-          const snBtnTra = createActionBtn("Trả", "#3b82f6", () => handleDhHoanAction("Trả", null, snBtnTra, curOrderData));
-          snBtnTra.classList.add('btn-ext-order-tra');
-          snActions.appendChild(snBtnTra);
-
-          const snBtnUpdate = createActionBtn("Cập nhật", "#64748b", () => handleDhHoanAction("Cập nhật", null, snBtnUpdate, curOrderData));
-          snBtnUpdate.classList.add('btn-ext-order-update');
-          snActions.appendChild(snBtnUpdate);
-
-          const snStatusTag = document.createElement('span');
-          snStatusTag.className = 'shopee-ext-order-status-badge';
-          snStatusTag.style.cssText = 'margin-left: 6px; padding: 2px 8px; font-size: 11px; font-weight: bold; border-radius: 4px; background: #dcfce7; color: #15803d; border: 1px solid #86efac; display: none;';
-          snActions.appendChild(snStatusTag);
-
-          orderSnContainerEl.appendChild(snActions);
-      }
+      // 4. Gắn các nút Copy trực tiếp tại Mã đơn hàng và Mã vận đơn trên giao diện trang
+      renderInlineOrderDetailCopyButtons(orderId, curTracking);
 
       updateOrderDetailButtonsStatus(orderId);
       updateCopyButtonColors();
