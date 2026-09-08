@@ -9146,9 +9146,8 @@ function downloadExcelFileBypass(wb, filename) {
           if (results.length > 0) return results;
       }
 
-      // Chỉ fallback nếu trang có mã đơn hàng thực sự
-      const hasOrderOnPage = typeof extractSellerOrderIdFromPage === "function" && Boolean(extractSellerOrderIdFromPage());
-      return hasOrderOnPage ? [{ sku: "SP", quantity: "1", productPrice: "" }] : [];
+      // Không fallback sản phẩm rác nếu chưa render xong trong DOM để tránh lưu đè dữ liệu rác
+      return [];
   }
 
   function parseSellerOrderMoneyNumber(value) {

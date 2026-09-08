@@ -3237,6 +3237,7 @@
   }
 
   // Hàm kiểm tra tính đầy đủ 100% của dữ liệu đơn hàng đã trích xuất
+  // Hàm kiểm tra tính đầy đủ 100% của dữ liệu đơn hàng đã trích xuất
   function isOrderDetailComplete(detailRes) {
     if (!detailRes || !detailRes.ok || !Array.isArray(detailRes.rows) || detailRes.rows.length === 0) {
       return false;
@@ -3244,13 +3245,23 @@
     const sampleMdh = String(detailRes.orderId || detailRes.rows[0]?.orderId || "").trim();
     if (!sampleMdh) return false;
 
-    // Phải có ít nhất 1 sản phẩm có SKU hoặc Tên sản phẩm hoặc Đơn giá hợp lệ
+    // Phải có ít nhất 1 sản phẩm có SKU thực hoặc Tên sản phẩm hoặc Đơn giá hợp lệ
     const hasValidProduct = detailRes.rows.some(r => {
       const sku = String(r.sku || "").trim();
       const prc = Number(String(r.productPrice || r.unitCost || 0).replace(/[^\d.-]/g, "")) || 0;
-      return (sku.length > 0 && sku !== "SP") || prc > 0;
+      const name = String(r.productName || "").trim();
+      return (sku.length > 0 && sku !== "SP") || name.length > 0 || prc > 0;
     });
     if (!hasValidProduct) return false;
+
+    // Không chấp nhận dữ liệu có dòng placeholder sku: "SP" mà không có tên và giá = 0
+    const hasFakeRow = detailRes.rows.some(r => {
+      const sku = String(r.sku || "").trim();
+      const prc = Number(String(r.productPrice || r.unitCost || 0).replace(/[^\d.-]/g, "")) || 0;
+      const name = String(r.productName || "").trim();
+      return sku === "SP" && !name && prc === 0;
+    });
+    if (hasFakeRow) return false;
 
     // Bảng tài chính: không được 0 toàn bộ nếu đơn đang tải dở
     const tongTien = Number(String(detailRes.rows[0]?.totalProductAmount || 0).replace(/[^\d.-]/g, "")) || 0;
@@ -3302,7 +3313,7 @@
       let detailRes = null;
       const readOrderFn = window.orderTabUtils?.readOrderFromTab;
 
-      for (let attempt = 0; attempt < 12; attempt++) {
+      for (let attempt = 0; attempt < 15; attempt++) {
         if (readOrderFn) {
           detailRes = await readOrderFn(workerTab.id);
         } else {
@@ -3401,7 +3412,7 @@
     let successCount = 0;
     let failCount = 0;
     let workerTab = null;
-    const ORDER_CYCLE_DURATION_MS = 30000; // Thời gian an toàn tối đa nếu đơn bị lỗi
+    const ORDER_CYCLE_DURATION_MS = 30000; // 30s tối đa mỗi đơn
 
     try {
       // Tìm tab Shopee đang mở hoặc tạo 1 tab mới làm tab làm việc
@@ -3424,7 +3435,7 @@
         const getRemainingSec = () => Math.max(0, Math.ceil((ORDER_CYCLE_DURATION_MS - (Date.now() - orderStartTime)) / 1000));
 
         if (listScanText) {
-          listScanText.innerHTML = `<span>⚡</span> [${i + 1}/${ordersToProcess.length}] Đang mở & tải đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b>... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+          listScanText.innerHTML = `<span>⚡</span> [${i + 1}/${ordersToProcess.length}] Đang mở đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b> (còn <b style="color:#e11d48;">${getRemainingSec()}s</b>)... (Đã xong: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
         }
 
         try {
@@ -3446,19 +3457,19 @@
 
           await chrome.tabs.update(workerTab.id, { url: targetUrl });
 
-          // 2. Chờ trang tải (tối đa 10s)
-          await waitForTabLoad(workerTab.id, 10000);
+          // 2. Chờ trang tải (tối đa 8s)
+          await waitForTabLoad(workerTab.id, 8000);
 
-          // 3. Trích xuất siêu nhanh qua API + DOM (thử tối đa 15 lần, mỗi lần 500ms)
+          // 3. Vòng lặp trích xuất kèm đếm ngược thời gian thực (tối đa ORDER_CYCLE_DURATION_MS)
           let detailRes = null;
           const readOrderFn = window.orderTabUtils?.readOrderFromTab;
-          const maxReadAttempts = 15;
 
-          for (let attempt = 0; attempt < maxReadAttempts; attempt++) {
+          while (Date.now() - orderStartTime < ORDER_CYCLE_DURATION_MS) {
             if (cancelAutoFillRequested) break;
+            const remSec = getRemainingSec();
 
             if (listScanText) {
-              listScanText.innerHTML = `<span>🔍</span> [${i + 1}/${ordersToProcess.length}] Đang đọc chi tiết đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b> (lần ${attempt + 1})... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+              listScanText.innerHTML = `<span>🔍</span> [${i + 1}/${ordersToProcess.length}] Đang đọc chi tiết đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b> (còn <b style="color:#e11d48;">${remSec}s</b>)... (Đã xong: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
             }
 
             if (readOrderFn) {
@@ -3470,12 +3481,12 @@
               });
             }
 
-            // KIỂM TRA ĐẦY ĐỦ 100% THÔNG TIN (CÓ SKU, CÓ TIỀN, CÓ SẢN PHẨM)
+            // KIỂM TRA ĐẦY ĐỦ 100% THÔNG TIN (CÓ SKU THỰC, CÓ TIỀN, CÓ SẢN PHẨM HỢP LỆ)
             if (isOrderDetailComplete(detailRes)) {
               break;
             }
 
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 600));
           }
 
           if (cancelAutoFillRequested) break;
@@ -3485,7 +3496,7 @@
             console.warn(`[AutoFill] Đơn ${order.mdh} chưa tải đủ thông tin (SKU/tiền), bỏ qua để bảo vệ dữ liệu.`);
             failCount++;
             if (listScanText) {
-              listScanText.innerHTML = `<span>⚠️</span> [${i + 1}/${ordersToProcess.length}] Đơn <b style="color:#dc2626;">${escapeHtml(order.mdh)}</b> chưa tải đủ thông tin (SKU/tiền), bỏ qua... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+              listScanText.innerHTML = `<span>⚠️</span> [${i + 1}/${ordersToProcess.length}] Đơn <b style="color:#dc2626;">${escapeHtml(order.mdh)}</b> chưa tải đủ thông tin (hết thời gian), bỏ qua... (Đã xong: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
             }
             await new Promise(r => setTimeout(r, 1000));
             continue;
@@ -3536,9 +3547,9 @@
               selectedOrdersMap.delete(order.mdh);
               updateSelectionUI();
               if (listScanText) {
-                listScanText.innerHTML = `<span>✅</span> [${i + 1}/${ordersToProcess.length}] Đơn <b style="color:#15803d;">${escapeHtml(sampleMdh)}</b> đã KHỚP 100% với Sheet DH! Chuyển tiếp ngay... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+                listScanText.innerHTML = `<span>✅</span> [${i + 1}/${ordersToProcess.length}] Đơn <b style="color:#15803d;">${escapeHtml(sampleMdh)}</b> đã KHỚP 100% với Sheet DH! Chuyển tiếp ngay... (Đã xong: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
               }
-              await new Promise(r => setTimeout(r, 500));
+              await new Promise(r => setTimeout(r, 600));
               continue;
             }
 
@@ -3564,10 +3575,10 @@
               updateSelectionUI();
 
               if (listScanText) {
-                listScanText.innerHTML = `<span>✅</span> [${i + 1}/${ordersToProcess.length}] Đã lưu & KHỚP XONG đơn <b style="color:#15803d;">${escapeHtml(sampleMdh)}</b> (${detailRes.rows.length} SP)! Chuyển tiếp ngay... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+                listScanText.innerHTML = `<span>✅</span> [${i + 1}/${ordersToProcess.length}] Đã lưu & KHỚP XONG đơn <b style="color:#15803d;">${escapeHtml(sampleMdh)}</b> (${detailRes.rows.length} SP)! Chuyển tiếp ngay... (Đã xong: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
               }
-              // Khớp và lưu thành công -> chuyển tiếp ngay sau 500ms
-              await new Promise(r => setTimeout(r, 500));
+              // Khớp và lưu thành công -> chuyển tiếp ngay sau 600ms
+              await new Promise(r => setTimeout(r, 600));
               continue;
             } else {
               console.warn(`[AutoFill] Lỗi lưu đơn ${order.mdh}:`, saveRes?.error);
