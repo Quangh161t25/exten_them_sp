@@ -1483,14 +1483,19 @@
       } catch (e) {}
     }
 
-    if (!latestPreviewRows.length) {
-      previewCard.style.display = "none";
-      return;
-    }
-
+    // LUÔN LUÔN HIỂN THỊ BẢNG ĐƠN HÀNG VỪA ĐỌC TRÊN MÀN HÌNH
     previewCard.style.display = "block";
     if (previewBody) previewBody.style.display = "block";
     if (btnTogglePreviewBody) btnTogglePreviewBody.textContent = "▲ Thu gọn";
+
+    if (!latestPreviewRows.length) {
+      if (previewTitle) previewTitle.innerHTML = `<span>Đơn hàng vừa đọc</span>`;
+      if (nhieuDonPreviewStatus) nhieuDonPreviewStatus.innerHTML = `<span style="color: #64748b; font-size: 11px;">Chưa có dữ liệu đơn hàng. Mở đơn hàng Shopee hoặc bấm "Đọc đơn" để xem chi tiết.</span>`;
+      if (previewTbody) {
+        previewTbody.innerHTML = `<tr><td colspan="15" style="text-align: center; padding: 16px; color: #64748b; font-style: italic;">Chưa có đơn hàng nào vừa đọc. Hãy chọn 1 đơn hoặc mở trang chi tiết đơn trên Shopee để đọc tự động.</td></tr>`;
+      }
+      return;
+    }
 
     const isExisting = !!currentPreviewExistingInfo?.exists;
     const rowNums = currentPreviewExistingInfo?.rowNums || [];
@@ -1733,9 +1738,7 @@
         if (isShopeeOrderDetailUrl(targetTab?.url)) {
           targetUrl = targetTab.url;
         } else {
-          // Tab active KHÔNG PHẢI là trang chi tiết đơn hàng Shopee -> ẨN KHUNG ĐỌC ĐƠN
-          if (previewCard) previewCard.style.display = "none";
-          latestPreviewRows = [];
+          // Tab active KHÔNG PHẢI là trang chi tiết đơn hàng Shopee
           if (!isAuto) {
             alert("Chỉ đọc link chi tiết đơn hàng có ID (ví dụ: https://banhang.shopee.vn/portal/sale/order/242102147201615).\nVui lòng mở trang chi tiết đơn hàng trước!");
           }
@@ -2157,10 +2160,7 @@
     try {
       const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!activeTab || !isShopeeOrderDetailUrl(activeTab.url)) {
-        // Tab hiện tại KHÔNG PHẢI là trang chi tiết đơn hàng Shopee
-        // -> Ẩn khung "Đơn hàng vừa đọc"
-        if (previewCard) previewCard.style.display = "none";
-        latestPreviewRows = [];
+        // Tab hiện tại KHÔNG PHẢI là trang chi tiết đơn hàng Shopee -> Giữ nguyên bảng đơn hàng vừa đọc
         return;
       }
 
@@ -4066,8 +4066,20 @@
     });
   }
 
-  // Bắt đầu Realtime Polling
-  setupRealtimePolling();
+  // Khởi tạo: LUÔN LUÔN HIỂN THỊ BẢNG ĐƠN HÀNG VỪA ĐỌC & KHÔI PHỤC DỮ LIỆU ĐÃ ĐỌC GẦN NHẤT KHI MỞ TAB
+  if (previewCard) previewCard.style.display = "block";
+  try {
+    chrome.storage.local.get(["nhieuDonLastPreviewRows", "nhieuDonLastPreviewExistingInfo", "nhieuDonLastPreviewWasSaved"], (res) => {
+      if (res && Array.isArray(res.nhieuDonLastPreviewRows) && res.nhieuDonLastPreviewRows.length > 0) {
+        renderPreviewRows(res.nhieuDonLastPreviewRows, res.nhieuDonLastPreviewExistingInfo || { exists: false, rowNums: [], comparison: null }, res.nhieuDonLastPreviewWasSaved || false);
+      } else {
+        renderPreviewRows([]);
+      }
+      if (previewCard) previewCard.style.display = "block";
+    });
+  } catch (e) {
+    renderPreviewRows([]);
+  }
 
   // Export các hàm điều khiển tab Nhiều đơn hàng
   window.nhieuDonHangTab = {
