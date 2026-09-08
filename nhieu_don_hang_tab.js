@@ -2132,6 +2132,8 @@
     const savedAutoRead = localStorage.getItem("nhieu_don_hang_autoread");
     if (savedAutoRead !== null) {
       autoReadToggle.checked = (savedAutoRead === "true");
+    } else {
+      autoReadToggle.checked = false; // Mặc định BỎ TÍCH
     }
     autoReadToggle.addEventListener("change", () => {
       localStorage.setItem("nhieu_don_hang_autoread", String(autoReadToggle.checked));
@@ -3352,7 +3354,6 @@
     let successCount = 0;
     let failCount = 0;
     let workerTab = null;
-    const ORDER_CYCLE_DURATION_MS = 45000; // 45 giây mỗi đơn (khoảng 40 tới 50 giây)
 
     try {
       // Tìm tab Shopee đang mở hoặc tạo 1 tab mới làm tab làm việc
@@ -3367,15 +3368,12 @@
         if (cancelAutoFillRequested) break;
 
         const order = ordersToProcess[i];
-        const orderStartTime = Date.now();
         const progressPct = Math.round((i / ordersToProcess.length) * 100);
 
         if (listScanBar) listScanBar.style.width = `${progressPct}%`;
-        
-        const getRemainingSec = () => Math.max(0, Math.ceil((ORDER_CYCLE_DURATION_MS - (Date.now() - orderStartTime)) / 1000));
 
         if (listScanText) {
-          listScanText.innerHTML = `<span>⚡</span> [${i + 1}/${ordersToProcess.length}] Đang mở & tải đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b> (chờ load: <b style="color:#ea580c;">${getRemainingSec()}s</b>)... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+          listScanText.innerHTML = `<span>⚡</span> [${i + 1}/${ordersToProcess.length}] Đang mở đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b>... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
         }
 
         try {
@@ -3397,29 +3395,26 @@
 
           await chrome.tabs.update(workerTab.id, { url: targetUrl });
 
-          // 2. Chờ trang tải xong (status complete) - tối đa 20s
-          await waitForTabLoad(workerTab.id, 20000);
+          // 2. Chờ trang tải xong (status complete) - tối đa 15s
+          await waitForTabLoad(workerTab.id, 15000);
 
-          // 3. Chờ thêm 3s ban đầu cho Vue render DOM chi tiết đơn
-          for (let w = 0; w < 30; w++) {
+          // 3. Chờ thêm 1.5s cho Vue render DOM chi tiết đơn
+          for (let w = 0; w < 15; w++) {
             if (cancelAutoFillRequested) break;
             await new Promise(r => setTimeout(r, 100));
-            if (listScanText && w % 10 === 0) {
-              listScanText.innerHTML = `<span>⏳</span> [${i + 1}/${ordersToProcess.length}] Đang render trang đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b> (còn <b style="color:#ea580c;">${getRemainingSec()}s</b>)... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
-            }
           }
           if (cancelAutoFillRequested) break;
 
-          // 4. Trích xuất dữ liệu chi tiết đơn hàng (thử lại liên tục trong 15-20s nếu trang chưa load xong bảng)
+          // 4. Trích xuất dữ liệu chi tiết đơn hàng (thử lại liên tục tối đa 6 lần)
           let detailRes = null;
           const readOrderFn = window.orderTabUtils?.readOrderFromTab;
-          const maxReadAttempts = 8;
+          const maxReadAttempts = 6;
 
           for (let attempt = 0; attempt < maxReadAttempts; attempt++) {
             if (cancelAutoFillRequested) break;
 
             if (listScanText) {
-              listScanText.innerHTML = `<span>🔍</span> [${i + 1}/${ordersToProcess.length}] Đang đọc chi tiết đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b> (lần ${attempt + 1}, còn <b style="color:#ea580c;">${getRemainingSec()}s</b>)... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+              listScanText.innerHTML = `<span>🔍</span> [${i + 1}/${ordersToProcess.length}] Đang đọc chi tiết đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b> (lần ${attempt + 1})... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
             }
 
             if (readOrderFn) {
@@ -3434,7 +3429,7 @@
             if (detailRes?.ok && Array.isArray(detailRes.rows) && detailRes.rows.length > 0) {
               break;
             }
-            await new Promise(r => setTimeout(r, 1500));
+            await new Promise(r => setTimeout(r, 1000));
           }
 
           if (cancelAutoFillRequested) break;
@@ -3473,6 +3468,10 @@
                 // Xóa khỏi danh sách đã chọn nếu thành công
                 selectedOrdersMap.delete(order.mdh);
                 updateSelectionUI();
+
+                if (listScanText) {
+                  listScanText.innerHTML = `<span>✅</span> [${i + 1}/${ordersToProcess.length}] Đã cập nhật OK đơn <b style="color:#15803d;">${escapeHtml(sampleMdh)}</b>! Chuyển tiếp ngay... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+                }
               } else {
                 console.warn(`[AutoFill] Lỗi lưu đơn ${order.mdh}:`, saveRes?.error);
                 failCount++;
@@ -3486,23 +3485,17 @@
             failCount++;
           }
 
-          // 7. Đếm ngược toàn bộ thời gian còn lại của chu kỳ 40-50s để trang Shopee hoàn tất ổn định trước khi chuyển đơn khác
-          while (Date.now() - orderStartTime < ORDER_CYCLE_DURATION_MS) {
-            if (cancelAutoFillRequested) break;
-            const remSec = getRemainingSec();
-            if (listScanText) {
-              if (orderSaved) {
-                listScanText.innerHTML = `<span>✅</span> [${i + 1}/${ordersToProcess.length}] Đã lưu xong đơn <b style="color:#15803d;">${escapeHtml(sampleMdh)}</b>! Chờ sang đơn tiếp theo: <b style="color:#ea580c;">${remSec}s</b> (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
-              } else {
-                listScanText.innerHTML = `<span>⏳</span> [${i + 1}/${ordersToProcess.length}] Đang chờ đơn <b style="color:#2563eb;">${escapeHtml(sampleMdh)}</b>: còn <b style="color:#ea580c;">${remSec}s</b>... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
-              }
-            }
+          // 7. Cập nhật OK xong lập tức chuyển sang đơn khác (chờ 500ms để trình duyệt mượt mà)
+          if (orderSaved) {
             await new Promise(r => setTimeout(r, 500));
+          } else {
+            await new Promise(r => setTimeout(r, 1000));
           }
 
         } catch (itemErr) {
           console.error(`[AutoFill] Lỗi xử lý đơn ${order.mdh}:`, itemErr);
           failCount++;
+          await new Promise(r => setTimeout(r, 1000));
         }
       }
 
