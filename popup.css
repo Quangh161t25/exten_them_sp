@@ -1032,6 +1032,41 @@ textarea {
   align-items: center;
 }
 
+.chat-ai-realtime-toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #ffffff;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.chat-ai-realtime-toggle-wrap:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.chat-ai-realtime-toggle-wrap input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: #10b981;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
+.chat-ai-realtime-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
 .chat-ai-btn-scan-primary {
   background: #10b981;
   color: #ffffff;

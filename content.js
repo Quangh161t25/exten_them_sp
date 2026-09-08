@@ -7311,6 +7311,45 @@ function downloadExcelFileBypass(wb, filename) {
     return false;
   });
 
+  // ============================================================
+  // SHOPEE WEBCHAT REALTIME MUTATION OBSERVER
+  // ============================================================
+  if (window.location.href.includes("webchat") || window.location.href.includes("banhang.shopee.vn")) {
+    let chatMutationTimer = null;
+    function notifyChatUpdate() {
+      if (chatMutationTimer) clearTimeout(chatMutationTimer);
+      chatMutationTimer = setTimeout(() => {
+        try {
+          chrome.runtime.sendMessage({ action: "SHOPEE_CHAT_REALTIME_UPDATE" }).catch(() => {});
+        } catch (e) {}
+      }, 300);
+    }
+
+    try {
+      const chatDomObserver = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+          if (m.addedNodes.length > 0 || m.type === 'childList') {
+            notifyChatUpdate();
+            break;
+          }
+        }
+      });
+
+      function attachChatObserver() {
+        const target = document.querySelector('._3h5To4QZew, #messagesContainer, [data-cy="webchat-conversation-detail-chat"], ._2WZcuAW5Qo, [data-cy="webchat-conversation-list"]') || document.body;
+        if (target) {
+          chatDomObserver.observe(target, { childList: true, subtree: true });
+        }
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attachChatObserver);
+      } else {
+        attachChatObserver();
+      }
+    } catch (e) {}
+  }
+
   let dsSpCache = null;
   let isFetchingDsSp = false;
   let lastDsSpFetchTime = 0;

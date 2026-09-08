@@ -7,10 +7,16 @@
   let activeWebchatTabId = null;
   const selectedCustomerIndices = new Set();
 
+  // Real-time Auto-Scan State
+  let isRealtimeActive = true;
+  let realtimeTimer = null;
+  let lastChatFingerprint = "";
+
   // DOM Elements
   const statusEl = document.getElementById("chat-ai-status");
   const btnScanChat = document.getElementById("chat-ai-btn-scan");
   const btnOpenWebchat = document.getElementById("chat-ai-btn-open-webchat");
+  const realtimeToggle = document.getElementById("chat-ai-realtime-toggle");
 
   // Product Card Elements
   const productSection = document.getElementById("chat-ai-product-section");
@@ -280,16 +286,35 @@
     return { ok: true };
   }
 
-  // 2. Quét thông tin từ Shopee Webchat
-  async function scanShopeeChatData() {
-    if (statusEl) {
+  function getChatDataFingerprint(data) {
+    if (!data) return "";
+    const p = data.product || {};
+    const msgs = data.messages || [];
+    const lastMsg = msgs[msgs.length - 1] || {};
+    return [
+      data.url || "",
+      p.name || "",
+      p.price || "",
+      p.originalPrice || "",
+      p.stock || "",
+      msgs.length,
+      lastMsg.sender || "",
+      lastMsg.text || "",
+      lastMsg.time || "",
+      data.lastCustomerQuestion || ""
+    ].join("|");
+  }
+
+  // 2. Quét thông tin từ Shopee Webchat (Hỗ trợ Silent scan cho Realtime)
+  async function scanShopeeChatData(silent = false) {
+    if (!silent && statusEl) {
       statusEl.innerHTML = `⏳ Đang quét dữ liệu từ Shopee Webchat...`;
       statusEl.style.color = "#d97706";
     }
 
     const tab = await findShopeeWebchatTab();
     if (!tab) {
-      if (statusEl) {
+      if (statusEl && (!silent || !currentChatData)) {
         statusEl.innerHTML = `⚠️ Không tìm thấy tab Shopee Webchat! Vui lòng mở trang Webchat Shopee.`;
         statusEl.style.color = "#dc2626";
       }
@@ -319,32 +344,41 @@
             response = results[0].result;
           }
         } catch (e) {
-          console.warn("Execute script fallback error:", e);
+          if (!silent) console.warn("Execute script fallback error:", e);
         }
       }
 
       if (!response || !response.ok) {
-        if (statusEl) {
-          statusEl.innerHTML = `⚠️ Chưa lấy được dữ liệu. Bạn hãy bấm F5 (Tải lại) trang Shopee Webchat rồi bấm Quét lại nhé!`;
+        if (!silent && statusEl) {
+          statusEl.innerHTML = `⚠️ Chưa lấy được dữ liệu. Bạn hãy bấm F5 (Tải lại) trang Shopee Webchat rồi quét lại nhé!`;
           statusEl.style.color = "#dc2626";
         }
         return;
       }
 
-      currentChatData = response;
-      renderChatData(response);
+      const newFingerprint = getChatDataFingerprint(response);
+      const hasChanged = newFingerprint !== lastChatFingerprint;
+
+      if (hasChanged || !silent) {
+        lastChatFingerprint = newFingerprint;
+        currentChatData = response;
+        renderChatData(response);
+      }
 
       if (statusEl) {
-        const pName = response.product?.name ? `1 SP ("${response.product.name.substring(0, 25)}...")` : "chưa có SP ghim";
+        const pName = response.product?.name ? `1 SP ("${response.product.name.substring(0, 20)}...")` : "chưa có SP ghim";
         const msgCount = response.messages?.length || 0;
-        statusEl.innerHTML = `🟢 Đã kết nối Webchat: <b>${pName}</b>, <b>${msgCount}</b> tin nhắn gần nhất.`;
+        const liveTag = isRealtimeActive ? `⚡ <b>Realtime:</b> ` : "";
+        statusEl.innerHTML = `🟢 ${liveTag}Đã kết nối Webchat: <b>${pName}</b>, <b>${msgCount}</b> tin nhắn.`;
         statusEl.style.color = "#16a34a";
       }
     } catch (err) {
-      console.error("Lỗi scanShopeeChatData:", err);
-      if (statusEl) {
-        statusEl.innerHTML = `❌ Lỗi: ${err.message}`;
-        statusEl.style.color = "#dc2626";
+      if (!silent) {
+        console.error("Lỗi scanShopeeChatData:", err);
+        if (statusEl) {
+          statusEl.innerHTML = `❌ Lỗi: ${err.message}`;
+          statusEl.style.color = "#dc2626";
+        }
       }
     }
   }
@@ -1122,15 +1156,89 @@ QUY TẮC BẮT BUỘC TRẢ LỜI:
     btnFillAndSend.addEventListener("click", () => fillToShopeeChat(true));
   }
 
+  // =========================================================================
+  // REAL-TIME AUTO SCAN ENGINE
+  // =========================================================================
+  function startRealtimeScanner() {
+    if (realtimeTimer) clearInterval(realtimeTimer);
+    realtimeTimer = setInterval(() => {
+      const tabChatAi = document.getElementById("tab-chat-ai");
+      if (!tabChatAi || tabChatAi.hasAttribute("hidden") || tabChatAi.style.display === "none") {
+        return; // Không quét khi tab Chat AI đang ẩn
+      }
+      if (!isRealtimeActive) return;
+
+      scanShopeeChatData(true);
+    }, 1500);
+  }
+
+  function stopRealtimeScanner() {
+    if (realtimeTimer) {
+      clearInterval(realtimeTimer);
+      realtimeTimer = null;
+    }
+  }
+
+  // Khởi tạo trạng thái Realtime từ Storage
+  chrome.storage.local.get(["chat_ai_realtime_active"], (res) => {
+    if (typeof res.chat_ai_realtime_active === "boolean") {
+      isRealtimeActive = res.chat_ai_realtime_active;
+    } else {
+      isRealtimeActive = true;
+    }
+    if (realtimeToggle) {
+      realtimeToggle.checked = isRealtimeActive;
+    }
+    if (isRealtimeActive) {
+      startRealtimeScanner();
+    }
+  });
+
+  // Sự kiện bật/tắt Realtime toggle
+  if (realtimeToggle) {
+    realtimeToggle.addEventListener("change", (e) => {
+      isRealtimeActive = e.target.checked;
+      chrome.storage.local.set({ chat_ai_realtime_active: isRealtimeActive });
+      if (isRealtimeActive) {
+        startRealtimeScanner();
+        scanShopeeChatData(false);
+      } else {
+        stopRealtimeScanner();
+        if (statusEl) {
+          statusEl.innerHTML = `⏸️ Đã tắt tự động quét Realtime. Bấm "Quét lại" khi cần.`;
+          statusEl.style.color = "#64748b";
+        }
+      }
+    });
+  }
+
+  // Lắng nghe tín hiệu Realtime từ Content script khi có tin nhắn mới hoặc đổi hội thoại
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg?.action === "SHOPEE_CHAT_REALTIME_UPDATE") {
+      const tabChatAi = document.getElementById("tab-chat-ai");
+      if (tabChatAi && !tabChatAi.hasAttribute("hidden") && isRealtimeActive) {
+        scanShopeeChatData(true);
+      }
+    }
+  });
+
   // Khởi tạo
   loadCaiDatChatTemplates(false);
 
   // Tự động quét khi chuyển sang tab Chat AI
   document.querySelectorAll('.tab-btn[data-tab="tab-chat-ai"]').forEach(btn => {
     btn.addEventListener("click", () => {
-      setTimeout(scanShopeeChatData, 200);
+      setTimeout(() => {
+        scanShopeeChatData(false);
+        if (isRealtimeActive) {
+          startRealtimeScanner();
+        }
+      }, 200);
       loadCaiDatChatTemplates(false);
     });
   });
+
+  // Bắt đầu scanner ngay khi mở popup
+  startRealtimeScanner();
 
 })();
