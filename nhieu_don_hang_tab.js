@@ -1308,10 +1308,7 @@
     { label: "Tổng tiền SP", render: (r) => `<b style="color:#0f172a;">${formatMoneyDisplay(r.totalProductAmount)}</b>` },
     { 
       label: "Mã giảm giá", 
-      render: (r) => {
-        const num = moneyToNumber(r.shopVoucher || r.maGiamGia);
-        return num ? `<span style="color:#ef4444; font-weight:600;">-${Number(num).toLocaleString('vi-VN')}₫</span>` : "-0₫";
-      }
+      render: (r) => `<span style="color:#94a3b8;">0₫</span>`
     },
     { label: "Phí VC", render: (r) => formatMoneyDisplay(r.estimatedShippingTotal) },
     { label: "Phụ phí", render: (r) => formatMoneyDisplay(r.surcharge) },
@@ -2452,7 +2449,7 @@
             it.mdh,              // 3: mdh
             it.mvd,              // 4: mvd
             it.tongTien,         // 5: tong_tien
-            it.voucherShop,      // 6: ma_giam_gia
+            0,                   // 6: ma_giam_gia (luôn = 0)
             it.phiVc,            // 7: phi_vc
             it.phuPhi,           // 8: phu_phi
             it.thue,             // 9: thue

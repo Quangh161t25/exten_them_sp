@@ -204,10 +204,7 @@
     { label: "Tổng tiền SP", render: (r) => `<b style="color:#0f172a;">${formatMoneyDisplay(r.totalProductAmount)}</b>` },
     { 
       label: "Mã giảm giá", 
-      render: (r) => {
-        const num = moneyToNumber(r.shopVoucher || r.maGiamGia);
-        return num ? `<span style="color:#ef4444; font-weight:600;">-${Number(num).toLocaleString('vi-VN')}₫</span>` : "-0₫";
-      }
+      render: (r) => `<span style="color:#94a3b8;">0₫</span>`
     },
     { label: "Phí VC", render: (r) => formatMoneyDisplay(r.estimatedShippingTotal) },
     { label: "Phụ phí", render: (r) => formatMoneyDisplay(r.surcharge) },
@@ -538,14 +535,14 @@
       const tienSp = tienSpMap.get(mdh || "__order__") || 0;
       
       const tongTien = numberOrZero(moneyValue(row.totalProductAmount));
-      const maGiamGia = numberOrZero(moneyValue(row.shopVoucher || row.maGiamGia || 0));
+      const maGiamGia = 0; // Luôn = 0 theo quy định Sheet DH, không lấy mã giảm giá
       const phiVc = numberOrZero(moneyValue(row.estimatedShippingTotal));
       const phuPhi = numberOrZero(moneyValue(row.surcharge));
       const thue = numberOrZero(moneyValue(row.tax));
       let doanhThu = numberOrZero(moneyValue(row.estimatedOrderIncome));
 
       if (!doanhThu || doanhThu === 0) {
-        doanhThu = tongTien - maGiamGia - phiVc - phuPhi - thue;
+        doanhThu = tongTien - phiVc - phuPhi - thue;
       }
       const phiKhac = 0;
 
@@ -560,7 +557,7 @@
         mdh,                                      // Col D (4): mdh
         normalizeCell(row.tracking),              // Col E (5): mvd
         tongTien || moneyValue(row.totalProductAmount), // Col F (6): tong_tien
-        maGiamGia ? maGiamGia : 0,                // Col G (7): ma_giam_gia
+        0,                                        // Col G (7): ma_giam_gia (luôn = 0)
         phiVc || moneyValue(row.estimatedShippingTotal), // Col H (8): phi_vc
         phuPhi || moneyValue(row.surcharge),      // Col I (9): phu_phi
         thue || moneyValue(row.tax),              // Col J (10): thue

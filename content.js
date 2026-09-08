@@ -9632,7 +9632,7 @@ function downloadExcelFileBypass(wb, filename) {
       const tienSp = tienSpMap.get(mdh || "__order__") || 0;
       
       const tongTien = parseMoneyNumber(row.totalProductAmount);
-      const maGiamGia = parseMoneyNumber(row.shopVoucher || row.maGiamGia || 0);
+      const maGiamGia = 0; // Luôn = 0 theo quy định Sheet DH, không lấy mã giảm giá
       const phiVc = parseMoneyNumber(row.estimatedShippingTotal);
       const phuPhi = parseMoneyNumber(row.surcharge);
       const thue = parseMoneyNumber(row.tax);
@@ -9640,7 +9640,7 @@ function downloadExcelFileBypass(wb, filename) {
       // Doanh thu: ưu tiên số Shopee tính (estimatedOrderIncome), nếu không có thì tính theo công thức
       let doanhThu = parseMoneyNumber(row.estimatedOrderIncome);
       if (!doanhThu || doanhThu === 0) {
-        doanhThu = tongTien - maGiamGia - phiVc - phuPhi - thue;
+        doanhThu = tongTien - phiVc - phuPhi - thue;
       }
       const phiKhac = 0;
 
@@ -9654,7 +9654,7 @@ function downloadExcelFileBypass(wb, filename) {
         mdh,                                      // Col D (4): mdh
         String(row.tracking || "").trim(),        // Col E (5): mvd
         tongTien,                                 // Col F (6): tong_tien
-        maGiamGia,                                // Col G (7): ma_giam_gia
+        0,                                        // Col G (7): ma_giam_gia (luôn = 0)
         phiVc,                                    // Col H (8): phi_vc
         phuPhi,                                   // Col I (9): phu_phi
         thue,                                     // Col J (10): thue
