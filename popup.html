@@ -1431,18 +1431,7 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
     <div class="chat-ai-card">
       <div class="chat-ai-card-head-row">
         <div class="chat-ai-card-title">💬 Tin nhắn gần đây</div>
-        <div class="chat-ai-history-toolbar">
-          <button id="chat-ai-btn-select-all-customer" type="button" class="chat-ai-chip-btn" title="Chọn tất cả câu hỏi của khách">
-            ☑️ Tất cả tin khách
-          </button>
-          <button id="chat-ai-btn-select-latest-customer" type="button" class="chat-ai-chip-btn" title="Chỉ chọn câu hỏi mới nhất">
-            ⚡ Tin mới nhất
-          </button>
-          <button id="chat-ai-btn-clear-selection" type="button" class="chat-ai-chip-btn" title="Bỏ chọn tất cả">
-            🔄 Bỏ chọn
-          </button>
-          <span id="chat-ai-selected-count-badge" class="chat-ai-selected-badge">Đã chọn: 0 câu</span>
-        </div>
+        <span id="chat-ai-selected-count-badge" class="chat-ai-selected-badge">Đã chọn: 0 câu</span>
       </div>
 
       <!-- Khung bong bóng chat -->
@@ -1459,20 +1448,22 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
         <textarea id="chat-ai-customer-question" rows="2" class="chat-ai-textarea" placeholder="Nội dung câu hỏi của khách hàng được tick chọn ở trên sẽ hiển thị tại đây (có thể chỉnh sửa trực tiếp)..."></textarea>
       </div>
 
-      <!-- Chỉ dẫn thêm cho AI -->
-      <details class="chat-ai-custom-note-details">
-        <summary class="chat-ai-note-summary">+ Thêm ghi chú riêng / chỉ dẫn cho Shop (tùy chọn)</summary>
+      <!-- Chỉ dẫn thêm cho AI (mở rộng trực tiếp) -->
+      <div class="chat-ai-custom-note-wrap">
+        <div class="chat-ai-input-head">
+          <label for="chat-ai-custom-note" class="chat-ai-label">📝 Ghi chú riêng / chỉ dẫn cho Shop (tùy chọn):</label>
+        </div>
         <input type="text" id="chat-ai-custom-note" class="chat-ai-input-note" placeholder="VD: Bảo hành 12 tháng, giao hỏa tốc 2h, tặng kèm quà...">
-      </details>
+      </div>
 
-      <!-- Phong cách trả lời -->
+      <!-- Phong cách trả lời (4 icon 1 dòng nhỏ lại) -->
       <div class="chat-ai-style-section">
         <div class="chat-ai-label">🎯 Chọn phong cách trả lời:</div>
         <div class="chat-ai-styles-grid">
-          <button type="button" class="chat-ai-style-btn active" data-style="tu_van">🌸 Tư vấn tận tình</button>
-          <button type="button" class="chat-ai-style-btn" data-style="chot_don">⚡ Chốt đơn nhanh</button>
-          <button type="button" class="chat-ai-style-btn" data-style="voucher">🏷️ Báo giá &amp; Voucher</button>
-          <button type="button" class="chat-ai-style-btn" data-style="bao_hanh">🛡️ Bảo hành &amp; Đổi trả</button>
+          <button type="button" class="chat-ai-style-btn active" data-style="tu_van" title="Tư vấn tận tình">🌸 Tư vấn</button>
+          <button type="button" class="chat-ai-style-btn" data-style="chot_don" title="Chốt đơn nhanh">⚡ Chốt đơn</button>
+          <button type="button" class="chat-ai-style-btn" data-style="voucher" title="Báo giá & Voucher">🏷️ Báo giá</button>
+          <button type="button" class="chat-ai-style-btn" data-style="bao_hanh" title="Bảo hành & Đổi trả">🛡️ Bảo hành</button>
         </div>
       </div>
 
