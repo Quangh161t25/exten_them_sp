@@ -3309,41 +3309,55 @@
       }
 
       // =========================================================================
-      // GIAI ĐOẠN 1: ĐỢI LOAD 10 GIÂY RỒI CẬP NHẬT VÀO SHEET
+      // GIAI ĐOẠN 1: ĐỢI LOAD 10 GIÂY (CHUẨN GIÂY THỜI GIAN THỰC) RỒI CẬP NHẬT VÀO SHEET
       // =========================================================================
       let detailRes = null;
       const readOrderFn = window.orderTabUtils?.readOrderFromTab;
+      const g1EndTime = Date.now() + 10000;
+      let lastReadTime = 0;
 
-      for (let s = 10; s > 0; s--) {
-        if (btn) btn.innerHTML = `⏳ ${s}s...`;
-        if (statusEl) statusEl.innerHTML = `⏳ [GĐ 1] Đang load & đọc chi tiết đơn ${escapeHtml(mdh)} (còn ${s}s)...`;
-        try {
-          if (readOrderFn) {
-            detailRes = await readOrderFn(workerTab.id);
-          } else {
-            detailRes = await sendMessageToTab(workerTab.id, {
+      while (Date.now() < g1EndTime) {
+        const remSec = Math.max(0, Math.ceil((g1EndTime - Date.now()) / 1000));
+        if (btn) btn.innerHTML = `⏳ ${remSec}s...`;
+        if (statusEl) statusEl.innerHTML = `⏳ [GĐ 1] Đang load & đọc chi tiết đơn ${escapeHtml(mdh)} (còn <b style="color:#e11d48;">${remSec}s</b>)...`;
+
+        if (Date.now() - lastReadTime >= 350 && (!detailRes || !isOrderDetailComplete(detailRes))) {
+          lastReadTime = Date.now();
+          try {
+            const res = readOrderFn ? await readOrderFn(workerTab.id) : await sendMessageToTab(workerTab.id, {
               action: "EXTRACT_SELLER_ORDER_DETAIL_FULL",
               type: "EXTRACT_SELLER_ORDER_DETAIL_FULL"
             });
-          }
-        } catch (e) {}
-        await new Promise(r => setTimeout(r, 1000));
+            if (res && res.ok && isOrderDetailComplete(res)) {
+              detailRes = res;
+              // LUÔN HIỆN BẢNG ĐƠN HÀNG VỪA ĐỌC NGAY LẬP TỨC
+              renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, false);
+              if (previewCard) previewCard.style.display = "block";
+            }
+          } catch (e) {}
+        }
+        await new Promise(r => setTimeout(r, 100));
       }
 
-      // Nếu sau 10s vẫn chưa hoàn chỉnh, chờ thêm tối đa 5s
+      // Nếu sau 10s vẫn chưa hoàn chỉnh, thử thêm tối đa 4s
       if (!isOrderDetailComplete(detailRes)) {
-        for (let extra = 5; extra > 0; extra--) {
+        const graceEndTime = Date.now() + 4000;
+        while (Date.now() < graceEndTime) {
+          const extra = Math.max(0, Math.ceil((graceEndTime - Date.now()) / 1000));
           if (statusEl) statusEl.innerHTML = `⏳ [GĐ 1] Hoàn thiện đọc chi tiết đơn ${escapeHtml(mdh)} (thêm ${extra}s)...`;
-          if (readOrderFn) {
-            detailRes = await readOrderFn(workerTab.id);
-          } else {
-            detailRes = await sendMessageToTab(workerTab.id, {
+          try {
+            const res = readOrderFn ? await readOrderFn(workerTab.id) : await sendMessageToTab(workerTab.id, {
               action: "EXTRACT_SELLER_ORDER_DETAIL_FULL",
               type: "EXTRACT_SELLER_ORDER_DETAIL_FULL"
             });
-          }
-          if (isOrderDetailComplete(detailRes)) break;
-          await new Promise(r => setTimeout(r, 1000));
+            if (res && res.ok && isOrderDetailComplete(res)) {
+              detailRes = res;
+              renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, false);
+              if (previewCard) previewCard.style.display = "block";
+              break;
+            }
+          } catch (e) {}
+          await new Promise(r => setTimeout(r, 200));
         }
       }
 
@@ -3382,6 +3396,7 @@
       let comparison = compareOrderRows(dhValues, existingRows);
       currentPreviewExistingInfo = { exists, rowNums, existingRows, comparison, hasModifiedStatus: comparison.hasModifiedStatus };
 
+      // LUÔN HIỆN BẢNG ĐƠN HÀNG VỪA ĐỌC
       renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, false);
       if (previewCard) previewCard.style.display = "block";
 
@@ -3389,24 +3404,32 @@
       addDhRows(dhValues, sampleMdh, sampleMvd, true);
 
       // =========================================================================
-      // GIAI ĐOẠN 2: ĐỢI 10 GIÂY NỮA ĐỂ CHECK LẠI LẦN 1
+      // GIAI ĐOẠN 2: ĐỢI 10 GIÂY NỮA ĐỂ CHECK LẠI LẦN 1 (CHUẨN GIÂY THỜI GIAN THỰC)
       // =========================================================================
-      for (let s = 10; s > 0; s--) {
-        if (btn) btn.innerHTML = `🔍 1/${s}s`;
-        if (statusEl) statusEl.innerHTML = `⏳ [GĐ 2] Đã lưu! Đang chờ 10s để check lại lần 1 đơn ${escapeHtml(sampleMdh)} (còn ${s}s)...`;
-        await new Promise(r => setTimeout(r, 1000));
+      const g2EndTime = Date.now() + 10000;
+      while (Date.now() < g2EndTime) {
+        const remSec = Math.max(0, Math.ceil((g2EndTime - Date.now()) / 1000));
+        if (btn) btn.innerHTML = `🔍 1/${remSec}s`;
+        if (statusEl) statusEl.innerHTML = `⏳ [GĐ 2] Đã lưu! Đang chờ 10s để check lại lần 1: <b>${escapeHtml(sampleMdh)}</b> (còn <b style="color:#e11d48;">${remSec}s</b>)...`;
+        await new Promise(r => setTimeout(r, 100));
       }
 
       renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, true);
+      if (previewCard) previewCard.style.display = "block";
 
       // =========================================================================
-      // GIAI ĐOẠN 3: ĐỢI 5 GIÂY NỮA ĐỂ CHECK LẠI LẦN 2, OK THÌ THOÁT
+      // GIAI ĐOẠN 3: ĐỢI 5 GIÂY NỮA ĐỂ CHECK LẠI LẦN 2 (CHUẨN GIÂY THỜI GIAN THỰC), OK THÌ THOÁT
       // =========================================================================
-      for (let s = 5; s > 0; s--) {
-        if (btn) btn.innerHTML = `🔍 2/${s}s`;
-        if (statusEl) statusEl.innerHTML = `⏳ [GĐ 3] Đang chờ 5s để check lại lần 2 đơn ${escapeHtml(sampleMdh)} (còn ${s}s)...`;
-        await new Promise(r => setTimeout(r, 1000));
+      const g3EndTime = Date.now() + 5000;
+      while (Date.now() < g3EndTime) {
+        const remSec = Math.max(0, Math.ceil((g3EndTime - Date.now()) / 1000));
+        if (btn) btn.innerHTML = `🔍 2/${remSec}s`;
+        if (statusEl) statusEl.innerHTML = `⏳ [GĐ 3] Đang chờ 5s để check lại lần 2: <b>${escapeHtml(sampleMdh)}</b> (còn <b style="color:#e11d48;">${remSec}s</b>)...`;
+        await new Promise(r => setTimeout(r, 100));
       }
+
+      renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, true);
+      if (previewCard) previewCard.style.display = "block";
 
       if (btn) {
         btn.innerHTML = "✓ Xong";
@@ -3430,9 +3453,9 @@
 
   // Hàm dùng chung thực thi mở tuần tự từng đơn trên Shopee, quét chi tiết và cập nhật Sheet DH
   // Quy trình:
-  // 1. Đợi load 10 giây rồi đọc & cập nhật vào Sheet
-  // 2. Đợi 10 giây nữa để check lại lần 1
-  // 3. Đợi 5 giây nữa để check lại lần 2, OK thì thoát sang đơn tiếp theo
+  // 1. Đợi load 10 giây (chuẩn giây thời gian thực) rồi đọc & cập nhật vào Sheet
+  // 2. Đợi 10 giây (chuẩn giây thời gian thực) nữa để check lại lần 1
+  // 3. Đợi 5 giây (chuẩn giây thời gian thực) nữa để check lại lần 2, OK thì thoát sang đơn tiếp theo
   async function executeBatchFillOrders(ordersToProcess, processTitle = "Điền chi tiết đơn hàng") {
     if (!Array.isArray(ordersToProcess) || ordersToProcess.length === 0) {
       alert("Không có đơn hàng nào để xử lý!");
@@ -3493,50 +3516,64 @@
           await chrome.tabs.update(workerTab.id, { url: targetUrl });
 
           // =========================================================================
-          // GIAI ĐOẠN 1: ĐỢI LOAD 10 GIÂY RỒI CẬP NHẬT VÀO SHEET
+          // GIAI ĐOẠN 1: ĐỢI LOAD 10 GIÂY (CHUẨN GIÂY THỜI GIAN THỰC) RỒI CẬP NHẬT VÀO SHEET
           // =========================================================================
           let detailRes = null;
           const readOrderFn = window.orderTabUtils?.readOrderFromTab;
+          const g1EndTime = Date.now() + 10000;
+          let lastReadTime = 0;
 
-          for (let s = 10; s > 0; s--) {
+          while (Date.now() < g1EndTime) {
             if (cancelAutoFillRequested) break;
+            const remSec = Math.max(0, Math.ceil((g1EndTime - Date.now()) / 1000));
             if (listScanText) {
-              listScanText.innerHTML = `<span>⏳</span> [${i + 1}/${ordersToProcess.length}] [GĐ 1] Đang tải & đọc đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b> (đợi load: còn <b style="color:#e11d48;">${s}s</b>)... (Đã xong: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+              listScanText.innerHTML = `<span>⏳</span> [${i + 1}/${ordersToProcess.length}] [GĐ 1] Đang load & đọc đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b> (đợi load: còn <b style="color:#e11d48;">${remSec}s</b>)... (Đã xong: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
             }
 
-            try {
-              if (readOrderFn) {
-                detailRes = await readOrderFn(workerTab.id);
-              } else {
-                detailRes = await sendMessageToTab(workerTab.id, {
+            // Đọc thử dữ liệu định kỳ mỗi 350ms mà không làm lag đồng hồ đếm ngược
+            if (Date.now() - lastReadTime >= 350 && (!detailRes || !isOrderDetailComplete(detailRes))) {
+              lastReadTime = Date.now();
+              try {
+                const res = readOrderFn ? await readOrderFn(workerTab.id) : await sendMessageToTab(workerTab.id, {
                   action: "EXTRACT_SELLER_ORDER_DETAIL_FULL",
                   type: "EXTRACT_SELLER_ORDER_DETAIL_FULL"
                 });
-              }
-            } catch (e) {}
+                if (res && res.ok && isOrderDetailComplete(res)) {
+                  detailRes = res;
+                  // LUÔN HIỆN BẢNG ĐƠN HÀNG VỪA ĐỌC NGAY KHI CÓ THÔNG TIN
+                  renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, false);
+                  if (previewCard) previewCard.style.display = "block";
+                }
+              } catch (e) {}
+            }
 
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise(r => setTimeout(r, 100));
           }
 
           if (cancelAutoFillRequested) break;
 
-          // Nếu sau 10s vẫn chưa hoàn chỉnh, chờ thêm tối đa 5s
+          // Nếu sau 10s vẫn chưa hoàn chỉnh, chờ thêm tối đa 4s
           if (!isOrderDetailComplete(detailRes)) {
-            for (let extra = 5; extra > 0; extra--) {
+            const graceEndTime = Date.now() + 4000;
+            while (Date.now() < graceEndTime) {
               if (cancelAutoFillRequested) break;
+              const extra = Math.max(0, Math.ceil((graceEndTime - Date.now()) / 1000));
               if (listScanText) {
                 listScanText.innerHTML = `<span>⏳</span> [${i + 1}/${ordersToProcess.length}] [GĐ 1] Đang hoàn thiện đọc đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b> (thêm <b style="color:#e11d48;">${extra}s</b>)... (Đã xong: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
               }
-              if (readOrderFn) {
-                detailRes = await readOrderFn(workerTab.id);
-              } else {
-                detailRes = await sendMessageToTab(workerTab.id, {
+              try {
+                const res = readOrderFn ? await readOrderFn(workerTab.id) : await sendMessageToTab(workerTab.id, {
                   action: "EXTRACT_SELLER_ORDER_DETAIL_FULL",
                   type: "EXTRACT_SELLER_ORDER_DETAIL_FULL"
                 });
-              }
-              if (isOrderDetailComplete(detailRes)) break;
-              await new Promise(r => setTimeout(r, 1000));
+                if (res && res.ok && isOrderDetailComplete(res)) {
+                  detailRes = res;
+                  renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, false);
+                  if (previewCard) previewCard.style.display = "block";
+                  break;
+                }
+              } catch (e) {}
+              await new Promise(r => setTimeout(r, 200));
             }
           }
 
@@ -3592,7 +3629,7 @@
           let comparison = compareOrderRows(dhValues, existingRows);
           currentPreviewExistingInfo = { exists, rowNums, existingRows, comparison, hasModifiedStatus: comparison.hasModifiedStatus };
 
-          // HIỂN THỊ NGAY BẢNG ĐỌC ĐƠN HÀNG (LIVE PREVIEW TABLE)
+          // LUÔN HIỂN THỊ BẢNG ĐỌC ĐƠN HÀNG (LIVE PREVIEW TABLE)
           renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, false);
           if (previewCard) previewCard.style.display = "block";
 
@@ -3620,19 +3657,22 @@
             continue;
           }
 
-          // Cập nhật bộ nhớ tạm
+          // Cập nhật bộ nhớ tạm & LUÔN HIỆN BẢNG ĐƠN HÀNG
           addDhRows(dhValues, sampleMdh, sampleMvd, false);
           renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, true);
+          if (previewCard) previewCard.style.display = "block";
 
           // =========================================================================
-          // GIAI ĐOẠN 2: ĐỢI 10 GIÂY NỮA ĐỂ CHECK LẠI LẦN 1
+          // GIAI ĐOẠN 2: ĐỢI 10 GIÂY NỮA ĐỂ CHECK LẠI LẦN 1 (CHUẨN GIÂY THỜI GIAN THỰC)
           // =========================================================================
-          for (let s = 10; s > 0; s--) {
+          const g2EndTime = Date.now() + 10000;
+          while (Date.now() < g2EndTime) {
             if (cancelAutoFillRequested) break;
+            const remSec = Math.max(0, Math.ceil((g2EndTime - Date.now()) / 1000));
             if (listScanText) {
-              listScanText.innerHTML = `<span>⏳</span> [${i + 1}/${ordersToProcess.length}] [GĐ 2] Đã lưu! Đang chờ 10s để check lại lần 1: <b style="color:#2563eb;">${escapeHtml(sampleMdh)}</b> (còn <b style="color:#e11d48;">${s}s</b>)... (Đã xong: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+              listScanText.innerHTML = `<span>⏳</span> [${i + 1}/${ordersToProcess.length}] [GĐ 2] Đã lưu! Đang chờ 10s để check lại lần 1: <b style="color:#2563eb;">${escapeHtml(sampleMdh)}</b> (còn <b style="color:#e11d48;">${remSec}s</b>)... (Đã xong: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
             }
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise(r => setTimeout(r, 100));
           }
 
           if (cancelAutoFillRequested) break;
@@ -3652,22 +3692,28 @@
           comparison = compareOrderRows(dhValues, existingRows);
           currentPreviewExistingInfo.comparison = comparison;
           renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, true);
-          await new Promise(r => setTimeout(r, 500));
+          if (previewCard) previewCard.style.display = "block";
+          await new Promise(r => setTimeout(r, 300));
 
           // =========================================================================
-          // GIAI ĐOẠN 3: ĐỢI 5 GIÂY NỮA ĐỂ CHECK LẠI LẦN 2, OK THÌ THOÁT SANG ĐƠN TIẾP THEO
+          // GIAI ĐOẠN 3: ĐỢI 5 GIÂY NỮA ĐỂ CHECK LẠI LẦN 2 (CHUẨN GIÂY THỜI GIAN THỰC), OK THÌ THOÁT SANG ĐƠN TIẾP THEO
           // =========================================================================
-          for (let s = 5; s > 0; s--) {
+          const g3EndTime = Date.now() + 5000;
+          while (Date.now() < g3EndTime) {
             if (cancelAutoFillRequested) break;
+            const remSec = Math.max(0, Math.ceil((g3EndTime - Date.now()) / 1000));
             if (listScanText) {
-              listScanText.innerHTML = `<span>⏳</span> [${i + 1}/${ordersToProcess.length}] [GĐ 3] Đang chờ 5s để check lại lần 2: <b style="color:#2563eb;">${escapeHtml(sampleMdh)}</b> (còn <b style="color:#e11d48;">${s}s</b>)... (Đã xong: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+              listScanText.innerHTML = `<span>⏳</span> [${i + 1}/${ordersToProcess.length}] [GĐ 3] Đang chờ 5s để check lại lần 2: <b style="color:#2563eb;">${escapeHtml(sampleMdh)}</b> (còn <b style="color:#e11d48;">${remSec}s</b>)... (Đã xong: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
             }
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise(r => setTimeout(r, 100));
           }
 
           if (cancelAutoFillRequested) break;
 
-          // CHECK LẠI LẦN 2 -> XÁC NHẬN OK
+          // CHECK LẠI LẦN 2 -> XÁC NHẬN OK & LUÔN HIỆN BẢNG ĐƠN HÀNG
+          renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, true);
+          if (previewCard) previewCard.style.display = "block";
+
           successCount++;
           selectedOrdersMap.delete(order.mdh);
           updateSelectionUI();
@@ -3675,7 +3721,7 @@
           if (listScanText) {
             listScanText.innerHTML = `<span>✅</span> [${i + 1}/${ordersToProcess.length}] [GĐ 3] Check lần 2 OK! Đã khớp 100% đơn <b style="color:#15803d;">${escapeHtml(sampleMdh)}</b> (${detailRes.rows.length} SP)! Chuyển tiếp đơn mới...`;
           }
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise(r => setTimeout(r, 600));
 
         } catch (itemErr) {
           console.error(`[AutoFill] Lỗi xử lý đơn ${order.mdh}:`, itemErr);
