@@ -1825,42 +1825,38 @@ async function uploadImageToFreeImageHost(imageUrl) {
     for (const item of matchingRows) {
       const { rowNum, rowData } = item;
 
-      if (statusVal === "Hủy") {
-        // Hủy: tinh_trang = "Hủy", trang_thai = "Hủy", doanh_thu = 0, tien_sp = 0, loi_nhuan = 0
+      if (statusVal === "Hủy" || statusVal === "HỦY" || /^h[uủ]y$/i.test(statusVal)) {
+        // Hủy: tinh_trang = "HỦY", trang_thai = "", doanh_thu = 0, tien_sp = 0, loi_nhuan = 0
         updateData.push({
           range: `DH!K${rowNum}`,
           values: [[0]]
         });
         updateData.push({
           range: `DH!M${rowNum}:P${rowNum}`,
-          values: [[0, 0, "Hủy", "Hủy"]]
+          values: [[0, 0, "HỦY", ""]]
         });
-      } else if (statusVal === "Hoàn" || statusVal === "hoàn") {
-        // Hoàn: tinh_trang = "hoàn", trang_thai = "", tien_sp = 0, loi_nhuan = doanh_thu - phi_khac
+      } else if (statusVal === "Hoàn" || statusVal === "HOÀN" || /^ho[aà]n$/i.test(statusVal)) {
+        // Hoàn: tinh_trang = "HOÀN", trang_thai = "", tien_sp = 0, loi_nhuan = doanh_thu - phi_khac
         const dt = parseNum(rowData[10]);
         const pk = parseNum(rowData[11]);
         const newLoiNhuan = dt - pk;
         updateData.push({
           range: `DH!M${rowNum}:P${rowNum}`,
-          values: [[0, newLoiNhuan, "hoàn", ""]]
+          values: [[0, newLoiNhuan, "HOÀN", ""]]
         });
-      } else if (statusVal === "Trả") {
-        // Trả: tien_sp = 0, trang_thai = "Trả", loi_nhuan = doanh_thu - phi_khac
+      } else if (statusVal === "Trả" || statusVal === "TRẢ" || /^tr[aả]$/i.test(statusVal)) {
+        // Trả: tinh_trang = "TRẢ", trang_thai = "", tien_sp = 0, loi_nhuan = doanh_thu - phi_khac
         const dt = parseNum(rowData[10]);
         const pk = parseNum(rowData[11]);
         const newLoiNhuan = dt - pk;
         updateData.push({
-          range: `DH!M${rowNum}:N${rowNum}`,
-          values: [[0, newLoiNhuan]]
-        });
-        updateData.push({
-          range: `DH!P${rowNum}`,
-          values: [[statusVal]]
+          range: `DH!M${rowNum}:P${rowNum}`,
+          values: [[0, newLoiNhuan, "TRẢ", ""]]
         });
       } else if (statusVal) {
         updateData.push({
-          range: `DH!P${rowNum}`,
-          values: [[statusVal]]
+          range: `DH!O${rowNum}`,
+          values: [[statusVal.toUpperCase()]]
         });
       }
 
@@ -2010,21 +2006,20 @@ async function uploadImageToFreeImageHost(imageUrl) {
           hasNewUpdate = true;
 
           const { rowNum, rowData } = m;
-          if (statusVal === "Hủy") {
-            // Hủy: doanh_thu = 0, tien_sp = 0, loi_nhuan = 0, tinh_trang = Hủy, trang_thai = Hủy
+          if (statusVal === "Hủy" || statusVal === "HỦY" || /^h[uủ]y$/i.test(statusVal)) {
+            // Hủy: doanh_thu = 0, tien_sp = 0, loi_nhuan = 0, tinh_trang = HỦY, trang_thai = ""
             updateData.push({ range: `DH!K${rowNum}`, values: [[0]] });
-            updateData.push({ range: `DH!M${rowNum}:P${rowNum}`, values: [[0, 0, "Hủy", "Hủy"]] });
-          } else if (statusVal === "Hoàn" || statusVal === "hoàn") {
-            // Hoàn: tien_sp = 0, loi_nhuan = doanh_thu - phi_khac, tinh_trang = hoàn, trang_thai = ""
+            updateData.push({ range: `DH!M${rowNum}:P${rowNum}`, values: [[0, 0, "HỦY", ""]] });
+          } else if (statusVal === "Hoàn" || statusVal === "HOÀN" || /^ho[aà]n$/i.test(statusVal)) {
+            // Hoàn: tien_sp = 0, loi_nhuan = doanh_thu - phi_khac, tinh_trang = HOÀN, trang_thai = ""
             const dt = parseNum(rowData[10]);
             const pk = parseNum(rowData[11]);
-            updateData.push({ range: `DH!M${rowNum}:P${rowNum}`, values: [[0, dt - pk, "hoàn", ""]] });
-          } else if (statusVal === "Trả") {
-            // Trả: tien_sp = 0, loi_nhuan = doanh_thu - phi_khac, tinh_trang = Trả, trang_thai = Trả
+            updateData.push({ range: `DH!M${rowNum}:P${rowNum}`, values: [[0, dt - pk, "HOÀN", ""]] });
+          } else if (statusVal === "Trả" || statusVal === "TRẢ" || /^tr[aả]$/i.test(statusVal)) {
+            // Trả: tien_sp = 0, loi_nhuan = doanh_thu - phi_khac, tinh_trang = TRẢ, trang_thai = ""
             const dt = parseNum(rowData[10]);
             const pk = parseNum(rowData[11]);
-            updateData.push({ range: `DH!M${rowNum}:N${rowNum}`, values: [[0, dt - pk]] });
-            updateData.push({ range: `DH!O${rowNum}:P${rowNum}`, values: [["Trả", "Trả"]] });
+            updateData.push({ range: `DH!M${rowNum}:P${rowNum}`, values: [[0, dt - pk, "TRẢ", ""]] });
           }
 
           if (retId || trk) {

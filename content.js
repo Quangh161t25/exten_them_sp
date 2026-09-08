@@ -8314,10 +8314,11 @@ function downloadExcelFileBypass(wb, filename) {
     const mvd = String(data.tracking || "").trim();
     const linkDon = mdh ? `https://banhang.shopee.vn/portal/sale/order/${mdh}` : "";
 
-    const isHuy = action === "Hủy";
-    const isHoan = /^hoàn$/i.test(action) || action === "Hoàn";
-    const tinhTrang = isHuy ? "Hủy" : (isHoan ? "hoàn" : "");
-    const trangThai = (action === "Cập nhật" || isHoan) ? "" : action;
+    const isHuy = action === "Hủy" || action === "HỦY" || /^h[uủ]y$/i.test(action);
+    const isHoan = /^ho[aà]n$/i.test(action) || action === "Hoàn" || action === "HOÀN";
+    const isTra = /^tr[aả]$/i.test(action) || action === "Trả" || action === "TRẢ";
+    const tinhTrang = isHuy ? "HỦY" : (isHoan ? "HOÀN" : (isTra ? "TRẢ" : ""));
+    const trangThai = "";
 
     return [
       maGian || "bce",                         // Col A (1): gian

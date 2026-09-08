@@ -513,14 +513,14 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 
       <!-- Dòng 2: Xử lý đơn hàng trang Trả hàng / Hoàn tiền (returnrefundcancel) - 3 nút Hủy, Hoàn, Trả -->
       <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; align-items: center;">
-        <button id="btn-batch-return-huy" type="button" style="padding: 5px 3px; font-size: 11px; background: #ef4444; color: white; border: 1px solid #dc2626; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Cập nhật cột tình trạng HỦY cho tất cả đơn có mã ở trang Trả hàng / Hoàn tiền hiện tại vào Sheet DH">
-          🔴 Hủy
+        <button id="btn-batch-return-huy" type="button" style="padding: 5px 3px; font-size: 11px; background: #ef4444; color: white; border: 1px solid #dc2626; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Cập nhật cột tình trạng HỦY (tinh_trang='HỦY', trang_thai='', doanh_thu=0, vốn=0, lợi_nhuận=0) cho tất cả đơn có mã ở trang Trả hàng / Hoàn tiền hiện tại vào Sheet DH">
+          🔴 HỦY
         </button>
-        <button id="btn-batch-return-hoan" type="button" style="padding: 5px 3px; font-size: 11px; background: #f59e0b; color: white; border: 1px solid #d97706; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Cập nhật cột tình trạng HOÀN (tinh_trang=hoàn, trang_thai='', vốn=0) cho tất cả đơn có mã ở trang Trả hàng / Hoàn tiền hiện tại vào Sheet DH">
-          🟠 Hoàn
+        <button id="btn-batch-return-hoan" type="button" style="padding: 5px 3px; font-size: 11px; background: #f59e0b; color: white; border: 1px solid #d97706; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Cập nhật cột tình trạng HOÀN (tinh_trang='HOÀN', trang_thai='', vốn=0) cho tất cả đơn có mã ở trang Trả hàng / Hoàn tiền hiện tại vào Sheet DH">
+          🟠 HOÀN
         </button>
-        <button id="btn-batch-return-tra" type="button" style="padding: 5px 3px; font-size: 11px; background: #3b82f6; color: white; border: 1px solid #2563eb; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Cập nhật cột tình trạng TRẢ cho tất cả đơn có mã ở trang Trả hàng / Hoàn tiền hiện tại vào Sheet DH">
-          🟣 Trả
+        <button id="btn-batch-return-tra" type="button" style="padding: 5px 3px; font-size: 11px; background: #3b82f6; color: white; border: 1px solid #2563eb; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Cập nhật cột tình trạng TRẢ (tinh_trang='TRẢ', trang_thai='', vốn=0) cho tất cả đơn có mã ở trang Trả hàng / Hoàn tiền hiện tại vào Sheet DH">
+          🟣 TRẢ
         </button>
       </div>
 

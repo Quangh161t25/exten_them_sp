@@ -899,22 +899,23 @@
           const rMdh = String(item.cells[mdhColumnIdx] || "").trim();
           const rMvd = String(item.cells[4] || "").trim();
           if ((mdh && rMdh.toLowerCase() === mdh.toLowerCase()) || (mvd && rMvd.toLowerCase() === mvd.toLowerCase())) {
-            if (status === "Hủy") {
+            if (status === "Hủy" || status === "HỦY" || /^h[uủ]y$/i.test(status)) {
               item.cells[10] = "0"; // doanh_thu
               item.cells[12] = "0"; // tien_sp
               item.cells[13] = "0"; // loi_nhuan
-              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "Hủy";
-              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "Hủy";
-            } else if (status === "Hoàn") {
+              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "HỦY";
+              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
+            } else if (status === "Hoàn" || status === "HOÀN" || /^ho[aà]n$/i.test(status)) {
               item.cells[12] = "0"; // tien_sp
-              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "hoàn";
+              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "HOÀN";
               if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
               const dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
               const pk = Number(String(item.cells[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
               item.cells[13] = String(dt - pk); // loi_nhuan
-            } else if (status === "Trả") {
+            } else if (status === "Trả" || status === "TRẢ" || /^tr[aả]$/i.test(status)) {
               item.cells[12] = "0"; // tien_sp
-              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = status;
+              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "TRẢ";
+              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
               const dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
               const pk = Number(String(item.cells[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
               item.cells[13] = String(dt - pk); // loi_nhuan
@@ -1941,22 +1942,23 @@
     if (dhValues && dhValues.length > 0) {
       dhValues = dhValues.map(row => {
         const newRow = [...row];
-        if (status === "Hủy") {
+        if (status === "Hủy" || status === "HỦY" || /^h[uủ]y$/i.test(status)) {
           newRow[10] = "0"; // doanh_thu = 0
           newRow[12] = "0"; // tien_sp = 0
           newRow[13] = "0"; // loi_nhuan = 0
-          if (newRow.length > 14) newRow[14] = "Hủy"; // tinh_trang
-          if (newRow.length > 15) newRow[15] = "Hủy"; // trang_thai
-        } else if (status === "Hoàn") {
+          if (newRow.length > 14) newRow[14] = "HỦY"; // tinh_trang
+          if (newRow.length > 15) newRow[15] = ""; // trang_thai
+        } else if (status === "Hoàn" || status === "HOÀN" || /^ho[aà]n$/i.test(status)) {
           newRow[12] = "0"; // tien_sp = 0
-          if (newRow.length > 14) newRow[14] = "hoàn"; // tinh_trang
+          if (newRow.length > 14) newRow[14] = "HOÀN"; // tinh_trang
           if (newRow.length > 15) newRow[15] = ""; // trang_thai
           const dt = Number(String(newRow[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
           const pk = Number(String(newRow[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
           newRow[13] = String(dt - pk); // loi_nhuan
-        } else if (status === "Trả") {
+        } else if (status === "Trả" || status === "TRẢ" || /^tr[aả]$/i.test(status)) {
           newRow[12] = "0"; // tien_sp = 0
-          if (newRow.length > 15) newRow[15] = status; // trang_thai
+          if (newRow.length > 14) newRow[14] = "TRẢ"; // tinh_trang
+          if (newRow.length > 15) newRow[15] = ""; // trang_thai
           const dt = Number(String(newRow[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
           const pk = Number(String(newRow[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
           newRow[13] = String(dt - pk); // loi_nhuan
@@ -1994,22 +1996,23 @@
         allData.forEach(item => {
           const rMdh = String(item.cells[mdhColumnIdx] || "").trim();
           if (rMdh && rMdh.toLowerCase() === sampleMdh.toLowerCase()) {
-            if (status === "Hủy") {
+            if (status === "Hủy" || status === "HỦY" || /^h[uủ]y$/i.test(status)) {
               item.cells[10] = "0";
               item.cells[12] = "0";
               item.cells[13] = "0";
-              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "Hủy";
-              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "Hủy";
-            } else if (status === "Hoàn") {
+              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "HỦY";
+              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
+            } else if (status === "Hoàn" || status === "HOÀN" || /^ho[aà]n$/i.test(status)) {
               item.cells[12] = "0";
-              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "hoàn";
+              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "HOÀN";
               if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
               const dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
               const pk = Number(String(item.cells[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
               item.cells[13] = String(dt - pk);
-            } else if (status === "Trả") {
+            } else if (status === "Trả" || status === "TRẢ" || /^tr[aả]$/i.test(status)) {
               item.cells[12] = "0";
-              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = status;
+              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "TRẢ";
+              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
               const dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
               const pk = Number(String(item.cells[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
               item.cells[13] = String(dt - pk);
@@ -3684,23 +3687,23 @@
           const rMdh = String(item.cells[mdhColumnIdx] || "").trim().toLowerCase();
           const rMvd = String(item.cells[mvdColumnIdx] || "").trim().toLowerCase();
           if ((rMdh && orderIdSet.has(rMdh)) || (rMvd && trackingSet.has(rMvd))) {
-            if (status === "Hủy") {
+            if (status === "Hủy" || status === "HỦY" || /^h[uủ]y$/i.test(status)) {
               item.cells[10] = "0";
               item.cells[12] = "0";
               item.cells[13] = "0";
-              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "Hủy";
-              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "Hủy";
-            } else if (status === "Hoàn") {
+              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "HỦY";
+              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
+            } else if (status === "Hoàn" || status === "HOÀN" || /^ho[aà]n$/i.test(status)) {
               item.cells[12] = "0";
-              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "hoàn";
+              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "HOÀN";
               if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
               const dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
               const pk = Number(String(item.cells[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
               item.cells[13] = String(dt - pk);
-            } else if (status === "Trả") {
+            } else if (status === "Trả" || status === "TRẢ" || /^tr[aả]$/i.test(status)) {
               item.cells[12] = "0";
-              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "Trả";
-              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "Trả";
+              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "TRẢ";
+              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
               const dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
               const pk = Number(String(item.cells[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
               item.cells[13] = String(dt - pk);
