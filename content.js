@@ -6808,6 +6808,73 @@ function downloadExcelFileBypass(wb, filename) {
     }
 
     // =========================================================================
+    // XỬ LÝ ĐỌC DANH SÁCH ĐƠN TỪ TRANG TRẢ HÀNG / HOÀN TIỀN (/portal/sale/returnrefundcancel)
+    // =========================================================================
+    if (message?.action === "SHOPEE_READ_RETURN_CANCEL_ORDERS" || message?.type === "SHOPEE_READ_RETURN_CANCEL_ORDERS") {
+      if (window.self !== window.top) return false;
+      try {
+        const orderList = [];
+        const seenOrderIds = new Set();
+
+        const cleanCode = (s) => {
+          if (!s) return "";
+          return String(s).replace(/copy|sao\s*ch[eéê]p/gi, " ").trim();
+        };
+
+        const orderIdElements = Array.from(document.querySelectorAll('.order-id, .id.order-id, [class*="order-id"], [class*="orderId"], [class*="order-sn"]'));
+        
+        for (const el of orderIdElements) {
+          const data = typeof extractReturnRowData === "function" ? extractReturnRowData(el) : {};
+          let orderId = cleanCode(data.orderId || (typeof extractShopeeCode === "function" ? extractShopeeCode(el.textContent) : ""));
+          
+          if (!orderId || orderId.length < 8 || /^(order|return|cancel|refund|mass|shipping)$/i.test(orderId)) {
+            continue;
+          }
+
+          const k = orderId.toLowerCase();
+          if (seenOrderIds.has(k)) continue;
+          seenOrderIds.add(k);
+
+          orderList.push({
+            orderId: orderId,
+            returnId: cleanCode(data.returnId || ""),
+            tracking: cleanCode(data.tracking || ""),
+            reason: cleanCode(data.reason || "")
+          });
+        }
+
+        if (orderList.length === 0) {
+          const cards = Array.from(document.querySelectorAll('.order-card, .order-item, [class*="return-item"], [class*="returnRow"], tr'));
+          for (const card of cards) {
+            const txt = card.innerText || card.textContent || "";
+            const snMatch = txt.match(/(?:Mã đơn hàng|Order SN|Mã đơn|Mã ĐH)?[:\s]*([0-9]{6}[A-Z0-9]{6,20})/i)
+              || txt.match(/\b(2[0-9]{5}[A-Z0-9]{6,20})\b/i);
+            if (snMatch) {
+              const orderId = cleanCode(snMatch[1]);
+              const k = orderId.toLowerCase();
+              if (orderId && orderId.length >= 8 && !seenOrderIds.has(k)) {
+                seenOrderIds.add(k);
+                const trkMatch = txt.match(/(?:Mã vận đơn|Tracking No|MVD|Tracking|Vận đơn)[:\s]+([A-Z0-9_-]{6,30})/i);
+                const retMatch = txt.match(/(?:Mã yêu cầu|Mã YC|Return ID)[:\s]+([A-Z0-9_-]{6,30})/i);
+                orderList.push({
+                  orderId: orderId,
+                  returnId: retMatch ? cleanCode(retMatch[1]) : "",
+                  tracking: trkMatch ? cleanCode(trkMatch[1]) : "",
+                  reason: ""
+                });
+              }
+            }
+          }
+        }
+
+        sendResponse({ ok: true, orders: orderList });
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message });
+      }
+      return true;
+    }
+
+    // =========================================================================
     // XỬ LÝ ĐỌC DANH SÁCH ĐƠN TỪ TRANG SHOPEE SELLER LIST (/portal/sale/order)
     // =========================================================================
     if (message?.action === "SHOPEE_READ_ORDER_LIST_PAGE" || message?.type === "SHOPEE_READ_ORDER_LIST_PAGE") {
@@ -8194,6 +8261,56 @@ function downloadExcelFileBypass(wb, filename) {
     return `https://banhang.shopee.vn/portal/sale/order`;
   }
 
+  function buildDhRowFromReturnRow(data, maGian, action) {
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, "0");
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const yyyy = now.getFullYear();
+    const hh = String(now.getHours()).padStart(2, "0");
+    const min = String(now.getMinutes()).padStart(2, "0");
+    
+    const ngay = `${dd}/${mm}/${yyyy}`;
+    const ngayGio = `${ngay} ${hh}:${min}`;
+    const mdh = String(data.orderId || "").trim();
+    const mvd = String(data.tracking || "").trim();
+    const linkDon = mdh ? `https://banhang.shopee.vn/portal/sale/order/${mdh}` : "";
+
+    const isHuy = action === "Hủy";
+    const isHoan = /^hoàn$/i.test(action) || action === "Hoàn";
+    const tinhTrang = isHuy ? "Hủy" : (isHoan ? "hoàn" : "");
+    const trangThai = (action === "Cập nhật" || isHoan) ? "" : action;
+
+    return [
+      maGian || "bce",                         // Col A (1): gian
+      ngay,                                   // Col B (2): ngay
+      ngayGio,                                // Col C (3): ngay_gio
+      mdh,                                    // Col D (4): mdh
+      mvd,                                    // Col E (5): mvd
+      0,                                      // Col F (6): tong_tien
+      0,                                      // Col G (7): ma_giam_gia
+      0,                                      // Col H (8): phi_vc
+      0,                                      // Col I (9): phu_phi
+      0,                                      // Col J (10): thue
+      0,                                      // Col K (11): doanh_thu
+      "",                                     // Col L (12): phi_khac
+      0,                                      // Col M (13): tien_sp
+      0,                                      // Col N (14): loi_nhuan
+      tinhTrang,                              // Col O (15): tinh_trang
+      trangThai,                              // Col P (16): trang_thai
+      "",                                     // Col Q (17): sku
+      "",                                     // Col R (18): id_sp
+      1,                                      // Col S (19): slg
+      0,                                      // Col T (20): don_gia
+      0,                                      // Col U (21): thanh_tien
+      "",                                     // Col V (22): ten_khach
+      "",                                     // Col W (23): ng_nhan
+      "",                                     // Col X (24): dia_chi
+      linkDon,                                // Col Y (25): link_don
+      data.returnId || "",                    // Col Z (26): ma_yc_tra_hang
+      mvd || ""                               // Col AA (27): vc_hang_hoan
+    ];
+  }
+
   function handleDhHoanAction(action, orderIdEl, btn, customData = null) {
       let data = customData;
       if (!data && orderIdEl) {
@@ -8248,148 +8365,83 @@ function downloadExcelFileBypass(wb, filename) {
           resetBtnState("Lỗi!", 2500);
           alert(`Hết thời gian chờ khi cập nhật đơn "${data.orderId}". Vui lòng thử lại!`);
         }
-      }, 70000);
+      }, 30000);
 
       chrome.storage.local.get(["maGian", "dhHoanTextValue"], (result) => {
           const maGian = (result.maGian || result.dhHoanTextValue || "").trim();
-          
-          const sendUpdateReq = (isRetry = false) => {
-            try {
-              chrome.runtime.sendMessage({ 
-                  type: "UPDATE_DH_RETURN_STATUS", 
-                  status: action === "Cập nhật" ? "" : action,
-                  orderId: data.orderId, 
-                  reason: data.reason, 
-                  returnId: data.returnId, 
-                  tracking: data.tracking,
-                  maGian: maGian
-              }, (response) => {
-                  if (chrome.runtime.lastError) {
+          const dhValues = [buildDhRowFromReturnRow(data, maGian, action)];
+
+          try {
+            chrome.runtime.sendMessage({ 
+                type: "UPDATE_DH_RETURN_STATUS", 
+                status: action === "Cập nhật" ? "" : action,
+                orderId: data.orderId, 
+                reason: data.reason, 
+                returnId: data.returnId, 
+                tracking: data.tracking,
+                maGian: maGian,
+                values: dhValues
+            }, (response) => {
+                if (chrome.runtime.lastError) {
+                  resetBtnState("Lỗi!", 2500);
+                  alert("Lỗi kết nối tiện ích: " + chrome.runtime.lastError.message);
+                  return;
+                }
+
+                if (response && response.ok) {
+                    if (response.skipped || response.notFound) {
+                        resetBtnState("Bỏ qua", 2500);
+                        alert(response.message || `Mã đơn "${data.orderId}" không có trong Sheet DH nên đã bỏ qua.`);
+                        return;
+                    }
+                    cachedDhHoanIds.add(data.orderId);
+                    cachedDhHoanStatusMap.set(data.orderId, action);
+                    updateCopyButtonColors();
+                    if (typeof updateOrderDetailButtonsStatus === "function") {
+                        updateOrderDetailButtonsStatus(data.orderId);
+                    }
+                    resetBtnState("OK!", 2000);
+                } else {
                     resetBtnState("Lỗi!", 2500);
-                    alert("Lỗi kết nối tiện ích: " + chrome.runtime.lastError.message);
-                    return;
-                  }
-
-                  if (response && response.ok) {
-                      cachedDhHoanIds.add(data.orderId);
-                      cachedDhHoanStatusMap.set(data.orderId, action);
-                      updateCopyButtonColors();
-                      if (typeof updateOrderDetailButtonsStatus === "function") {
-                          updateOrderDetailButtonsStatus(data.orderId);
-                      }
-                      resetBtnState("OK!", 2000);
-                  } else if (response && (response.notFound || (response.error && response.error.includes("Không tìm thấy Mã đơn hàng")))) {
-                      // Nếu đang ở ngay trang chi tiết đơn hàng (/portal/sale/order/*) -> Tự động lưu đơn hàng vào Sheet DH luôn!
-                      if (typeof isSellerOrderDetailPage === "function" && isSellerOrderDetailPage()) {
-                          btn.textContent = "⏳ Lưu vào DH...";
-                          (async () => {
-                              try {
-                                  const orderDetail = await extractSellerOrderDetailFullData();
-                                  if (orderDetail && orderDetail.ok && orderDetail.rows && orderDetail.rows.length > 0) {
-                                      const dhValues = await buildDhValuesFromDetail(orderDetail.rows, maGian);
-                                      const sampleMdh = orderDetail.orderId || orderDetail.rows[0]?.orderId || data.orderId;
-                                      const sampleMvd = orderDetail.packageInfo?.tracking || orderDetail.rows[0]?.tracking || data.tracking || "";
-
-                                      chrome.runtime.sendMessage({
-                                          type: "SAVE_DH_ORDER",
-                                          values: dhValues,
-                                          mdh: sampleMdh,
-                                          mvd: sampleMvd
-                                      }, (saveRes) => {
-                                          if (saveRes && saveRes.ok) {
-                                              btn.textContent = "⏳ Cập nhật...";
-                                              lastFetchDonHangMdhTime = 0;
-                                              if (typeof updateDonHangMdhCache === "function") updateDonHangMdhCache(true);
-                                              sendUpdateReq(true);
-                                          } else {
-                                              resetBtnState("Lỗi!", 2500);
-                                              alert("Không thể lưu đơn vào Sheet DH: " + (saveRes?.error || "Lỗi không xác định"));
-                                          }
-                                      });
-                                  } else {
-                                      resetBtnState("Lỗi!", 2500);
-                                      alert(`Không tìm thấy đơn hàng "${data.orderId}" trong Sheet DH và không thể đọc dữ liệu đơn trên trang để lưu.`);
-                                  }
-                              } catch (saveErr) {
-                                  resetBtnState("Lỗi!", 2500);
-                                  alert("Lỗi khi tự động lưu đơn: " + saveErr.message);
-                              }
-                          })();
-                          return;
-                      }
-
-                      // Chưa có trong Sheet DH (ở trang danh sách hoàn tiền) -> Mở trực tiếp 1 cửa sổ Chrome mới (tuyệt đối không gọi .click() để tránh mở đúp 2 tab)
-                      btn.textContent = "⏳ Mở Chrome...";
-                      const targetUrl = findOrderRowHref(orderIdEl, data.orderId);
-                      chrome.runtime.sendMessage({
-                          type: "OPEN_ORDER_IN_NEW_WINDOW",
-                          url: targetUrl,
-                          orderId: data.orderId,
-                          autoCloseDelay: 60000
-                      });
-
-                      // Tự động kiểm tra và cập nhật lại khi đơn hàng được lưu xong vào Sheet DH
-                      let pollCount = 0;
-                      const pollInterval = setInterval(() => {
-                          if (isFinished) {
-                            clearInterval(pollInterval);
-                            return;
-                          }
-                          pollCount++;
-                          if (pollCount > 20) { // Sau 50s nếu chưa xong
-                              clearInterval(pollInterval);
-                              resetBtnState("Lỗi!", 2500);
-                              alert(`Không tìm thấy đơn hàng "${data.orderId}" sau khi mở cửa sổ chi tiết đơn.`);
-                              return;
-                          }
-
-                          chrome.runtime.sendMessage({
-                              type: "CHECK_AND_GET_DH_ORDER",
-                              mdh: data.orderId,
-                              maGian: maGian,
-                              forceRefresh: true
-                          }, (chkRes) => {
-                              if (chkRes && chkRes.exists && chkRes.rows.length > 0) {
-                                  clearInterval(pollInterval);
-                                  btn.textContent = "⏳ Cập nhật...";
-                                  sendUpdateReq(true);
-                              }
-                          });
-                      }, 2500);
-                  } else {
-                      resetBtnState("Lỗi!", 2500);
-                      alert("Lỗi cập nhật: " + (response?.error || "Không có phản hồi từ Background Service"));
-                  }
-              });
-            } catch (err) {
-              resetBtnState("Lỗi!", 2500);
-              alert("Lỗi gửi yêu cầu: " + err.message);
-            }
-          };
-
-          sendUpdateReq(false);
+                    alert("Lỗi cập nhật: " + (response?.error || "Không thể cập nhật Sheet DH"));
+                }
+            });
+          } catch (err) {
+            resetBtnState("Lỗi!", 2500);
+            alert("Lỗi gửi yêu cầu: " + err.message);
+          }
       });
   }
 
   function createActionBtn(text, color, onClick) {
       const btn = document.createElement("button");
+      btn.type = "button";
       btn.textContent = text;
       btn.className = "eds-btn eds-btn--primary";
-      btn.style.marginLeft = "8px";
+      btn.style.marginLeft = "6px";
       btn.style.padding = "0 8px";
-      btn.style.height = "24px";
-      btn.style.fontSize = "12px";
-      btn.style.lineHeight = "24px";
+      btn.style.height = "22px";
+      btn.style.fontSize = "11px";
+      btn.style.lineHeight = "22px";
       btn.style.cursor = "pointer";
       btn.style.display = "inline-block";
       btn.style.backgroundColor = color;
       btn.style.border = "none";
+      btn.style.borderRadius = "3px";
       btn.style.color = "#fff";
+      btn.style.fontWeight = "bold";
+
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         e.preventDefault();
         onClick(e);
-      }, true);
+      });
+      btn.addEventListener("mousedown", (e) => {
+        e.stopPropagation();
+      });
+      btn.addEventListener("mouseup", (e) => {
+        e.stopPropagation();
+      });
       return btn;
   }
 
@@ -8403,51 +8455,28 @@ function downloadExcelFileBypass(wb, filename) {
     updateHhBhMvdIdsCache().then(() => updateTrackingNumberColors());
     updateTrackingNumberColors();
 
-    const orderIdElements = document.querySelectorAll('.order-id, .id.order-id');
+    const orderIdElements = document.querySelectorAll('.order-id, .id.order-id, [class*="order-id"]');
     for (const orderIdEl of orderIdElements) {
-      if (orderIdEl.dataset.shopeeQlspCopyReturnInfo === "1") {
+      if (orderIdEl.dataset.shopeeQlspCopyReturnInfo === "1" || orderIdEl.closest('.shopee-ext-return-btn-container')) {
         continue;
       }
-      orderIdEl.dataset.shopeeQlspCopyReturnInfo = "1";
 
       const data = extractReturnRowData(orderIdEl);
       const directOrderId = data.orderId || extractShopeeCode(orderIdEl.textContent);
+      if (!directOrderId) continue;
 
-      // Gắn sự kiện click trực tiếp và style cho span.id-content của Mã đơn hàng
-      const orderIdContentEl = orderIdEl.querySelector('.id-content') || orderIdEl;
-      if (orderIdContentEl) {
-        orderIdContentEl.style.cursor = "pointer";
-        orderIdContentEl.style.color = "#1890ff";
-        orderIdContentEl.style.fontWeight = "bold";
-        orderIdContentEl.title = "Click để mở chi tiết đơn hàng trong Chrome mới (tự đóng sau 1 phút)";
+      orderIdEl.dataset.shopeeQlspCopyReturnInfo = "1";
 
-        if (orderIdContentEl.dataset.shopeeExtClickBound !== "1") {
-          orderIdContentEl.dataset.shopeeExtClickBound = "1";
-          orderIdContentEl.addEventListener("click", (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            const targetUrl = `https://banhang.shopee.vn/portal/sale/order/${directOrderId}`;
-            chrome.runtime.sendMessage({
-              type: "OPEN_ORDER_IN_NEW_WINDOW",
-              url: targetUrl,
-              orderId: directOrderId,
-              autoCloseDelay: 60000
-            });
-          }, true);
-        }
-      }
-
-      const container = document.createElement("div");
+      const container = document.createElement("span");
+      container.className = "shopee-ext-return-btn-container";
       container.style.display = "inline-flex";
       container.style.alignItems = "center";
-      container.style.marginLeft = "12px";
-      // Ngăn chặn nổi bọt lên thẻ cha
-      container.addEventListener("click", (e) => {
-        e.stopPropagation();
-      }, true);
+      container.style.marginLeft = "8px";
+      container.style.verticalAlign = "middle";
+      container.addEventListener("click", (e) => { e.stopPropagation(); });
+      container.addEventListener("mousedown", (e) => { e.stopPropagation(); });
 
-      const btnCopy = createActionBtn("Copy Data", "#ee4d2d", (e) => {
-        e.stopPropagation(); e.preventDefault();
+      const btnCopy = createActionBtn("Copy Data", "#ee4d2d", () => {
         const rowData = extractReturnRowData(orderIdEl);
         if (!rowData) return;
         const copyLines = [];
@@ -8492,20 +8521,25 @@ function downloadExcelFileBypass(wb, filename) {
       }
       container.appendChild(btnCopy);
 
-      const btnHuy = createActionBtn("Hủy", "#ef4444", (e) => { e.stopPropagation(); e.preventDefault(); handleDhHoanAction("Hủy", orderIdEl, btnHuy); });
+      const btnHuy = createActionBtn("Hủy", "#ef4444", () => handleDhHoanAction("Hủy", orderIdEl, btnHuy));
       container.appendChild(btnHuy);
 
-      const btnHoan = createActionBtn("Hoàn", "#f59e0b", (e) => { e.stopPropagation(); e.preventDefault(); handleDhHoanAction("Hoàn", orderIdEl, btnHoan); });
+      const btnHoan = createActionBtn("Hoàn", "#f59e0b", () => handleDhHoanAction("Hoàn", orderIdEl, btnHoan));
       container.appendChild(btnHoan);
 
-      const btnTra = createActionBtn("Trả", "#3b82f6", (e) => { e.stopPropagation(); e.preventDefault(); handleDhHoanAction("Trả", orderIdEl, btnTra); });
+      const btnTra = createActionBtn("Trả", "#3b82f6", () => handleDhHoanAction("Trả", orderIdEl, btnTra));
       container.appendChild(btnTra);
 
-      const btnUpdate = createActionBtn("Cập nhật", "#64748b", (e) => { e.stopPropagation(); e.preventDefault(); handleDhHoanAction("Cập nhật", orderIdEl, btnUpdate); });
+      const btnUpdate = createActionBtn("Cập nhật", "#64748b", () => handleDhHoanAction("Cập nhật", orderIdEl, btnUpdate));
       container.appendChild(btnUpdate);
 
-      // Gắn cụm nút vào đúng vị trí Mã đơn hàng
-      orderIdEl.appendChild(container);
+      // Gắn cụm nút ra ngoài thẻ link (nếu orderIdEl nằm trong thẻ <a>) để tránh kích hoạt link sản phẩm
+      const linkParent = orderIdEl.tagName === 'A' ? orderIdEl : orderIdEl.closest('a');
+      if (linkParent && linkParent.parentElement) {
+        linkParent.parentElement.insertBefore(container, linkParent.nextSibling);
+      } else {
+        orderIdEl.appendChild(container);
+      }
     }
   }
 
@@ -9193,53 +9227,70 @@ function downloadExcelFileBypass(wb, filename) {
     return { tenKhach, ngNhan, diaChi, linkDon };
   }
 
-  async function waitForOrderDetailDOMReady(maxWaitMs = 12000) {
+  async function waitForOrderDetailDOMReady(maxWaitMs = 500) {
     const start = Date.now();
-    let prevCount = 0;
-    let stableCycles = 0;
+    
+    // Kiểm tra nhanh lần đầu: nếu trang đã có ID đơn -> trả về true ngay tức thì (0ms)
+    const initialOrderId = extractSellerOrderIdFromPage();
+    if (initialOrderId && initialOrderId.length >= 8) {
+      return true;
+    }
 
     while (Date.now() - start < maxWaitMs) {
       const orderId = extractSellerOrderIdFromPage();
-      const createdAt = extractSellerOrderCreatedAt();
-      const products = extractSellerOrderProducts();
-      
-      const hasOrderId = Boolean(orderId && orderId.length >= 8);
-      const hasCreatedAt = Boolean(createdAt && createdAt.length >= 6);
-
-      // Đảm bảo tất cả các dòng sản phẩm trong bảng đã hiển thị đầy đủ tên, giá và số lượng
-      const hasValidProducts = products.length > 0 && products.every(p => {
-        const hasName = Boolean(p.productName && p.productName.length >= 2);
-        const hasPrice = parseSellerOrderMoneyNumber(p.productPrice) > 0 || parseSellerOrderMoneyNumber(p.itemTotal) > 0;
-        const hasQty = (parseInt(p.quantity || "0", 10) || 0) > 0;
-        return hasName && hasPrice && hasQty;
-      });
-
-      const paymentItems = collectSellerOrderPaymentItems();
-      const totalAmount = findSellerOrderPaymentValue(paymentItems, ["tong tien san pham", "tong tien hang", "tong gia ban", "tong tien", "gia san pham"]);
-      const income = findSellerOrderPaymentValue(paymentItems, ["doanh thu don hang uoc tinh", "doanh thu don hang", "thuc nhan", "so tien thanh toan"]);
-      const hasPayment = Boolean(totalAmount || income);
-
-      const hasLoadingSpinner = Boolean(document.querySelector('.shopee-loading-spinner, .eds-loading, [class*="skeleton"], [class*="loading-spinner"]'));
-
-      // Khi tất cả dữ liệu cốt lõi đã có và không còn spinner -> Kiểm tra tính ổn định trong 2 nhịp liên tiếp
-      if (hasOrderId && hasCreatedAt && hasValidProducts && hasPayment && !hasLoadingSpinner) {
-        if (products.length === prevCount) {
-          stableCycles++;
-          if (stableCycles >= 2) {
-            return true;
-          }
-        } else {
-          prevCount = products.length;
-          stableCycles = 1;
-        }
-      } else {
-        stableCycles = 0;
-        prevCount = products.length;
+      if (orderId && orderId.length >= 8) {
+        return true;
       }
-
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 30));
     }
     return false;
+  }
+
+  // Tự động phát hiện và trích xuất đơn hàng realtime phát sóng ngay khi trang chi tiết đơn mở
+  // Tự động gửi lại nếu có thông tin mới tải thêm (thông tin load tới đâu hiện tới đó)
+  let lastAutoExtractedSignature = "";
+  async function autoBroadcastSellerOrderDetail() {
+    if (typeof isSellerOrderDetailPage !== "function" || !isSellerOrderDetailPage()) return;
+    const orderId = extractSellerOrderIdFromPage();
+    if (!orderId) return;
+
+    try {
+      const fullData = await extractSellerOrderDetailFullData();
+      if (fullData && fullData.ok && fullData.rows && fullData.rows.length > 0) {
+        const firstRow = fullData.rows[0] || {};
+        const sig = `${orderId}_${fullData.rows.length}_${firstRow.totalProductAmount || ""}_${firstRow.estimatedOrderIncome || ""}_${firstRow.sku || ""}_${firstRow.tracking || ""}`;
+        if (sig !== lastAutoExtractedSignature) {
+          lastAutoExtractedSignature = sig;
+          chrome.runtime.sendMessage({
+            type: "ORDER_DETAIL_REALTIME_EXTRACTED",
+            detail: fullData
+          });
+        }
+      }
+    } catch (e) {
+      // silent
+    }
+  }
+
+  // Lắng nghe thay đổi DOM trên trang chi tiết đơn hàng Shopee để gửi cập nhật tức thì khi tải thêm dữ liệu
+  let orderObserverDebounceTimer = null;
+  const orderDomObserver = new MutationObserver(() => {
+    if (typeof isSellerOrderDetailPage === "function" && isSellerOrderDetailPage()) {
+      if (orderObserverDebounceTimer) clearTimeout(orderObserverDebounceTimer);
+      orderObserverDebounceTimer = setTimeout(() => {
+        if (typeof autoBroadcastSellerOrderDetail === "function") {
+          autoBroadcastSellerOrderDetail();
+        }
+      }, 50);
+    }
+  });
+
+  if (document.body) {
+    orderDomObserver.observe(document.body, { childList: true, subtree: true });
+  } else {
+    document.addEventListener("DOMContentLoaded", () => {
+      if (document.body) orderDomObserver.observe(document.body, { childList: true, subtree: true });
+    });
   }
 
   async function extractSellerOrderDetailFullData() {
@@ -9251,10 +9302,13 @@ function downloadExcelFileBypass(wb, filename) {
           return { ok: false, error: "Trang hiện tại không phải là trang chi tiết đơn hàng Shopee." };
       }
 
-      // ⏳ Chờ cho bảng sản phẩm và chi tiết đơn hàng Shopee tải xong đầy đủ trước khi đọc
-      await waitForOrderDetailDOMReady(10000);
+      // Trích xuất tức thì (0ms). Nếu chưa có ID thì đợi tối đa 400ms
+      let orderId = extractSellerOrderIdFromPage();
+      if (!orderId) {
+          await waitForOrderDetailDOMReady(400);
+          orderId = extractSellerOrderIdFromPage();
+      }
 
-      const orderId = extractSellerOrderIdFromPage();
       if (!orderId) {
           return { ok: false, error: "Chưa tải xong hoặc không tìm thấy Mã đơn hàng trên trang." };
       }
@@ -9670,7 +9724,7 @@ function downloadExcelFileBypass(wb, filename) {
     if (floatingBtn) floatingBtn.remove();
     const snActions = document.getElementById('shopee-ext-ordersn-actions');
     if (snActions) snActions.remove();
-    document.querySelectorAll('[id^="shopee-ext-ordersn-actions"], .shopee-ext-ordersn-actions, .shopee-ext-inline-copy-btn').forEach(el => el.remove());
+    document.querySelectorAll('[id^="shopee-ext-ordersn-actions"], .shopee-ext-ordersn-actions, .shopee-ext-inline-copy-btn, .btn-ext-order-huy, .btn-ext-order-hoan, .btn-ext-order-tra, .btn-ext-order-update, .shopee-ext-order-status-badge').forEach(el => el.remove());
   }
 
   function extractSellerOrderReturnId() {
@@ -9771,131 +9825,12 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function renderInlineOrderDetailCopyButtons(orderId, tracking) {
-      if (!orderId) return;
-
-      // 1. Gắn nút Copy ngay cạnh Mã đơn hàng
-      const snValueEl = findOrderSnValueElement(orderId);
-      if (snValueEl) {
-          if (snValueEl.dataset.shopeeExtMdhClickBound !== "1") {
-              snValueEl.dataset.shopeeExtMdhClickBound = "1";
-              snValueEl.style.cursor = "pointer";
-              snValueEl.title = `Click để copy mã đơn hàng: ${orderId}`;
-              snValueEl.addEventListener("click", async (e) => {
-                  if (e.target.closest('.shopee-ext-inline-copy-btn')) return;
-                  e.stopPropagation();
-                  await copyTextToClipboard(orderId);
-                  const origColor = snValueEl.style.color;
-                  snValueEl.style.color = "#16a34a";
-                  setTimeout(() => { snValueEl.style.color = origColor; }, 1000);
-              }, true);
-          }
-
-          const snParent = snValueEl.parentElement;
-          if (snParent && !snParent.querySelector('.shopee-ext-inline-copy-mdh')) {
-              const inlineCopyBtn = document.createElement("button");
-              inlineCopyBtn.type = "button";
-              inlineCopyBtn.className = "shopee-ext-inline-copy-btn shopee-ext-inline-copy-mdh";
-              inlineCopyBtn.textContent = "📋 Copy MDH";
-              inlineCopyBtn.title = `Copy mã đơn hàng: ${orderId}`;
-              inlineCopyBtn.style.cssText = "background: #ee4d2d; color: #fff; border: none; border-radius: 4px; padding: 1px 8px; font-size: 11px; margin-left: 8px; cursor: pointer; font-weight: bold; height: 22px; line-height: 20px; display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; box-shadow: 0 1px 2px rgba(0,0,0,0.08);";
-              inlineCopyBtn.addEventListener("click", async (e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  if (await copyTextToClipboard(orderId)) {
-                      inlineCopyBtn.textContent = "✓ Đã copy!";
-                      inlineCopyBtn.style.background = "#16a34a";
-                      setTimeout(() => {
-                          inlineCopyBtn.textContent = "📋 Copy MDH";
-                          inlineCopyBtn.style.background = "#ee4d2d";
-                      }, 1500);
-                  }
-              }, true);
-              snValueEl.insertAdjacentElement("afterend", inlineCopyBtn);
-          }
-      }
-
-      // 2. Gắn nút Copy ngay cạnh Mã vận đơn
-      const trk = tracking || (extractSellerOrderPackageInfo() || {}).tracking || "";
-      if (trk) {
-          const trackingElements = findTrackingElements(trk);
-          for (const trkEl of trackingElements) {
-              if (trkEl.dataset.shopeeExtMvdClickBound !== "1") {
-                  trkEl.dataset.shopeeExtMvdClickBound = "1";
-                  trkEl.style.cursor = "pointer";
-                  trkEl.title = `Click để copy mã vận đơn: ${trk}`;
-                  trkEl.addEventListener("click", async (e) => {
-                      if (e.target.closest('.shopee-ext-inline-copy-btn')) return;
-                      e.stopPropagation();
-                      await copyTextToClipboard(trk);
-                      const origColor = trkEl.style.color;
-                      trkEl.style.color = "#16a34a";
-                      setTimeout(() => { trkEl.style.color = origColor; }, 1000);
-                  }, true);
-              }
-
-              const trkParent = trkEl.parentElement;
-              if (trkParent && !trkParent.querySelector('.shopee-ext-inline-copy-mvd')) {
-                  const inlineMvdBtn = document.createElement("button");
-                  inlineMvdBtn.type = "button";
-                  inlineMvdBtn.className = "shopee-ext-inline-copy-btn shopee-ext-inline-copy-mvd";
-                  inlineMvdBtn.textContent = "📋 Copy MVD";
-                  inlineMvdBtn.title = `Copy mã vận đơn: ${trk}`;
-                  inlineMvdBtn.style.cssText = "background: #2563eb; color: #fff; border: none; border-radius: 4px; padding: 1px 8px; font-size: 11px; margin-left: 8px; cursor: pointer; font-weight: bold; height: 22px; line-height: 20px; display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; box-shadow: 0 1px 2px rgba(0,0,0,0.08);";
-                  inlineMvdBtn.addEventListener("click", async (e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      if (await copyTextToClipboard(trk)) {
-                          inlineMvdBtn.textContent = "✓ Đã copy!";
-                          inlineMvdBtn.style.background = "#16a34a";
-                          setTimeout(() => {
-                              inlineMvdBtn.textContent = "📋 Copy MVD";
-                              inlineMvdBtn.style.background = "#2563eb";
-                          }, 1500);
-                      }
-                  }, true);
-                  trkEl.insertAdjacentElement("afterend", inlineMvdBtn);
-              }
-          }
-      }
+      // Đã gỡ bỏ các nút copy rải rác trong thân trang để giao diện gọn gàng, không bị rối
+      document.querySelectorAll('.shopee-ext-inline-copy-btn').forEach(el => el.remove());
   }
 
   function updateOrderDetailButtonsStatus(orderId) {
-    if (!orderId) return;
-    const status = cachedDhHoanStatusMap.get(orderId);
-
-    const btnHuyList = document.querySelectorAll('.btn-ext-order-huy');
-    const btnHoanList = document.querySelectorAll('.btn-ext-order-hoan');
-    const btnTraList = document.querySelectorAll('.btn-ext-order-tra');
-    const btnUpdateList = document.querySelectorAll('.btn-ext-order-update');
-
-    const applyStatusHighlight = (btnList, targetLabel) => {
-      btnList.forEach(btn => {
-        if (status === targetLabel) {
-          btn.style.setProperty("outline", "2px solid #16a34a", "important");
-          btn.style.setProperty("outline-offset", "1px", "important");
-          btn.textContent = `✓ ${targetLabel}`;
-        } else {
-          btn.style.removeProperty("outline");
-          btn.style.removeProperty("outline-offset");
-          btn.textContent = targetLabel;
-        }
-      });
-    };
-
-    applyStatusHighlight(btnHuyList, "Hủy");
-    applyStatusHighlight(btnHoanList, "Hoàn");
-    applyStatusHighlight(btnTraList, "Trả");
-    applyStatusHighlight(btnUpdateList, "Cập nhật");
-
-    const statusTagList = document.querySelectorAll('.shopee-ext-order-status-badge');
-    statusTagList.forEach(tag => {
-      if (status) {
-        tag.style.display = "inline-block";
-        tag.textContent = `Đã cập nhật: ${status}`;
-      } else {
-        tag.style.display = "none";
-      }
-    });
+      // Đã gỡ bỏ trạng thái / nút hủy hoàn trả trên trang chi tiết đơn
   }
 
   function findTargetContainerForDonHangButton(orderId) {
@@ -9933,12 +9868,12 @@ function downloadExcelFileBypass(wb, filename) {
           }
       }
 
-      // Luôn dọn dẹp nút nổi thừa ở góc màn hình và cụm nút trùng lặp bên dưới
+      // Luôn dọn dẹp nút thừa, nút nổi và cụm nút trạng thái/nút inline lặp lại
       const floatingBtn = document.getElementById('shopee-ext-floating-dh-btn');
       if (floatingBtn) floatingBtn.remove();
       const existingBtnAdd = document.getElementById('btn-add-don-hang');
       if (existingBtnAdd) existingBtnAdd.remove();
-      document.querySelectorAll('#shopee-ext-ordersn-actions, [id^="shopee-ext-ordersn-actions"]').forEach(el => el.remove());
+      document.querySelectorAll('#shopee-ext-ordersn-actions, [id^="shopee-ext-ordersn-actions"], .shopee-ext-inline-copy-btn, .btn-ext-order-huy, .btn-ext-order-hoan, .btn-ext-order-tra, .btn-ext-order-update, .shopee-ext-order-status-badge').forEach(el => el.remove());
 
       updateDonHangMdhCache();
       updateDhHoanIdsCache();
@@ -9946,11 +9881,8 @@ function downloadExcelFileBypass(wb, filename) {
       // Dữ liệu đơn hàng chi tiết hiện tại
       const pkg = extractSellerOrderPackageInfo() || {};
       const curTracking = pkg.tracking || "";
-      const curReturnId = extractSellerOrderReturnId() || "";
-      const curReason = extractSellerOrderCancelOrReturnReason() || "";
-      const curOrderData = { orderId, tracking: curTracking, returnId: curReturnId, reason: curReason };
 
-      // 3. Gắn cụm nút vào Breadcrumb / Header (DUY NHẤT 1 NƠI, KHÔNG TRÙNG LẶP)
+      // 3. Gắn cụm 3 nút Copy vào Breadcrumb / Header gọn gàng
       const targetContainer = findTargetContainerForDonHangButton(orderId);
       if (targetContainer && orderId) {
           let btnContainer = document.getElementById('shopee-ext-donhang-btns');
@@ -10015,58 +9947,8 @@ function downloadExcelFileBypass(wb, filename) {
               btnCopyBoth.title = "Copy cả Mã đơn hàng và Mã vận đơn";
               btnContainer.appendChild(btnCopyBoth);
           }
-
-          // 4. Nút Hủy
-          let btnHuy = document.getElementById('btn-order-detail-huy');
-          if (!btnHuy) {
-              btnHuy = createActionBtn("Hủy", "#ef4444", () => handleDhHoanAction("Hủy", null, btnHuy, curOrderData));
-              btnHuy.id = 'btn-order-detail-huy';
-              btnHuy.classList.add('btn-ext-order-huy');
-              btnContainer.appendChild(btnHuy);
-          }
-
-          // 5. Nút Hoàn
-          let btnHoan = document.getElementById('btn-order-detail-hoan');
-          if (!btnHoan) {
-              btnHoan = createActionBtn("Hoàn", "#f59e0b", () => handleDhHoanAction("Hoàn", null, btnHoan, curOrderData));
-              btnHoan.id = 'btn-order-detail-hoan';
-              btnHoan.classList.add('btn-ext-order-hoan');
-              btnContainer.appendChild(btnHoan);
-          }
-
-          // 6. Nút Trả
-          let btnTra = document.getElementById('btn-order-detail-tra');
-          if (!btnTra) {
-              btnTra = createActionBtn("Trả", "#3b82f6", () => handleDhHoanAction("Trả", null, btnTra, curOrderData));
-              btnTra.id = 'btn-order-detail-tra';
-              btnTra.classList.add('btn-ext-order-tra');
-              btnContainer.appendChild(btnTra);
-          }
-
-          // 7. Nút Cập nhật
-          let btnUpdate = document.getElementById('btn-order-detail-update');
-          if (!btnUpdate) {
-              btnUpdate = createActionBtn("Cập nhật", "#64748b", () => handleDhHoanAction("Cập nhật", null, btnUpdate, curOrderData));
-              btnUpdate.id = 'btn-order-detail-update';
-              btnUpdate.classList.add('btn-ext-order-update');
-              btnContainer.appendChild(btnUpdate);
-          }
-
-          // 8. Badge trạng thái
-          let statusTag = document.getElementById('shopee-ext-order-status-badge');
-          if (!statusTag) {
-              statusTag = document.createElement('span');
-              statusTag.id = 'shopee-ext-order-status-badge';
-              statusTag.className = 'shopee-ext-order-status-badge';
-              statusTag.style.cssText = 'padding: 2px 8px; font-size: 11px; font-weight: bold; border-radius: 4px; background: #dcfce7; color: #15803d; border: 1px solid #86efac; display: none;';
-              btnContainer.appendChild(statusTag);
-          }
       }
 
-      // 4. Gắn các nút Copy trực tiếp tại Mã đơn hàng và Mã vận đơn trên giao diện trang
-      renderInlineOrderDetailCopyButtons(orderId, curTracking);
-
-      updateOrderDetailButtonsStatus(orderId);
       updateCopyButtonColors();
   }
   // Injected interceptor for FORCE_DOWNLOAD
@@ -13838,7 +13720,10 @@ QUY TẮC BẮT BUỘC TRẢ LỜI:
     if (isOrderListPage()) {
       updateCopyAllButtonColors();
     }
-  }, 800);
+    if (typeof autoBroadcastSellerOrderDetail === "function") {
+      autoBroadcastSellerOrderDetail();
+    }
+  }, 500);
 })();
 
 window.addEventListener('message', (e) => { if (e.data && e.data.action === 'RELOAD_PAGE') { window.location.reload(); } });

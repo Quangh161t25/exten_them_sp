@@ -589,6 +589,9 @@ async function uploadImageToFreeImageHost(imageUrl) {
         let loiNhuanIdx = headers.findIndex(h => h === "loi_nhuan" || h === "lợi nhuận" || h.includes("loi_nhuan"));
         if (loiNhuanIdx === -1) loiNhuanIdx = 13;
 
+        let tinhTrangIdx = headers.findIndex(h => h === "tinh_trang" || h === "tình trạng" || h === "tinh trang" || h.includes("tinh_trang") || h.includes("tình trạng"));
+        if (tinhTrangIdx === -1) tinhTrangIdx = 14;
+
         const getColLetter = (colIndex) => {
           let temp, letter = '';
           while (colIndex >= 0) {
@@ -640,10 +643,18 @@ async function uploadImageToFreeImageHost(imageUrl) {
             const tienSpGoc = Math.abs(Number(String(row[tienSpIdx] || "").replace(/[^0-9-]/g, "")) || 0);
             const loiNhuanVal = doanhThuVal - phiKhacVal - tienSpGoc;
 
-            // Cập nhật dải F -> N (hoặc F -> K)
-            // F: tong_tien, G: ma_giam_gia, H: phi_vc, I: phu_phi, J: thue, K: doanh_thu, L: phi_khac, M: tien_sp, N: loi_nhuan
+            // Kiểm tra xem đơn hàng này có phải là doanh thu âm không
+            const isNegativeRevenue = Boolean(
+              item.isNegative ||
+              (Number(item.amount) < 0) ||
+              (Number(item.doanhThu) < 0) ||
+              String(item.rawAmount || "").includes("-")
+            );
+
+            // Cập nhật dải F -> O (tong_tien đến tinh_trang)
+            // F: tong_tien, G: ma_giam_gia, H: phi_vc, I: phu_phi, J: thue, K: doanh_thu, L: phi_khac, M: tien_sp, N: loi_nhuan, O: tinh_trang
             const startCol = tongTienIdx;
-            const endCol = Math.max(doanhThuIdx, loiNhuanIdx);
+            const endCol = Math.max(doanhThuIdx, loiNhuanIdx, tinhTrangIdx);
 
             const rowValues = [];
             for (let c = startCol; c <= endCol; c++) {
@@ -654,6 +665,10 @@ async function uploadImageToFreeImageHost(imageUrl) {
               else if (c === thueIdx) rowValues.push(thueVal);
               else if (c === doanhThuIdx) rowValues.push(doanhThuVal);
               else if (c === loiNhuanIdx) rowValues.push(loiNhuanVal);
+              else if (c === tinhTrangIdx) {
+                // Đổi thành "XONG". Nếu doanh thu âm thì không cập nhật cột tình trạng (giữ nguyên giá trị cũ)
+                rowValues.push(isNegativeRevenue ? (row[tinhTrangIdx] !== undefined ? row[tinhTrangIdx] : "") : "XONG");
+              }
               else rowValues.push(row[c] !== undefined ? row[c] : "");
             }
 
@@ -699,6 +714,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
         if (!batchRes.ok) {
           throw new Error(batchResult.error?.message || "Không thể cập nhật sheet DH.");
         }
+        invalidateDhCache();
         sendResponse({
           ok: true,
           matchedCount,
@@ -894,29 +910,75 @@ async function uploadImageToFreeImageHost(imageUrl) {
           throw new Error("Không có Mã đơn hàng hoặc Mã vận đơn để lưu.");
         }
 
-        // 1. Quét tìm xem đơn hàng đã có trong Sheet DH chưa (đọc từ cột D đến P để lấy cả MDH, MVD và Trạng thái)
-        const { res: readRes, data: readData } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!D:P")}`, {
+        // 1. Quét tìm xem đơn hàng đã có trong Sheet DH chưa (đọc toàn bộ từ A đến AZ để đảm bảo số dòng i+1 luôn khớp 100%)
+        const { res: readRes, data: readData } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:AZ")}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
         const rows = (readRes.ok && readData.values) ? readData.values : [];
-        const matchingRowNums = [];
+        let matchingRowNums = [];
         let existingOldTinhTrang = "";
         let existingOldTrangThai = "";
 
-        if (sampleMdh || sampleMvd) {
-          for (let i = 1; i < rows.length; i++) {
-            const r = rows[i];
-            const rowMdh = String(r[0] || "").trim();
-            const rowMvd = String(r[1] || "").trim();
-            const rowNum = i + 1;
+        const isCodeMatch = (cellVal, targetCode) => {
+          if (!cellVal || !targetCode) return false;
+          const c = String(cellVal).trim().toLowerCase();
+          const t = String(targetCode).trim().toLowerCase();
+          if (!c || !t || c.length < 6 || t.length < 6) return false;
+          if (c === t) return true;
+          const clean = (s) => s.replace(/copy|sao\s*ch[eéê]p/gi, " ").trim();
+          const m1 = clean(c).match(/([0-9]{6}[a-z0-9]{6,16})/i) || clean(c).match(/([a-z0-9]{10,25})/i);
+          const m2 = clean(t).match(/([0-9]{6}[a-z0-9]{6,16})/i) || clean(t).match(/([a-z0-9]{10,25})/i);
+          return Boolean(m1 && m2 && m1[1].toLowerCase() === m2[1].toLowerCase());
+        };
 
-            if ((sampleMdh && rowMdh && rowMdh.toLowerCase() === sampleMdh.toLowerCase()) ||
-                (sampleMvd && rowMvd && rowMvd.toLowerCase() === sampleMvd.toLowerCase())) {
-              matchingRowNums.push(rowNum);
-              if (!existingOldTinhTrang && r[11]) existingOldTinhTrang = String(r[11]).trim();
-              if (!existingOldTrangThai && r[12]) existingOldTrangThai = String(r[12]).trim();
+        const headers = (rows[0] || []).map(h => String(h || "").trim().toLowerCase());
+        let mdhIdx = headers.findIndex(h => h === "mdh" || h.includes("mã đơn") || h.includes("ma don") || h === "order sn");
+        if (mdhIdx === -1) mdhIdx = 3;
+        let mvdIdx = headers.findIndex(h => h === "mvd" || h.includes("mã vận") || h.includes("ma van") || h === "tracking");
+        if (mvdIdx === -1) mvdIdx = 4;
+        let tinhTrangIdx = headers.findIndex(h => h === "tinh_trang" || h.includes("tình trạng"));
+        if (tinhTrangIdx === -1) tinhTrangIdx = 14;
+        let trangThaiIdx = headers.findIndex(h => h === "trang_thai" || h.includes("trạng thái"));
+        if (trangThaiIdx === -1) trangThaiIdx = 15;
+
+        // Ưu tiên 1: Kiểm tra các rowNums do client chỉ định (nếu client đã biết chính xác vị trí dòng)
+        const explicitRowNums = (Array.isArray(message.rowNums) ? message.rowNums : [message.rowNum, message.rowOriginalIndex])
+          .map(n => Number(n))
+          .filter(n => !isNaN(n) && n >= 2);
+
+        for (const rowNum of explicitRowNums) {
+          if (rowNum <= rows.length) {
+            const r = rows[rowNum - 1] || [];
+            const rMdh = String(r[mdhIdx] || "").trim();
+            const rMvd = String(r[mvdIdx] || "").trim();
+            if ((sampleMdh && isCodeMatch(rMdh, sampleMdh)) || (sampleMvd && isCodeMatch(rMvd, sampleMvd))) {
+              if (!matchingRowNums.includes(rowNum)) matchingRowNums.push(rowNum);
+              if (!existingOldTinhTrang && r[tinhTrangIdx]) existingOldTinhTrang = String(r[tinhTrangIdx]).trim();
+              if (!existingOldTrangThai && r[trangThaiIdx]) existingOldTrangThai = String(r[trangThaiIdx]).trim();
             }
+          }
+        }
+
+        let lastUsedRow = 1;
+
+        // Ưu tiên 2: Tìm kiếm trong toàn bộ Sheet DH theo đúng cột MDH và MVD
+        for (let i = 1; i < rows.length; i++) {
+          const r = rows[i];
+          if (r && r.some(cell => String(cell || "").trim())) {
+            lastUsedRow = i + 1;
+          }
+          const rowMdh = String(r[mdhIdx] || "").trim();
+          const rowMvd = String(r[mvdIdx] || "").trim();
+          const rowNum = i + 1;
+
+          const isMatch = (sampleMdh && isCodeMatch(rowMdh, sampleMdh)) ||
+                          (sampleMvd && isCodeMatch(rowMvd, sampleMvd));
+
+          if (isMatch) {
+            if (!matchingRowNums.includes(rowNum)) matchingRowNums.push(rowNum);
+            if (!existingOldTinhTrang && r[tinhTrangIdx]) existingOldTinhTrang = String(r[tinhTrangIdx]).trim();
+            if (!existingOldTrangThai && r[trangThaiIdx]) existingOldTrangThai = String(r[trangThaiIdx]).trim();
           }
         }
 
@@ -940,23 +1002,17 @@ async function uploadImageToFreeImageHost(imageUrl) {
           });
         }
 
-        // 2. Nếu ĐÃ TỒN TẠI -> CẬP NHẬT LẠI CHÍNH DÒNG ĐÓ VÀ DỌN DẸP DÒNG TRÙNG THỪA
+        // 2. Nếu ĐÃ TỒN TẠI -> CẬP NHẬT CHÍNH XÁC VÀO CÁC DÒNG ĐÓ
         if (matchingRowNums.length > 0) {
           const updateData = [];
-          for (let i = 0; i < matchingRowNums.length; i++) {
-            const rowNum = matchingRowNums[i];
-            if (i < newValues.length) {
-              updateData.push({
-                range: `DH!A${rowNum}:Y${rowNum}`,
-                values: [newValues[i]]
-              });
-            } else {
-              // Xóa sạch dòng trùng thừa trước đó nếu có
-              updateData.push({
-                range: `DH!A${rowNum}:Y${rowNum}`,
-                values: [new Array(25).fill("")]
-              });
-            }
+          const firstRowNum = matchingRowNums[0];
+
+          for (let i = 0; i < newValues.length; i++) {
+            const targetRowNum = (i < matchingRowNums.length) ? matchingRowNums[i] : (firstRowNum + i);
+            updateData.push({
+              range: `DH!A${targetRowNum}:Y${targetRowNum}`,
+              values: [newValues[i]]
+            });
           }
 
           if (updateData.length > 0) {
@@ -975,19 +1031,6 @@ async function uploadImageToFreeImageHost(imageUrl) {
             invalidateDhCache();
           }
 
-          // Nếu số dòng mới nhiều hơn số dòng cũ đã có, thêm các dòng còn lại vào cuối
-          const remainingValues = newValues.slice(matchingRowNums.length);
-          if (remainingValues.length > 0) {
-            await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:Y")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({ values: remainingValues })
-            });
-          }
-
           sendResponse({
             ok: true,
             updated: true,
@@ -997,9 +1040,11 @@ async function uploadImageToFreeImageHost(imageUrl) {
           return;
         }
 
-        // 3. Nếu CHƯA TỒN TẠI -> THÊM MỚI (APPEND)
-        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:Y")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
-          method: "POST",
+        // 3. Nếu CHƯA TỒN TẠI HOÀN TOÀN -> THÊM MỚI VÀO CUỐI SHEET (THEO TỌA ĐỘ A{startRowNum}:Y{endRowNum})
+        const startRowNum = lastUsedRow + 1;
+        const endRowNum = startRowNum + newValues.length - 1;
+        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`DH!A${startRowNum}:Y${endRowNum}`)}?valueInputOption=USER_ENTERED`, {
+          method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json"
@@ -1024,8 +1069,23 @@ async function uploadImageToFreeImageHost(imageUrl) {
         await ensureSheetExists("DH", token);
         const validRows = (message.rowDatas || []).filter(r => Array.isArray(r) && (String(r[3] || "").trim() || String(r[4] || "").trim() || String(r[16] || "").trim()));
         if (!validRows.length) throw new Error("Không có dòng hợp lệ để thêm.");
-        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:Y")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
-          method: "POST",
+        
+        const { res: readRes, data: readData } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:AZ")}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const rows = (readRes.ok && readData.values) ? readData.values : [];
+        let lastUsedRow = 1;
+        for (let i = 1; i < rows.length; i++) {
+          const r = rows[i];
+          if (r && r.some(cell => String(cell || "").trim())) {
+            lastUsedRow = i + 1;
+          }
+        }
+        const startRowNum = lastUsedRow + 1;
+        const endRowNum = startRowNum + validRows.length - 1;
+
+        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`DH!A${startRowNum}:Y${endRowNum}`)}?valueInputOption=USER_ENTERED`, {
+          method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json"
@@ -1292,22 +1352,40 @@ async function uploadImageToFreeImageHost(imageUrl) {
           return;
         }
 
-        // 1. Đọc toàn bộ MDH, MVD và Trạng thái hiện có trong Sheet DH
-        const { res: readRes, data: readData } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!D:P")}`, {
+        // 1. Đọc toàn bộ dữ liệu hiện có trong Sheet DH từ cột A đến AZ
+        const { res: readRes, data: readData } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:AZ")}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
         const sheetRows = (readRes.ok && readData.values) ? readData.values : [];
+        const headerRow = sheetRows[0] || [];
+        let mdhColIdx = 3;
+        let mvdColIdx = 4;
+        let tinhTrangColIdx = 14;
+        let trangThaiColIdx = 15;
+
+        headerRow.forEach((h, idx) => {
+          const lower = String(h || "").trim().toLowerCase();
+          if (lower === "mdh" || lower.includes("mã đơn") || lower.includes("ma don") || lower === "order sn") mdhColIdx = idx;
+          if (lower === "mvd" || lower.includes("mã vận") || lower.includes("ma van") || lower === "tracking") mvdColIdx = idx;
+          if (lower === "tinh_trang" || lower.includes("tình trạng")) tinhTrangColIdx = idx;
+          if (lower === "trang_thai" || lower.includes("trạng thái")) trangThaiColIdx = idx;
+        });
+
         const existingMdhMap = new Map();
         const existingMvdMap = new Map();
         const existingStatusMap = new Map();
+        let lastUsedRow = 1;
 
         for (let i = 1; i < sheetRows.length; i++) {
           const r = sheetRows[i];
-          const rMdh = String(r[0] || "").trim().toLowerCase();
-          const rMvd = String(r[1] || "").trim().toLowerCase();
-          const rTinhTrang = String(r[11] || "").trim();
-          const rTrangThai = String(r[12] || "").trim();
+          if (r && r.some(cell => String(cell || "").trim())) {
+            lastUsedRow = i + 1;
+          }
+          const rMdh = String(r[mdhColIdx] || "").trim().toLowerCase();
+          const rMvd = String(r[mvdColIdx] || "").trim().toLowerCase();
+          const rTinhTrang = String(r[tinhTrangColIdx] || "").trim();
+          const rTrangThai = String(r[trangThaiColIdx] || "").trim();
           const rowNum = i + 1;
 
           if (rMdh) {
@@ -1392,7 +1470,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
               insertedCount += remainder.length;
             }
           } else {
-            // Đơn mới hoàn toàn -> Append
+            // Đơn mới hoàn toàn -> Thêm mới
             appendRows.push(...rowsInGroup);
             insertedCount += rowsInGroup.length;
           }
@@ -1418,21 +1496,28 @@ async function uploadImageToFreeImageHost(imageUrl) {
           }
         }
 
-        // 4. Thực hiện Append các dòng mới theo lô (mỗi lô 500 rows)
-        for (let i = 0; i < appendRows.length; i += BATCH_SIZE) {
-          const chunk = appendRows.slice(i, i + BATCH_SIZE);
-          const { res: appendRes, data: appendData } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:Y")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              values: chunk
-            })
-          });
-          if (!appendRes.ok) {
-            console.error("Lỗi append sheet DH:", appendData);
+        // 4. Thực hiện Ghi các dòng mới vào Sheet DH theo tọa độ chính xác A{startRowNum}:Y{endRowNum}
+        if (appendRows.length > 0) {
+          let currentInsertRow = lastUsedRow + 1;
+          for (let i = 0; i < appendRows.length; i += BATCH_SIZE) {
+            const chunk = appendRows.slice(i, i + BATCH_SIZE);
+            const chunkStart = currentInsertRow;
+            const chunkEnd = chunkStart + chunk.length - 1;
+            const { res: appendRes, data: appendData } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`DH!A${chunkStart}:Y${chunkEnd}`)}?valueInputOption=USER_ENTERED`, {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                values: chunk
+              })
+            });
+            if (!appendRes.ok) {
+              console.error("Lỗi ghi dòng mới sheet DH:", appendData);
+              throw new Error(appendData.error?.message || "Lỗi ghi dòng mới vào sheet DH");
+            }
+            currentInsertRow = chunkEnd + 1;
           }
         }
 
@@ -1563,8 +1648,39 @@ async function uploadImageToFreeImageHost(imageUrl) {
     return true;
   }
 
+  async function handleSaveDhOrder(token, sheetId, payload) {
+    const values = payload?.values || [];
+    if (!values.length) return { ok: false, error: "Không có dòng dữ liệu." };
+    await ensureSheetExists("DH", token, sheetId);
+    
+    const { res: readRes, data: readData } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("DH!A:AZ")}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const sheetRows = (readRes.ok && readData.values) ? readData.values : [];
+    let lastUsedRow = 1;
+    for (let i = 1; i < sheetRows.length; i++) {
+      if (sheetRows[i] && sheetRows[i].some(cell => String(cell || "").trim())) {
+        lastUsedRow = i + 1;
+      }
+    }
+    const startRowNum = lastUsedRow + 1;
+    const endRowNum = startRowNum + values.length - 1;
+
+    const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`DH!A${startRowNum}:AA${endRowNum}`)}?valueInputOption=USER_ENTERED`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ values })
+    });
+    if (!res.ok) throw new Error(data.error?.message || "Không thể lưu mới đơn hàng vào Sheet DH.");
+    invalidateDhCache();
+    return { ok: true, count: values.length };
+  }
+
   async function updateDhOrderReturnInfo(message, token, sheetId) {
-    await ensureSheetExists("DH", token);
+    await ensureSheetExists("DH", token, sheetId);
     
     // 1. Đảm bảo header Z1 và AA1 đã có trong sheet DH
     try {
@@ -1595,8 +1711,23 @@ async function uploadImageToFreeImageHost(imageUrl) {
 
     if (!res.ok) throw new Error(data.error?.message || "Không thể đọc dữ liệu Sheet DH");
     const rows = data.values || [];
+    const statusVal = String(message.status || "").trim();
+    const returnIdVal = String(message.returnId || "").trim();
+    const trackingVal = String(message.tracking || "").trim();
+
+    let reqOrderId = String(message.orderId || "").trim().toLowerCase();
+    reqOrderId = reqOrderId.replace(/copy|sao\s*ch[eé]p|m[aã]\s*([đd][oơ]n\s*h[aà]ng|y[eê]u\s*c[aầ]u\s*tr[aả]\s*h[aà]ng)/gi, " ").trim();
+    const mReq = reqOrderId.match(/([0-9]{6}[a-z0-9]{7,14})/i);
+    if (mReq) reqOrderId = mReq[1].toLowerCase();
+    const reqGian = String(message.maGian || message.noidung || "").trim().toLowerCase();
+
     if (rows.length <= 1) {
-      throw new Error("Sheet DH chưa có dữ liệu đơn hàng nào để cập nhật.");
+      return {
+        ok: true,
+        skipped: true,
+        notFound: true,
+        message: `Mã đơn "${reqOrderId ? reqOrderId.toUpperCase() : trackingVal}" không có trong Sheet DH, đã bỏ qua.`
+      };
     }
 
     const headers = rows[0].map(h => String(h || "").trim().toLowerCase());
@@ -1605,14 +1736,8 @@ async function uploadImageToFreeImageHost(imageUrl) {
     let gianIdx = headers.findIndex(h => h === "gian" || h.includes("mã gian") || h.includes("ma gian"));
     if (gianIdx === -1) gianIdx = 0;
 
-    let reqOrderId = String(message.orderId || "").trim().toLowerCase();
-    reqOrderId = reqOrderId.replace(/copy|sao\s*ch[eé]p|m[aã]\s*([đd][oơ]n\s*h[aà]ng|y[eê]u\s*c[aầ]u\s*tr[aả]\s*h[aà]ng)/gi, " ").trim();
-    const mReq = reqOrderId.match(/([0-9]{6}[a-z0-9]{7,14})/i);
-    if (mReq) reqOrderId = mReq[1].toLowerCase();
-    const reqGian = String(message.maGian || message.noidung || "").trim().toLowerCase();
-
-    if (!reqOrderId) {
-      throw new Error("Không có Mã đơn hàng để cập nhật.");
+    if (!reqOrderId && !trackingVal) {
+      throw new Error("Không có Mã đơn hàng hoặc Mã vận đơn để cập nhật.");
     }
 
     // 3. Tìm các dòng khớp mã đơn hàng (và mã gian nếu có)
@@ -1621,20 +1746,45 @@ async function uploadImageToFreeImageHost(imageUrl) {
     const isCodeMatch = (cellVal, targetCode) => {
       if (!cellVal || !targetCode) return false;
       const c = String(cellVal).trim().toLowerCase();
-      if (c === targetCode || c.includes(targetCode) || targetCode.includes(c)) return true;
-      const m = c.match(/([0-9]{6}[a-z0-9]{7,14})/i);
-      return m && (m[1].toLowerCase() === targetCode);
+      const t = String(targetCode).trim().toLowerCase();
+      if (!c || !t || c.length < 6 || t.length < 6) return false;
+      if (c === t) return true;
+      const clean = (s) => s.replace(/copy|sao\s*ch[eéê]p/gi, " ").trim();
+      const m1 = clean(c).match(/([0-9]{6}[a-z0-9]{6,16})/i) || clean(c).match(/([a-z0-9]{10,25})/i);
+      const m2 = clean(t).match(/([0-9]{6}[a-z0-9]{6,16})/i) || clean(t).match(/([a-z0-9]{10,25})/i);
+      return Boolean(m1 && m2 && m1[1].toLowerCase() === m2[1].toLowerCase());
     };
 
-    for (let i = 1; i < rows.length; i++) {
-      const r = rows[i];
-      const rowGian = String(r[gianIdx] || "").trim().toLowerCase();
-      const rowMdh = String(r[mdhIdx] || "").trim();
-      const rowNum = i + 1;
+    // Ưu tiên 1: Nếu client có truyền rowNum / rowNums cụ thể, kiểm tra dòng đó trước
+    const explicitRowNums = (Array.isArray(message.rowNums) ? message.rowNums : [message.rowNum, message.rowOriginalIndex])
+      .map(n => Number(n))
+      .filter(n => !isNaN(n) && n >= 2);
 
-      if (isCodeMatch(rowMdh, reqOrderId)) {
-        if (!reqGian || rowGian === reqGian || !rowGian) {
-          matchingRows.push({ rowNum, rowData: r });
+    for (const rowNum of explicitRowNums) {
+      if (rowNum <= rows.length) {
+        const r = rows[rowNum - 1] || [];
+        const rMdh = String(r[mdhIdx] || "").trim();
+        const rMvd = String(r[4] || "").trim();
+        if ((reqOrderId && isCodeMatch(rMdh, reqOrderId)) || (trackingVal && isCodeMatch(rMvd, trackingVal))) {
+          if (!matchingRows.some(m => m.rowNum === rowNum)) {
+            matchingRows.push({ rowNum, rowData: r });
+          }
+        }
+      }
+    }
+
+    if (matchingRows.length === 0) {
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        const rowGian = String(r[gianIdx] || "").trim().toLowerCase();
+        const rowMdh = String(r[mdhIdx] || "").trim();
+        const rowMvd = String(r[4] || "").trim();
+        const rowNum = i + 1;
+
+        if ((reqOrderId && isCodeMatch(rowMdh, reqOrderId)) || (trackingVal && isCodeMatch(rowMvd, trackingVal))) {
+          if (!reqGian || rowGian === reqGian || !rowGian) {
+            matchingRows.push({ rowNum, rowData: r });
+          }
         }
       }
     }
@@ -1644,22 +1794,26 @@ async function uploadImageToFreeImageHost(imageUrl) {
       for (let i = 1; i < rows.length; i++) {
         const r = rows[i];
         const rowMdh = String(r[mdhIdx] || "").trim();
+        const rowMvd = String(r[4] || "").trim();
         const rowNum = i + 1;
-        if (isCodeMatch(rowMdh, reqOrderId)) {
+        if ((reqOrderId && isCodeMatch(rowMdh, reqOrderId)) || (trackingVal && isCodeMatch(rowMvd, trackingVal))) {
           matchingRows.push({ rowNum, rowData: r });
         }
       }
     }
 
+    // Nếu đơn hàng CHƯA CÓ TRONG SHEET DH -> BỎ QUA, KHÔNG LƯU MỚI VÀO SHEET DH
     if (matchingRows.length === 0) {
-      throw new Error(`Không tìm thấy Mã đơn hàng "${reqOrderId.toUpperCase()}"${reqGian ? ` (Gian: ${reqGian})` : ''} trong Sheet DH.`);
+      return { 
+        ok: true, 
+        skipped: true,
+        notFound: true,
+        message: `Mã đơn "${reqOrderId ? reqOrderId.toUpperCase() : trackingVal}" không có trong Sheet DH, đã bỏ qua.` 
+      };
     }
 
-    // 4. Cập nhật các cột theo trạng thái (Hủy: tinh_trang=Hủy, doanh_thu=0, tien_sp=0; Hoàn/Trả: tien_sp=0)
+    // 4. Cập nhật các cột theo trạng thái (Hủy: tinh_trang=Hủy, doanh_thu=0, tien_sp=0; Hoàn: tinh_trang=hoàn, trang_thai="", tien_sp=0; Trả: tien_sp=0)
     const updateData = [];
-    const statusVal = String(message.status || "").trim();
-    const returnIdVal = String(message.returnId || "").trim();
-    const trackingVal = String(message.tracking || "").trim();
 
     const parseNum = (val) => {
       if (val === null || val === undefined) return 0;
@@ -1681,8 +1835,17 @@ async function uploadImageToFreeImageHost(imageUrl) {
           range: `DH!M${rowNum}:P${rowNum}`,
           values: [[0, 0, "Hủy", "Hủy"]]
         });
-      } else if (statusVal === "Hoàn" || statusVal === "Trả") {
-        // Hoàn / Trả: tien_sp = 0, trang_thai = statusVal, loi_nhuan = doanh_thu - phi_khac
+      } else if (statusVal === "Hoàn" || statusVal === "hoàn") {
+        // Hoàn: tinh_trang = "hoàn", trang_thai = "", tien_sp = 0, loi_nhuan = doanh_thu - phi_khac
+        const dt = parseNum(rowData[10]);
+        const pk = parseNum(rowData[11]);
+        const newLoiNhuan = dt - pk;
+        updateData.push({
+          range: `DH!M${rowNum}:P${rowNum}`,
+          values: [[0, newLoiNhuan, "hoàn", ""]]
+        });
+      } else if (statusVal === "Trả") {
+        // Trả: tien_sp = 0, trang_thai = "Trả", loi_nhuan = doanh_thu - phi_khac
         const dt = parseNum(rowData[10]);
         const pk = parseNum(rowData[11]);
         const newLoiNhuan = dt - pk;
@@ -1736,6 +1899,175 @@ async function uploadImageToFreeImageHost(imageUrl) {
     };
   }
 
+  async function updateBatchDhOrderReturnInfo(message, token, sheetId) {
+    const orders = Array.isArray(message.orders) ? message.orders : [];
+    if (orders.length === 0) {
+      throw new Error("Không có danh sách đơn hàng để cập nhật.");
+    }
+
+    const statusVal = String(message.status || "").trim();
+    const maGian = String(message.maGian || "").trim();
+
+    // 1. Tải toàn bộ Sheet DH
+    const { res: getRes, data: getData } = await fetchJsonWithTimeout(
+      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/DH!A:AA`,
+      {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    );
+
+    if (!getRes.ok) {
+      throw new Error(getData.error?.message || "Không thể đọc dữ liệu Sheet DH");
+    }
+
+    const rows = getData.values || [];
+    if (rows.length === 0) {
+      throw new Error("Sheet DH đang trống");
+    }
+
+    const headers = rows[0].map(h => String(h || "").trim().toLowerCase());
+    let mdhIdx = headers.findIndex(h => h === "mdh" || h.includes("mã đơn") || h.includes("ma don") || h === "order sn");
+    if (mdhIdx === -1) mdhIdx = 3;
+    let mvdIdx = headers.findIndex(h => h === "mvd" || h.includes("mã vận") || h.includes("ma van") || h === "tracking");
+    if (mvdIdx === -1) mvdIdx = 4;
+
+    const isCodeMatch = (cellVal, targetCode) => {
+      if (!cellVal || !targetCode) return false;
+      const c = String(cellVal).trim().toLowerCase();
+      const t = String(targetCode).trim().toLowerCase();
+      if (!c || !t || c.length < 6 || t.length < 6) return false;
+      if (c === t) return true;
+      const clean = (s) => s.replace(/copy|sao\s*ch[eéê]p/gi, " ").trim();
+      const m1 = clean(c).match(/([0-9]{6}[a-z0-9]{6,16})/i) || clean(c).match(/([a-z0-9]{10,25})/i);
+      const m2 = clean(t).match(/([0-9]{6}[a-z0-9]{6,16})/i) || clean(t).match(/([a-z0-9]{10,25})/i);
+      return Boolean(m1 && m2 && m1[1].toLowerCase() === m2[1].toLowerCase());
+    };
+
+    const parseNum = (val) => {
+      if (val === null || val === undefined) return 0;
+      if (typeof val === "number") return val;
+      const d = String(val).replace(/[^0-9.-]/g, "");
+      return d ? Number(d) : 0;
+    };
+
+    // Map nhanh mã đơn -> các dòng trong Sheet DH
+    const orderRowMap = new Map();
+    let lastUsedRow = 1;
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (r && r.some(cell => String(cell || "").trim())) {
+        lastUsedRow = i + 1;
+      }
+      const rowMdh = String(r[mdhIdx] || "").trim();
+      const rowMvd = String(r[mvdIdx] || "").trim();
+      const rowNum = i + 1;
+
+      if (rowMdh) {
+        const cleanMdh = rowMdh.toLowerCase();
+        if (!orderRowMap.has(cleanMdh)) orderRowMap.set(cleanMdh, []);
+        orderRowMap.get(cleanMdh).push({ rowNum, rowData: r });
+      }
+      if (rowMvd) {
+        const cleanMvd = rowMvd.toLowerCase();
+        if (!orderRowMap.has(cleanMvd)) orderRowMap.set(cleanMvd, []);
+        orderRowMap.get(cleanMvd).push({ rowNum, rowData: r });
+      }
+    }
+
+    const updateData = [];
+    let updatedOrdersCount = 0;
+    let skippedOrdersCount = 0;
+    const processedRowNums = new Set();
+
+    for (const item of orders) {
+      const oId = String(item.orderId || "").trim();
+      const trk = String(item.tracking || "").trim();
+      const retId = String(item.returnId || "").trim();
+
+      // Tìm các dòng khớp
+      let matchedRows = [];
+      if (oId && orderRowMap.has(oId.toLowerCase())) {
+        matchedRows = orderRowMap.get(oId.toLowerCase());
+      } else if (trk && orderRowMap.has(trk.toLowerCase())) {
+        matchedRows = orderRowMap.get(trk.toLowerCase());
+      } else {
+        // Fuzzy lookup
+        for (let i = 1; i < rows.length; i++) {
+          const r = rows[i];
+          const rowMdh = String(r[mdhIdx] || "").trim();
+          const rowMvd = String(r[mvdIdx] || "").trim();
+          if ((oId && isCodeMatch(rowMdh, oId)) || (trk && isCodeMatch(rowMvd, trk))) {
+            matchedRows.push({ rowNum: i + 1, rowData: r });
+          }
+        }
+      }
+
+      if (matchedRows.length > 0) {
+        let hasNewUpdate = false;
+        for (const m of matchedRows) {
+          if (processedRowNums.has(m.rowNum)) continue;
+          processedRowNums.add(m.rowNum);
+          hasNewUpdate = true;
+
+          const { rowNum, rowData } = m;
+          if (statusVal === "Hủy") {
+            // Hủy: doanh_thu = 0, tien_sp = 0, loi_nhuan = 0, tinh_trang = Hủy, trang_thai = Hủy
+            updateData.push({ range: `DH!K${rowNum}`, values: [[0]] });
+            updateData.push({ range: `DH!M${rowNum}:P${rowNum}`, values: [[0, 0, "Hủy", "Hủy"]] });
+          } else if (statusVal === "Hoàn" || statusVal === "hoàn") {
+            // Hoàn: tien_sp = 0, loi_nhuan = doanh_thu - phi_khac, tinh_trang = hoàn, trang_thai = ""
+            const dt = parseNum(rowData[10]);
+            const pk = parseNum(rowData[11]);
+            updateData.push({ range: `DH!M${rowNum}:P${rowNum}`, values: [[0, dt - pk, "hoàn", ""]] });
+          } else if (statusVal === "Trả") {
+            // Trả: tien_sp = 0, loi_nhuan = doanh_thu - phi_khac, tinh_trang = Trả, trang_thai = Trả
+            const dt = parseNum(rowData[10]);
+            const pk = parseNum(rowData[11]);
+            updateData.push({ range: `DH!M${rowNum}:N${rowNum}`, values: [[0, dt - pk]] });
+            updateData.push({ range: `DH!O${rowNum}:P${rowNum}`, values: [["Trả", "Trả"]] });
+          }
+
+          if (retId || trk) {
+            updateData.push({ range: `DH!Z${rowNum}:AA${rowNum}`, values: [[retId, trk]] });
+          }
+        }
+        if (hasNewUpdate) updatedOrdersCount++;
+      } else {
+        // Nếu mã đơn hàng không có ở sheet thì bỏ qua
+        skippedOrdersCount++;
+      }
+    }
+
+    if (updateData.length > 0) {
+      const { res: updateRes, data: updateResult } = await fetchJsonWithTimeout(
+        `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            valueInputOption: "USER_ENTERED",
+            data: updateData
+          })
+        }
+      );
+
+      if (!updateRes.ok) {
+        throw new Error(updateResult.error?.message || "Không thể cập nhật Sheet DH");
+      }
+      invalidateDhCache();
+    }
+
+    return {
+      ok: true,
+      updatedCount: updatedOrdersCount,
+      skippedCount: skippedOrdersCount,
+      total: orders.length
+    };
+  }
+
   if (message?.type === "OPEN_ORDER_IN_NEW_WINDOW") {
     const targetUrl = message.url || `https://banhang.shopee.vn/portal/sale/order/${message.orderId}`;
     const autoCloseDelay = message.autoCloseDelay || 60000;
@@ -1770,6 +2102,18 @@ async function uploadImageToFreeImageHost(imageUrl) {
     Promise.all([getGoogleAccessToken(), getSpreadsheetId()]).then(async ([token, sheetId]) => {
       try {
         const result = await updateDhOrderReturnInfo(message, token, sheetId);
+        sendResponse(result);
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message });
+      }
+    }).catch(err => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
+  if (message?.type === "UPDATE_BATCH_DH_RETURN_STATUS") {
+    Promise.all([getGoogleAccessToken(), getSpreadsheetId()]).then(async ([token, sheetId]) => {
+      try {
+        const result = await updateBatchDhOrderReturnInfo(message, token, sheetId);
         sendResponse(result);
       } catch (err) {
         sendResponse({ ok: false, error: err.message });

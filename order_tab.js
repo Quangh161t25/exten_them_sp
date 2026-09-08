@@ -109,12 +109,16 @@
   function renderVerticalDetails(row, isExisting = false, rowNums = []) {
     return `<div style="display: grid; min-width: 300px; border: 1px solid #d8dee8; border-bottom: 0; background: #fff;">${displayColumns.map((col) => {
       const isTracking = col.key === "tracking";
+      const isGreenHighlight = isExisting && (col.key === "orderId" || col.key === "orderCreatedAt" || col.key === "maGian" || col.key === "gian");
       
       let rowStyle = "display: grid; grid-template-columns: minmax(120px, 0.9fr) minmax(130px, 1.1fr); gap: 8px; align-items: center; min-height: 26px; padding: 4px 6px; border-bottom: 1px solid #d8dee8; line-height: 1.25;";
       let valueStyle = "text-align:right; color:#0f172a; font-size:13px; font-weight:700; white-space: normal; word-break: break-word;";
       let extraTag = "";
 
-      if (isExisting && isTracking) {
+      if (isGreenHighlight) {
+        rowStyle = "display: grid; grid-template-columns: minmax(120px, 0.9fr) minmax(130px, 1.1fr); gap: 8px; align-items: center; min-height: 26px; padding: 6px 8px; border-bottom: 1px solid #d8dee8; line-height: 1.25; background: #dcfce7; border-left: 4px solid #16a34a;";
+        valueStyle = "text-align:right; color:#15803d; font-size:13px; font-weight:bold; white-space: normal; word-break: break-word;";
+      } else if (isExisting && isTracking) {
         rowStyle = "display: grid; grid-template-columns: minmax(120px, 0.9fr) minmax(130px, 1.1fr); gap: 8px; align-items: center; min-height: 26px; padding: 6px 8px; border-bottom: 1px solid #d8dee8; line-height: 1.25; background: #fef08a; border-left: 4px solid #eab308;";
         valueStyle = "text-align:right; color:#854d0e; font-size:13px; font-weight:bold; white-space: normal; word-break: break-word;";
         const rowText = rowNums && rowNums.length > 0 ? ` (Dòng ${rowNums.join(", ")})` : "";
@@ -177,10 +181,23 @@
   const rowViewColumns = [
     { label: "STT", render: (r, idx) => idx + 1, style: "text-align:center; color:#64748b;" },
     { 
+      label: "Mã gian / Kho", 
+      render: (r, idx, isExist) => {
+        const val = r.maGian || r.gian || r.kho || "";
+        if (isExist && val) {
+          return `<span style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:2px 6px; border-radius:4px; font-weight:bold;">${escapeHtml(val)}</span>`;
+        }
+        return val ? `<span style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-weight:bold;">${escapeHtml(val)}</span>` : `<span style="color:#94a3b8;">—</span>`;
+      }
+    },
+    { 
       label: "Mã đơn hàng", 
-      render: (r) => {
+      render: (r, idx, isExist) => {
         const link = r.linkDon || r.link_don || (r.orderId ? `https://banhang.shopee.vn/portal/sale/order/${r.orderId}` : "");
-        return `<a href="${escapeHtml(link)}" class="order-link-btn" data-order-link="${escapeHtml(link)}" style="color:#2563eb; font-weight:bold; text-decoration:underline; cursor:pointer;" title="Bấm để mở chi tiết đơn">${escapeHtml(r.orderId || "")}</a>`;
+        const style = isExist
+          ? "background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:2px 6px; border-radius:4px; font-weight:bold; text-decoration:underline; cursor:pointer;"
+          : "color:#2563eb; font-weight:bold; text-decoration:underline; cursor:pointer;";
+        return `<a href="${escapeHtml(link)}" class="order-link-btn" data-order-link="${escapeHtml(link)}" style="${style}" title="Bấm để mở chi tiết đơn: ${escapeHtml(r.orderId || '')}">${escapeHtml(r.orderId || "")}</a>`;
       }
     },
     { label: "Mã vận đơn", render: (r) => `<span style="font-weight:600; color:#0f172a;">${escapeHtml(r.tracking || "")}</span>` },
@@ -211,7 +228,16 @@
     { label: "Tên khách", render: (r) => escapeHtml(r.tenKhach || "") },
     { label: "Người nhận", render: (r) => escapeHtml(r.ngNhan || "") },
     { label: "Địa chỉ", render: (r) => `<span title="${escapeHtml(r.diaChi || "")}" style="display:inline-block; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(r.diaChi || "")}</span>` },
-    { label: "Ngày tạo", render: (r) => `<span style="color:#64748b; font-size:10px;">${escapeHtml(r.orderCreatedAt || "")}</span>` },
+    { 
+      label: "Ngày tạo", 
+      render: (r, idx, isExist) => {
+        const dateVal = escapeHtml(r.orderCreatedAt || r.ngay_gio || r.ngay || "");
+        if (isExist && dateVal) {
+          return `<span style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:10px;">${dateVal}</span>`;
+        }
+        return `<span style="color:#64748b; font-size:10px;">${dateVal}</span>`;
+      }
+    },
     { 
       label: "Link đơn", 
       render: (r) => {
@@ -253,7 +279,7 @@
         return `
           <tr class="order-tab-row-clickable" data-order-link="${escapeHtml(rowLink)}" style="background: ${rowBg}; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='${rowBg}'" title="Bấm vào dòng để mở chi tiết đơn hàng: ${escapeHtml(row.orderId || '')}">
             ${rowViewColumns.map(col => `
-              <td style="padding: 6px 8px; font-size: 11px; white-space: nowrap; ${col.style || ''}">${col.render(row, idx)}</td>
+              <td style="padding: 6px 8px; font-size: 11px; white-space: nowrap; ${col.style || ''}">${col.render(row, idx, isExisting)}</td>
             `).join("")}
           </tr>
         `;
@@ -336,13 +362,13 @@
   async function readOrderFromTab(tabId) {
     try {
       const response = await sendMessageToTab(tabId, { type: "EXTRACT_SELLER_ORDER_DETAIL_FULL" });
-      if (response) return response;
+      if (response && response.ok) return response;
     } catch (error) {
       // Extension reloads do not automatically re-inject content scripts into open Shopee tabs.
     }
 
     await injectContentScript(tabId);
-    await delay(350);
+    await delay(100);
     return sendMessageToTab(tabId, { type: "EXTRACT_SELLER_ORDER_DETAIL_FULL" });
   }
 

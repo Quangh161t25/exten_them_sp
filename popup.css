@@ -1092,3 +1092,35 @@ textarea {
 .chat-template-card.custom-template {
   border-left: 3px solid #10b981;
 }
+
+/* THANH CÔNG CỤ CHỌN ĐƠN HÀNG VÀ ĐIỀN LẠI */
+#nhieu-don-selection-bar {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+  overflow-x: auto;
+}
+
+#nhieu-don-selection-bar button {
+  width: auto !important;
+  min-height: 28px !important;
+  height: 28px !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+}
+
+#nhieu-don-selection-bar .btn-selection-tool {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+#nhieu-don-selection-bar .btn-selection-tool:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+}
+
+#btn-nhieu-don-fill-selected:hover {
+  background: #be123c !important;
+}

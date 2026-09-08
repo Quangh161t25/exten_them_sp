@@ -420,71 +420,6 @@
   // =========================================================================
   // CẬP NHẬT LÊN SHEET ĐƠN HÀNG (DH)
   // =========================================================================
-  async function syncAllToSheetDh() {
-    if (isSyncing) return;
-    if (!allRows.length) {
-      alert("Chưa có dữ liệu đơn hàng. Vui lòng bấm '⚡ Đọc Doanh Thu Shopee' trước.");
-      return;
-    }
-
-    isSyncing = true;
-    if (syncAllDhBtn) {
-      syncAllDhBtn.disabled = true;
-      syncAllDhBtn.innerHTML = '⏳ Đang cập nhật...';
-    }
-    setStatus('<span style="color: #059669; font-weight: bold;">⏳ Đang so khớp mã gian & mã đơn để cập nhật vào Sheet DH...</span>');
-
-    try {
-      const maGian = await getCurrentMaGian();
-      const positiveItems = allRows.map(r => ({
-        ...r,
-        tienSanPham: Math.abs(Number(r.tienSanPham) || 0),
-        phiVanChuyen: Math.abs(Number(r.phiVanChuyen) || 0),
-        phuPhi: Math.abs(Number(r.phuPhi) || 0),
-        thue: Math.abs(Number(r.thue) || 0),
-        doanhThu: Math.abs(Number(r.amount || r.doanhThu) || 0),
-        amount: Math.abs(Number(r.amount || r.doanhThu) || 0)
-      }));
-
-      const response = await new Promise(resolve => {
-        chrome.runtime.sendMessage({
-          type: "UPDATE_DH_INCOME_FINANCIALS",
-          items: positiveItems,
-          maGian
-        }, resolve);
-      });
-
-      if (!response?.ok) {
-        throw new Error(response?.error || response?.message || "Không cập nhật được vào Sheet DH.");
-      }
-
-      if (response.matchedOrders && Array.isArray(response.matchedOrders)) {
-        response.matchedOrders.forEach(ordId => {
-          syncedOrdersMap.set(ordId.toLowerCase(), "✓ Đã cập nhật");
-        });
-      }
-
-      renderTable();
-      setStatus(`✅ <b>Thành công:</b> ${response.message}`);
-      if (syncAllDhBtn) {
-        syncAllDhBtn.innerHTML = `✓ Đã cập nhật (${response.matchedCount} dòng)`;
-        setTimeout(() => {
-          syncAllDhBtn.innerHTML = '☁️ Cập Nhật Tất Cả Lên Sheet ĐH';
-          syncAllDhBtn.disabled = false;
-        }, 3000);
-      }
-    } catch (err) {
-      console.error(err);
-      setStatus(`❌ Lỗi cập nhật Sheet DH: ${err.message}`, true);
-      if (syncAllDhBtn) {
-        syncAllDhBtn.disabled = false;
-        syncAllDhBtn.innerHTML = '☁️ Cập Nhật Tất Cả Lên Sheet ĐH';
-      }
-    } finally {
-      isSyncing = false;
-    }
-  }
-
   async function syncSingleToSheetDh(orderId, btnElement) {
     if (!orderId) return;
     const item = allRows.find(r => (r.orderId || "").toLowerCase() === orderId.toLowerCase());
@@ -500,8 +435,11 @@
 
     try {
       const maGian = await getCurrentMaGian();
+      const isNeg = Boolean(item.isNegative || (Number(item.amount) < 0) || (Number(item.doanhThu) < 0) || String(item.rawAmount || '').includes('-'));
       const positiveItem = {
         ...item,
+        isNegative: isNeg,
+        rawAmount: item.rawAmount || "",
         tienSanPham: Math.abs(Number(item.tienSanPham) || 0),
         phiVanChuyen: Math.abs(Number(item.phiVanChuyen) || 0),
         phuPhi: Math.abs(Number(item.phuPhi) || 0),
@@ -573,15 +511,20 @@
 
     try {
       const maGian = await getCurrentMaGian();
-      const positiveItems = allRows.map(r => ({
-        ...r,
-        tienSanPham: Math.abs(Number(r.tienSanPham) || 0),
-        phiVanChuyen: Math.abs(Number(r.phiVanChuyen) || 0),
-        phuPhi: Math.abs(Number(r.phuPhi) || 0),
-        thue: Math.abs(Number(r.thue) || 0),
-        doanhThu: Math.abs(Number(r.amount || r.doanhThu) || 0),
-        amount: Math.abs(Number(r.amount || r.doanhThu) || 0)
-      }));
+      const positiveItems = allRows.map(r => {
+        const isNeg = Boolean(r.isNegative || (Number(r.amount) < 0) || (Number(r.doanhThu) < 0) || String(r.rawAmount || '').includes('-'));
+        return {
+          ...r,
+          isNegative: isNeg,
+          rawAmount: r.rawAmount || "",
+          tienSanPham: Math.abs(Number(r.tienSanPham) || 0),
+          phiVanChuyen: Math.abs(Number(r.phiVanChuyen) || 0),
+          phuPhi: Math.abs(Number(r.phuPhi) || 0),
+          thue: Math.abs(Number(r.thue) || 0),
+          doanhThu: Math.abs(Number(r.amount || r.doanhThu) || 0),
+          amount: Math.abs(Number(r.amount || r.doanhThu) || 0)
+        };
+      });
 
       const response = await new Promise(resolve => {
         chrome.runtime.sendMessage({
