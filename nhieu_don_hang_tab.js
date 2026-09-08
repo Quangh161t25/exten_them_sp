@@ -3504,6 +3504,18 @@
               renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, false);
               if (previewCard) previewCard.style.display = "block";
 
+              // NẾU ĐÃ KHỚP 100% SẴN VỚI SHEET DH -> KHÔNG CẦN LƯU VÀ KHÔNG CẦN ĐỢI 40 GIÂY
+              if (exists && comparison.isMatch && !comparison.hasModifiedStatus) {
+                successCount++;
+                selectedOrdersMap.delete(order.mdh);
+                updateSelectionUI();
+                if (listScanText) {
+                  listScanText.innerHTML = `<span>✅</span> [${i + 1}/${ordersToProcess.length}] Đơn <b style="color:#15803d;">${escapeHtml(sampleMdh)}</b> đã KHỚP 100% với Sheet DH! Chuyển tiếp ngay... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+                }
+                await new Promise(r => setTimeout(r, 600));
+                continue;
+              }
+
               // 6. Lưu vào Sheet DH (Background cập nhật dòng cũ, thay thế bằng các dòng sản phẩm chi tiết)
               const saveRes = await new Promise(res => {
                 chrome.runtime.sendMessage({
@@ -3524,6 +3536,13 @@
                 // Xóa khỏi danh sách đã chọn nếu thành công
                 selectedOrdersMap.delete(order.mdh);
                 updateSelectionUI();
+
+                if (listScanText) {
+                  listScanText.innerHTML = `<span>✅</span> [${i + 1}/${ordersToProcess.length}] Đã lưu & KHỚP XONG đơn <b style="color:#15803d;">${escapeHtml(sampleMdh)}</b> (${detailRes.rows.length} SP)! Chuyển tiếp ngay... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+                }
+                // Khớp và lưu thành công -> KHÔNG CẦN ĐỢI 40 GIÂY, chuyển tiếp ngay sau 600ms
+                await new Promise(r => setTimeout(r, 600));
+                continue;
               } else {
                 console.warn(`[AutoFill] Lỗi lưu đơn ${order.mdh}:`, saveRes?.error);
                 failCount++;
@@ -3537,16 +3556,12 @@
             failCount++;
           }
 
-          // 7. Đếm ngược đủ chu kỳ 40 giây trước khi chuyển sang đơn tiếp theo
+          // 7. Nếu đơn bị lỗi / chưa đọc được / lưu thất bại -> Đếm ngược chu kỳ an toàn trước khi chuyển đơn tiếp theo
           while (Date.now() - orderStartTime < ORDER_CYCLE_DURATION_MS) {
             if (cancelAutoFillRequested) break;
             const remSec = getRemainingSec();
             if (listScanText) {
-              if (orderSaved) {
-                listScanText.innerHTML = `<span>✅</span> [${i + 1}/${ordersToProcess.length}] Đã xác nhận & CẬP NHẬT XONG đơn <b style="color:#15803d;">${escapeHtml(sampleMdh)}</b> (${detailRes?.rows?.length || 1} SP) vào Sheet DH! (Chờ hoàn tất chu kỳ 40s: <b style="color:#ea580c;">${remSec}s</b>)... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
-              } else {
-                listScanText.innerHTML = `<span>⏳</span> [${i + 1}/${ordersToProcess.length}] Đang xử lý đơn <b style="color:#2563eb;">${escapeHtml(sampleMdh)}</b>: còn <b style="color:#ea580c;">${remSec}s</b>... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
-              }
+              listScanText.innerHTML = `<span>⏳</span> [${i + 1}/${ordersToProcess.length}] Đang xử lý đơn <b style="color:#2563eb;">${escapeHtml(sampleMdh)}</b> (Lỗi/Chưa đọc được): còn <b style="color:#ea580c;">${remSec}s</b>... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
             }
             await new Promise(r => setTimeout(r, 500));
           }
