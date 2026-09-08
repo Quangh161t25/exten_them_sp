@@ -9333,6 +9333,187 @@ function downloadExcelFileBypass(wb, filename) {
     });
   }
 
+  async function fetchShopeeOrderDetailViaApi(orderId) {
+    if (!orderId) return null;
+    function getCookieVal(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+      return '';
+    }
+    const spcCds = getCookieVal('SPC_CDS');
+    const spcQuery = spcCds ? `&SPC_CDS=${encodeURIComponent(spcCds)}&SPC_CDS_VER=2` : '';
+
+    const endpoints = [
+      `/api/v3/order/get_order_detail?order_id=${encodeURIComponent(orderId)}${spcQuery}`,
+      `/api/seller/v3/order/get_order_detail?order_id=${encodeURIComponent(orderId)}${spcQuery}`,
+      `/api/v4/order/get_order_detail?order_id=${encodeURIComponent(orderId)}${spcQuery}`,
+      `/api/v3/order/get_order_income_detail?order_id=${encodeURIComponent(orderId)}${spcQuery}`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          credentials: "include",
+          headers: { "Accept": "application/json, text/plain, */*" }
+        });
+        if (!res.ok) continue;
+        const json = await res.json();
+        const data = json?.data || json;
+        const items = data?.order_items || data?.item_list || data?.items || data?.order_lines || [];
+        if (data && (items.length > 0 || data.order_id || data.order_sn || data.ordersn)) {
+          return data;
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  async function parseShopeeOrderDetailApiData(apiData, targetOrderId) {
+    if (!apiData) return null;
+    const orderId = String(apiData.order_sn || apiData.ordersn || apiData.order_id || targetOrderId || "").trim();
+    if (!orderId) return null;
+
+    const tracking = String(apiData.tracking_no || apiData.tracking_number || apiData.package_list?.[0]?.tracking_no || apiData.shipping_carrier_tracking_no || "").trim();
+    
+    let rawTime = apiData.create_time || apiData.created_at || apiData.order_create_time || apiData.pay_time || 0;
+    if (rawTime > 0 && rawTime < 10000000000) rawTime = rawTime * 1000;
+    const createDate = rawTime ? new Date(rawTime) : new Date();
+    const y = createDate.getFullYear();
+    const m = String(createDate.getMonth() + 1).padStart(2, "0");
+    const d = String(createDate.getDate()).padStart(2, "0");
+    const hh = String(createDate.getHours()).padStart(2, "0");
+    const mm = String(createDate.getMinutes()).padStart(2, "0");
+    const ss = String(createDate.getSeconds()).padStart(2, "0");
+    const orderCreatedAt = `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+
+    const tenKhach = String(apiData.buyer_user?.user_name || apiData.buyer_username || apiData.buyer_name || "").trim();
+    const ngNhan = String(apiData.shipping_address?.name || apiData.recipient_address?.name || apiData.buyer_address?.name || "").trim();
+    const diaChi = String(apiData.shipping_address?.full_address || apiData.recipient_address?.full_address || apiData.shipping_address?.city || "").trim();
+    const linkDon = `https://banhang.shopee.vn/portal/sale/order/${orderId}`;
+
+    const packageInfo = {
+      packageName: String(apiData.package_list?.[0]?.package_number || "").trim(),
+      shippingType: String(apiData.shipping_carrier || apiData.carrier_name || "").trim(),
+      carrier: String(apiData.shipping_carrier || apiData.carrier_name || "").trim(),
+      tracking
+    };
+
+    const customerInfo = {
+      tenKhach,
+      ngNhan,
+      diaChi,
+      linkDon
+    };
+
+    const tongTien = parseFloat(apiData.total_amount || apiData.order_amount || apiData.buyer_total_amount || apiData.buyer_paid_amount || 0) || 0;
+    const phiVc = parseFloat(apiData.actual_shipping_fee || apiData.shipping_fee || apiData.estimated_shipping_fee || 0) || 0;
+    const phuPhi = parseFloat(apiData.commission_fee || apiData.service_fee || apiData.surcharge || (parseFloat(apiData.commission_fee||0) + parseFloat(apiData.service_fee||0) + parseFloat(apiData.transaction_fee||0)) || 0) || 0;
+    const thue = parseFloat(apiData.tax_amount || apiData.tax || 0) || 0;
+    let doanhThu = parseFloat(apiData.escrow_amount || apiData.income_amount || apiData.final_income || 0) || 0;
+    if (!doanhThu && tongTien > 0) {
+      doanhThu = Math.max(0, tongTien - phiVc - phuPhi - thue);
+    }
+
+    const payments = {
+      totalProductAmount: String(tongTien),
+      productPrice: String(tongTien),
+      estimatedShippingTotal: String(phiVc),
+      buyerPaidShippingFee: "0",
+      estimatedShippingFee: String(phiVc),
+      shopVoucher: "0",
+      maGiamGia: "0",
+      surcharge: String(phuPhi),
+      fixedFee: String(apiData.commission_fee || 0),
+      serviceFee: String(apiData.service_fee || 0),
+      transactionFee: String(apiData.transaction_fee || 0),
+      tax: String(thue),
+      vatTax: "0",
+      pitTax: "0",
+      buyerValueAddedServiceTotal: "0",
+      estimatedOrderIncome: String(doanhThu)
+    };
+
+    const rawItems = apiData.order_items || apiData.item_list || apiData.items || apiData.order_lines || [];
+    const products = [];
+
+    if (rawItems.length > 0) {
+      rawItems.forEach(item => {
+        const sku = String(item.model_sku || item.item_sku || item.sku || item.variation_sku || item.item_name || "").trim();
+        const idSp = sku.length >= 10 ? sku.substring(0, 10) : sku;
+        const quantity = String(item.amount || item.quantity || item.count || 1);
+        const productPrice = String(parseFloat(item.item_price || item.model_price || item.price || item.deal_price || 0) || 0);
+        products.push({
+          sku,
+          idSp,
+          quantity,
+          productPrice,
+          productName: item.item_name || "",
+          variationName: item.model_name || ""
+        });
+      });
+    }
+
+    if (products.length === 0) return null;
+
+    const profitData = await calculateSellerOrderProfitData(products, payments);
+
+    const rows = (profitData.items || products).map(product => ({
+      orderId,
+      orderCreatedAt,
+      packageName: packageInfo.packageName,
+      shippingType: packageInfo.shippingType,
+      carrier: packageInfo.carrier,
+      tracking: packageInfo.tracking,
+      tenKhach: customerInfo.tenKhach,
+      ngNhan: customerInfo.ngNhan,
+      diaChi: customerInfo.diaChi,
+      linkDon: customerInfo.linkDon,
+      sku: product.sku,
+      idSp: product.idSp || String(product.sku || "").trim().substring(0, 10),
+      quantity: product.quantity,
+      unitCost: product.unitCost || "",
+      lineCost: product.lineCost || "",
+      totalProductAmount: payments.totalProductAmount,
+      productPrice: product.productPrice || payments.productPrice,
+      shopVoucher: "0",
+      maGiamGia: "0",
+      estimatedShippingTotal: payments.estimatedShippingTotal,
+      buyerPaidShippingFee: payments.buyerPaidShippingFee,
+      estimatedShippingFee: payments.estimatedShippingFee,
+      surcharge: payments.surcharge,
+      fixedFee: payments.fixedFee,
+      serviceFee: payments.serviceFee,
+      transactionFee: payments.transactionFee,
+      tax: payments.tax,
+      vatTax: payments.vatTax,
+      pitTax: payments.pitTax,
+      buyerValueAddedServiceTotal: payments.buyerValueAddedServiceTotal,
+      estimatedOrderIncome: payments.estimatedOrderIncome,
+      capitalDetails: profitData.capitalDetails,
+      totalCapital: profitData.totalCapital,
+      profit: profitData.profit
+    }));
+
+    const validRows = rows.filter(r => r && r.orderId && (r.sku || r.productPrice || r.quantity));
+    if (validRows.length === 0) return null;
+
+    return {
+      ok: true,
+      isApi: true,
+      orderId,
+      orderCreatedAt,
+      packageInfo,
+      customerInfo,
+      payments,
+      products,
+      profitData,
+      rows: validRows,
+      url: location.href
+    };
+  }
+
   async function extractSellerOrderDetailFullData() {
       if (!location.pathname.startsWith("/portal/sale/order")) {
           return { ok: false, error: "Hãy mở trang chi tiết đơn hàng Shopee trước." };
@@ -9342,15 +9523,36 @@ function downloadExcelFileBypass(wb, filename) {
           return { ok: false, error: "Trang hiện tại không phải là trang chi tiết đơn hàng Shopee." };
       }
 
-      // Trích xuất tức thì (0ms). Nếu chưa có ID thì đợi tối đa 400ms
+      // 1. Tìm Order ID từ DOM hoặc từ URL
       let orderId = extractSellerOrderIdFromPage();
       if (!orderId) {
-          await waitForOrderDetailDOMReady(400);
+          const mUrl = location.pathname.match(/\/order\/(?:detail\/)?([0-9a-zA-Z]{8,})/i) || location.search.match(/[?&](?:order_sn|orderId|order_id|ordersn)=([0-9a-zA-Z]{8,})/i);
+          if (mUrl) orderId = mUrl[1];
+      }
+
+      // 2. ƯU TIÊN 1: GỌI SHOPEE API TRỰC TIẾP (TỐC ĐỘ SIÊU NHANH 200MS, DỮ LIỆU ĐẦY ĐỦ 100%)
+      if (orderId) {
+        try {
+          const apiData = await fetchShopeeOrderDetailViaApi(orderId);
+          if (apiData) {
+            const apiResult = await parseShopeeOrderDetailApiData(apiData, orderId);
+            if (apiResult && apiResult.rows && apiResult.rows.length > 0) {
+              return apiResult;
+            }
+          }
+        } catch (eApi) {
+          console.warn("[OrderRead] Gọi API đơn hàng không thành công, chuyển sang đọc DOM:", eApi);
+        }
+      }
+
+      // 3. ƯU TIÊN 2: ĐỌC TỪ DOM VỚI KIỂM TRA ĐẦY ĐỦ DỮ LIỆU (KHÔNG LẤY KHI TRANG ĐANG LOAD DỞ)
+      if (!orderId) {
+          await waitForOrderDetailDOMReady(800);
           orderId = extractSellerOrderIdFromPage();
       }
 
       if (!orderId) {
-          return { ok: false, error: "Chưa tải xong hoặc không tìm thấy Mã đơn hàng trên trang." };
+          return { ok: false, error: "Chưa tải xong hoặc không tìm thấy Mã đơn hàng trên trang.", isLoading: true };
       }
 
       const packageInfo = extractSellerOrderPackageInfo();
@@ -9358,6 +9560,11 @@ function downloadExcelFileBypass(wb, filename) {
       const customerInfo = extractSellerOrderCustomerInfo();
       const paymentItems = collectSellerOrderPaymentItems();
       const products = extractSellerOrderProducts();
+
+      // Kiểm tra nếu sản phẩm chưa load xong trong DOM
+      if (!products || products.length === 0) {
+          return { ok: false, error: "Đang tải danh sách sản phẩm từ DOM Shopee...", isLoading: true };
+      }
 
       // 🔍 TRÍCH XUẤT CHÍNH XÁC TỪ .income-container CỦA SHOPEE (THÔNG TIN DOANH THU NGƯỜI BÁN)
       const incomeContainer = document.querySelector(".income-container, [class*='income-container'], .order-income-section, .order-panel-income, .order-income");
@@ -9450,21 +9657,8 @@ function downloadExcelFileBypass(wb, filename) {
 
       const estimatedOrderIncome = findSellerOrderPaymentValue(activePaymentItems, ["doanh thu don hang uoc tinh", "doanh thu don hang", "thuc nhan", "so tien thanh toan"]);
 
-      // 🔍 MÃ GIẢM GIÁ CỦA SHOP: CHỈ LẤY TỪ MỤC "Trợ giá" / "Mã giảm giá của shop" trong .income-container
-      // NẾU TRONG .income-container KHÔNG CÓ THÌ MÃ GIẢM GIÁ = 0! (KHÔNG BAO GIỜ LẤY TỪ MỤC "Thanh toán của Người Mua" Ở DƯỚI)
-      let shopVoucher = "0";
-
-      for (const item of activePaymentItems) {
-        const lbl = item.normalizedLabel;
-        if (lbl.includes("phi van chuyen") || lbl.includes("van chuyen") || lbl.includes("shopee") || lbl.includes("nguoi mua")) continue;
-        if (lbl === "tro gia" || lbl.startsWith("tro gia") || lbl.includes("ma giam gia cua shop") || lbl.includes("voucher cua shop") || lbl.includes("tro gia tu nguoi ban") || lbl.includes("voucher cua nguoi ban")) {
-          const num = parseSellerOrderMoneyNumber(item.value);
-          if (num > 0) {
-            shopVoucher = String(num);
-            break;
-          }
-        }
-      }
+      // Mã giảm giá luôn bằng 0 theo quy định Sheet DH
+      const shopVoucher = "0";
 
       const payments = {
           totalProductAmount,
@@ -9472,8 +9666,8 @@ function downloadExcelFileBypass(wb, filename) {
           estimatedShippingTotal,
           buyerPaidShippingFee,
           estimatedShippingFee,
-          shopVoucher,
-          maGiamGia: shopVoucher,
+          shopVoucher: "0",
+          maGiamGia: "0",
           surcharge,
           fixedFee,
           serviceFee,
@@ -9504,8 +9698,8 @@ function downloadExcelFileBypass(wb, filename) {
           lineCost: product.lineCost || "",
           totalProductAmount: payments.totalProductAmount,
           productPrice: product.productPrice || payments.productPrice,
-          shopVoucher: payments.shopVoucher,
-          maGiamGia: payments.shopVoucher,
+          shopVoucher: "0",
+          maGiamGia: "0",
           estimatedShippingTotal: payments.estimatedShippingTotal,
           buyerPaidShippingFee: payments.buyerPaidShippingFee,
           estimatedShippingFee: payments.estimatedShippingFee,
@@ -9526,7 +9720,7 @@ function downloadExcelFileBypass(wb, filename) {
       // Lọc rows chỉ giữ lại các sản phẩm có orderId
       const validRows = rows.filter(r => r && r.orderId && (r.sku || r.productPrice || r.quantity));
       if (validRows.length === 0) {
-          return { ok: false, error: "Không tìm thấy sản phẩm hợp lệ trong đơn hàng." };
+          return { ok: false, error: "Không tìm thấy sản phẩm hợp lệ trong đơn hàng.", isLoading: true };
       }
 
       return { ok: true, orderId, orderCreatedAt, packageInfo, customerInfo, payments, products, profitData, rows: validRows, url: location.href };

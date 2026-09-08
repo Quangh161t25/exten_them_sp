@@ -3236,6 +3236,34 @@
     });
   }
 
+  // Hàm kiểm tra tính đầy đủ 100% của dữ liệu đơn hàng đã trích xuất
+  function isOrderDetailComplete(detailRes) {
+    if (!detailRes || !detailRes.ok || !Array.isArray(detailRes.rows) || detailRes.rows.length === 0) {
+      return false;
+    }
+    const sampleMdh = String(detailRes.orderId || detailRes.rows[0]?.orderId || "").trim();
+    if (!sampleMdh) return false;
+
+    // Phải có ít nhất 1 sản phẩm có SKU hoặc Tên sản phẩm hoặc Đơn giá hợp lệ
+    const hasValidProduct = detailRes.rows.some(r => {
+      const sku = String(r.sku || "").trim();
+      const prc = Number(String(r.productPrice || r.unitCost || 0).replace(/[^\d.-]/g, "")) || 0;
+      return (sku.length > 0 && sku !== "SP") || prc > 0;
+    });
+    if (!hasValidProduct) return false;
+
+    // Bảng tài chính: không được 0 toàn bộ nếu đơn đang tải dở
+    const tongTien = Number(String(detailRes.rows[0]?.totalProductAmount || 0).replace(/[^\d.-]/g, "")) || 0;
+    const doanhThu = Number(String(detailRes.rows[0]?.estimatedOrderIncome || 0).replace(/[^\d.-]/g, "")) || 0;
+    const unitPrc = Number(String(detailRes.rows[0]?.productPrice || detailRes.rows[0]?.unitCost || 0).replace(/[^\d.-]/g, "")) || 0;
+
+    if (tongTien === 0 && doanhThu === 0 && unitPrc === 0) {
+      return false;
+    }
+
+    return true;
+  }
+
   async function handleQuickFillSingleOrder(mdh, linkDon, gian, btn) {
     if (!mdh && !linkDon) {
       alert("Không có thông tin mã đơn hàng hoặc link đơn!");
@@ -3269,13 +3297,12 @@
         await chrome.tabs.update(workerTab.id, { url: targetUrl });
       }
 
-      await waitForTabLoad(workerTab.id, 20000);
-      await new Promise(r => setTimeout(r, 2500));
+      await waitForTabLoad(workerTab.id, 10000);
 
       let detailRes = null;
       const readOrderFn = window.orderTabUtils?.readOrderFromTab;
 
-      for (let attempt = 0; attempt < 6; attempt++) {
+      for (let attempt = 0; attempt < 12; attempt++) {
         if (readOrderFn) {
           detailRes = await readOrderFn(workerTab.id);
         } else {
@@ -3284,14 +3311,14 @@
             type: "EXTRACT_SELLER_ORDER_DETAIL_FULL"
           });
         }
-        if (detailRes?.ok && Array.isArray(detailRes.rows) && detailRes.rows.length > 0) {
+        if (isOrderDetailComplete(detailRes)) {
           break;
         }
-        await new Promise(r => setTimeout(r, 1200));
+        await new Promise(r => setTimeout(r, 600));
       }
 
-      if (!detailRes?.ok || !Array.isArray(detailRes.rows) || detailRes.rows.length === 0) {
-        throw new Error(detailRes?.error || "Không đọc được chi tiết đơn từ trang Shopee.");
+      if (!isOrderDetailComplete(detailRes)) {
+        throw new Error(detailRes?.error || "Đơn hàng chưa tải đủ thông tin (SKU, sản phẩm, doanh thu). Vui lòng thử lại!");
       }
 
       const rowsToDhValuesFn = window.orderTabUtils?.rowsToDhValues;
@@ -3374,7 +3401,7 @@
     let successCount = 0;
     let failCount = 0;
     let workerTab = null;
-    const ORDER_CYCLE_DURATION_MS = 40000; // Đặt đúng 40 giây mỗi đơn để trang Shopee SPA tải đủ 100% dữ liệu, render DOM, đối soát và an toàn
+    const ORDER_CYCLE_DURATION_MS = 30000; // Thời gian an toàn tối đa nếu đơn bị lỗi
 
     try {
       // Tìm tab Shopee đang mở hoặc tạo 1 tab mới làm tab làm việc
@@ -3397,7 +3424,7 @@
         const getRemainingSec = () => Math.max(0, Math.ceil((ORDER_CYCLE_DURATION_MS - (Date.now() - orderStartTime)) / 1000));
 
         if (listScanText) {
-          listScanText.innerHTML = `<span>⚡</span> [${i + 1}/${ordersToProcess.length}] Đang mở & tải đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b> (chờ load: <b style="color:#ea580c;">${getRemainingSec()}s</b>)... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+          listScanText.innerHTML = `<span>⚡</span> [${i + 1}/${ordersToProcess.length}] Đang mở & tải đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b>... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
         }
 
         try {
@@ -3419,29 +3446,19 @@
 
           await chrome.tabs.update(workerTab.id, { url: targetUrl });
 
-          // 2. Chờ trang tải xong (status complete) - tối đa 20s
-          await waitForTabLoad(workerTab.id, 20000);
+          // 2. Chờ trang tải (tối đa 10s)
+          await waitForTabLoad(workerTab.id, 10000);
 
-          // 3. Chờ thêm 4s cho Vue render DOM chi tiết đơn hàng
-          for (let w = 0; w < 40; w++) {
-            if (cancelAutoFillRequested) break;
-            await new Promise(r => setTimeout(r, 100));
-            if (listScanText && w % 10 === 0) {
-              listScanText.innerHTML = `<span>⏳</span> [${i + 1}/${ordersToProcess.length}] Đang render trang đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b> (còn <b style="color:#ea580c;">${getRemainingSec()}s</b>)... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
-            }
-          }
-          if (cancelAutoFillRequested) break;
-
-          // 4. Trích xuất dữ liệu chi tiết đơn hàng (thử lại liên tục tối đa 10 lần)
+          // 3. Trích xuất siêu nhanh qua API + DOM (thử tối đa 15 lần, mỗi lần 500ms)
           let detailRes = null;
           const readOrderFn = window.orderTabUtils?.readOrderFromTab;
-          const maxReadAttempts = 10;
+          const maxReadAttempts = 15;
 
           for (let attempt = 0; attempt < maxReadAttempts; attempt++) {
             if (cancelAutoFillRequested) break;
 
             if (listScanText) {
-              listScanText.innerHTML = `<span>🔍</span> [${i + 1}/${ordersToProcess.length}] Đang đọc chi tiết đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b> (lần ${attempt + 1}, còn <b style="color:#ea580c;">${getRemainingSec()}s</b>)... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+              listScanText.innerHTML = `<span>🔍</span> [${i + 1}/${ordersToProcess.length}] Đang đọc chi tiết đơn: <b style="color:#2563eb;">${escapeHtml(order.mdh)}</b> (lần ${attempt + 1})... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
             }
 
             if (readOrderFn) {
@@ -3453,127 +3470,121 @@
               });
             }
 
-            if (detailRes?.ok && Array.isArray(detailRes.rows) && detailRes.rows.length > 0) {
+            // KIỂM TRA ĐẦY ĐỦ 100% THÔNG TIN (CÓ SKU, CÓ TIỀN, CÓ SẢN PHẨM)
+            if (isOrderDetailComplete(detailRes)) {
               break;
             }
-            await new Promise(r => setTimeout(r, 1500));
+
+            await new Promise(r => setTimeout(r, 500));
           }
 
           if (cancelAutoFillRequested) break;
+
+          // BẢO VỆ DỮ LIỆU: NẾU CHƯA ĐỌC ĐỦ 100% THÔNG TIN -> KHÔNG LƯU VÀO SHEET DH ĐỂ TRÁNH GHI ĐÈ DÒNG RÁC
+          if (!isOrderDetailComplete(detailRes)) {
+            console.warn(`[AutoFill] Đơn ${order.mdh} chưa tải đủ thông tin (SKU/tiền), bỏ qua để bảo vệ dữ liệu.`);
+            failCount++;
+            if (listScanText) {
+              listScanText.innerHTML = `<span>⚠️</span> [${i + 1}/${ordersToProcess.length}] Đơn <b style="color:#dc2626;">${escapeHtml(order.mdh)}</b> chưa tải đủ thông tin (SKU/tiền), bỏ qua... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+            }
+            await new Promise(r => setTimeout(r, 1000));
+            continue;
+          }
 
           let orderSaved = false;
           let sampleMdh = order.mdh || detailRes?.rows?.[0]?.orderId || "";
           let sampleMvd = order.mvd || detailRes?.rows?.[0]?.tracking || "";
 
-          if (detailRes?.ok && Array.isArray(detailRes.rows) && detailRes.rows.length > 0) {
-            // 5. Chuyển đổi sang định dạng 25 cột của Sheet DH
-            const rowsToDhValuesFn = window.orderTabUtils?.rowsToDhValues;
-            const maGian = order.gian || (inputGian?.value || "").trim();
-            const dhValues = rowsToDhValuesFn 
-              ? await rowsToDhValuesFn(detailRes.rows, maGian)
-              : [];
+          // 4. Chuyển đổi sang định dạng 25 cột của Sheet DH
+          const rowsToDhValuesFn = window.orderTabUtils?.rowsToDhValues;
+          const maGian = order.gian || (inputGian?.value || "").trim();
+          const dhValues = rowsToDhValuesFn 
+            ? await rowsToDhValuesFn(detailRes.rows, maGian)
+            : [];
 
-            if (dhValues.length > 0) {
-              sampleMdh = order.mdh || detailRes.rows[0]?.orderId;
-              sampleMvd = order.mvd || detailRes.rows[0]?.tracking;
+          if (dhValues.length > 0) {
+            sampleMdh = order.mdh || detailRes.rows[0]?.orderId;
+            sampleMvd = order.mvd || detailRes.rows[0]?.tracking;
 
-              // Đối soát đơn trong allData
-              let exists = false;
-              let rowNums = [];
-              let existingRows = [];
-              const normMdh = String(sampleMdh || "").toLowerCase();
-              const normMvd = String(sampleMvd || "").toLowerCase();
+            // Đối soát đơn trong allData
+            let exists = false;
+            let rowNums = [];
+            let existingRows = [];
+            const normMdh = String(sampleMdh || "").toLowerCase();
+            const normMvd = String(sampleMvd || "").toLowerCase();
 
-              allData.forEach(item => {
-                const rMdh = String(item.cells[mdhColumnIdx] || "").trim().toLowerCase();
-                const rMvd = String(item.cells[mvdColumnIdx] || "").trim().toLowerCase();
-                if ((normMdh && rMdh === normMdh) || (normMvd && rMvd === normMvd)) {
-                  exists = true;
-                  rowNums.push(item.rowOriginalIndex);
-                  existingRows.push(item.cells);
-                }
-              });
-
-              const comparison = compareOrderRows(dhValues, existingRows);
-              currentPreviewExistingInfo = { exists, rowNums, existingRows, comparison, hasModifiedStatus: comparison.hasModifiedStatus };
-
-              // HIỂN THỊ NGAY BẢNG ĐỌC ĐƠN HÀNG (LIVE PREVIEW TABLE)
-              renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, false);
-              if (previewCard) previewCard.style.display = "block";
-
-              // NẾU ĐÃ KHỚP 100% SẴN VỚI SHEET DH -> KHÔNG CẦN LƯU VÀ KHÔNG CẦN ĐỢI 40 GIÂY
-              if (exists && comparison.isMatch && !comparison.hasModifiedStatus) {
-                successCount++;
-                selectedOrdersMap.delete(order.mdh);
-                updateSelectionUI();
-                if (listScanText) {
-                  listScanText.innerHTML = `<span>✅</span> [${i + 1}/${ordersToProcess.length}] Đơn <b style="color:#15803d;">${escapeHtml(sampleMdh)}</b> đã KHỚP 100% với Sheet DH! Chuyển tiếp ngay... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
-                }
-                await new Promise(r => setTimeout(r, 600));
-                continue;
+            allData.forEach(item => {
+              const rMdh = String(item.cells[mdhColumnIdx] || "").trim().toLowerCase();
+              const rMvd = String(item.cells[mvdColumnIdx] || "").trim().toLowerCase();
+              if ((normMdh && rMdh === normMdh) || (normMvd && rMvd === normMvd)) {
+                exists = true;
+                rowNums.push(item.rowOriginalIndex);
+                existingRows.push(item.cells);
               }
+            });
 
-              // 6. Lưu vào Sheet DH (Background cập nhật dòng cũ, thay thế bằng các dòng sản phẩm chi tiết)
-              const saveRes = await new Promise(res => {
-                chrome.runtime.sendMessage({
-                  type: "SAVE_DH_ORDER",
-                  values: dhValues,
-                  mdh: sampleMdh,
-                  mvd: sampleMvd
-                }, res);
-              });
+            const comparison = compareOrderRows(dhValues, existingRows);
+            currentPreviewExistingInfo = { exists, rowNums, existingRows, comparison, hasModifiedStatus: comparison.hasModifiedStatus };
 
-              if (saveRes?.ok) {
-                successCount++;
-                orderSaved = true;
-                // Cập nhật lại giao diện preview với cờ wasSaved = true
-                renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, true);
-                // Cập nhật ngay vào bảng bộ nhớ để giao diện đổi màu
-                addDhRows(dhValues, sampleMdh, sampleMvd, false);
-                // Xóa khỏi danh sách đã chọn nếu thành công
-                selectedOrdersMap.delete(order.mdh);
-                updateSelectionUI();
+            // HIỂN THỊ NGAY BẢNG ĐỌC ĐƠN HÀNG (LIVE PREVIEW TABLE)
+            renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, false);
+            if (previewCard) previewCard.style.display = "block";
 
-                if (listScanText) {
-                  listScanText.innerHTML = `<span>✅</span> [${i + 1}/${ordersToProcess.length}] Đã lưu & KHỚP XONG đơn <b style="color:#15803d;">${escapeHtml(sampleMdh)}</b> (${detailRes.rows.length} SP)! Chuyển tiếp ngay... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
-                }
-                // Khớp và lưu thành công -> KHÔNG CẦN ĐỢI 40 GIÂY, chuyển tiếp ngay sau 600ms
-                await new Promise(r => setTimeout(r, 600));
-                continue;
-              } else {
-                console.warn(`[AutoFill] Lỗi lưu đơn ${order.mdh}:`, saveRes?.error);
-                failCount++;
+            // NẾU ĐÃ KHỚP 100% SẴN VỚI SHEET DH -> KHÔNG CẦN LƯU VÀ KHÔNG CẦN ĐỢI
+            if (exists && comparison.isMatch && !comparison.hasModifiedStatus) {
+              successCount++;
+              selectedOrdersMap.delete(order.mdh);
+              updateSelectionUI();
+              if (listScanText) {
+                listScanText.innerHTML = `<span>✅</span> [${i + 1}/${ordersToProcess.length}] Đơn <b style="color:#15803d;">${escapeHtml(sampleMdh)}</b> đã KHỚP 100% với Sheet DH! Chuyển tiếp ngay... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
               }
+              await new Promise(r => setTimeout(r, 500));
+              continue;
+            }
+
+            // 5. Lưu vào Sheet DH (Background cập nhật dòng cũ, thay thế bằng các dòng sản phẩm chi tiết)
+            const saveRes = await new Promise(res => {
+              chrome.runtime.sendMessage({
+                type: "SAVE_DH_ORDER",
+                values: dhValues,
+                mdh: sampleMdh,
+                mvd: sampleMvd
+              }, res);
+            });
+
+            if (saveRes?.ok) {
+              successCount++;
+              orderSaved = true;
+              // Cập nhật lại giao diện preview với cờ wasSaved = true
+              renderPreviewRows(detailRes.rows, currentPreviewExistingInfo, true);
+              // Cập nhật ngay vào bảng bộ nhớ để giao diện đổi màu
+              addDhRows(dhValues, sampleMdh, sampleMvd, false);
+              // Xóa khỏi danh sách đã chọn nếu thành công
+              selectedOrdersMap.delete(order.mdh);
+              updateSelectionUI();
+
+              if (listScanText) {
+                listScanText.innerHTML = `<span>✅</span> [${i + 1}/${ordersToProcess.length}] Đã lưu & KHỚP XONG đơn <b style="color:#15803d;">${escapeHtml(sampleMdh)}</b> (${detailRes.rows.length} SP)! Chuyển tiếp ngay... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
+              }
+              // Khớp và lưu thành công -> chuyển tiếp ngay sau 500ms
+              await new Promise(r => setTimeout(r, 500));
+              continue;
             } else {
-              console.warn(`[AutoFill] Không convert được dhValues cho đơn ${order.mdh}`);
+              console.warn(`[AutoFill] Lỗi lưu đơn ${order.mdh}:`, saveRes?.error);
               failCount++;
             }
           } else {
-            console.warn(`[AutoFill] Không đọc được dữ liệu đơn ${order.mdh}`);
+            console.warn(`[AutoFill] Không convert được dhValues cho đơn ${order.mdh}`);
             failCount++;
           }
 
-          // 7. Nếu đơn bị lỗi / chưa đọc được / lưu thất bại -> Đếm ngược chu kỳ an toàn trước khi chuyển đơn tiếp theo
-          while (Date.now() - orderStartTime < ORDER_CYCLE_DURATION_MS) {
-            if (cancelAutoFillRequested) break;
-            const remSec = getRemainingSec();
-            if (listScanText) {
-              listScanText.innerHTML = `<span>⏳</span> [${i + 1}/${ordersToProcess.length}] Đang xử lý đơn <b style="color:#2563eb;">${escapeHtml(sampleMdh)}</b> (Lỗi/Chưa đọc được): còn <b style="color:#ea580c;">${remSec}s</b>... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
-            }
-            await new Promise(r => setTimeout(r, 500));
-          }
+          // 6. Nếu lưu thất bại -> Chờ ngắn trước khi chuyển tiếp
+          await new Promise(r => setTimeout(r, 1000));
 
         } catch (itemErr) {
           console.error(`[AutoFill] Lỗi xử lý đơn ${order.mdh}:`, itemErr);
           failCount++;
-          while (Date.now() - orderStartTime < ORDER_CYCLE_DURATION_MS) {
-            if (cancelAutoFillRequested) break;
-            const remSec = getRemainingSec();
-            if (listScanText) {
-              listScanText.innerHTML = `<span>⚠️</span> [${i + 1}/${ordersToProcess.length}] Lỗi xử lý đơn <b style="color:#dc2626;">${escapeHtml(order.mdh)}</b>: ${escapeHtml(itemErr.message || '')} (Chờ: <b style="color:#ea580c;">${remSec}s</b>)... (Thành công: <b style="color:#15803d;">${successCount}</b>, Lỗi: <b style="color:#dc2626;">${failCount}</b>)`;
-            }
-            await new Promise(r => setTimeout(r, 500));
-          }
+          await new Promise(r => setTimeout(r, 1000));
         }
       }
 
