@@ -990,23 +990,19 @@
     const now = new Date();
     const timeStr = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
 
-    const isRealtime = realtimeToggle ? realtimeToggle.checked : true;
-    const realtimeBadge = isRealtime 
-      ? `<span style="background: #dcfce7; color: #15803d; padding: 1px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">🟢 Realtime [${timeStr}]</span>`
-      : `<span style="background: #f1f5f9; color: #64748b; padding: 1px 6px; border-radius: 4px; font-size: 10px;">⚪ Thủ công [${timeStr}]</span>`;
+    const realtimeBadge = `<span style="background: #dcfce7; color: #15803d; padding: 1px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">🟢 Realtime [${timeStr}]</span>`;
 
     const gianLabel = filterGian ? `Gian: <b>${escapeHtml(filterGian)}</b> | ` : '';
     const filteredText = (totalItems !== undefined && totalItems < allData.length) ? ` (Lọc: <b style="color:#2563eb;">${totalItems}</b>)` : '';
     statusEl.innerHTML = `${realtimeBadge} ${gianLabel}Tổng: <b>${allData.length}</b> đơn${filteredText}.`;
   }
 
-  // 5. Khởi chạy bộ đếm Realtime Polling (Mỗi 5 giây)
+  // 5. Khởi chạy bộ đếm Realtime Polling (Mỗi 5 giây tự động)
   function setupRealtimePolling() {
     if (realtimeTimer) clearInterval(realtimeTimer);
 
     realtimeTimer = setInterval(() => {
-      const isEnabled = realtimeToggle ? realtimeToggle.checked : true;
-      if (isEnabled && isTabActive()) {
+      if (isTabActive()) {
         loadDhSheetData(true);
       }
     }, 5000);
@@ -1387,12 +1383,12 @@
     let existingStatus = "";
     for (const r of existingRows) {
       if (!Array.isArray(r)) continue;
-      const tt = String(r[tinhTrangColumnIdx] || r[14] || "").trim();
-      const st = String(r[trangThaiColumnIdx] || r[15] || "").trim();
-      const fullSt = st || tt;
-      if (isOrderCustomOrModifiedStatus(fullSt)) {
+      const tt = String((tinhTrangColumnIdx !== -1 ? r[tinhTrangColumnIdx] : r[14]) || "").trim();
+      const st = String((trangThaiColumnIdx !== -1 ? r[trangThaiColumnIdx] : r[15]) || "").trim();
+      // Nếu cột tình trạng đã có dữ liệu (bất kỳ giá trị nào) hoặc trạng thái đặc biệt
+      if (tt || isOrderCustomOrModifiedStatus(st)) {
         hasModifiedStatus = true;
-        existingStatus = fullSt;
+        existingStatus = tt || st;
         break;
       }
     }
@@ -1487,7 +1483,23 @@
     }
 
     if (!latestPreviewRows.length) {
-      previewCard.style.display = "none";
+      previewCard.style.display = "block";
+      if (previewBody) previewBody.style.display = "block";
+      if (btnTogglePreviewBody) btnTogglePreviewBody.textContent = "▲ Thu gọn";
+      if (previewTitle) previewTitle.innerHTML = `Đơn hàng vừa đọc`;
+      if (nhieuDonPreviewStatus) {
+        nhieuDonPreviewStatus.innerHTML = `<div style="color: #64748b; font-size: 11px; padding: 6px 8px; background: #f8fafc; border-radius: 4px; border: 1px dashed #cbd5e1; text-align: center;">Chưa có đơn hàng nào được đọc. Mở tab chi tiết đơn hàng Shopee hoặc bấm nút <b>"📥 Đọc đơn"</b> để tải thông tin.</div>`;
+      }
+      if (previewThead) previewThead.innerHTML = "";
+      if (previewTbody) {
+        previewTbody.innerHTML = `<tr><td style="padding: 12px; text-align: center; color: #94a3b8; font-size: 11px;">Chưa có dữ liệu sản phẩm đơn hàng.</td></tr>`;
+      }
+      if (btnSavePreview) {
+        btnSavePreview.textContent = "💾 Lưu DH";
+        btnSavePreview.style.background = "#16a34a";
+        btnSavePreview.style.borderColor = "#15803d";
+        btnSavePreview.disabled = true;
+      }
       return;
     }
 
@@ -1511,8 +1523,8 @@
         const rowText = rowNums && rowNums.length > 0 ? ` (Dòng ${rowNums.join(", ")})` : "";
         nhieuDonPreviewStatus.innerHTML = `
           <div style="background: #fefce8; border: 1.5px solid #eab308; border-radius: 6px; padding: 6px 10px; color: #854d0e; font-size: 11px;">
-            <div style="font-weight: bold; margin-bottom: 3px;">ℹ️ ĐƠN HÀNG ĐÃ ĐƯỢC ĐỔI TÌNH TRẠNG: <span style="color:#dc2626; font-weight:bold;">${escapeHtml(comparison.existingStatus || "")}</span>${rowText}</div>
-            <div style="font-size: 10px; color: #713f12;">Hệ thống đã khóa tự động cập nhật để bảo toàn tình trạng bạn đã chọn. Bấm nút bên dưới nếu muốn cập nhật đè.</div>
+            <div style="font-weight: bold; margin-bottom: 3px;">ℹ️ ĐƠN HÀNG ĐÃ CÓ TÌNH TRẠNG: <span style="color:#dc2626; font-weight:bold;">${escapeHtml(comparison.existingStatus || "")}</span>${rowText}</div>
+            <div style="font-size: 10px; color: #713f12;">Cột tình trạng đã có dữ liệu nên hệ thống KHÔNG tự động lưu. Bấm "Cập nhật DH" bên dưới nếu muốn lưu thủ công.</div>
           </div>
         `;
       } else if (wasSaved && isExisting && comparison && !comparison.isMatch) {
@@ -1736,9 +1748,7 @@
         if (isShopeeOrderDetailUrl(targetTab?.url)) {
           targetUrl = targetTab.url;
         } else {
-          // Tab active KHÔNG PHẢI là trang chi tiết đơn hàng Shopee -> ẨN KHUNG ĐỌC ĐƠN
-          if (previewCard) previewCard.style.display = "none";
-          latestPreviewRows = [];
+          // Tab active KHÔNG PHẢI là trang chi tiết đơn hàng Shopee -> Giữ nguyên bảng và dữ liệu đơn đã đọc
           if (!isAuto) {
             alert("Chỉ đọc link chi tiết đơn hàng có ID (ví dụ: https://banhang.shopee.vn/portal/sale/order/242102147201615).\nVui lòng mở trang chi tiết đơn hàng trước!");
           }
@@ -1862,7 +1872,7 @@
 
       if (statusEl) {
         if (hasModifiedStatus) {
-          statusEl.innerHTML = `<span style="color:#b45309; font-weight:bold;">ℹ️ Đơn ${sampleMdh} đã đổi tình trạng (${escapeHtml(comparison.existingStatus || "Đã xử lý")}). KHÔNG TỰ ĐỘNG CẬP NHẬT. Bấm "Cập nhật DH" nếu muốn lưu đè.</span>`;
+          statusEl.innerHTML = `<span style="color:#b45309; font-weight:bold;">ℹ️ Đơn ${sampleMdh} đã có tình trạng (${escapeHtml(comparison.existingStatus || "Đã xử lý")}). KHÔNG TỰ ĐỘNG LƯU. Bấm "Cập nhật DH" nếu muốn lưu đè thủ công.</span>`;
         } else if (exists && !comparison.isMatch) {
           statusEl.innerHTML = `<span style="color:#059669; font-weight:bold;">🔄 Đơn ${sampleMdh} không khớp với Sheet (Khác: ${escapeHtml(comparison.diffs[0] || "")}). ĐÃ TỰ ĐỘNG CẬP NHẬT LẠI KHỚP 100%! ✅</span>`;
         } else if (wasSaved) {
@@ -1885,22 +1895,33 @@
     }
   }
 
-  // Nút Lưu đơn từ bảng xem trước vào Sheet DH
+  // Nút Lưu đơn từ bảng xem trước vào Sheet DH (Hỗ trợ lưu thủ công mọi lúc)
   if (btnSavePreview) {
-    btnSavePreview.addEventListener("click", () => {
-      if (!latestPreviewDhValues?.length) {
+    btnSavePreview.addEventListener("click", async () => {
+      let dhVals = latestPreviewDhValues;
+      if ((!dhVals || !dhVals.length) && latestPreviewRows?.length) {
+        const getCurrentMaGianFn = window.orderTabUtils?.getCurrentMaGian;
+        const rowsToDhValuesFn = window.orderTabUtils?.rowsToDhValues;
+        const maGian = getCurrentMaGianFn ? await getCurrentMaGianFn() : (inputGian?.value || "").trim();
+        if (rowsToDhValuesFn) {
+          dhVals = await rowsToDhValuesFn(latestPreviewRows, maGian);
+          latestPreviewDhValues = dhVals;
+        }
+      }
+
+      if (!dhVals?.length) {
         alert("Chưa có dữ liệu đơn hàng để lưu!");
         return;
       }
       const sampleMdh = latestPreviewRows[0]?.orderId || "";
       const sampleMvd = latestPreviewRows[0]?.tracking || "";
 
-      addDhRows(latestPreviewDhValues, sampleMdh, sampleMvd, true);
+      addDhRows(dhVals, sampleMdh, sampleMvd, true);
       currentPreviewExistingInfo = {
         exists: true,
-        rowNums: currentPreviewExistingInfo.rowNums || [],
-        existingRows: latestPreviewDhValues,
-        comparison: { isMatch: true, diffs: [], isNew: false }
+        rowNums: currentPreviewExistingInfo?.rowNums || [],
+        existingRows: dhVals,
+        comparison: { isMatch: true, diffs: [], isNew: false, hasModifiedStatus: false }
       };
       renderPreviewRows(latestPreviewRows, currentPreviewExistingInfo, true);
 
@@ -2116,13 +2137,12 @@
   if (btnClosePreview && previewCard) {
     btnClosePreview.addEventListener("click", () => {
       latestPreviewRows = [];
+      latestPreviewDhValues = [];
       currentPreviewExistingInfo = { exists: false, rowNums: [], comparison: null };
       try {
         chrome.storage.local.remove(["nhieuDonLastPreviewRows", "nhieuDonLastPreviewExistingInfo", "nhieuDonLastPreviewWasSaved"]);
       } catch (e) {}
       renderPreviewRows([]);
-      if (nhieuDonPreviewStatus) nhieuDonPreviewStatus.innerHTML = "";
-      if (previewTitle) previewTitle.textContent = "Đơn hàng vừa đọc";
       if (dataLoaded) renderTable();
     });
   }
@@ -2159,9 +2179,7 @@
       const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!activeTab || !isShopeeOrderDetailUrl(activeTab.url)) {
         // Tab hiện tại KHÔNG PHẢI là trang chi tiết đơn hàng Shopee
-        // -> Ẩn khung "Đơn hàng vừa đọc"
-        if (previewCard) previewCard.style.display = "none";
-        latestPreviewRows = [];
+        // Giữ nguyên bảng đọc đơn và đơn vừa đọc trước đó, không ẩn bảng!
         return;
       }
 
@@ -2200,6 +2218,22 @@
         triggerAutoReadOrder();
       }
     });
+  }
+
+  // Khởi tạo bảng đọc đơn hàng: luôn luôn hiển thị (khôi phục đơn đã đọc trước đó hoặc hiển thị khung chờ)
+  try {
+    chrome.storage.local.get(["nhieuDonLastPreviewRows", "nhieuDonLastPreviewExistingInfo", "nhieuDonLastPreviewWasSaved"], (res) => {
+      if (res?.nhieuDonLastPreviewRows && Array.isArray(res.nhieuDonLastPreviewRows) && res.nhieuDonLastPreviewRows.length > 0) {
+        latestPreviewRows = res.nhieuDonLastPreviewRows;
+        currentPreviewExistingInfo = res.nhieuDonLastPreviewExistingInfo || { exists: false, rowNums: [], comparison: null };
+        const wasSaved = !!res.nhieuDonLastPreviewWasSaved;
+        renderPreviewRows(latestPreviewRows, currentPreviewExistingInfo, wasSaved);
+      } else {
+        renderPreviewRows([]);
+      }
+    });
+  } catch (e) {
+    renderPreviewRows([]);
   }
 
   // Khởi động auto-read khi popup vừa mở
@@ -3554,8 +3588,8 @@
       const trangThaiVal = String(cells[trangThaiColumnIdx] || "").trim();
       const currentStatus = trangThaiVal || tinhTrangVal;
 
-      // NẾU ĐÃ ĐỔI TÌNH TRẠNG (HỦY / HOÀN / TRẢ / TÌNH TRẠNG KHÁC) -> BỎ QUA HOÀN TOÀN, KHÔNG QUÉT / KHÔNG CẬP NHẬT TỰ ĐỘNG
-      if (isOrderCustomOrModifiedStatus(currentStatus)) {
+      // NẾU ĐÃ CÓ TÌNH TRẠNG (HỦY / HOÀN / TRẢ / TÌNH TRẠNG BẤT KỲ) -> BỎ QUA HOÀN TOÀN, KHÔNG QUÉT / KHÔNG CẬP NHẬT TỰ ĐỘNG
+      if (tinhTrangVal || isOrderCustomOrModifiedStatus(currentStatus)) {
         continue;
       }
 

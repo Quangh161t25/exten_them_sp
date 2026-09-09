@@ -694,7 +694,7 @@
 
         currentOrderExistingInfo = { exists, rowNums, existingRows, comparison };
         if (comparison && comparison.hasModifiedStatus) {
-          status.innerHTML = `<span style="color:#b45309; font-weight:bold;">ℹ️ Đơn hàng trong Sheet DH (Dòng ${rowNums.join(", ")}) ĐÃ ĐƯỢC ĐỔI TÌNH TRẠNG: ${escapeHtml(comparison.existingStatus || "")}. Bấm "Cập nhật DH" nếu muốn lưu đè.</span>`;
+          status.innerHTML = `<span style="color:#b45309; font-weight:bold;">ℹ️ Đơn hàng trong Sheet DH (Dòng ${rowNums.join(", ")}) ĐÃ CÓ TÌNH TRẠNG: ${escapeHtml(comparison.existingStatus || "")}. KHÔNG tự động lưu. Bấm "Cập nhật DH" nếu muốn lưu đè thủ công.</span>`;
           if (saveDhButton) {
             saveDhButton.textContent = "Cập nhật DH";
             saveDhButton.style.background = "#d97706";
