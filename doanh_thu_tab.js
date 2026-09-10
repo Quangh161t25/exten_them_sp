@@ -477,14 +477,24 @@
       }
 
       const rowNums = (response.rowNums || []).join(", ");
-      syncedOrdersMap.set(orderId.toLowerCase(), `✓ Dòng ${rowNums || 'OK'}`);
-      
-      if (btnElement) {
-        btnElement.disabled = false;
-        btnElement.innerHTML = `✓ Dòng ${rowNums || 'OK'}`;
-        btnElement.style.background = '#15803d';
+      const isConflict = response.conflictCount > 0 || (response.conflictedOrders && response.conflictedOrders.map(o => String(o).toLowerCase()).includes(orderId.toLowerCase()));
+      if (isConflict) {
+        syncedOrdersMap.set(orderId.toLowerCase(), `⚠️ Xung đột`);
+        if (btnElement) {
+          btnElement.disabled = false;
+          btnElement.innerHTML = `⚠️ Xung đột`;
+          btnElement.style.background = '#d97706';
+        }
+        setStatus(`⚠️ Đơn <b>${escapeHtml(orderId)}</b> đã có dữ liệu tình trạng trong Sheet DH -> <b>Giữ nguyên tình trạng, ghi 'xung đột' vào cột trạng thái</b> (Dòng ${rowNums})!`);
+      } else {
+        syncedOrdersMap.set(orderId.toLowerCase(), `✓ Dòng ${rowNums || 'OK'}`);
+        if (btnElement) {
+          btnElement.disabled = false;
+          btnElement.innerHTML = `✓ Dòng ${rowNums || 'OK'}`;
+          btnElement.style.background = '#15803d';
+        }
+        setStatus(`✅ Đã cập nhật đơn <b>${escapeHtml(orderId)}</b> vào dòng <b>${rowNums}</b> trong Sheet DH!`);
       }
-      setStatus(`✅ Đã cập nhật đơn <b>${escapeHtml(orderId)}</b> vào dòng <b>${rowNums}</b> trong Sheet DH!`);
     } catch (err) {
       alert("Lỗi cập nhật: " + err.message);
       if (btnElement) {
@@ -539,8 +549,13 @@
       }
 
       if (response.matchedOrders && Array.isArray(response.matchedOrders)) {
+        const conflictSet = new Set((response.conflictedOrders || []).map(o => String(o).toLowerCase()));
         response.matchedOrders.forEach(ordId => {
-          syncedOrdersMap.set(ordId.toLowerCase(), "✓ Đã cập nhật");
+          if (conflictSet.has(ordId.toLowerCase())) {
+            syncedOrdersMap.set(ordId.toLowerCase(), "⚠️ Xung đột");
+          } else {
+            syncedOrdersMap.set(ordId.toLowerCase(), "✓ Đã cập nhật");
+          }
         });
       }
 
@@ -650,7 +665,16 @@
 
       const syncedStatus = syncedOrdersMap.get((row.orderId || "").toLowerCase());
       const syncBtnText = syncedStatus || "☁️ Cập nhật";
-      const syncBtnBg = syncedStatus ? "#15803d" : "#059669";
+      let syncBtnBg = "#059669";
+      if (syncedStatus) {
+        if (syncedStatus.includes("Xung đột")) {
+          syncBtnBg = "#d97706";
+        } else if (syncedStatus.includes("Chưa có") || syncedStatus.includes("Thử lại")) {
+          syncBtnBg = "#dc2626";
+        } else {
+          syncBtnBg = "#15803d";
+        }
+      }
 
       html += `
         <tr style="border-top: 1px solid #f1f5f9; background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">

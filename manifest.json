@@ -12,6 +12,7 @@
   "permissions": [
     "activeTab",
     "alarms",
+    "clipboardRead",
     "clipboardWrite",
     "downloads",
     "storage",

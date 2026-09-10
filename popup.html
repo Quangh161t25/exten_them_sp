@@ -511,17 +511,21 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
         </button>
       </div>
 
-      <!-- Dòng 2: Xử lý đơn hàng trang Trả hàng / Hoàn tiền (returnrefundcancel) - 3 nút Hủy, Hoàn, Trả -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; align-items: center;">
-        <button id="btn-batch-return-huy" type="button" style="padding: 5px 3px; font-size: 11px; background: #ef4444; color: white; border: 1px solid #dc2626; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Cập nhật cột tình trạng HỦY (tinh_trang='HỦY', trang_thai='', doanh_thu=0, vốn=0, lợi_nhuận=0) cho tất cả đơn có mã ở trang Trả hàng / Hoàn tiền hiện tại vào Sheet DH">
+      <!-- Dòng 2: Xử lý đơn hàng trang Trả hàng / Hoàn tiền (returnrefundcancel) - 3 nút Hủy, Hoàn, Trả + Ô nhập Max trang -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 5px; align-items: center;">
+        <button id="btn-batch-return-huy" type="button" style="padding: 5px 3px; font-size: 11px; background: #ef4444; color: white; border: 1px solid #dc2626; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Cập nhật cột tình trạng HỦY (tinh_trang='HỦY', trang_thai='', doanh_thu=0, vốn=0, lợi_nhuận=0) cho tất cả đơn có mã ở trang Trả hàng / Hoàn tiền hiện tại vào Sheet DH (tự động Next trang nếu Max trang > 1)">
           🔴 HỦY
         </button>
-        <button id="btn-batch-return-hoan" type="button" style="padding: 5px 3px; font-size: 11px; background: #f59e0b; color: white; border: 1px solid #d97706; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Cập nhật cột tình trạng HOÀN (tinh_trang='HOÀN', trang_thai='', vốn=0) cho tất cả đơn có mã ở trang Trả hàng / Hoàn tiền hiện tại vào Sheet DH">
+        <button id="btn-batch-return-hoan" type="button" style="padding: 5px 3px; font-size: 11px; background: #f59e0b; color: white; border: 1px solid #d97706; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Cập nhật cột tình trạng HOÀN (tinh_trang='HOÀN', trang_thai='', vốn=0) cho tất cả đơn có mã ở trang Trả hàng / Hoàn tiền hiện tại vào Sheet DH (tự động Next trang nếu Max trang > 1)">
           🟠 HOÀN
         </button>
-        <button id="btn-batch-return-tra" type="button" style="padding: 5px 3px; font-size: 11px; background: #3b82f6; color: white; border: 1px solid #2563eb; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Cập nhật cột tình trạng TRẢ (tinh_trang='TRẢ', trang_thai='', vốn=0) cho tất cả đơn có mã ở trang Trả hàng / Hoàn tiền hiện tại vào Sheet DH">
+        <button id="btn-batch-return-tra" type="button" style="padding: 5px 3px; font-size: 11px; background: #3b82f6; color: white; border: 1px solid #2563eb; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Cập nhật cột tình trạng TRẢ (tinh_trang='TRẢ', trang_thai='', vốn=0) cho tất cả đơn có mã ở trang Trả hàng / Hoàn tiền hiện tại vào Sheet DH (tự động Next trang nếu Max trang > 1)">
           🟣 TRẢ
         </button>
+        <div style="display: flex; align-items: center; gap: 3px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 5px; height: 100%; box-sizing: border-box;" title="Số trang Next tối đa khi bấm HỦY, HOÀN, TRẢ (1 = chỉ quét trang hiện tại, ví dụ 5 = tự động Next tối đa 5 trang)">
+          <span style="font-size: 10px; font-weight: bold; color: #475569; white-space: nowrap;">Max trang:</span>
+          <input type="number" id="input-batch-return-max-pages" min="1" max="100" value="1" style="width: 36px; height: 20px; font-size: 11px; font-weight: bold; text-align: center; border: 1px solid #94a3b8; border-radius: 3px; padding: 0 2px; color: #0f172a;" title="Nhập số trang tối đa muốn quét và cập nhật khi bấm HỦY, HOÀN, TRẢ">
+        </div>
       </div>
 
       <!-- Dòng 3: Tự động đọc, Tự động lưu và Tải lại (1 dòng) -->
@@ -616,7 +620,10 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 
     <!-- HÀNG BỘ LỌC TÌM KIẾM, MÃ GIAN, SẮP XẾP VÀ CHẾ ĐỘ ĐỒNG BỘ REALTIME -->
     <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px; flex-wrap: wrap;">
-      <input type="text" id="nhieu-don-hang-search" placeholder="🔍 Tìm MDH, MVD, SKU, tên khách..." style="flex: 2; min-width: 120px; font-size: 11px; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+      <div style="position: relative; flex: 2; min-width: 140px; display: flex; align-items: center;">
+        <input type="text" id="nhieu-don-hang-search" placeholder="🔍 Tìm MDH, MVD, SKU (nhiều mã cách nhau dấu phẩy)..." title="Hỗ trợ tìm nhiều mã đơn cách nhau bằng dấu phẩy (,), ví dụ: 260806M62C8YRK, 260529N9RNPRY5..." style="width: 100%; font-size: 11px; padding: 5px 22px 5px 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
+        <button id="btn-clear-nhieu-don-search" type="button" title="Xóa tìm kiếm" style="position: absolute; right: 4px; display: none; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 12px; padding: 2px;">✕</button>
+      </div>
       
       <!-- Input Chọn Gian Tự Động (DataList + Input) -->
       <div style="position: relative; flex: 1.1; min-width: 95px;">

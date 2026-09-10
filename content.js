@@ -60,6 +60,8 @@ function downloadExcelFileBypass(wb, filename) {
   const VARIATION_VALUES = ["Ph\u00e2n lo\u1ea1i", "M\u00e0u"];
   const DESCRIPTION_DROP_STYLE_ID = "shopee-qlsp-description-drop-style";
   let cachedProductListShopId = "";
+  const DEFAULT_CHAT_KHACH_MESSAGE = `Shop cảm ơn Quý khách đã ủng hộ ạ ❤️ Shop sẽ lên đơn và gửi hàng nhanh nhất có thể. Mong Quý khách để ý điện thoại để nhận hàng giúp shop nhé! 🥰
+Chúc anh/chị có một ngày thật vui vẻ, nhiều năng lượng và tốt lành nhé! `;
 
   // ============================================================
   // SHOPEE FETCH INTERCEPTOR - Lấy ảnh bằng cơ chế API thật
@@ -395,7 +397,7 @@ function downloadExcelFileBypass(wb, filename) {
         border: 0 !important;
         border-radius: 50% !important;
         color: #fff !important;
-        background: #2673dd !important;
+        background: #2673dd;
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24) !important;
         font: 700 11px/1 Arial, sans-serif !important;
         cursor: pointer !important;
@@ -405,7 +407,47 @@ function downloadExcelFileBypass(wb, filename) {
       }
 
       #${SCROLL_BUTTONS_ID} button:hover {
-        background: #1e5fb8 !important;
+        opacity: 0.88 !important;
+      }
+
+      #btn-fill-stock-1000-sidebar {
+        background: #ea580c !important;
+        background-color: #ea580c !important;
+      }
+      #btn-fill-stock-1000-sidebar:hover {
+        background: #c2410c !important;
+      }
+
+      #btn-fill-stock-0-sidebar {
+        background: #f97316 !important;
+        background-color: #f97316 !important;
+      }
+      #btn-fill-stock-0-sidebar:hover {
+        background: #ea580c !important;
+      }
+
+      #btn-save-product-sheet-sidebar {
+        background: #2563eb !important;
+        background-color: #2563eb !important;
+      }
+      #btn-save-product-sheet-sidebar:hover {
+        background: #1d4ed8 !important;
+      }
+
+      #btn-preview-product-sidebar {
+        background: #0284c7 !important;
+        background-color: #0284c7 !important;
+      }
+      #btn-preview-product-sidebar:hover {
+        background: #0369a1 !important;
+      }
+
+      #btn-pre-order-sidebar {
+        background: #8b5cf6 !important;
+        background-color: #8b5cf6 !important;
+      }
+      #btn-pre-order-sidebar:hover {
+        background: #7c3aed !important;
       }
     `;
     document.documentElement.append(style);
@@ -492,6 +534,249 @@ function downloadExcelFileBypass(wb, filename) {
         parent.remove();
       }
     });
+  }
+
+  function findPreOrderRadio() {
+    // 1. Tìm theo nhãn / span có chữ "Đồng ý"
+    const candidateLabels = Array.from(document.querySelectorAll('label.eds-radio, .eds-radio, label'));
+    for (const lbl of candidateLabels) {
+      if (lbl.closest('.eds-modal, .eds-dialog, .shopee-modal')) continue;
+      const text = (lbl.textContent || '').trim();
+      if (text === 'Đồng ý' || text.includes('Đồng ý')) {
+        const input = lbl.querySelector('input.eds-radio__input, input[type="radio"]') || (lbl.tagName === 'INPUT' ? lbl : null);
+        return { label: lbl, input };
+      }
+    }
+
+    // 2. Tìm theo input[type="radio"][value="true"]
+    const trueInputs = Array.from(document.querySelectorAll('input.eds-radio__input[value="true"], input[type="radio"][value="true"]'))
+      .filter(inp => !inp.closest('.eds-modal, .eds-dialog, .shopee-modal'));
+    for (const inp of trueInputs) {
+      const formItem = inp.closest('.product-edit-form-item, .form-item, .eds-form-item, div');
+      const itemText = formItem ? formItem.textContent : '';
+      if (itemText.includes('Đồng ý') || itemText.includes('đặt trước') || itemText.includes('chuẩn bị hàng')) {
+        return { label: inp.closest('label') || inp.parentElement || inp, input: inp };
+      }
+    }
+    if (trueInputs.length > 0) {
+      return { label: trueInputs[0].closest('label') || trueInputs[0].parentElement || trueInputs[0], input: trueInputs[0] };
+    }
+
+    return null;
+  }
+
+  async function activatePreOrderRadio(radioObj) {
+    if (!radioObj) return false;
+    const { label, input } = radioObj;
+
+    try {
+      label.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 200));
+
+    const indicator = label.querySelector ? label.querySelector('.eds-radio__indicator') : null;
+    const target = indicator || label;
+
+    ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(evt => {
+      try {
+        target.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true }));
+      } catch (e) {}
+    });
+    if (target.click) target.click();
+
+    if (label && label !== target) {
+      ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(evt => {
+        try {
+          label.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true }));
+        } catch (e) {}
+      });
+      if (label.click) label.click();
+    }
+
+    if (input) {
+      if (!input.checked) input.checked = true;
+      try {
+        input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+      } catch (e) {}
+    }
+
+    return true;
+  }
+
+  async function findPreOrderDaysInput(radioObj, maxWaitMs = 2500) {
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+      // 1. Trong cùng form item hoặc container của radio
+      if (radioObj && radioObj.label) {
+        const container = radioObj.label.closest('.product-edit-form-item, .form-item, .eds-form-item, .eds-form-group, .item-content') || radioObj.label.parentElement?.parentElement;
+        if (container) {
+          const inps = Array.from(container.querySelectorAll('input.eds-input__input, input[type="text"]')).filter(el => {
+            const st = window.getComputedStyle(el);
+            return st.display !== 'none' && st.visibility !== 'hidden' && el.type !== 'radio';
+          });
+          if (inps.length > 0) {
+            const match = inps.find(i => i.getAttribute('placeholder') === '0' || i.getAttribute('modelvalue') !== null || i.classList.contains('eds-input__input'));
+            return match || inps[0];
+          }
+
+          let nextEl = container.nextElementSibling;
+          let count = 0;
+          while (nextEl && count < 3) {
+            const sibInps = Array.from(nextEl.querySelectorAll('input.eds-input__input, input[type="text"]')).filter(el => {
+              const st = window.getComputedStyle(el);
+              return st.display !== 'none' && st.visibility !== 'hidden' && el.type !== 'radio';
+            });
+            if (sibInps.length > 0) return sibInps[0];
+            nextEl = nextEl.nextElementSibling;
+            count++;
+          }
+        }
+      }
+
+      // 2. Tìm input có placeholder="0"
+      const p0 = Array.from(document.querySelectorAll('input.eds-input__input[placeholder="0"], input[placeholder="0"]')).filter(el => {
+        const st = window.getComputedStyle(el);
+        return st.display !== 'none' && st.visibility !== 'hidden' && !el.closest('.eds-modal, .eds-dialog, .shopee-modal');
+      });
+      if (p0.length > 0) {
+        for (const inp of p0) {
+          const rowText = inp.closest('.product-edit-form-item, .eds-form-item, div')?.textContent || '';
+          if (rowText.includes('ngày') || rowText.includes('đặt trước') || rowText.includes('Đồng ý') || rowText.includes('chuẩn bị')) {
+            return inp;
+          }
+        }
+        return p0[0];
+      }
+
+      // 3. Tìm bất kỳ ô text input nào nằm gần chữ "ngày"
+      const allText = Array.from(document.querySelectorAll('input.eds-input__input, input[type="text"]')).filter(el => {
+        const st = window.getComputedStyle(el);
+        return st.display !== 'none' && st.visibility !== 'hidden' && el.type !== 'radio' && !el.closest('.eds-modal, .eds-dialog, .shopee-modal');
+      });
+      for (const inp of allText) {
+        const rowText = inp.closest('.product-edit-form-item, .eds-form-item, .form-item, div')?.textContent || '';
+        if (rowText.includes('ngày') && (rowText.includes('đặt trước') || rowText.includes('Đồng ý') || rowText.includes('chuẩn bị'))) {
+          return inp;
+        }
+      }
+
+      await new Promise(r => setTimeout(r, 100));
+    }
+    return null;
+  }
+
+  async function fillPreOrderDays(input, val = '15') {
+    if (!input) return false;
+    const textVal = String(val);
+
+    try {
+      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 100));
+
+    try {
+      if (typeof fillInputLikeUser === 'function') {
+        fillInputLikeUser(input, textVal);
+      }
+    } catch (err) {
+      console.warn("fillInputLikeUser:", err);
+    }
+
+    try {
+      const prototype = Object.getPrototypeOf(input);
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+      if (descriptor?.set) {
+        descriptor.set.call(input, textVal);
+      } else {
+        input.value = textVal;
+      }
+    } catch (e) {
+      input.value = textVal;
+    }
+
+    input.setAttribute("modelvalue", textVal);
+
+    ['keydown', 'keypress', 'keyup'].forEach(evtType => {
+      try {
+        input.dispatchEvent(new KeyboardEvent(evtType, { bubbles: true, cancelable: true, key: textVal.slice(-1) }));
+      } catch (e) {}
+    });
+    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    input.dispatchEvent(new Event('blur', { bubbles: true, composed: true }));
+
+    return true;
+  }
+
+  async function handleApplyPreOrder(targetDays = 15) {
+    if (typeof showTopNotification === 'function') {
+      showTopNotification("⏳ Đang cài đặt Hàng đặt trước...");
+    }
+
+    const radioObj = findPreOrderRadio();
+    if (!radioObj || !radioObj.label) {
+      if (typeof showTopNotification === 'function') {
+        showTopNotification("❌ Không tìm thấy tùy chọn 'Đồng ý' ở mục Hàng đặt trước!", true);
+      }
+      alert("Không tìm thấy tùy chọn 'Đồng ý' của Hàng đặt trước trên trang hiện tại!\nVui lòng đảm bảo bạn đang ở trang chỉnh sửa sản phẩm.");
+      return false;
+    }
+
+    await activatePreOrderRadio(radioObj);
+    await new Promise(r => setTimeout(r, 300));
+
+    const daysInput = await findPreOrderDaysInput(radioObj, 2500);
+    if (!daysInput) {
+      if (typeof showTopNotification === 'function') {
+        showTopNotification("⚠️ Đã chọn 'Đồng ý' nhưng chưa tìm thấy ô điền số ngày!", true);
+      }
+      alert("Đã chọn 'Đồng ý' của Hàng đặt trước, nhưng không tìm thấy ô nhập số ngày!");
+      return false;
+    }
+
+    await fillPreOrderDays(daysInput, targetDays);
+    await new Promise(r => setTimeout(r, 150));
+
+    if (typeof showTopNotification === 'function') {
+      showTopNotification(`✅ Đã bật Hàng đặt trước: Chọn 'Đồng ý' & điền ${targetDays} ngày thành công!`);
+    }
+    return true;
+  }
+
+  function injectPreOrderInlineButton() {
+    const path = window.location.pathname;
+    const isEdit = path.startsWith("/portal/product/new") || (path.startsWith("/portal/product/") && !path.includes("/list"));
+    if (!isEdit) return;
+
+    const candidateLabels = Array.from(document.querySelectorAll('label.eds-radio, .eds-radio'));
+    for (const lbl of candidateLabels) {
+      if (lbl.closest('.eds-modal, .eds-dialog, .shopee-modal')) continue;
+      const text = (lbl.textContent || '').trim();
+      if (text === 'Đồng ý' || text.includes('Đồng ý')) {
+        const parent = lbl.parentElement;
+        if (parent && !parent.querySelector('.shopee-qlsp-inline-preorder-btn')) {
+          const inlineBtn = document.createElement('button');
+          inlineBtn.type = 'button';
+          inlineBtn.className = 'shopee-qlsp-inline-preorder-btn';
+          inlineBtn.textContent = '⚡ Đặt trước 15 ngày';
+          inlineBtn.title = 'Bấm để tự động chọn Đồng ý và điền 15 ngày';
+          inlineBtn.style.cssText = 'margin-left: 10px !important; padding: 2px 10px !important; font-size: 11px !important; font-weight: bold !important; background: #8b5cf6 !important; color: white !important; border: 1px solid #7c3aed !important; border-radius: 4px !important; cursor: pointer !important; vertical-align: middle !important; display: inline-flex !important; align-items: center !important;';
+          inlineBtn.onclick = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            inlineBtn.textContent = '⏳';
+            try {
+              await handleApplyPreOrder(15);
+            } finally {
+              inlineBtn.textContent = '⚡ Đặt trước 15 ngày';
+            }
+          };
+          parent.appendChild(inlineBtn);
+        }
+        break;
+      }
+    }
   }
 
   function injectScrollButtons() {
@@ -742,7 +1027,8 @@ function downloadExcelFileBypass(wb, filename) {
     saveSheetBtn.type = "button";
     saveSheetBtn.title = "Thêm SP vào Google Sheet";
     saveSheetBtn.textContent = "Lưu SP";
-    saveSheetBtn.style.backgroundColor = "#ee4d2d";
+    saveSheetBtn.style.setProperty("background-color", "#2563eb", "important");
+    saveSheetBtn.style.setProperty("background", "#2563eb", "important");
     saveSheetBtn.style.fontSize = "12px";
     saveSheetBtn.style.setProperty("display", "none", "important");
     saveSheetBtn.addEventListener("click", async () => {
@@ -750,13 +1036,21 @@ function downloadExcelFileBypass(wb, filename) {
       saveSheetBtn.disabled = true;
       try {
         await extractProductDataAndSave();
-        saveSheetBtn.style.backgroundColor = "#17a36b";
+        saveSheetBtn.style.setProperty("background-color", "#16a34a", "important");
+        saveSheetBtn.style.setProperty("background", "#16a34a", "important");
         saveSheetBtn.textContent = "Xong!";
-        setTimeout(() => { saveSheetBtn.textContent = "Lưu SP"; saveSheetBtn.disabled = false; saveSheetBtn.style.backgroundColor = "#ee4d2d"; }, 2000);
+        setTimeout(() => { 
+          saveSheetBtn.textContent = "Lưu SP"; 
+          saveSheetBtn.disabled = false; 
+          saveSheetBtn.style.setProperty("background-color", "#2563eb", "important"); 
+          saveSheetBtn.style.setProperty("background", "#2563eb", "important"); 
+        }, 2000);
       } catch (err) {
         alert("Lỗi: " + err.message);
         saveSheetBtn.textContent = "Lưu SP";
         saveSheetBtn.disabled = false;
+        saveSheetBtn.style.setProperty("background-color", "#2563eb", "important");
+        saveSheetBtn.style.setProperty("background", "#2563eb", "important");
       }
     });
 
@@ -765,7 +1059,8 @@ function downloadExcelFileBypass(wb, filename) {
     stock1000Btn.type = "button";
     stock1000Btn.title = "Điền 1000 cho tất cả các kho của toàn bộ phân loại";
     stock1000Btn.textContent = "1000";
-    stock1000Btn.style.backgroundColor = "#16a34a";
+    stock1000Btn.style.setProperty("background-color", "#ea580c", "important");
+    stock1000Btn.style.setProperty("background", "#ea580c", "important");
     stock1000Btn.style.fontSize = "11px";
     stock1000Btn.style.fontWeight = "bold";
     stock1000Btn.style.setProperty("display", "none", "important");
@@ -785,7 +1080,8 @@ function downloadExcelFileBypass(wb, filename) {
     stock0Btn.type = "button";
     stock0Btn.title = "Điền 0 cho tất cả các kho của toàn bộ phân loại";
     stock0Btn.textContent = "Kho 0";
-    stock0Btn.style.backgroundColor = "#dc2626";
+    stock0Btn.style.setProperty("background-color", "#f97316", "important");
+    stock0Btn.style.setProperty("background", "#f97316", "important");
     stock0Btn.style.fontSize = "11px";
     stock0Btn.style.fontWeight = "bold";
     stock0Btn.style.setProperty("display", "none", "important");
@@ -800,13 +1096,92 @@ function downloadExcelFileBypass(wb, filename) {
       }
     });
 
-    wrap.append(topButton, upButton, downButton, bottomButton, bulkExcelBtn, stock1000Btn, stock0Btn, saveSheetBtn);
+    // Nút mở xem trước sản phẩm trên Shopee (Shopee PDP)
+    const previewBtn = document.createElement("button");
+    previewBtn.id = "btn-preview-product-sidebar";
+    previewBtn.type = "button";
+    previewBtn.title = "Mở xem trước sản phẩm trên Shopee (PDP)";
+    previewBtn.innerHTML = "Xem<br>trước";
+    previewBtn.style.setProperty("background-color", "#0284c7", "important");
+    previewBtn.style.setProperty("background", "#0284c7", "important");
+    previewBtn.style.fontSize = "10px";
+    previewBtn.style.lineHeight = "1.1";
+    previewBtn.style.fontWeight = "bold";
+    previewBtn.style.textAlign = "center";
+    previewBtn.style.setProperty("display", "none", "important");
+    previewBtn.addEventListener("click", async () => {
+      const origHtml = previewBtn.innerHTML;
+      previewBtn.textContent = "⏳";
+      previewBtn.disabled = true;
+      try {
+        const path = window.location.pathname;
+        const urlMatches = path.match(/\/portal\/product\/(\d+)/);
+        let productId = urlMatches ? urlMatches[1] : "";
+        if (!productId) {
+          const searchParams = new URLSearchParams(window.location.search);
+          productId = searchParams.get('id') || searchParams.get('itemid') || searchParams.get('itemId') || "";
+        }
+
+        if (!productId) {
+          alert("Không tìm thấy ID sản phẩm trên đường dẫn trang hiện tại!\n(Nếu là sản phẩm mới chưa lưu, vui lòng lưu sản phẩm trước khi xem)");
+          return;
+        }
+
+        const storageRes = await new Promise(resolve => chrome.storage.local.get(["maGian", "dhHoanTextValue"], resolve));
+        const maGian = (storageRes?.maGian || storageRes?.dhHoanTextValue || "").trim();
+
+        const shopId = await getShopIdByMaGian(maGian);
+        if (!shopId) {
+          alert(`Không tìm thấy ID Shop cho mã gian "${maGian || '(chưa chọn)'}" tại Cột G sheet CAI_DAT.\n\nVui lòng điền ID Shop vào Cột G sheet CAI_DAT tương ứng với Cột B (mã gian)!`);
+          return;
+        }
+
+        const previewUrl = `https://shopee.vn/product/${shopId}/${productId}/`;
+        window.open(previewUrl, "_blank");
+      } catch (err) {
+        console.error("Lỗi mở xem trước sản phẩm:", err);
+        alert("Lỗi mở xem trước: " + err.message);
+      } finally {
+        previewBtn.innerHTML = origHtml;
+        previewBtn.disabled = false;
+      }
+    });
+
+    // Nút Hàng đặt trước (bật Đồng ý và điền 15 ngày)
+    const preOrderBtn = document.createElement("button");
+    preOrderBtn.id = "btn-pre-order-sidebar";
+    preOrderBtn.type = "button";
+    preOrderBtn.title = "Hàng đặt trước: Chọn 'Đồng ý' và điền 15 ngày";
+    preOrderBtn.innerHTML = "Đặt<br>trước";
+    preOrderBtn.style.setProperty("background-color", "#8b5cf6", "important");
+    preOrderBtn.style.setProperty("background", "#8b5cf6", "important");
+    preOrderBtn.style.fontSize = "10px";
+    preOrderBtn.style.lineHeight = "1.1";
+    preOrderBtn.style.fontWeight = "bold";
+    preOrderBtn.style.textAlign = "center";
+    preOrderBtn.style.setProperty("display", "none", "important");
+    preOrderBtn.addEventListener("click", async () => {
+      const origHtml = preOrderBtn.innerHTML;
+      preOrderBtn.textContent = "⏳";
+      preOrderBtn.disabled = true;
+      try {
+        await handleApplyPreOrder(15);
+      } catch (err) {
+        console.error("Lỗi đặt trước:", err);
+        alert("Lỗi cài đặt hàng đặt trước: " + err.message);
+      } finally {
+        preOrderBtn.innerHTML = origHtml;
+        preOrderBtn.disabled = false;
+      }
+    });
+
+    wrap.append(topButton, upButton, downButton, bottomButton, bulkExcelBtn, stock1000Btn, stock0Btn, saveSheetBtn, preOrderBtn, previewBtn);
     document.documentElement.append(wrap);
     toggleBulkExcelBtn();
     
     let lastCheckedMaSp = null;
     
-    // Toggle the Save SP, 1000 and Kho 0 buttons visibility based on URL
+    // Toggle the Save SP, 1000, Kho 0, Đặt trước and Xem trước buttons visibility based on URL
     window.setInterval(() => {
         const path = window.location.pathname;
         const isEdit = path.startsWith("/portal/product/new") || (path.startsWith("/portal/product/") && !path.includes("/list"));
@@ -814,10 +1189,14 @@ function downloadExcelFileBypass(wb, filename) {
             saveSheetBtn.style.setProperty("display", "flex", "important");
             stock1000Btn.style.setProperty("display", "flex", "important");
             stock0Btn.style.setProperty("display", "flex", "important");
+            preOrderBtn.style.setProperty("display", "flex", "important");
+            previewBtn.style.setProperty("display", "flex", "important");
         } else {
             saveSheetBtn.style.setProperty("display", "none", "important");
             stock1000Btn.style.setProperty("display", "none", "important");
             stock0Btn.style.setProperty("display", "none", "important");
+            preOrderBtn.style.setProperty("display", "none", "important");
+            previewBtn.style.setProperty("display", "none", "important");
         }
         
         if (isEdit) {
@@ -830,7 +1209,8 @@ function downloadExcelFileBypass(wb, filename) {
             
             if (maSp && maSp !== lastCheckedMaSp) {
                 lastCheckedMaSp = maSp;
-                saveSheetBtn.style.backgroundColor = "#ee4d2d"; // reset to orange
+                saveSheetBtn.style.setProperty("background-color", "#2563eb", "important");
+                saveSheetBtn.style.setProperty("background", "#2563eb", "important");
                 window.cachedSpShopee = null; // Clear old cache
                 
                 // Fetch sheet to check if maSp exists
@@ -867,10 +1247,12 @@ function downloadExcelFileBypass(wb, filename) {
                         }
                         
                         if (allMatch) {
-                            saveSheetBtn.style.backgroundColor = "#17a36b"; // green
+                            saveSheetBtn.style.setProperty("background-color", "#16a34a", "important");
+                            saveSheetBtn.style.setProperty("background", "#16a34a", "important");
                             saveSheetBtn.textContent = "Đã lưu SP";
                         } else {
-                            saveSheetBtn.style.backgroundColor = "#ee4d2d"; // orange
+                            saveSheetBtn.style.setProperty("background-color", "#2563eb", "important");
+                            saveSheetBtn.style.setProperty("background", "#2563eb", "important");
                             saveSheetBtn.textContent = "Lưu SP";
                         }
                     }
@@ -910,7 +1292,7 @@ function downloadExcelFileBypass(wb, filename) {
         btn1000.type = 'button';
         btn1000.textContent = '1000';
         btn1000.title = 'Điền 1000 vào từng kho của phân loại này';
-        btn1000.style.cssText = 'font-size: 11px !important; font-weight: bold !important; background: #16a34a !important; color: white !important; border: 1px solid #15803d !important; border-radius: 4px !important; padding: 2px 8px !important; cursor: pointer !important; line-height: 1.2 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;';
+        btn1000.style.cssText = 'font-size: 11px !important; font-weight: bold !important; background: #ea580c !important; color: white !important; border: 1px solid #c2410c !important; border-radius: 4px !important; padding: 2px 8px !important; cursor: pointer !important; line-height: 1.2 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;';
         btn1000.onclick = async (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -928,7 +1310,7 @@ function downloadExcelFileBypass(wb, filename) {
         btn0.type = 'button';
         btn0.textContent = '0';
         btn0.title = 'Điền 0 vào từng kho của phân loại này';
-        btn0.style.cssText = 'font-size: 11px !important; font-weight: bold !important; background: #ef4444 !important; color: white !important; border: 1px solid #b91c1c !important; border-radius: 4px !important; padding: 2px 6px !important; cursor: pointer !important; line-height: 1.2 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;';
+        btn0.style.cssText = 'font-size: 11px !important; font-weight: bold !important; background: #f97316 !important; color: white !important; border: 1px solid #ea580c !important; border-radius: 4px !important; padding: 2px 6px !important; cursor: pointer !important; line-height: 1.2 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;';
         btn0.onclick = async (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -964,7 +1346,7 @@ function downloadExcelFileBypass(wb, filename) {
         pBtn1000.type = 'button';
         pBtn1000.textContent = '⚡ Điền 1000';
         pBtn1000.title = 'Điền 1000 cho tất cả các kho đang hoạt động';
-        pBtn1000.style.cssText = 'padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; background: #16a34a !important; color: white !important; border: 1px solid #15803d !important; border-radius: 3px !important; cursor: pointer !important;';
+        pBtn1000.style.cssText = 'padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; background: #ea580c !important; color: white !important; border: 1px solid #c2410c !important; border-radius: 3px !important; cursor: pointer !important;';
         pBtn1000.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -975,7 +1357,7 @@ function downloadExcelFileBypass(wb, filename) {
         pBtn0.type = 'button';
         pBtn0.textContent = '⚡ Điền 0';
         pBtn0.title = 'Điền 0 cho tất cả các kho đang hoạt động';
-        pBtn0.style.cssText = 'padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; background: #dc2626 !important; color: white !important; border: 1px solid #b91c1c !important; border-radius: 3px !important; cursor: pointer !important;';
+        pBtn0.style.cssText = 'padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; background: #f97316 !important; color: white !important; border: 1px solid #ea580c !important; border-radius: 3px !important; cursor: pointer !important;';
         pBtn0.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -4052,6 +4434,125 @@ function downloadExcelFileBypass(wb, filename) {
     return `${dd}${mm}-${cleanGian}-${hh}${m}-${dailyStt}.xlsx`;
   }
 
+  function extractBuyerUsernameFromOrder(orderSnElement) {
+    if (!orderSnElement) return "";
+
+    try {
+      // 1. Tìm container chứa đơn hàng này (Card / Table Row / Wrapper)
+      let targetCard = orderSnElement.closest(
+        '.order-card, [class*="order-card"], [class*="orderCard"], [class*="order-box"], [class*="order-item"], tr.shopee-table__row, .shopee-table__row, [data-testid="order-item"], .order-item-wrapper, tbody, tr'
+      );
+
+      if (!targetCard) {
+        let cur = orderSnElement;
+        while (cur && cur.parentElement && cur !== document.body && cur !== document.documentElement) {
+          if (cur.querySelectorAll && cur.querySelectorAll("span.order-sn, .order-sn").length > 1) break;
+          if (cur.querySelector && (cur.querySelector("div.item-name") || cur.querySelector(".user-name") || cur.querySelector('[class*="buyer"]'))) {
+            targetCard = cur;
+          }
+          cur = cur.parentElement;
+        }
+      }
+
+      if (!targetCard) targetCard = orderSnElement.parentElement || document.body;
+
+      // 2. Quét các selector phổ biến của Shopee
+      const buyerSelectors = [
+        '.buyer-username',
+        '[data-testid="buyer-username"]',
+        '[class*="buyer-username"]',
+        '[class*="buyerName"]',
+        '[class*="buyer-name"]',
+        '[class*="buyerUserName"]',
+        '[class*="buyer_username"]',
+        '.order-item-header__buyer-name',
+        '.order-item-header__buyer',
+        '.order-item-header .buyer',
+        '.order-item-header .name',
+        '.order-item-header .user-name',
+        '.order-item-header [class*="buyer"]',
+        '.order-item-header [class*="user"]',
+        '.buyer .name',
+        '.buyer .user-name',
+        '.buyer',
+        '[class*="buyer"] .name',
+        '[class*="buyer"] [class*="name"]',
+        '.user-name',
+        '[class*="user-name"]',
+        '[class*="buyer-wrap"] a',
+        '[class*="buyer-wrap"] span',
+        '[class*="buyer"] a',
+        '[class*="buyer"] span',
+        '[class*="buyer"] div',
+        '.shopee-avatar + span',
+        '.shopee-avatar + div',
+        '.eds-avatar + span',
+        '.eds-avatar + div',
+        '[class*="avatar"] + span',
+        '[class*="avatar"] + div',
+        '[class*="avatar"] ~ span',
+        '[class*="avatar"] ~ div',
+        '[class*="avatar"] ~ a'
+      ];
+
+      for (const sel of buyerSelectors) {
+        const el = targetCard.querySelector(sel);
+        if (el) {
+          const clone = el.cloneNode(true);
+          clone.querySelectorAll('button, svg, i, [role="button"], [class*="chat"], .eds-icon, .shopee-qlsp-order-sn-copy, .ud-ct-badge').forEach(n => n.remove());
+          let name = clone.textContent.replace(/\s+/g, ' ').trim();
+          name = name.replace(/^(?:Người mua|Khách hàng|Buyer|Tên người mua)[:\s]*/i, '').trim();
+          if (name && name.length >= 2 && !/^(chat|xem|chi tiết|liên hệ|in đơn|tất cả|chờ xác nhận|chờ lấy hàng|đang giao|đã giao|đã hủy|mã đơn|sao chép|copy)$/i.test(name)) {
+            return name;
+          }
+        }
+      }
+
+      // 3. Quét các thẻ a, button, icon chat trong targetCard
+      const chatLinks = targetCard.querySelectorAll('a[href*="/buyer/"], a[href*="/user/"], [title*="chat" i], [aria-label*="chat" i], button[class*="chat"], [class*="chat-btn"], [class*="chat"]');
+      for (const link of chatLinks) {
+        const txt = link.textContent.trim() || link.getAttribute('title') || link.getAttribute('aria-label') || '';
+        const m = txt.match(/chat\s*(?:với)?\s*([a-zA-Z0-9._-]+)/i);
+        if (m && m[1] && !/^(shop|khách|người|bán|ngay)$/i.test(m[1])) return m[1].trim();
+
+        // Kiểm tra phần tử liền kề nút chat
+        const prev = link.previousElementSibling;
+        if (prev) {
+          const pTxt = (prev.textContent || "").trim();
+          if (pTxt && pTxt.length >= 2 && pTxt.length <= 35 && !pTxt.includes(" ") && !/^(chat|xem|mã đơn|in đơn)$/i.test(pTxt)) {
+            return pTxt;
+          }
+        }
+      }
+
+      // 4. Quét header của order card
+      const headerEl = targetCard.querySelector('.order-item-header, .order-header, [class*="header"]') || targetCard;
+      const spansInHeader = Array.from(headerEl.querySelectorAll('span, div, a')).filter(el => el.children.length === 0);
+      for (const sp of spansInHeader) {
+        if (sp.closest('button, .shopee-qlsp-order-sn-copy, .order-sn, [class*="order-sn"]')) continue;
+        const text = (sp.textContent || "").trim();
+        if (text && text.length >= 3 && text.length <= 30 && !text.includes(" ") && !text.includes(":") && !text.includes("/") && !text.includes("₫")) {
+          if (!/^(chat|xem|chitiet|detail|indon|indonhang|shopee|spx|nhanh|choxacnhan|cholayhang|danggiao|dagiao|dahuy|nhantin)$/i.test(text)) {
+            if (!/^[0-9]{6}[A-Z0-9]{6,14}$/i.test(text) && !/^\d{10,}$/.test(text)) {
+              return text;
+            }
+          }
+        }
+      }
+
+      // 5. Fallback quét text toàn bộ orderCard
+      const cardText = targetCard.innerText || targetCard.textContent || "";
+      const mText = cardText.match(/(?:Người mua|Khách hàng|Buyer)[:\s]+([a-zA-Z0-9._-]+)/i);
+      if (mText && mText[1] && !/^(shop|khách|người|bán|ngay)$/i.test(mText[1])) {
+        return mText[1].trim();
+      }
+    } catch (err) {
+      console.warn("[Shopee Ext] Lỗi extractBuyerUsernameFromOrder:", err);
+    }
+
+    return "";
+  }
+
   function renderOrderSnCopyButtons() {
     updateDonHangMdhCache().then(() => updateCopyAllButtonColors());
     if (!isOrderListPage()) {
@@ -4338,6 +4839,70 @@ function downloadExcelFileBypass(wb, filename) {
         });
       });
 
+      const chatKhachBtn = document.createElement("button");
+      chatKhachBtn.type = "button";
+      chatKhachBtn.className = ORDER_SN_COPY_BUTTON_CLASS + " btn-chat-khach";
+      chatKhachBtn.textContent = "💬 Chat khách";
+      chatKhachBtn.title = `Copy tên khách và mở Webchat gửi tin nhắn cho đơn ${orderSn}`;
+      chatKhachBtn.style.width = "auto";
+      chatKhachBtn.style.padding = "0 8px";
+      chatKhachBtn.style.marginLeft = "6px";
+      chatKhachBtn.style.backgroundColor = "#0284c7";
+      chatKhachBtn.style.color = "white";
+      chatKhachBtn.style.borderColor = "#0284c7";
+      chatKhachBtn.style.fontWeight = "bold";
+
+      chatKhachBtn.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        try {
+          let buyerName = extractBuyerUsernameFromOrder(orderSnElement);
+          const messageToSend = DEFAULT_CHAT_KHACH_MESSAGE;
+
+          if (buyerName) {
+            await copyTextToClipboard(buyerName);
+            showCopyButtonState(chatKhachBtn, "✓ " + buyerName);
+          } else {
+            showCopyButtonState(chatKhachBtn, "Đang mở chat...");
+          }
+
+          // Lưu thông tin chờ gửi vào chrome.storage.local
+          await chrome.storage.local.set({
+            pendingAutoChat: {
+              buyerName: buyerName || "",
+              message: messageToSend,
+              timestamp: Date.now()
+            }
+          });
+
+          // Gửi message tới background để mở hoặc focus tab Webchat
+          let backgroundHandled = false;
+          chrome.runtime.sendMessage({
+            type: "OPEN_AND_SEND_WEBCHAT_MESSAGE",
+            buyerName: buyerName || "",
+            message: messageToSend
+          }, (response) => {
+            if (response && response.ok) {
+              backgroundHandled = true;
+            }
+          });
+
+          // Fallback an toàn: nếu background bị sleep sau 350ms, mở tab trực tiếp
+          setTimeout(() => {
+            if (chrome.runtime.lastError || !backgroundHandled) {
+              try {
+                window.open("https://banhang.shopee.vn/new-webchat/conversations", "_blank");
+              } catch (_) {}
+            }
+          }, 400);
+        } catch (err) {
+          console.error("Lỗi click Chat khách:", err);
+          window.open("https://banhang.shopee.vn/new-webchat/conversations", "_blank");
+        }
+      });
+
+      orderSnElement.insertAdjacentElement("afterend", chatKhachBtn);
       orderSnElement.insertAdjacentElement("afterend", excelBtn);
       orderSnElement.insertAdjacentElement("afterend", copyAllBtn);
 
@@ -4486,7 +5051,8 @@ function downloadExcelFileBypass(wb, filename) {
     const storageRes = await new Promise(resolve => chrome.storage.local.get(["maGian", "dhHoanTextValue"], resolve));
     const maGian = (storageRes.maGian || storageRes.dhHoanTextValue || "").trim().toLowerCase();
 
-    for (const nameEl of document.querySelectorAll("div.item-name")) {
+    for (const nameEl of document.querySelectorAll("div.item-name, .order-item-name, [class*='product-name'], [class*='item-name'], [class*='goods-name']")) {
+      if (nameEl.classList?.contains('shopee-qlsp-sku-display') || nameEl.closest('.shopee-qlsp-sku-display')) continue;
       const currentText = nameEl.textContent.trim();
       if (nameEl.dataset.shopeeQlspSkuRendered === "1" && nameEl.dataset.shopeeQlspLastText === currentText) {
         continue;
@@ -4506,7 +5072,8 @@ function downloadExcelFileBypass(wb, filename) {
         continue;
       }
 
-      const varEl = nameEl.parentElement.querySelector("div.item-description");
+      const varEl = (parent ? parent.querySelector("div.item-description, .order-item-variation, [class*='item-description'], [class*='variation']") : null)
+        || nameEl.closest('div.item, .order-item, [class*="order-item"], tr')?.querySelector("div.item-description, .order-item-variation, [class*='item-description'], [class*='variation']");
       let varText = "";
       
       if (varEl) {
@@ -4517,40 +5084,44 @@ function downloadExcelFileBypass(wb, filename) {
 
       const normItemName = normalizeText(itemNameClean).toLowerCase();
       const normItemVar = normalizeText(varText).toLowerCase();
-      const cleanItemVar = normItemVar.replace(/^(variation|ph\u00e2n lo\u1ea1i h\u00e0ng|ph\u00e2n lo\u1ea1i)\s*:\s*/i, "").trim();
+      const cleanItemVar = normItemVar.replace(/^(?:variation|ph\u00e2n lo\u1ea1i h\u00e0ng|ph\u00e2n lo\u1ea1i)\s*:\s*/i, "").trim();
 
       let matchedSku = null;
 
-      for (const row of data) {
-        const sheetName = (row[1] || "").trim();
-        const sheetVar = (row[3] || "").trim();
-        const sheetSku = getShopeeSkuFromRow(row);
-        const isFallbackProductSku = isShopeeSkuFallbackFromProductSku(row);
-        const sheetGian = (row[11] || "").trim(); // Col L (index 11)
+      // 2 vòng tìm kiếm: Vòng 1 ưu tiên đúng mã gian, Vòng 2 tìm toàn sheet SP_SHOPEE nếu không thấy
+      const gianPasses = maGian ? [maGian, null] : [null];
+      for (const curGianFilter of gianPasses) {
+        if (matchedSku) break;
+        for (const row of data) {
+          const sheetName = (row[1] || "").trim();
+          const sheetVar = (row[3] || "").trim();
+          const sheetSku = getShopeeSkuFromRow(row);
+          const isFallbackProductSku = isShopeeSkuFallbackFromProductSku(row);
+          const sheetGian = (row[11] || "").trim().toLowerCase(); // Col L (index 11)
 
-        if (!sheetName) continue;
-        
-        // Filter by maGian if it is set
-        if (maGian && sheetGian.toLowerCase() !== maGian) continue;
+          if (!sheetName || !sheetSku) continue;
+          
+          // Filter by maGian if current pass specifies it
+          if (curGianFilter && sheetGian && sheetGian !== curGianFilter) continue;
 
-        const isNameMatch = isShopeeProductNameMatch(sheetName, itemNameClean);
+          const isNameMatch = isShopeeProductNameMatch(sheetName, itemNameClean);
+          if (!isNameMatch) continue;
 
-        if (!isNameMatch) continue;
-
-        const normSheetVar = normalizeText(sheetVar).toLowerCase();
-        
-        let isVarMatch = false;
-        if (isFallbackProductSku || (!normSheetVar && !cleanItemVar)) {
-          isVarMatch = true;
-        } else if (normSheetVar && cleanItemVar) {
-          if (normSheetVar === cleanItemVar || cleanItemVar.includes(normSheetVar) || normSheetVar.includes(cleanItemVar)) {
+          const normSheetVar = normalizeText(sheetVar).toLowerCase();
+          
+          let isVarMatch = false;
+          if (isFallbackProductSku || (!normSheetVar && !cleanItemVar)) {
             isVarMatch = true;
+          } else if (normSheetVar && cleanItemVar) {
+            if (normSheetVar === cleanItemVar || cleanItemVar.includes(normSheetVar) || normSheetVar.includes(cleanItemVar)) {
+              isVarMatch = true;
+            }
           }
-        }
 
-        if (isNameMatch && isVarMatch && sheetSku) {
-          matchedSku = sheetSku;
-          break;
+          if (isNameMatch && isVarMatch) {
+            matchedSku = sheetSku;
+            break;
+          }
         }
       }
 
@@ -4662,6 +5233,60 @@ function downloadExcelFileBypass(wb, filename) {
     } catch (e) {
       console.warn("Lỗi đọc link_km từ sheet CAI_DAT:", e);
     }
+    return "";
+  }
+
+  // Lấy ID Shop từ Cột G sheet CAI_DAT tương ứng với Mã gian tại Cột B
+  async function getShopIdByMaGian(maGian) {
+    try {
+      const rows = await getCaiDatDataList();
+      if (!rows || rows.length <= 1) return "";
+
+      const headers = (rows[0] || []).map(h => String(h || "").trim().toLowerCase());
+
+      // Cột B: Mã gian (index 1: A=0, B=1)
+      let gianIdx = headers.findIndex(h => h === "gian" || h === "mã gian" || h === "ma gian" || h === "ma_gian");
+      if (gianIdx === -1) gianIdx = 1;
+
+      // Cột G: ID Shop (index 6: A=0, B=1, C=2, D=3, E=4, F=5, G=6)
+      let shopIdIdx = headers.findIndex(h => 
+        h === "id_shop" || h === "id shop" || h === "shop_id" || h === "shopid" || 
+        h === "mã shop" || h === "ma shop" || h.includes("id_shop") || h.includes("shop_id") || 
+        h.includes("id shop") || h.includes("shopid")
+      );
+      if (shopIdIdx === -1) shopIdIdx = 6; // Cột G (index 6)
+
+      const targetGian = String(maGian || "").trim().toLowerCase();
+
+      // 1. Tìm đúng dòng có mã gian khớp với targetGian
+      if (targetGian) {
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          const rowGian = String(row[gianIdx] || "").trim().toLowerCase();
+          if (rowGian && rowGian === targetGian) {
+            const rawShopId = String(row[shopIdIdx] || "").trim();
+            const shopIdMatch = rawShopId.match(/\d{5,16}/);
+            if (shopIdMatch) return shopIdMatch[0];
+          }
+        }
+      }
+
+      // 2. Nếu không có targetGian hoặc chưa khớp, tìm dòng đầu tiên có ID Shop hợp lệ ở Cột G
+      for (let i = 1; i < rows.length; i++) {
+        const rawShopId = String(rows[i][shopIdIdx] || "").trim();
+        const shopIdMatch = rawShopId.match(/\d{5,16}/);
+        if (shopIdMatch) return shopIdMatch[0];
+      }
+    } catch (e) {
+      console.warn("Lỗi đọc id_shop từ sheet CAI_DAT:", e);
+    }
+
+    // 3. Fallback lấy ID Shop từ sessionStorage/localStorage nếu sheet chưa có
+    if (typeof getProductListShopId === "function") {
+      const fallbackId = getProductListShopId();
+      if (fallbackId) return fallbackId;
+    }
+
     return "";
   }
 
@@ -6877,282 +7502,683 @@ function downloadExcelFileBypass(wb, filename) {
     // =========================================================================
     // XỬ LÝ ĐỌC DANH SÁCH ĐƠN TỪ TRANG SHOPEE SELLER LIST (/portal/sale/order)
     // =========================================================================
-    if (message?.action === "SHOPEE_READ_ORDER_LIST_PAGE" || message?.type === "SHOPEE_READ_ORDER_LIST_PAGE") {
-      if (window.self !== window.top) return false;
-      try {
-        const orders = [];
-        const seenKeys = new Set();
-
-        const containers = Array.from(document.querySelectorAll(
-          'a.order-card, .order-card, [data-testid="order-item"], .order-item, [class*="order-item"], [class*="orderItem"], [class*="orderCard"], [class*="order-box"], tr.shopee-table__row, .shopee-table__row, a[href*="/portal/sale/order/"], a[href*="/portal/sale/order"]'
-        ));
-
-        const uniqueContainers = [];
-        const processedEls = new Set();
-
-        for (const el of containers) {
-          const outerCard = el.closest('.order-card, [data-testid="order-item"], .order-item, tr') || el;
-          if (!processedEls.has(outerCard)) {
-            processedEls.add(outerCard);
-            uniqueContainers.push(outerCard);
+    // =========================================================================
+    // HỖ TRỢ XÁC ĐỊNH TRẠNG THÁI LOAD TRANG & TRÍCH XUẤT SKU SHOPEE
+    // =========================================================================
+    function isShopeePageLoading() {
+      const selectors = [
+        '.eds-loading',
+        '.eds-loading__mask',
+        '.eds-loading-mask',
+        '.eds-loading__spinner',
+        '.shopee-react-loading',
+        '.eds-table--loading',
+        '.eds-spinner',
+        '[class*="loading-mask"]',
+        '[class*="shopee-loading"]',
+        '[class*="table--loading"]',
+        '.eds-skeleton',
+        '[aria-busy="true"]'
+      ];
+      for (const s of selectors) {
+        const els = document.querySelectorAll(s);
+        for (const el of els) {
+          if (el.offsetParent !== null || window.getComputedStyle(el).display !== 'none') {
+            return true;
           }
         }
+      }
+      return false;
+    }
 
-        uniqueContainers.forEach(container => {
-          try {
-            const containerText = container.innerText || container.textContent || "";
-            if (!containerText && !container.getAttribute('href')) return;
+    function getCurrentPageOrderSns() {
+      const sns = [];
+      const seen = new Set();
+      const cards = document.querySelectorAll(
+        'a.order-card, .order-card, [data-testid="order-item"], .order-item, [class*="order-item"], [class*="orderItem"], [class*="orderCard"], [class*="order-box"], tr.shopee-table__row, .shopee-table__row'
+      );
+      cards.forEach(card => {
+        let sn = "";
+        const snEl = card.querySelector('.order-sn, [class*="order-sn"], [class*="ordersn"], [data-testid="order-sn"], .order-id, [class*="order-id"], [class*="orderId"]');
+        if (snEl) {
+          const m = snEl.textContent.match(/([A-Z0-9]{10,30})/i);
+          if (m) sn = cleanOrderCode(m[1]);
+        }
+        if (!sn) {
+          const copyBtn = card.querySelector('[data-shopee-qlsp-copy-all-order-id]');
+          if (copyBtn) sn = cleanOrderCode(copyBtn.getAttribute('data-shopee-qlsp-copy-all-order-id') || "");
+        }
+        if (!sn) {
+          const href = card.getAttribute('href') || card.querySelector('a[href*="/portal/sale/order/"]')?.getAttribute('href') || '';
+          const mHref = href.match(/\/portal\/sale\/order\/(?:detail\/)?([a-zA-Z0-9_-]+)/);
+          if (mHref && !/^(order|list|mass|shipping|shipment|return|setting|settings|batch|all|unprocessed|toship|completed|cancelled|inprocess)$/i.test(mHref[1])) {
+            sn = cleanOrderCode(mHref[1]);
+          }
+        }
+        if (sn && !seen.has(sn)) {
+          seen.add(sn);
+          sns.push(sn);
+        }
+      });
 
-            // 1. Mã đơn hàng (Order SN)
-            let orderSn = "";
-
-            const orderSnEl = container.querySelector('.order-sn, [class*="order-sn"], [class*="ordersn"], [data-testid="order-sn"], .order-id, [class*="order-id"], [class*="orderId"]');
-            if (orderSnEl) {
-              const clone = orderSnEl.cloneNode(true);
-              clone.querySelectorAll('button, [role="button"], i, svg, .eds-icon, [class*="copy"], [class*="btn"], [class*="action"], [data-shopee-qlsp-copy-all-order-id], .ud-ct-badge, .shopee-qlsp-bulk-checkbox').forEach(b => b.remove());
-              const rawSnText = clone.textContent.trim();
-              const snMatch = rawSnText.match(/(?:Mã đơn hàng|Order SN|Mã đơn|Mã ĐH)?[:\s]*([A-Z0-9]{10,30})/i);
-              if (snMatch) {
-                orderSn = cleanOrderCode(snMatch[1]);
-              }
+      if (sns.length === 0) {
+        const returnIdEls = document.querySelectorAll('.order-id, .id.order-id, [class*="order-id"], [class*="orderId"], [class*="order-sn"]');
+        returnIdEls.forEach(el => {
+          const m = (el.textContent || '').match(/([0-9]{6}[a-zA-Z0-9]{6,20})/i) || (el.textContent || '').match(/([a-zA-Z0-9]{10,25})/i);
+          if (m) {
+            const sn = cleanOrderCode(m[1]);
+            if (sn && sn.length >= 8 && !seen.has(sn)) {
+              seen.add(sn);
+              sns.push(sn);
             }
-
-            if (!orderSn) {
-              const copyAllBtn = container.querySelector('[data-shopee-qlsp-copy-all-order-id]');
-              if (copyAllBtn) {
-                orderSn = cleanOrderCode(copyAllBtn.getAttribute('data-shopee-qlsp-copy-all-order-id') || "");
-              }
-            }
-
-            if (!orderSn) {
-              const attrId = container.getAttribute('data-order-id') || container.getAttribute('data-ordersn') || container.getAttribute('data-sn');
-              if (attrId) orderSn = cleanOrderCode(attrId);
-            }
-
-            let href = (container.getAttribute('href') || container.querySelector('a[href*="/portal/sale/order"]')?.getAttribute('href') || '').trim();
-            let urlId = "";
-            if (href) {
-              const mHref = href.match(/\/portal\/sale\/order\/(?:detail\/)?([a-zA-Z0-9_-]+)/);
-              if (mHref && !/^(order|list|mass|shipping|shipment|return|setting|settings|batch|all|unprocessed|toship|completed|cancelled|inprocess)$/i.test(mHref[1])) {
-                urlId = cleanOrderCode(mHref[1]);
-              }
-            }
-
-            if (!orderSn) {
-              const clone = container.cloneNode(true);
-              clone.querySelectorAll('button, [role="button"], i, svg, .eds-icon, [class*="copy"], [class*="btn"], [class*="action"], [data-shopee-qlsp-copy-all-order-id], .ud-ct-badge, .shopee-qlsp-bulk-checkbox').forEach(b => b.remove());
-              const cText = clone.textContent || "";
-              const snMatch = cText.match(/(?:Mã đơn hàng|Order SN|Mã đơn|Mã ĐH)[:\s]+([A-Z0-9]{10,30})/i)
-                || cText.match(/\b(2[0-9]{5}[A-Z0-9]{6,20})\b/)
-                || cText.match(/\b([0-9]{14,20})\b/);
-              if (snMatch) {
-                orderSn = cleanOrderCode(snMatch[1]);
-              } else if (urlId) {
-                orderSn = urlId;
-              }
-            }
-
-            if (!orderSn && !urlId) return;
-            const finalMdh = cleanOrderCode(orderSn || urlId);
-
-            const dedupKey = finalMdh.toLowerCase();
-            if (seenKeys.has(dedupKey)) return;
-            seenKeys.add(dedupKey);
-
-            // 2. Mã vận đơn (Tracking No)
-            let trackingNo = "";
-            const trackingEl = container.querySelector('.tracking-number, [class*="tracking-number"], .tracking-number-list, [class*="trackingNo"], [class*="tracking-no"], [class*="shipping-carrier"], [data-testid="tracking-number"]');
-            if (trackingEl) {
-              const clone = trackingEl.cloneNode(true);
-              clone.querySelectorAll('button, [role="button"], i, svg, .eds-icon, [class*="copy"], [class*="btn"], [class*="action"]').forEach(b => b.remove());
-              const tText = clone.textContent.trim();
-              const tMatch = tText.match(/([A-Z0-9_-]{6,30})/i);
-              if (tMatch) trackingNo = cleanOrderCode(tMatch[1]);
-            }
-
-            if (!trackingNo) {
-              const clone = container.cloneNode(true);
-              clone.querySelectorAll('button, [role="button"], i, svg, .eds-icon, [class*="copy"], [class*="btn"], [class*="action"]').forEach(b => b.remove());
-              const cText = clone.textContent || "";
-              const mvdMatch = cText.match(/(?:Mã vận đơn|Tracking No|MVD|Tracking|Vận đơn)[:\s]+([A-Z0-9_-]{6,30})/i)
-                || cText.match(/\b(VN[0-9A-Z]{8,22}|SPX[0-9A-Z]{8,22}|GHN[0-9A-Z]{6,22}|JNT[0-9A-Z]{6,22}|LEX[0-9A-Z]{6,22}|VNP[0-9A-Z]{6,22}|BEST[0-9A-Z]{6,22}|NJV[0-9A-Z]{6,22})\b/i);
-              if (mvdMatch) {
-                trackingNo = cleanOrderCode(mvdMatch[1]);
-              }
-            }
-
-            // 3. Link đơn hàng
-            let fullLink = "";
-            if (href) {
-              fullLink = href.startsWith('http') ? href : `https://banhang.shopee.vn${href.startsWith('/') ? '' : '/'}${href}`;
-            } else {
-              fullLink = `https://banhang.shopee.vn/portal/sale/order/${finalMdh}`;
-            }
-
-            // 4. Ngày đặt hàng
-            let orderDate = "";
-            const dateMatch = containerText.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
-            if (dateMatch) {
-              orderDate = dateMatch[1].replace(/\//g, "-");
-            } else {
-              const dateVnMatch = containerText.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-              if (dateVnMatch) {
-                orderDate = `${dateVnMatch[3]}-${dateVnMatch[2].padStart(2, '0')}-${dateVnMatch[1].padStart(2, '0')}`;
-              }
-            }
-
-            // 5. Tên khách hàng (Buyer Username)
-            let buyerUsername = "";
-            const buyerEl = container.querySelector('.buyer-username, [data-testid="buyer-username"], [class*="buyer-username"], [class*="buyerName"], [class*="buyer-name"]');
-            if (buyerEl) {
-              buyerUsername = buyerEl.textContent.trim();
-            }
-
-            // 6. Trạng thái đơn hàng
-            let orderStatus = "";
-            const statusEl = container.querySelector('[data-testid="order-status"], [class*="order-status"], [class*="orderStatus"], [class*="order-card-status"], [class*="status-badge"]');
-            if (statusEl) {
-              orderStatus = statusEl.textContent.trim();
-            } else {
-              const statusMatch = containerText.match(/(Chờ xác nhận|Chờ lấy hàng|Đang giao|Đã giao|Đã hủy|Trả hàng\/Hoàn tiền|Hoàn tiền|Đang xử lý)/i);
-              if (statusMatch) orderStatus = statusMatch[1];
-            }
-
-            // 7. Tổng tiền đơn hàng
-            let totalAmount = 0;
-            const totalEl = container.querySelector('[class*="order-total"], [class*="total-price"], [class*="income-value"], [class*="payment-amount"], [class*="order-price"]');
-            if (totalEl) {
-              const numStr = totalEl.textContent.replace(/[^0-9]/g, '');
-              if (numStr) totalAmount = parseInt(numStr, 10);
-            }
-            if (!totalAmount) {
-              const totalMatch = containerText.match(/(?:Tổng tiền|Tổng thanh toán|Số tiền|Thành tiền|Tổng giá trị)[:\s]*₫?\s*([\d\.,]+)/i);
-              if (totalMatch) {
-                totalAmount = parseInt(totalMatch[1].replace(/[^0-9]/g, ''), 10) || 0;
-              }
-            }
-
-            // 8. SKU / Tên SP / Số lượng (nếu có trên card)
-            let itemSku = "";
-            let itemName = "";
-            let itemQty = 1;
-            let itemPrice = totalAmount;
-
-            const nameEl = container.querySelector('.order-item-name, [class*="product-name"], [class*="item-name"], [class*="goods-name"]');
-            if (nameEl) itemName = nameEl.textContent.trim();
-
-            const skuEl = container.querySelector('.order-item-variation, [class*="variation"], [class*="item-sku"], [class*="sku-name"], [class*="model-name"]');
-            if (skuEl) itemSku = skuEl.textContent.trim();
-
-            const qtyEl = container.querySelector('.order-item-amount, [class*="item-quantity"], [class*="item-count"], [class*="goods-num"]');
-            if (qtyEl) {
-              const qMatch = qtyEl.textContent.match(/x\s*(\d+)/i) || qtyEl.textContent.match(/(\d+)/);
-              if (qMatch) itemQty = parseInt(qMatch[1], 10) || 1;
-            }
-
-            orders.push({
-              mdh: finalMdh,
-              mvd: trackingNo,
-              linkDon: fullLink,
-              ngay: orderDate,
-              tenKhach: buyerUsername,
-              trangThai: orderStatus,
-              tongTien: totalAmount,
-              sku: itemSku,
-              tenSp: itemName,
-              slg: itemQty,
-              donGia: itemPrice,
-              thanhTien: totalAmount
-            });
-          } catch (e) {
-            console.warn("Lỗi trích xuất 1 card đơn hàng:", e);
           }
         });
+      }
 
-        if (orders.length === 0) {
-          // Quét fallback toàn bộ các link đơn hàng trên trang
-          const allLinks = Array.from(document.querySelectorAll('a[href*="/portal/sale/order/"]'));
-          for (const a of allLinks) {
-            const href = a.getAttribute('href') || '';
-            const m = href.match(/\/portal\/sale\/order\/(?:detail\/)?([a-zA-Z0-9_-]+)/);
-            if (m && !/^(order|list|mass|shipping|shipment|return|setting|settings|batch|all|unprocessed|toship|completed|cancelled|inprocess)$/i.test(m[1])) {
-              const sn = m[1].trim();
-              if (sn && !seenKeys.has(sn.toLowerCase())) {
-                seenKeys.add(sn.toLowerCase());
-                orders.push({
-                  mdh: sn,
-                  mvd: "",
-                  linkDon: href.startsWith('http') ? href : `https://banhang.shopee.vn${href.startsWith('/') ? '' : '/'}${href}`,
-                  ngay: "",
-                  tenKhach: "",
-                  trangThai: "",
-                  tongTien: 0,
-                  sku: "",
-                  tenSp: "",
-                  slg: 1,
-                  donGia: 0,
-                  thanhTien: 0
-                });
-              }
-            }
-          }
+      return sns;
+    }
 
-          if (orders.length === 0) {
-            const allText = document.body.innerText;
-            const matches = allText.matchAll(/(?:Mã đơn hàng|Order SN|Mã đơn)[:\s]+([A-Z0-9]{10,25})/gi);
-            for (const m of matches) {
-              const sn = m[1].trim();
-              if (sn && !seenKeys.has(sn.toLowerCase())) {
-                seenKeys.add(sn.toLowerCase());
-                orders.push({
-                  mdh: sn,
-                  mvd: "",
-                  linkDon: `https://banhang.shopee.vn/portal/sale/order/${sn}`,
-                  ngay: "",
-                  tenKhach: "",
-                  trangThai: "",
-                  tongTien: 0,
-                  sku: "",
-                  tenSp: "",
-                  slg: 1,
-                  donGia: 0,
-                  thanhTien: 0
-                });
-              }
-            }
-          }
+    function getCurrentActivePageNum() {
+      const activeEl = document.querySelector(
+        '.eds-pager__item--active, .eds-pagination__item--active, .eds-pager__item.active, .eds-pagination__item.active, [class*="pager__item--active"], [class*="pagination__item--active"], li.active, [aria-current="page"]'
+      );
+      if (activeEl) {
+        const num = parseInt(activeEl.textContent.trim(), 10);
+        if (!isNaN(num)) return num;
+      }
+      return null;
+    }
+
+    async function waitForPageToFinishLoading(oldOrderSns = [], oldPageNum = null, maxWaitMs = 15000) {
+      const startTime = Date.now();
+      const oldSnsSet = new Set(oldOrderSns);
+
+      // Cho phép click đăng ký lên giao diện và xuất hiện spinner
+      await new Promise(r => setTimeout(r, 300));
+
+      while (Date.now() - startTime < maxWaitMs) {
+        // 1. Nếu còn spinner/overlay loading của Shopee thì tiếp tục đợi
+        if (isShopeePageLoading()) {
+          await new Promise(r => setTimeout(r, 150));
+          continue;
         }
 
-        sendResponse({ ok: true, count: orders.length, orders });
-      } catch (err) {
-        sendResponse({ ok: false, error: err.message, orders: [] });
+        const currentActivePage = getCurrentActivePageNum();
+        const currentOrderSns = getCurrentPageOrderSns();
+
+        // 2. Kiểm tra số trang hoặc danh sách mã đơn có thay đổi không
+        const pageNumChanged = oldPageNum !== null && currentActivePage !== null && currentActivePage !== oldPageNum;
+        const ordersChanged = currentOrderSns.length > 0 && (
+          oldSnsSet.size === 0 ||
+          currentOrderSns.some(sn => !oldSnsSet.has(sn))
+        );
+
+        if ((pageNumChanged || ordersChanged) && !isShopeePageLoading()) {
+          // Chờ thêm 600ms để React/Vue render xong danh sách con (tên SP, biến thể, giá)
+          await new Promise(r => setTimeout(r, 600));
+          if (isShopeePageLoading()) {
+            await new Promise(r => setTimeout(r, 300));
+            continue;
+          }
+
+          // Tiêm ngay badge SKU lên các đơn của trang mới
+          try {
+            await renderProductSkus();
+          } catch (e) {
+            console.warn("Lỗi renderProductSkus khi next trang:", e);
+          }
+          await new Promise(r => setTimeout(r, 300));
+
+          return {
+            ok: true,
+            loaded: true,
+            pageNum: currentActivePage,
+            orderCount: currentOrderSns.length
+          };
+        }
+
+        await new Promise(r => setTimeout(r, 150));
       }
+
+      // Hết timeout dự phòng
+      try {
+        await renderProductSkus();
+      } catch (_) {}
+      await new Promise(r => setTimeout(r, 300));
+
+      return {
+        ok: true,
+        loaded: false,
+        timeout: true,
+        pageNum: getCurrentActivePageNum(),
+        orderCount: getCurrentPageOrderSns().length
+      };
+    }
+
+    function extractBadgeSku(displayEl) {
+      if (!displayEl) return "";
+      const btn = displayEl.querySelector('button, [class*="copy"]');
+      if (btn) {
+        const t = btn.getAttribute('title') || btn.getAttribute('aria-label') || "";
+        const m = t.match(/(?:Copy\s*SKU\s*|SKU\s*[:\s]*)(.+)$/i);
+        if (m && m[1].trim()) return m[1].trim();
+      }
+      const clone = displayEl.cloneNode(true);
+      clone.querySelectorAll('button, svg, i, [class*="copy"]').forEach(n => n.remove());
+      let text = (clone.textContent || "").trim();
+      text = text.replace(/^SKU\s*[:\s]*/i, '').trim();
+      return text;
+    }
+
+    function lookupSkuFromSpShopee(itemName, itemVar, spData, preferredGian) {
+      if (!itemName || !spData || !spData.length) return "";
+
+      const normItemName = normalizeText(itemName).toLowerCase();
+      const normItemVar = normalizeText(itemVar || "").toLowerCase();
+      const cleanItemVar = normItemVar.replace(/^(?:variation|ph\u00e2n lo\u1ea1i h\u00e0ng|ph\u00e2n lo\u1ea1i)\s*[:\s]*/i, "").trim();
+      const prefGianNorm = (preferredGian || "").trim().toLowerCase();
+
+      // 2 vòng tìm kiếm: Vòng 1 ưu tiên đúng mã gian, Vòng 2 tìm toàn sheet nếu không thấy
+      const passes = prefGianNorm ? [prefGianNorm, null] : [null];
+
+      for (const filterGian of passes) {
+        for (const row of spData) {
+          const sheetName = (row[1] || "").trim();
+          const sheetVar = (row[3] || "").trim();
+          const sheetSku = getShopeeSkuFromRow(row);
+          const isFallbackProductSku = isShopeeSkuFallbackFromProductSku(row);
+          const sheetGian = (row[11] || "").trim().toLowerCase();
+
+          if (!sheetName || !sheetSku) continue;
+          if (filterGian && sheetGian && sheetGian !== filterGian) continue;
+
+          const isNameMatch = isShopeeProductNameMatch(sheetName, itemName);
+          if (!isNameMatch) continue;
+
+          const normSheetVar = normalizeText(sheetVar).toLowerCase();
+          let isVarMatch = false;
+          if (isFallbackProductSku || (!normSheetVar && !cleanItemVar)) {
+            isVarMatch = true;
+          } else if (normSheetVar && cleanItemVar) {
+            if (normSheetVar === cleanItemVar || cleanItemVar.includes(normSheetVar) || normSheetVar.includes(cleanItemVar)) {
+              isVarMatch = true;
+            }
+          }
+
+          if (isNameMatch && isVarMatch) {
+            return sheetSku;
+          }
+        }
+      }
+
+      return "";
+    }
+
+    // =========================================================================
+    // XỬ LÝ ĐỌC DANH SÁCH ĐƠN TỪ TRANG SHOPEE SELLER LIST (/portal/sale/order)
+    // =========================================================================
+    if (message?.action === "SHOPEE_READ_ORDER_LIST_PAGE" || message?.type === "SHOPEE_READ_ORDER_LIST_PAGE") {
+      if (window.self !== window.top) return false;
+      (async () => {
+        try {
+          // 1. Chờ nếu trang đang trong trạng thái loading
+          let loadWait = 0;
+          while (isShopeePageLoading() && loadWait < 10000) {
+            await new Promise(r => setTimeout(r, 200));
+            loadWait += 200;
+          }
+
+          // 2. Chạy renderProductSkus() để đảm bảo tất cả badge SKU được tiêm
+          try {
+            await renderProductSkus();
+          } catch (e) {
+            console.warn("Lỗi renderProductSkus trước khi đọc trang:", e);
+          }
+          await new Promise(r => setTimeout(r, 250));
+
+          // 3. Tải trước dữ liệu SP_SHOPEE để đối chiếu fallback nếu item thiếu badge
+          let spShopeeData = [];
+          try {
+            spShopeeData = await loadSpShopeeData() || [];
+          } catch (e) {
+            console.warn("Lỗi loadSpShopeeData:", e);
+          }
+
+          let preferredGian = "";
+          try {
+            const stRes = await new Promise(r => chrome.storage.local.get(["maGian", "dhHoanTextValue"], r));
+            preferredGian = (stRes?.maGian || stRes?.dhHoanTextValue || "").trim();
+          } catch (_) {}
+
+          const orders = [];
+          const seenKeys = new Set();
+
+          const containers = Array.from(document.querySelectorAll(
+            'a.order-card, .order-card, [data-testid="order-item"], .order-item, [class*="order-item"], [class*="orderItem"], [class*="orderCard"], [class*="order-box"], tr.shopee-table__row, .shopee-table__row, a[href*="/portal/sale/order/"], a[href*="/portal/sale/order"]'
+          ));
+
+          const uniqueContainers = [];
+          const processedEls = new Set();
+
+          for (const el of containers) {
+            const outerCard = el.closest('.order-card, [class*="order-card"], [class*="orderCard"], [class*="order-box"], tr.shopee-table__row, .shopee-table__row') || el.closest('[data-testid="order-item"], .order-item, tr') || el;
+            if (!processedEls.has(outerCard)) {
+              processedEls.add(outerCard);
+              uniqueContainers.push(outerCard);
+            }
+          }
+
+          uniqueContainers.forEach(container => {
+            try {
+              const containerText = container.innerText || container.textContent || "";
+              if (!containerText && !container.getAttribute('href')) return;
+
+              // 1. Mã đơn hàng (Order SN)
+              let orderSn = "";
+
+              const orderSnEl = container.querySelector('.order-sn, [class*="order-sn"], [class*="ordersn"], [data-testid="order-sn"], .order-id, [class*="order-id"], [class*="orderId"]');
+              if (orderSnEl) {
+                const clone = orderSnEl.cloneNode(true);
+                clone.querySelectorAll('button, [role="button"], i, svg, .eds-icon, [class*="copy"], [class*="btn"], [class*="action"], [data-shopee-qlsp-copy-all-order-id], .ud-ct-badge, .shopee-qlsp-bulk-checkbox').forEach(b => b.remove());
+                const rawSnText = clone.textContent.trim();
+                const snMatch = rawSnText.match(/(?:Mã đơn hàng|Order SN|Mã đơn|Mã ĐH)?[:\s]*([A-Z0-9]{10,30})/i);
+                if (snMatch) {
+                  orderSn = cleanOrderCode(snMatch[1]);
+                }
+              }
+
+              if (!orderSn) {
+                const copyAllBtn = container.querySelector('[data-shopee-qlsp-copy-all-order-id]');
+                if (copyAllBtn) {
+                  orderSn = cleanOrderCode(copyAllBtn.getAttribute('data-shopee-qlsp-copy-all-order-id') || "");
+                }
+              }
+
+              if (!orderSn) {
+                const attrId = container.getAttribute('data-order-id') || container.getAttribute('data-ordersn') || container.getAttribute('data-sn');
+                if (attrId) orderSn = cleanOrderCode(attrId);
+              }
+
+              let href = (container.getAttribute('href') || container.querySelector('a[href*="/portal/sale/order"]')?.getAttribute('href') || '').trim();
+              let urlId = "";
+              if (href) {
+                const mHref = href.match(/\/portal\/sale\/order\/(?:detail\/)?([a-zA-Z0-9_-]+)/);
+                if (mHref && !/^(order|list|mass|shipping|shipment|return|setting|settings|batch|all|unprocessed|toship|completed|cancelled|inprocess)$/i.test(mHref[1])) {
+                  urlId = cleanOrderCode(mHref[1]);
+                }
+              }
+
+              if (!orderSn) {
+                const clone = container.cloneNode(true);
+                clone.querySelectorAll('button, [role="button"], i, svg, .eds-icon, [class*="copy"], [class*="btn"], [class*="action"], [data-shopee-qlsp-copy-all-order-id], .ud-ct-badge, .shopee-qlsp-bulk-checkbox').forEach(b => b.remove());
+                const cText = clone.textContent || "";
+                const snMatch = cText.match(/(?:Mã đơn hàng|Order SN|Mã đơn|Mã ĐH)[:\s]+([A-Z0-9]{10,30})/i)
+                  || cText.match(/\b(2[0-9]{5}[A-Z0-9]{6,20})\b/)
+                  || cText.match(/\b([0-9]{14,20})\b/);
+                if (snMatch) {
+                  orderSn = cleanOrderCode(snMatch[1]);
+                } else if (urlId) {
+                  orderSn = urlId;
+                }
+              }
+
+              if (!orderSn && !urlId) return;
+              const finalMdh = cleanOrderCode(orderSn || urlId);
+
+              const dedupKey = finalMdh.toLowerCase();
+              if (seenKeys.has(dedupKey)) return;
+              seenKeys.add(dedupKey);
+
+              // 2. Mã vận đơn (Tracking No)
+              let trackingNo = "";
+              const trackingEl = container.querySelector('.tracking-number, [class*="tracking-number"], .tracking-number-list, [class*="trackingNo"], [class*="tracking-no"], [class*="shipping-carrier"], [data-testid="tracking-number"]');
+              if (trackingEl) {
+                const clone = trackingEl.cloneNode(true);
+                clone.querySelectorAll('button, [role="button"], i, svg, .eds-icon, [class*="copy"], [class*="btn"], [class*="action"]').forEach(b => b.remove());
+                const tText = clone.textContent.trim();
+                const tMatch = tText.match(/([A-Z0-9_-]{6,30})/i);
+                if (tMatch) trackingNo = cleanOrderCode(tMatch[1]);
+              }
+
+              if (!trackingNo) {
+                const clone = container.cloneNode(true);
+                clone.querySelectorAll('button, [role="button"], i, svg, .eds-icon, [class*="copy"], [class*="btn"], [class*="action"]').forEach(b => b.remove());
+                const cText = clone.textContent || "";
+                const mvdMatch = cText.match(/(?:Mã vận đơn|Tracking No|MVD|Tracking|Vận đơn)[:\s]+([A-Z0-9_-]{6,30})/i)
+                  || cText.match(/\b(VN[0-9A-Z]{8,22}|SPX[0-9A-Z]{8,22}|GHN[0-9A-Z]{6,22}|JNT[0-9A-Z]{6,22}|LEX[0-9A-Z]{6,22}|VNP[0-9A-Z]{6,22}|BEST[0-9A-Z]{6,22}|NJV[0-9A-Z]{6,22})\b/i);
+                if (mvdMatch) {
+                  trackingNo = cleanOrderCode(mvdMatch[1]);
+                }
+              }
+
+              // 3. Link đơn hàng
+              let fullLink = "";
+              if (href) {
+                fullLink = href.startsWith('http') ? href : `https://banhang.shopee.vn${href.startsWith('/') ? '' : '/'}${href}`;
+              } else {
+                fullLink = `https://banhang.shopee.vn/portal/sale/order/${finalMdh}`;
+              }
+
+              // 4. Ngày đặt hàng
+              let orderDate = "";
+              const dateMatch = containerText.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
+              if (dateMatch) {
+                orderDate = dateMatch[1].replace(/\//g, "-");
+              } else {
+                const dateVnMatch = containerText.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+                if (dateVnMatch) {
+                  orderDate = `${dateVnMatch[3]}-${dateVnMatch[2].padStart(2, '0')}-${dateVnMatch[1].padStart(2, '0')}`;
+                }
+              }
+
+              // 5. Tên khách hàng (Buyer Username)
+              let buyerUsername = "";
+              const buyerEl = container.querySelector('.buyer-username, [data-testid="buyer-username"], [class*="buyer-username"], [class*="buyerName"], [class*="buyer-name"]');
+              if (buyerEl) {
+                buyerUsername = buyerEl.textContent.trim();
+              }
+
+              // 6. Trạng thái đơn hàng
+              let orderStatus = "";
+              const statusEl = container.querySelector('[data-testid="order-status"], [class*="order-status"], [class*="orderStatus"], [class*="order-card-status"], [class*="status-badge"]');
+              if (statusEl) {
+                orderStatus = statusEl.textContent.trim();
+              } else {
+                const statusMatch = containerText.match(/(Chờ xác nhận|Chờ lấy hàng|Đang giao|Đã giao|Đã hủy|Trả hàng\/Hoàn tiền|Hoàn tiền|Đang xử lý)/i);
+                if (statusMatch) orderStatus = statusMatch[1];
+              }
+
+              // 7. Tổng tiền đơn hàng
+              let totalAmount = 0;
+              const totalEl = container.querySelector('[class*="order-total"], [class*="total-price"], [class*="income-value"], [class*="payment-amount"], [class*="order-price"]');
+              if (totalEl) {
+                const numStr = totalEl.textContent.replace(/[^0-9]/g, '');
+                if (numStr) totalAmount = parseInt(numStr, 10);
+              }
+              if (!totalAmount) {
+                const totalMatch = containerText.match(/(?:Tổng tiền|Tổng thanh toán|Số tiền|Thành tiền|Tổng giá trị)[:\s]*₫?\s*([\d\.,]+)/i);
+                if (totalMatch) {
+                  totalAmount = parseInt(totalMatch[1].replace(/[^0-9]/g, ''), 10) || 0;
+                }
+              }
+
+              // 8. SKU / Tên SP / Số lượng (tách biệt per-item, chống nhiễm chéo SKU)
+              const parsedItems = [];
+
+              // Tìm tất cả các phần tử tên sản phẩm trong card
+              const allNameNodes = Array.from(container.querySelectorAll('div.item-name, .order-item-name, [class*="product-name"], [class*="item-name"], [class*="goods-name"]'))
+                .filter(el => !el.classList?.contains('shopee-qlsp-sku-display') && !el.closest('.shopee-qlsp-sku-display'));
+
+              const uniqueNameEls = allNameNodes.filter(ne => !allNameNodes.some(other => other !== ne && other.contains(ne)));
+
+              if (uniqueNameEls.length > 0) {
+                uniqueNameEls.forEach(nameEl => {
+                  const itemEl = nameEl.closest('div.item, .order-item, [class*="order-item"], [class*="orderProduct"], [class*="item-card"], [class*="product-item"], tr, li') || nameEl.parentElement || nameEl;
+
+                  // Tên SP
+                  const cloneN = nameEl.cloneNode(true);
+                  cloneN.querySelectorAll('button, .shopee-qlsp-sku-display, [class*="copy"]').forEach(n => n.remove());
+                  const itemNameClean = cloneN.textContent.replace(/\s+/g, ' ').trim();
+
+                  // Phân loại hàng (Variation)
+                  const varEl = (itemEl !== nameEl ? itemEl.querySelector('div.item-description, .order-item-variation, [class*="item-description"], [class*="variation"]') : null)
+                    || nameEl.parentElement?.querySelector('div.item-description, .order-item-variation, [class*="item-description"], [class*="variation"]');
+                  let varText = "";
+                  if (varEl) {
+                    const cloneV = varEl.cloneNode(true);
+                    cloneV.querySelectorAll('button, .shopee-qlsp-sku-display, [class*="copy"]').forEach(n => n.remove());
+                    varText = cloneV.textContent.replace(/\s+/g, ' ').trim();
+                    varText = varText.replace(/^(?:Phân loại hàng|Phân loại|Variation)\s*[:\s]*/i, '').trim();
+                  }
+
+                  // Số lượng
+                  let itemQty = 1;
+                  const qtyEl = (itemEl !== nameEl ? itemEl.querySelector('div.item-amount, .order-item-amount, [class*="item-quantity"], [class*="item-count"], [class*="goods-num"]') : null)
+                    || nameEl.parentElement?.querySelector('div.item-amount, .order-item-amount, [class*="item-quantity"], [class*="item-count"], [class*="goods-num"]');
+                  if (qtyEl) {
+                    const qMatch = qtyEl.textContent.match(/x\s*(\d+)/i) || qtyEl.textContent.match(/(\d+)/);
+                    if (qMatch) itemQty = parseInt(qMatch[1], 10) || 1;
+                  }
+
+                  // SKU: Tìm riêng cho item này
+                  let itemSku = "";
+
+                  // A. Tìm badge .shopee-qlsp-sku-display nằm ngay sau varEl hoặc nameEl
+                  let sib = (varEl || nameEl)?.nextElementSibling;
+                  while (sib) {
+                    if (sib.classList?.contains("shopee-qlsp-sku-display") || sib.matches?.('.shopee-qlsp-sku-display, [class*="sku-display"]')) {
+                      itemSku = extractBadgeSku(sib);
+                      break;
+                    }
+                    if (sib.classList?.contains("item-name") || sib.querySelector?.("div.item-name, .order-item-name")) break;
+                    sib = sib.nextElementSibling;
+                  }
+
+                  // B. Tìm bên trong itemEl (chỉ khi itemEl chỉ chứa duy nhất 1 sản phẩm này)
+                  if (!itemSku && itemEl && itemEl !== container) {
+                    const namesInItem = itemEl.querySelectorAll('div.item-name, .order-item-name, [class*="product-name"]');
+                    if (namesInItem.length <= 1) {
+                      const disp = itemEl.querySelector('.shopee-qlsp-sku-display, [class*="sku-display"]');
+                      if (disp) {
+                        itemSku = extractBadgeSku(disp);
+                      }
+                    }
+                  }
+
+                  // C. Tìm SKU tự nhiên do Shopee hiển thị
+                  if (!itemSku && itemEl && itemEl !== container) {
+                    const nativeSkuEl = itemEl.querySelector?.('[class*="item-sku"], [class*="sku-name"], [class*="model-name"], .sku');
+                    if (nativeSkuEl) {
+                      const cloneS = nativeSkuEl.cloneNode(true);
+                      cloneS.querySelectorAll('button, svg, i, [class*="copy"]').forEach(n => n.remove());
+                      let t = cloneS.textContent.trim();
+                      const m = t.match(/(?:SKU|Mã SKU|SKU phân loại)\s*[:\s]*([A-Z0-9_.-]+)/i);
+                      if (m) {
+                        itemSku = m[1].trim();
+                      } else if (/^[A-Z0-9_.-]{4,35}$/i.test(t)) {
+                        itemSku = t;
+                      }
+                    }
+                    if (!itemSku) {
+                      const rawText = itemEl.innerText || itemEl.textContent || "";
+                      const m = rawText.match(/(?:SKU phân loại|Mã SKU|SKU)\s*[:\s]+([A-Z0-9_.-]+)/i);
+                      if (m) itemSku = m[1].trim();
+                    }
+                  }
+
+                  // D. Fallback đối chiếu trực tiếp với dữ liệu SP_SHOPEE
+                  if (!itemSku && spShopeeData && spShopeeData.length > 0) {
+                    itemSku = lookupSkuFromSpShopee(itemNameClean, varText, spShopeeData, preferredGian);
+                  }
+
+                  if (itemSku || itemNameClean) {
+                    parsedItems.push({
+                      sku: itemSku || "",
+                      tenSp: itemNameClean,
+                      tenPhanLoai: varText,
+                      slg: itemQty
+                    });
+                  }
+                });
+              }
+
+              // Fallback nếu không có uniqueNameEls
+              if (parsedItems.length === 0) {
+                let itemName = "";
+                const nameEl = container.querySelector('div.item-name, .order-item-name, [class*="product-name"], [class*="item-name"], [class*="goods-name"]');
+                if (nameEl) {
+                  const cloneN = nameEl.cloneNode(true);
+                  cloneN.querySelectorAll('button, .shopee-qlsp-sku-display, [class*="copy"]').forEach(n => n.remove());
+                  itemName = cloneN.textContent.trim();
+                }
+
+                let varText = "";
+                const varEl = container.querySelector('div.item-description, .order-item-variation, [class*="item-description"], [class*="variation"]');
+                if (varEl) {
+                  const cloneV = varEl.cloneNode(true);
+                  cloneV.querySelectorAll('button, .shopee-qlsp-sku-display, [class*="copy"]').forEach(n => n.remove());
+                  varText = cloneV.textContent.replace(/\s+/g, ' ').trim();
+                  varText = varText.replace(/^(?:Phân loại hàng|Phân loại|Variation)\s*[:\s]*/i, '').trim();
+                }
+
+                let itemQty = 1;
+                const qtyEl = container.querySelector('div.item-amount, .order-item-amount, [class*="item-quantity"], [class*="item-count"], [class*="goods-num"]');
+                if (qtyEl) {
+                  const qMatch = qtyEl.textContent.match(/x\s*(\d+)/i) || qtyEl.textContent.match(/(\d+)/);
+                  if (qMatch) itemQty = parseInt(qMatch[1], 10) || 1;
+                }
+
+                let itemSku = "";
+                const disp = container.querySelector('.shopee-qlsp-sku-display, [class*="sku-display"]');
+                if (disp) itemSku = extractBadgeSku(disp);
+                if (!itemSku && spShopeeData && spShopeeData.length > 0) {
+                  itemSku = lookupSkuFromSpShopee(itemName, varText, spShopeeData, preferredGian);
+                }
+
+                parsedItems.push({ sku: itemSku || "", tenSp: itemName, tenPhanLoai: varText, slg: itemQty });
+              }
+
+              // Chống trùng lặp dòng sản phẩm trong cùng 1 card đơn hàng
+              const seenItemSigs = new Set();
+              const finalItems = parsedItems.filter(it => {
+                const sig = `${it.sku}__${it.tenSp}__${it.tenPhanLoai}__${it.slg}`;
+                if (seenItemSigs.has(sig)) return false;
+                seenItemSigs.add(sig);
+                return true;
+              });
+
+              finalItems.forEach(it => {
+                orders.push({
+                  mdh: finalMdh,
+                  mvd: trackingNo,
+                  linkDon: fullLink,
+                  ngay: orderDate,
+                  tenKhach: buyerUsername,
+                  trangThai: orderStatus,
+                  tongTien: totalAmount,
+                  sku: it.sku,
+                  tenSp: it.tenSp,
+                  tenPhanLoai: it.tenPhanLoai,
+                  slg: it.slg,
+                  donGia: 0,
+                  thanhTien: 0
+                });
+              });
+            } catch (e) {
+              console.warn("Lỗi trích xuất 1 card đơn hàng:", e);
+            }
+          });
+
+          if (orders.length === 0) {
+            // Quét fallback toàn bộ các link đơn hàng trên trang
+            const allLinks = Array.from(document.querySelectorAll('a[href*="/portal/sale/order/"]'));
+            for (const a of allLinks) {
+              const href = a.getAttribute('href') || '';
+              const m = href.match(/\/portal\/sale\/order\/(?:detail\/)?([a-zA-Z0-9_-]+)/);
+              if (m && !/^(order|list|mass|shipping|shipment|return|setting|settings|batch|all|unprocessed|toship|completed|cancelled|inprocess)$/i.test(m[1])) {
+                const sn = m[1].trim();
+                if (sn && !seenKeys.has(sn.toLowerCase())) {
+                  seenKeys.add(sn.toLowerCase());
+                  orders.push({
+                    mdh: sn,
+                    mvd: "",
+                    linkDon: href.startsWith('http') ? href : `https://banhang.shopee.vn${href.startsWith('/') ? '' : '/'}${href}`,
+                    ngay: "",
+                    tenKhach: "",
+                    trangThai: "",
+                    tongTien: 0,
+                    sku: "",
+                    tenSp: "",
+                    tenPhanLoai: "",
+                    slg: 1,
+                    donGia: 0,
+                    thanhTien: 0
+                  });
+                }
+              }
+            }
+
+            if (orders.length === 0) {
+              const allText = document.body.innerText;
+              const matches = allText.matchAll(/(?:Mã đơn hàng|Order SN|Mã đơn)[:\s]+([A-Z0-9]{10,25})/gi);
+              for (const m of matches) {
+                const sn = m[1].trim();
+                if (sn && !seenKeys.has(sn.toLowerCase())) {
+                  seenKeys.add(sn.toLowerCase());
+                  orders.push({
+                    mdh: sn,
+                    mvd: "",
+                    linkDon: `https://banhang.shopee.vn/portal/sale/order/${sn}`,
+                    ngay: "",
+                    tenKhach: "",
+                    trangThai: "",
+                    tongTien: 0,
+                    sku: "",
+                    tenSp: "",
+                    tenPhanLoai: "",
+                    slg: 1,
+                    donGia: 0,
+                    thanhTien: 0
+                  });
+                }
+              }
+            }
+          }
+
+          sendResponse({ ok: true, count: orders.length, orders });
+        } catch (err) {
+          sendResponse({ ok: false, error: err.message, orders: [] });
+        }
+      })();
       return true;
     }
 
     if (message?.action === "SHOPEE_CLICK_NEXT_PAGE" || message?.type === "SHOPEE_CLICK_NEXT_PAGE") {
       if (window.self !== window.top) return false;
-      try {
-        const nextBtn = document.querySelector(
-          '.eds-pager__next:not(.disabled):not([disabled]), ' +
-          'button.shopee-pager__next:not([disabled]), ' +
-          '[class*="pager"] button[aria-label*="next"]:not([disabled]), ' +
-          '[class*="pagination"] button:last-child:not([disabled]), ' +
-          'button.shopee-icon-button--right:not([disabled]), ' +
-          '.eds-pagination__next:not(.disabled):not([disabled]), ' +
-          '[class*="pagination"] li:last-child:not(.disabled) button, ' +
-          '.shopee-icon-next'
-        );
+      (async () => {
+        try {
+          const nextBtn = document.querySelector(
+            '.eds-pager__next:not(.disabled):not([disabled]), ' +
+            'button.shopee-pager__next:not([disabled]), ' +
+            '[class*="pager"] button[aria-label*="next"]:not([disabled]), ' +
+            '[class*="pagination"] button:last-child:not([disabled]), ' +
+            'button.shopee-icon-button--right:not([disabled]), ' +
+            '.eds-pagination__next:not(.disabled):not([disabled]), ' +
+            '[class*="pagination"] li:last-child:not(.disabled) button, ' +
+            '.shopee-icon-next'
+          );
 
-        if (nextBtn && !nextBtn.disabled && !nextBtn.classList.contains("disabled") && !nextBtn.getAttribute("aria-disabled")?.includes("true")) {
-          nextBtn.click();
-          sendResponse({ ok: true, hasNext: true });
-        } else {
-          sendResponse({ ok: true, hasNext: false, message: "Đã ở trang cuối cùng." });
+          if (!nextBtn || nextBtn.disabled || nextBtn.classList.contains("disabled") || nextBtn.getAttribute("aria-disabled")?.includes("true")) {
+            sendResponse({ ok: true, hasNext: false, message: "Đã ở trang cuối cùng." });
+            return;
+          }
+
+          const oldOrderSns = getCurrentPageOrderSns();
+          const oldPageNum = getCurrentActivePageNum();
+
+          const targetToClick = nextBtn.closest('button, li') || nextBtn;
+          ['mousedown', 'mouseup', 'click'].forEach(ev => {
+            try {
+              targetToClick.dispatchEvent(new MouseEvent(ev, { bubbles: true, cancelable: true }));
+            } catch (e) {}
+          });
+          if (targetToClick.click) targetToClick.click();
+          if (nextBtn !== targetToClick && nextBtn.click) nextBtn.click();
+
+          // Chờ trang mới tải xong hoàn toàn + tiêm badge SKU ổn định
+          const waitResult = await waitForPageToFinishLoading(oldOrderSns, oldPageNum, 15000);
+
+          sendResponse({
+            ok: true,
+            hasNext: true,
+            pageNum: waitResult.pageNum,
+            orderCount: waitResult.orderCount,
+            timeout: waitResult.timeout || false
+          });
+        } catch (err) {
+          sendResponse({ ok: false, error: err.message, hasNext: false });
         }
-      } catch (err) {
-        sendResponse({ ok: false, error: err.message, hasNext: false });
-      }
+      })();
       return true;
     }
 
@@ -7180,6 +8206,13 @@ function downloadExcelFileBypass(wb, filename) {
           sendResponse({ success: false, message: e.message });
         }
       })();
+      return true;
+    }
+
+    if (message?.action === "EXECUTE_AUTO_CHAT_BUYER" || message?.type === "EXECUTE_AUTO_CHAT_BUYER") {
+      runAutoChatBuyerSafe(message.buyerName, message.message)
+        .then(result => sendResponse(result))
+        .catch(err => sendResponse({ ok: false, error: err.message }));
       return true;
     }
 
@@ -7348,6 +8381,605 @@ function downloadExcelFileBypass(wb, filename) {
         attachChatObserver();
       }
     } catch (e) {}
+  }
+
+  // =========================================================================
+  // SHOPEE WEBCHAT AUTO-CHAT AUTOMATION (TỰ ĐỘNG CHAT KHÁCH HÀNG)
+  // =========================================================================
+  function showWebchatToast(msg, type = "info") {
+    let toast = document.getElementById("shopee-ext-webchat-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "shopee-ext-webchat-toast";
+      toast.style.cssText = "position: fixed; top: 20px; right: 20px; z-index: 9999999; padding: 12px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,0.3); color: white; display: flex; align-items: center; gap: 8px; transition: all 0.3s ease; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;";
+      document.body.appendChild(toast);
+    }
+    if (type === "success") {
+      toast.style.backgroundColor = "#10b981";
+    } else if (type === "error") {
+      toast.style.backgroundColor = "#ef4444";
+    } else {
+      toast.style.backgroundColor = "#0284c7";
+    }
+    toast.textContent = msg;
+    toast.style.display = "flex";
+    toast.style.opacity = "1";
+    if (window._shopeeToastTimer) clearTimeout(window._shopeeToastTimer);
+    window._shopeeToastTimer = setTimeout(() => {
+      if (toast) {
+        toast.style.opacity = "0";
+        setTimeout(() => { if (toast) toast.style.display = "none"; }, 300);
+      }
+    }, 4500);
+  }
+
+  function findWebchatSearchContainer() {
+    // 1. Đúng selector chính xác mà user cung cấp: div.shopee-react-input._2VVLYzIyBp hoặc div._2VVLYzIyBp
+    const specific = document.querySelector('div.shopee-react-input._2VVLYzIyBp, div._2VVLYzIyBp');
+    if (specific) return specific;
+
+    // 2. Tìm container shopee-react-input chứa input placeholder Tìm kiếm
+    const allContainers = Array.from(document.querySelectorAll('div.shopee-react-input, div.shopee-react-input__inner, div[class*="search"]'));
+    for (const c of allContainers) {
+      if (c.querySelector('input.shopee-react-input__input, input[placeholder*="Tìm kiếm"], input[placeholder*="search" i]')) {
+        return c;
+      }
+    }
+
+    // 3. Nằm trong sidebar hoặc conversation list
+    const sidebar = document.querySelector('[data-cy="webchat-conversation-list"], [class*="conversation-list"], [class*="sidebar"], [class*="chat-list"]');
+    if (sidebar) {
+      const c = sidebar.querySelector('div.shopee-react-input._2VVLYzIyBp, div._2VVLYzIyBp, div.shopee-react-input');
+      if (c) return c;
+    }
+
+    return null;
+  }
+
+  function findWebchatSearchInput(container) {
+    if (container) {
+      const inp = container.querySelector('input.shopee-react-input__input, input[placeholder*="Tìm kiếm"], input');
+      if (inp) return inp;
+    }
+
+    const specific = document.querySelector('div.shopee-react-input._2VVLYzIyBp input, div._2VVLYzIyBp input');
+    if (specific) return specific;
+
+    const allInputs = Array.from(document.querySelectorAll('input'));
+    let target = allInputs.find(i => {
+      const ph = (i.getAttribute('placeholder') || '').toLowerCase();
+      return (ph.includes('tìm kiếm') || ph.includes('search') || ph.includes('tìm')) && i.offsetParent !== null;
+    }) || allInputs.find(i => {
+      const ph = (i.getAttribute('placeholder') || '').toLowerCase();
+      return ph.includes('tìm kiếm') || ph.includes('search') || ph.includes('tìm');
+    });
+    if (target) return target;
+
+    target = allInputs.find(i => {
+      const cls = i.className || '';
+      return cls.includes('shopee-react-input__input') && !i.closest('[data-cy="webchat-conversation-detail"]');
+    });
+    if (target) return target;
+
+    return document.querySelector('input.shopee-react-input__input, input[placeholder*="Tìm kiếm"]');
+  }
+
+  async function waitForSearchContainer(timeoutMs = 25000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const c = findWebchatSearchContainer();
+      if (c) return c;
+      const inp = findWebchatSearchInput(null);
+      if (inp) return inp.closest('div.shopee-react-input') || inp.parentElement || inp;
+      await new Promise(r => setTimeout(r, 400));
+    }
+    return null;
+  }
+
+  // Điền giá trị vào React Input/Textarea bằng 3 cơ chế đồng thời:
+  // 1. Script injection vào MAIN world (truy cập trực tiếp prototype, React fiber, _valueTracker)
+  // 2. window.postMessage tới shopee-fetch-interceptor.js (chạy trong MAIN world)
+  // 3. Setter trực tiếp trong ISOLATED world
+  async function applyValueToReactElement(input, value, isSearch = true) {
+    if (!input) return false;
+    const text = String(value || "");
+
+    // 1. Nếu là ô tìm kiếm: Click vào container div.shopee-react-input._2VVLYzIyBp trước theo đúng quy trình!
+    if (isSearch) {
+      const container = input.closest('div.shopee-react-input._2VVLYzIyBp, div._2VVLYzIyBp, div.shopee-react-input') ||
+                        findWebchatSearchContainer();
+      if (container) {
+        try {
+          container.scrollIntoView({ block: "center", inline: "nearest" });
+          container.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+          container.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+          container.click();
+          const inner = container.querySelector('.shopee-react-input__inner');
+          if (inner) inner.click();
+        } catch (_) {}
+
+        // Nếu có nút xóa cũ (clear button), bấm để xóa sạch trước khi dán
+        const clearBtn = container.querySelector('.shopee-react-input__clear-btn, [class*="clear-btn"]') ||
+                         document.querySelector('.shopee-react-input__clear-btn');
+        if (clearBtn) {
+          try { clearBtn.click(); } catch (_) {}
+        }
+      }
+    }
+
+    input.scrollIntoView({ block: "center", inline: "nearest" });
+    input.focus();
+    input.click();
+    input.select();
+
+    // 2. Chạy snippet trực tiếp trong MAIN world qua thẻ <script>
+    try {
+      const script = document.createElement("script");
+      script.textContent = `(function() {
+        const text = ${JSON.stringify(text)};
+        const isSearch = ${isSearch ? "true" : "false"};
+        let el = null;
+        if (isSearch) {
+          const container = document.querySelector('div.shopee-react-input._2VVLYzIyBp, div._2VVLYzIyBp, div.shopee-react-input');
+          if (container) {
+            try {
+              container.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+              container.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+              container.click();
+              const inner = container.querySelector('.shopee-react-input__inner');
+              if (inner) inner.click();
+              const clearBtn = container.querySelector('.shopee-react-input__clear-btn, [class*="clear-btn"]');
+              if (clearBtn) clearBtn.click();
+            } catch(e) {}
+            el = container.querySelector('input.shopee-react-input__input, input');
+          }
+          if (!el) {
+            const allInputs = Array.from(document.querySelectorAll('input'));
+            el = allInputs.find(i => {
+              const ph = (i.getAttribute('placeholder') || '').toLowerCase();
+              return (ph.includes('tìm kiếm') || ph.includes('search') || ph.includes('tìm')) && i.offsetParent !== null;
+            }) || allInputs.find(i => {
+              const ph = (i.getAttribute('placeholder') || '').toLowerCase();
+              return ph.includes('tìm kiếm') || ph.includes('search') || ph.includes('tìm');
+            }) || allInputs.find(i => {
+              const cls = i.className || '';
+              return cls.includes('shopee-react-input__input') && !i.closest('[data-cy="webchat-conversation-detail"]');
+            }) || document.querySelector('input.shopee-react-input__input, input[placeholder*="Tìm kiếm"]');
+          }
+        } else {
+          el = document.querySelector('textarea.E2MWg3w8y6, [data-cy="webchat-conversation-detail-input"] textarea, #inputField textarea, textarea[placeholder*="tin nhắn"], textarea');
+        }
+        if (!el) return;
+
+        el.focus();
+        el.click();
+        el.select();
+
+        if (el._valueTracker) {
+          try { el._valueTracker.setValue(''); } catch(e) {}
+        }
+
+        // Thử lệnh chèn paste giả lập DataTransfer
+        try {
+          const dt = new DataTransfer();
+          dt.setData('text/plain', text);
+          dt.setData('Text', text);
+          el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+        } catch(e) {}
+
+        try {
+          document.execCommand('insertText', false, text);
+        } catch(e) {}
+
+        const proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set ||
+                       Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value')?.set;
+        if (setter) {
+          setter.call(el, text);
+        } else {
+          el.value = text;
+        }
+
+        try {
+          el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, data: text, inputType: 'insertFromPaste' }));
+        } catch(e) {}
+        el.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+
+        const propKey = Object.keys(el).find(k => k.startsWith('__reactProps$') || k.startsWith('__reactEventHandlers$'));
+        if (propKey && el[propKey]) {
+          const p = el[propKey];
+          const ev = { target: el, currentTarget: el, bubbles: true, defaultPrevented: false, persist: () => {} };
+          if (typeof p.onInput === 'function') try { p.onInput(ev); } catch(e) {}
+          if (typeof p.onChange === 'function') try { p.onChange(ev); } catch(e) {}
+        }
+      })();`;
+      (document.head || document.documentElement).appendChild(script);
+      script.remove();
+    } catch (_) {}
+
+    // 3. Gửi message tới shopee-fetch-interceptor.js (chạy trong MAIN world)
+    try {
+      window.postMessage({
+        channel: 'SPLQ_SET_REACT_VALUE',
+        text: text,
+        isSearch: !!isSearch
+      }, '*');
+    } catch (_) {}
+
+    // 4. Đồng thời gán và dispatch trực tiếp trên element từ ISOLATED world
+    try {
+      input.select();
+      document.execCommand('insertText', false, text);
+    } catch (_) {}
+
+    if (input.value !== text) {
+      try {
+        const proto = Object.getPrototypeOf(input);
+        const descriptor = Object.getOwnPropertyDescriptor(proto, "value") ||
+                           Object.getOwnPropertyDescriptor(input.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype, "value");
+        if (descriptor?.set) {
+          descriptor.set.call(input, text);
+        } else {
+          input.value = text;
+        }
+      } catch (_) {
+        input.value = text;
+      }
+    }
+
+    try {
+      input.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, data: text, inputType: 'insertFromPaste' }));
+    } catch (_) {}
+    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+
+    return true;
+  }
+
+  function setReactInputValue(input, value) {
+    return applyValueToReactElement(input, value, true);
+  }
+
+  async function waitForSearchInput(timeoutMs = 25000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const inp = findWebchatSearchInput();
+      if (inp) return inp;
+      await new Promise(r => setTimeout(r, 400));
+    }
+    return null;
+  }
+
+  async function waitForAndClickConversation(buyerName, timeoutMs = 15000) {
+    const start = Date.now();
+    const cleanTarget = (buyerName || "").toLowerCase().trim();
+
+    while (Date.now() - start < timeoutMs) {
+      let targetItem = null;
+      let targetInner = null;
+
+      // 1. Tìm span.nFvbiqyLrq hoặc div[title] có chứa tên khách theo cấu trúc HTML Shopee Webchat
+      const allSpans = Array.from(document.querySelectorAll('span.nFvbiqyLrq, [class*="nFvbiqyLrq"], div.RWr1KSlda2, [class*="RWr1KSlda2"], div.uvqQaOy6aO, [title]'));
+      for (const sp of allSpans) {
+        const txt = (sp.textContent || sp.getAttribute('title') || '').toLowerCase().trim();
+        if (cleanTarget && (txt === cleanTarget || txt.includes(cleanTarget))) {
+          targetInner = sp;
+          targetItem = sp.closest('div.SW7LUhQFDH, div.AV0w9P7wpj, div.flWmPLsUAa, [class*="SW7LUhQFDH"], [class*="AV0w9P7wpj"], [class*="flWmPLsUAa"], div[role="listitem"]') || sp;
+          break;
+        }
+      }
+
+      // 2. Nếu chưa thấy, tìm trong các item class SW7LUhQFDH / AV0w9P7wpj / flWmPLsUAa
+      if (!targetItem) {
+        const itemCandidates = Array.from(document.querySelectorAll(
+          'div.SW7LUhQFDH, div.AV0w9P7wpj, div.flWmPLsUAa, [class*="SW7LUhQFDH"], [class*="AV0w9P7wpj"], [class*="flWmPLsUAa"], [data-cy*="conversation-list-item"], [role="listitem"], div[class*="conversation-item"], div[class*="chat-item"]'
+        )).filter(el => el.offsetHeight > 15 && el.offsetWidth > 30);
+
+        if (itemCandidates.length > 0) {
+          if (cleanTarget) {
+            targetItem = itemCandidates.find(it => (it.innerText || it.textContent || "").toLowerCase().includes(cleanTarget)) || itemCandidates[0];
+          } else {
+            targetItem = itemCandidates[0];
+          }
+          if (targetItem) {
+            targetInner = targetItem.querySelector('span.nFvbiqyLrq, [class*="nFvbiqyLrq"], div.RWr1KSlda2, div.uR4DA9zSmz, span, div');
+          }
+        }
+      }
+
+      if (targetItem) {
+        try {
+          targetItem.scrollIntoView({ block: "center", inline: "nearest" });
+        } catch (_) {}
+
+        // Gửi lệnh click qua MAIN world (shopee-fetch-interceptor.js)
+        try {
+          window.postMessage({
+            channel: 'SPLQ_CLICK_CONVERSATION_ITEM',
+            buyerName: cleanTarget
+          }, '*');
+        } catch (_) {}
+
+        // Click bằng chuỗi sự kiện chuột & pointer
+        const triggerClickSequence = (el) => {
+          if (!el) return;
+          ['mouseenter', 'mouseover', 'pointerdown', 'mousedown', 'focus', 'pointerup', 'mouseup', 'click'].forEach(evtName => {
+            try {
+              if (evtName.startsWith('pointer')) {
+                el.dispatchEvent(new PointerEvent(evtName, { bubbles: true, cancelable: true, view: window }));
+              } else if (evtName === 'focus') {
+                el.focus();
+              } else {
+                el.dispatchEvent(new MouseEvent(evtName, { bubbles: true, cancelable: true, view: window }));
+              }
+            } catch (_) {}
+          });
+          try { el.click(); } catch (_) {}
+        };
+
+        triggerClickSequence(targetItem);
+        if (targetInner && targetInner !== targetItem) {
+          triggerClickSequence(targetInner);
+        }
+
+        // Script MAIN world trực tiếp kích hoạt React props onClick
+        try {
+          const clickScript = document.createElement('script');
+          clickScript.textContent = `(() => {
+            try {
+              const target = document.querySelector('div.SW7LUhQFDH, div.AV0w9P7wpj, div.flWmPLsUAa, [class*="SW7LUhQFDH"]');
+              if (target) {
+                const k = Object.keys(target).find(k => k.startsWith('__reactProps$') || k.startsWith('__reactEventHandlers$'));
+                if (k && target[k] && typeof target[k].onClick === 'function') {
+                  target[k].onClick({ target, currentTarget: target, bubbles: true, defaultPrevented: false, persist: () => {} });
+                }
+              }
+            } catch(_) {}
+          })();`;
+          (document.head || document.documentElement).appendChild(clickScript);
+          clickScript.remove();
+        } catch (_) {}
+
+        return true;
+      }
+
+      await new Promise(r => setTimeout(r, 400));
+    }
+    return false;
+  }
+
+  async function waitForChatTextarea(timeoutMs = 15000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const textarea = document.querySelector(
+        'textarea.E2MWg3w8y6, [data-cy="webchat-conversation-detail-input"] textarea, #inputField textarea, textarea[placeholder*="tin nhắn"], textarea[placeholder*="Nhập"], textarea'
+      );
+      if (textarea && textarea.offsetHeight > 10) {
+        return textarea;
+      }
+      await new Promise(r => setTimeout(r, 400));
+    }
+    return document.querySelector('textarea');
+  }
+
+  function findWebchatSendButton() {
+    // 1. Tìm chính xác theo SVG path mà Shopee Webchat sử dụng cho nút gửi
+    // <svg viewBox="0 0 24 24" ...><path d="M4 14.497v3.724L18.409 12 4 5.779v3.718l10 2.5-10 2.5zM2.698 3.038l18.63 8.044a1 1 0 010 1.836l-18.63 8.044a.5.5 0 01-.698-.46V3.498a.5.5 0 01.698-.459z"></path></svg>
+    const sendPaths = Array.from(document.querySelectorAll('svg path')).filter(p => {
+      const d = p.getAttribute('d') || '';
+      return d.includes('M4 14.497') || d.includes('18.409 12') || d.includes('2.698 3.038') || d.includes('18.63 8.044');
+    });
+
+    if (sendPaths.length > 0) {
+      const pathEl = sendPaths[sendPaths.length - 1];
+      const btn = pathEl.closest('button, [role="button"], i, div._3OdQhKfJ0m, div') || pathEl.closest('svg') || pathEl;
+      if (btn) return btn;
+    }
+
+    // 2. Tìm theo class selector phổ biến
+    const btnCandidate = document.querySelector(
+      '.XsR3zIeGOc, .kgP1yPCqxR, [data-cy="webchat-conversation-detail-input"] [class*="send"], button[class*="send"], [data-cy="send-btn"], button[type="submit"]'
+    );
+    if (btnCandidate) return btnCandidate;
+
+    return null;
+  }
+
+  async function sendWebchatChatMessage(textarea, messageText) {
+    if (!textarea) return false;
+    const text = String(messageText || "");
+
+    // 1. Điền nội dung tin nhắn vào textarea bằng cơ chế MAIN world
+    await applyValueToReactElement(textarea, text, false);
+
+    // Chờ 300ms cho React state update và nút gửi sáng lên
+    await new Promise(r => setTimeout(r, 300));
+
+    // 2. Gửi lệnh click nút gửi qua MAIN world
+    try {
+      window.postMessage({ channel: 'SPLQ_CLICK_SEND_BUTTON' }, '*');
+    } catch (_) {}
+
+    // 3. Tìm và click trực tiếp trên DOM
+    const sendBtn = findWebchatSendButton();
+    if (sendBtn) {
+      const triggerEvts = (el) => {
+        if (!el) return;
+        ['mouseenter', 'mouseover', 'pointerdown', 'mousedown', 'focus', 'pointerup', 'mouseup', 'click'].forEach(evtName => {
+          try {
+            if (evtName.startsWith('pointer')) {
+              el.dispatchEvent(new PointerEvent(evtName, { bubbles: true, cancelable: true, view: window }));
+            } else if (evtName === 'focus') {
+              el.focus();
+            } else {
+              el.dispatchEvent(new MouseEvent(evtName, { bubbles: true, cancelable: true, view: window }));
+            }
+          } catch (_) {}
+        });
+        try { el.click(); } catch (_) {}
+      };
+
+      triggerEvts(sendBtn);
+      const innerSvg = sendBtn.querySelector('svg');
+      if (innerSvg && innerSvg !== sendBtn) {
+        triggerEvts(innerSvg);
+      }
+    }
+
+    // 4. Nhấn Enter trên textarea để đảm bảo tin nhắn được gửi đi
+    setTimeout(() => {
+      if (textarea) {
+        textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true }));
+        textarea.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true }));
+        textarea.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true }));
+      }
+    }, 400);
+
+    return true;
+  }
+
+  async function runAutoChatBuyer(buyerName, messageText) {
+    let cleanBuyerName = String(buyerName || "").trim();
+    if (!cleanBuyerName) {
+      try {
+        const stored = await chrome.storage.local.get(["pendingAutoChat"]);
+        if (stored?.pendingAutoChat?.buyerName) {
+          cleanBuyerName = String(stored.pendingAutoChat.buyerName).trim();
+        }
+      } catch (_) {}
+    }
+    if (!cleanBuyerName) {
+      try {
+        const clip = await navigator.clipboard.readText();
+        if (clip && clip.trim()) cleanBuyerName = clip.trim();
+      } catch (_) {}
+    }
+    if (!cleanBuyerName) {
+      showWebchatToast("Không có tên khách hàng để tìm kiếm!", "error");
+      return { ok: false, error: "Thiếu tên người mua" };
+    }
+    const textToSend = messageText || DEFAULT_CHAT_KHACH_MESSAGE;
+
+    showWebchatToast(`🔍 Đang click ô tìm kiếm và dán tên "${cleanBuyerName}"...`, "info");
+
+    // 1. Chờ container ô tìm kiếm xuất hiện (theo đúng class user cung cấp: div.shopee-react-input._2VVLYzIyBp)
+    const searchContainer = await waitForSearchContainer(25000);
+    if (searchContainer) {
+      searchContainer.scrollIntoView({ block: "center", inline: "nearest" });
+      searchContainer.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+      searchContainer.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+      searchContainer.click();
+      const inner = searchContainer.querySelector('.shopee-react-input__inner');
+      if (inner) inner.click();
+      await new Promise(r => setTimeout(r, 200));
+    }
+
+    // 2. Tìm ô nhập input bên trong container
+    const searchInput = findWebchatSearchInput(searchContainer) || await waitForSearchInput(10000);
+    if (!searchInput) {
+      showWebchatToast(`Không tìm thấy ô nhập! Đã copy tên khách: ${cleanBuyerName}`, "error");
+      return { ok: false, error: "Không tìm thấy ô tìm kiếm Webchat" };
+    }
+
+    // 3. Click nút xóa cũ nếu có
+    const clearBtn = searchContainer ? searchContainer.querySelector('.shopee-react-input__clear-btn, [class*="clear-btn"]') : document.querySelector('.shopee-react-input__clear-btn');
+    if (clearBtn) {
+      clearBtn.click();
+      await new Promise(r => setTimeout(r, 150));
+    }
+
+    // 4. Dán tên khách vào ô tìm kiếm với VÒNG LẶP XÁC NHẬN
+    let pastedConfirmed = false;
+    for (let attempt = 1; attempt <= 8; attempt++) {
+      const currentContainer = findWebchatSearchContainer() || searchContainer;
+      if (currentContainer && attempt <= 2) {
+        currentContainer.click();
+      }
+      const currentInput = findWebchatSearchInput(currentContainer) || searchInput;
+      await applyValueToReactElement(currentInput, cleanBuyerName, true);
+
+      // Chờ 250ms kiểm tra giá trị thực tế
+      await new Promise(r => setTimeout(r, 250));
+      if (currentInput.value === cleanBuyerName) {
+        // Chờ thêm 250ms xem React có re-render xóa giá trị không
+        await new Promise(r => setTimeout(r, 250));
+        if (currentInput.value === cleanBuyerName) {
+          pastedConfirmed = true;
+          break;
+        }
+      }
+      await new Promise(r => setTimeout(r, 250));
+    }
+
+    // 5. Kích hoạt tìm kiếm (Dispatch phím Enter + Click icon tìm kiếm)
+    const activeInput = findWebchatSearchInput(searchContainer) || searchInput;
+    if (activeInput) {
+      activeInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true }));
+      activeInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true }));
+      activeInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true }));
+    }
+
+    const searchIcon = searchContainer ? searchContainer.querySelector('._3OdQhKfJ0m, .shopee-react-input__prefix, svg.chat-icon') : null;
+    if (searchIcon) {
+      try { searchIcon.click(); } catch (_) {}
+    }
+
+    showWebchatToast(`Đã dán "${cleanBuyerName}". Đang lọc hội thoại...`, "info");
+
+    // 6. Chờ và chọn hội thoại
+    await new Promise(r => setTimeout(r, 1200));
+    const conversationClicked = await waitForAndClickConversation(cleanBuyerName, 12000);
+
+    // 7. Chờ khung chat & textarea
+    showWebchatToast(`Đang chuẩn bị gửi tin nhắn cho "${cleanBuyerName}"...`, "info");
+    const textarea = await waitForChatTextarea(15000);
+    if (!textarea) {
+      showWebchatToast(`⚠️ Đã dán tên "${cleanBuyerName}". Vui lòng click chọn hội thoại để gửi tin.`, "error");
+      return { ok: false, error: "Không tìm thấy khung chat" };
+    }
+
+    // 8. Điền tin nhắn & Bấm gửi
+    await sendWebchatChatMessage(textarea, textToSend);
+    showWebchatToast(`✓ Đã gửi tin nhắn cho khách "${cleanBuyerName}" thành công!`, "success");
+    return { ok: true };
+  }
+
+  let isAutoChatting = false;
+  async function runAutoChatBuyerSafe(buyerName, messageText) {
+    if (isAutoChatting) return { ok: false, error: "Đang có tiến trình chat đang chạy" };
+    isAutoChatting = true;
+    try {
+      return await runAutoChatBuyer(buyerName, messageText);
+    } catch (err) {
+      console.error("[Shopee Ext] Lỗi auto chat buyer:", err);
+      showWebchatToast(`Lỗi gửi tin: ${err.message}`, "error");
+      return { ok: false, error: err.message };
+    } finally {
+      setTimeout(() => { isAutoChatting = false; }, 3000);
+    }
+  }
+
+  // Tự động kiểm tra tác vụ chat khách chờ xử lý khi mở trang Webchat (chỉ chạy ở top window)
+  if (window.location.href.includes("webchat") && window === window.top) {
+    const checkPendingChat = () => {
+      try {
+        chrome.storage.local.get(["pendingAutoChat"], (res) => {
+          if (res && res.pendingAutoChat) {
+            const task = res.pendingAutoChat;
+            if (Date.now() - (task.timestamp || 0) < 120000 && task.buyerName) {
+              chrome.storage.local.remove(["pendingAutoChat"]);
+              runAutoChatBuyerSafe(task.buyerName, task.message);
+            } else {
+              chrome.storage.local.remove(["pendingAutoChat"]);
+            }
+          }
+        });
+      } catch (e) {}
+    };
+
+    setTimeout(checkPendingChat, 500);
+    setTimeout(checkPendingChat, 2000);
   }
 
   let dsSpCache = null;
@@ -8359,9 +9991,9 @@ function downloadExcelFileBypass(wb, filename) {
       if (!data || !data.orderId) {
           let oId = extractSellerOrderIdFromPage();
           if (!oId) {
-              const urlMatch = window.location.pathname.match(/\/portal\/sale\/order\/(?:detail\/)?([0-9A-Z]{8,})/i);
-              if (urlMatch && urlMatch[1] && !/^(order|list|mass|shipping|return|setting|batch|all)$/i.test(urlMatch[1])) {
-                  oId = urlMatch[1].trim();
+              const urlMatch = window.location.pathname.match(/\/portal\/sale\/order\/(?:detail\/)?([0-9]{6}[A-Z0-9]{6,14})/i);
+              if (urlMatch && urlMatch[1] && /[A-Z]/i.test(urlMatch[1])) {
+                  oId = urlMatch[1].trim().toUpperCase();
               }
           }
           if (oId) {
@@ -8375,6 +10007,15 @@ function downloadExcelFileBypass(wb, filename) {
 
       if (!data || !data.orderId) {
           alert("Không tìm thấy Mã đơn hàng!");
+          return;
+      }
+
+      const isHuy = action === "Hủy" || action === "HỦY" || /^h[uủ]y$/i.test(action);
+
+      // QUY TẮC: Ấn HỦY thì CHỈ cập nhật đơn nào CHƯA CẬP NHẬT TRẠNG THÁI!
+      // Nếu đơn này đã cập nhật trạng thái trước đó (nút Copy Data màu xanh lá):
+      if (isHuy && cachedDhHoanStatusMap.has(data.orderId)) {
+          alert(`Đơn hàng "${data.orderId}" đã cập nhật trạng thái (${cachedDhHoanStatusMap.get(data.orderId)}) rồi!\n\nChỉ cập nhật đơn nào chưa cập nhật trạng thái thôi.`);
           return;
       }
       
@@ -8430,8 +10071,12 @@ function downloadExcelFileBypass(wb, filename) {
 
                 if (response && response.ok) {
                     if (response.skipped || response.notFound) {
-                        resetBtnState("Bỏ qua", 2500);
+                        resetBtnState(response.alreadyUpdated ? "Đã có TT" : "Bỏ qua", 2500);
                         alert(response.message || `Mã đơn "${data.orderId}" không có trong Sheet DH nên đã bỏ qua.`);
+                        if (response.alreadyUpdated) {
+                            cachedDhHoanStatusMap.set(data.orderId, "Đã cập nhật");
+                            updateCopyButtonColors();
+                        }
                         return;
                     }
                     cachedDhHoanIds.add(data.orderId);
@@ -8633,66 +10278,93 @@ function downloadExcelFileBypass(wb, filename) {
   }
 
   function extractSellerOrderIdFromPage() {
+    const isValidShopeeOrderSn = (str) => {
+      if (!str) return false;
+      const s = String(str).trim();
+      // Bắt buộc KHÔNG được là chuỗi thuần số (vì thuần số dài >= 12 là Order ID nội bộ URL, ví dụ 242626023297466)
+      if (/^\d+$/.test(s)) return false;
+      // Không phải từ khóa hệ thống
+      if (/^(detail|order|undefined|null|none|cancel|refund|return|portal|sale|setting|batch|list)$/i.test(s)) return false;
+      // Mã đơn hàng Shopee chuẩn: 6 số đầu (YYMMDD) + 6-14 ký tự alphanumeric, có chứa chữ cái (ví dụ: 260909J70XAVDT)
+      if (/^[0-9]{6}[A-Z0-9]{6,14}$/i.test(s) && /[A-Z]/i.test(s)) {
+        return true;
+      }
+      // Khớp chuỗi alphanumeric 12-20 ký tự có cả chữ và số
+      if (/^[A-Z0-9]{12,20}$/i.test(s) && /[A-Z]/i.test(s) && /[0-9]/.test(s)) {
+        return true;
+      }
+      return false;
+    };
+
     // 1. Quét nhãn "Mã đơn hàng" hoặc "Order SN"
-    const labels = Array.from(document.querySelectorAll('.label, dt, span, div')).filter(el => {
-      const t = normalizeOrderDetailText(el.textContent);
-      return t === "ma don hang" || t === "order sn" || t.startsWith("ma don hang:");
+    const labels = Array.from(document.querySelectorAll('.label, dt, span, div, p, h3, h4, strong, b')).filter(el => {
+      const t = normalizeOrderDetailText(el.textContent || "");
+      return (t === "ma don hang" || t === "order sn" || t.startsWith("ma don hang:") || t.startsWith("order sn:")) && el.children.length <= 1;
     });
 
     for (const lbl of labels) {
-      const parent = lbl.parentElement;
-      if (parent) {
-        const bodyEl = parent.querySelector('.body, .body-content, dd, span:last-child, div:last-child');
-        if (bodyEl && bodyEl !== lbl) {
-          const txt = bodyEl.textContent.trim();
-          const m = txt.match(/([0-9]{6}[A-Z0-9]{6,12})/i);
-          if (m && m[1].toLowerCase() !== "detail") return m[1].toUpperCase();
+      // Quét các cấp cha của nhãn (lên tới 5 cấp để bao trọn toàn bộ Card/Panel "Mã đơn hàng")
+      let container = lbl.parentElement;
+      for (let depth = 0; depth < 5 && container; depth++) {
+        const candidates = Array.from(container.querySelectorAll('span, div, p, strong, b, a, dd, .body, [class*="value"], [class*="content"]'));
+        for (const cand of candidates) {
+          if (cand === lbl) continue;
+          const txt = (cand.innerText || cand.textContent || "").trim();
+          if (isValidShopeeOrderSn(txt)) {
+            return txt.toUpperCase();
+          }
+          const m = txt.match(/\b([0-9]{6}[A-Z0-9]{6,14})\b/i);
+          if (m && isValidShopeeOrderSn(m[1])) {
+            return m[1].toUpperCase();
+          }
         }
-        const next = lbl.nextElementSibling;
-        if (next) {
-          const txt = next.textContent.trim();
-          const m = txt.match(/([0-9]{6}[A-Z0-9]{6,12})/i);
-          if (m && m[1].toLowerCase() !== "detail") return m[1].toUpperCase();
+        const cText = (container.innerText || container.textContent || "");
+        const mCont = cText.match(/\b([0-9]{6}[A-Z0-9]{6,14})\b/i);
+        if (mCont && isValidShopeeOrderSn(mCont[1])) {
+          return mCont[1].toUpperCase();
         }
+        container = container.parentElement;
       }
     }
 
-    // 2. Quét trong thẻ có class chứa order-sn, order-id
-    const directSnEl = document.querySelector(".order-sn, .order-id, [class*='order-sn'], [class*='orderId']");
-    if (directSnEl) {
-      const txt = directSnEl.textContent;
-      const m = txt.match(/([0-9]{6}[A-Z0-9]{6,12})/i);
-      if (m && m[1].toLowerCase() !== "detail") return m[1].toUpperCase();
+    // 2. Quét trong các thẻ có class chứa order-sn, order-id, ordersn
+    const directSnEls = Array.from(document.querySelectorAll(".order-sn, .order-id, [class*='order-sn'], [class*='orderId'], [class*='ordersn']"));
+    for (const directEl of directSnEls) {
+      const txt = (directEl.innerText || directEl.textContent || "").trim();
+      if (isValidShopeeOrderSn(txt)) return txt.toUpperCase();
+      const m = txt.match(/\b([0-9]{6}[A-Z0-9]{6,14})\b/i);
+      if (m && isValidShopeeOrderSn(m[1])) return m[1].toUpperCase();
     }
 
-    // 3. Quét toàn bộ dòng text trên trang tìm mã đơn dạng 260816F4WVPU2M
+    // 3. Quét toàn bộ dòng text trên trang tìm mã đơn dạng 260909J70XAVDT
     const lines = getOrderDetailLines();
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (normalizeOrderDetailText(line).includes("ma don hang") || normalizeOrderDetailText(line).includes("order sn")) {
-        const sameLine = line.match(/([0-9]{6}[A-Z0-9]{6,12})/i);
-        if (sameLine && sameLine[1].toLowerCase() !== "detail") return sameLine[1].toUpperCase();
-        const next = lines[i + 1] || "";
-        const nextMatch = next.match(/([0-9]{6}[A-Z0-9]{6,12})/i);
-        if (nextMatch && nextMatch[1].toLowerCase() !== "detail") return nextMatch[1].toUpperCase();
+      const norm = normalizeOrderDetailText(line);
+      if (norm.includes("ma don hang") || norm.includes("order sn")) {
+        for (let off = 0; off <= 3; off++) {
+          const targetLine = lines[i + off] || "";
+          const m = targetLine.match(/\b([0-9]{6}[A-Z0-9]{6,14})\b/i);
+          if (m && isValidShopeeOrderSn(m[1])) return m[1].toUpperCase();
+        }
       }
     }
 
-    // 4. Tìm bất kỳ mã 14-15 ký tự có chứa chữ cái (ví dụ: 260816F4WVPU2M)
+    // 4. Quét tìm bất kỳ mã nào trên toàn trang có dạng YYMMDD + Alphanumeric (e.g. 260909J70XAVDT, 24xxxx, 25xxxx)
     for (const line of lines) {
-      const mAlpha = line.match(/\b(2[0-9]{5}[A-Z0-9]{7,10})\b/i);
-      if (mAlpha && /[A-Z]/i.test(mAlpha[1])) {
+      const mAlpha = line.match(/\b([0-9]{6}[A-Z0-9]{6,14})\b/i);
+      if (mAlpha && isValidShopeeOrderSn(mAlpha[1])) {
         return mAlpha[1].toUpperCase();
       }
     }
 
     // 5. Query param ?order_sn=...
-    const searchMatch = location.search.match(/order_sn=([0-9]{6}[A-Z0-9]{6,12})/i);
-    if (searchMatch && /[A-Z]/i.test(searchMatch[1])) return searchMatch[1].toUpperCase();
+    const searchMatch = location.search.match(/[?&](?:order_sn|ordersn)=([0-9]{6}[A-Z0-9]{6,14})/i);
+    if (searchMatch && isValidShopeeOrderSn(searchMatch[1])) return searchMatch[1].toUpperCase();
 
-    // 6. Pathname chỉ lấy nếu có chứa chữ cái (Order SN thực sự, ví dụ 2609032Y4756JF), TUYỆT ĐỐI KHÔNG lấy dãy số ID nội bộ (242102147201615)
-    const urlMatch = location.pathname.match(/\/sale\/order\/(?:detail\/)?(2[0-9]{5}[A-Z0-9]{7,10})/i);
-    if (urlMatch && /[A-Z]/i.test(urlMatch[1])) return urlMatch[1].toUpperCase();
+    // 6. Pathname chỉ lấy nếu là mã alphanumeric thực sự có chữ cái (TUYỆT ĐỐI KHÔNG lấy dãy số ID nội bộ URL)
+    const urlMatch = location.pathname.match(/\/sale\/order\/(?:detail\/)?([0-9]{6}[A-Z0-9]{6,14})/i);
+    if (urlMatch && isValidShopeeOrderSn(urlMatch[1])) return urlMatch[1].toUpperCase();
 
     return "";
   }
@@ -9902,9 +11574,9 @@ function downloadExcelFileBypass(wb, filename) {
       // 2. Tìm Mã đơn hàng (orderId) từ DOM hoặc URL
       let orderId = extractSellerOrderIdFromPage();
       if (!orderId) {
-          const urlMatch = window.location.pathname.match(/\/portal\/sale\/(?:order|return)\/(?:detail\/)?([0-9A-Z]{8,})/i);
-          if (urlMatch && urlMatch[1] && !/^(order|list|mass|shipping|return|setting|batch|all)$/i.test(urlMatch[1])) {
-              orderId = urlMatch[1].trim();
+          const urlMatch = window.location.pathname.match(/\/portal\/sale\/(?:order|return)\/(?:detail\/)?([0-9]{6}[A-Z0-9]{6,14})/i);
+          if (urlMatch && urlMatch[1] && /[A-Z]/i.test(urlMatch[1])) {
+              orderId = urlMatch[1].trim().toUpperCase();
           }
       }
 
@@ -9924,7 +11596,7 @@ function downloadExcelFileBypass(wb, filename) {
 
       // 3. Gắn cụm 3 nút Copy vào Breadcrumb / Header gọn gàng
       const targetContainer = findTargetContainerForDonHangButton(orderId);
-      if (targetContainer && orderId) {
+      if (targetContainer) {
           let btnContainer = document.getElementById('shopee-ext-donhang-btns');
           if (!btnContainer) {
               btnContainer = document.createElement('div');
@@ -9939,14 +11611,23 @@ function downloadExcelFileBypass(wb, filename) {
           let btnCopyMdh = document.getElementById('btn-order-detail-copy-mdh');
           if (!btnCopyMdh) {
               btnCopyMdh = createActionBtn("📋 Copy MDH", "#ee4d2d", async () => {
-                  if (await copyTextToClipboard(orderId)) {
-                      btnCopyMdh.textContent = "✓ Đã copy MDH!";
+                  const currentMdh = extractSellerOrderIdFromPage() || orderId;
+                  if (currentMdh && !/^\d{12,}$/.test(currentMdh)) {
+                      if (await copyTextToClipboard(currentMdh)) {
+                          btnCopyMdh.textContent = "✓ Đã copy MDH!";
+                          btnCopyMdh.title = `Mã đơn hàng: ${currentMdh}`;
+                          setTimeout(() => { btnCopyMdh.textContent = "📋 Copy MDH"; }, 1500);
+                      }
+                  } else {
+                      btnCopyMdh.textContent = "⚠️ Đang tìm MDH...";
                       setTimeout(() => { btnCopyMdh.textContent = "📋 Copy MDH"; }, 1500);
                   }
               });
               btnCopyMdh.id = 'btn-order-detail-copy-mdh';
-              btnCopyMdh.title = `Copy mã đơn hàng: ${orderId}`;
+              btnCopyMdh.title = orderId ? `Copy mã đơn hàng: ${orderId}` : "Copy mã đơn hàng";
               btnContainer.appendChild(btnCopyMdh);
+          } else if (orderId) {
+              btnCopyMdh.title = `Copy mã đơn hàng: ${orderId}`;
           }
 
           // 2. Nút Copy MVD (Mã vận đơn)
@@ -9974,11 +11655,17 @@ function downloadExcelFileBypass(wb, filename) {
           let btnCopyBoth = document.getElementById('btn-order-detail-copy-both');
           if (!btnCopyBoth) {
               btnCopyBoth = createActionBtn("📋 Copy Đơn & Vận đơn", "#059669", async () => {
+                  const currentMdh = extractSellerOrderIdFromPage() || orderId;
                   const currentPkg = extractSellerOrderPackageInfo() || {};
                   const trk = currentPkg.tracking || curTracking;
-                  let copyText = `Mã đơn hàng: ${orderId}`;
-                  if (trk) copyText += `\nMã vận đơn: ${trk}`;
-                  if (await copyTextToClipboard(copyText)) {
+                  let copyText = "";
+                  if (currentMdh && !/^\d{12,}$/.test(currentMdh)) {
+                      copyText = `Mã đơn hàng: ${currentMdh}`;
+                      if (trk) copyText += `\nMã vận đơn: ${trk}`;
+                  } else if (trk) {
+                      copyText = `Mã vận đơn: ${trk}`;
+                  }
+                  if (copyText && await copyTextToClipboard(copyText)) {
                       btnCopyBoth.textContent = "✓ Đã copy cả 2!";
                       setTimeout(() => { btnCopyBoth.textContent = "📋 Copy Đơn & Vận đơn"; }, 1500);
                   }
@@ -12625,7 +14312,7 @@ async function extractProductDataAndSave() {
       bottom: 90px !important;
       z-index: 999999 !important;
       background: #ffffff !important;
-      border: 2px solid #16a34a !important;
+      border: 2px solid #ea580c !important;
       border-radius: 10px !important;
       padding: 10px 14px !important;
       box-shadow: 0 6px 20px rgba(0,0,0,0.2) !important;
@@ -12636,7 +14323,7 @@ async function extractProductDataAndSave() {
     `;
 
     const title = document.createElement('div');
-    title.style.cssText = 'font-size: 12px !important; font-weight: bold !important; color: #15803d !important; text-align: center !important; display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 6px !important; border-bottom: 1px solid #e5e7eb !important; padding-bottom: 4px !important;';
+    title.style.cssText = 'font-size: 12px !important; font-weight: bold !important; color: #c2410c !important; text-align: center !important; display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 6px !important; border-bottom: 1px solid #e5e7eb !important; padding-bottom: 4px !important;';
     title.innerHTML = '<span>⚡ Điền Kho Nhanh</span><span style="font-size:10px; color:#6b7280; font-weight:normal;">Shopee</span>';
 
     const btnRow = document.createElement('div');
@@ -12646,9 +14333,9 @@ async function extractProductDataAndSave() {
     btn1000.type = 'button';
     btn1000.textContent = '⚡ Điền tất cả 1000';
     btn1000.title = 'Tự động điền 1000 cho tất cả các kho của toàn bộ phân loại';
-    btn1000.style.cssText = 'padding: 6px 12px !important; font-size: 12px !important; font-weight: bold !important; background: #16a34a !important; color: white !important; border: none !important; border-radius: 6px !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(22,163,74,0.3) !important; white-space: nowrap !important; transition: all 0.2s !important;';
-    btn1000.onmouseover = () => btn1000.style.background = '#15803d';
-    btn1000.onmouseout = () => btn1000.style.background = '#16a34a';
+    btn1000.style.cssText = 'padding: 6px 12px !important; font-size: 12px !important; font-weight: bold !important; background: #ea580c !important; color: white !important; border: none !important; border-radius: 6px !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(234,88,12,0.3) !important; white-space: nowrap !important; transition: all 0.2s !important;';
+    btn1000.onmouseover = () => btn1000.style.background = '#c2410c';
+    btn1000.onmouseout = () => btn1000.style.background = '#ea580c';
     btn1000.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -12659,16 +14346,80 @@ async function extractProductDataAndSave() {
     btn0.type = 'button';
     btn0.textContent = '⚡ Điền 0';
     btn0.title = 'Tự động điền 0 cho tất cả các kho của toàn bộ phân loại';
-    btn0.style.cssText = 'padding: 6px 10px !important; font-size: 12px !important; font-weight: bold !important; background: #dc2626 !important; color: white !important; border: none !important; border-radius: 6px !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(220,38,38,0.3) !important; white-space: nowrap !important; transition: all 0.2s !important;';
-    btn0.onmouseover = () => btn0.style.background = '#b91c1c';
-    btn0.onmouseout = () => btn0.style.background = '#dc2626';
+    btn0.style.cssText = 'padding: 6px 10px !important; font-size: 12px !important; font-weight: bold !important; background: #f97316 !important; color: white !important; border: none !important; border-radius: 6px !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(249,115,22,0.3) !important; white-space: nowrap !important; transition: all 0.2s !important;';
+    btn0.onmouseover = () => btn0.style.background = '#ea580c';
+    btn0.onmouseout = () => btn0.style.background = '#f97316';
     btn0.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
       fillAllVariationsStock('0');
     };
 
-    btnRow.append(btn1000, btn0);
+    const btnPreview = document.createElement('button');
+    btnPreview.type = 'button';
+    btnPreview.textContent = '👁️ Xem trước';
+    btnPreview.title = 'Mở xem trước sản phẩm trên Shopee (PDP)';
+    btnPreview.style.cssText = 'padding: 6px 10px !important; font-size: 12px !important; font-weight: bold !important; background: #0284c7 !important; color: white !important; border: none !important; border-radius: 6px !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(2,132,199,0.3) !important; white-space: nowrap !important; transition: all 0.2s !important;';
+    btnPreview.onmouseover = () => btnPreview.style.background = '#0369a1';
+    btnPreview.onmouseout = () => btnPreview.style.background = '#0284c7';
+    btnPreview.onclick = async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const origText = btnPreview.textContent;
+      btnPreview.textContent = '⏳';
+      btnPreview.disabled = true;
+      try {
+        const path = window.location.pathname;
+        const urlMatches = path.match(/\/portal\/product\/(\d+)/);
+        let productId = urlMatches ? urlMatches[1] : "";
+        if (!productId) {
+          const searchParams = new URLSearchParams(window.location.search);
+          productId = searchParams.get('id') || searchParams.get('itemid') || searchParams.get('itemId') || "";
+        }
+        if (!productId) {
+          alert("Không tìm thấy ID sản phẩm trên đường dẫn trang hiện tại!");
+          return;
+        }
+        const storageRes = await new Promise(resolve => chrome.storage.local.get(["maGian", "dhHoanTextValue"], resolve));
+        const maGian = (storageRes?.maGian || storageRes?.dhHoanTextValue || "").trim();
+        const shopId = await getShopIdByMaGian(maGian);
+        if (!shopId) {
+          alert(`Không tìm thấy ID Shop cho mã gian "${maGian || '(chưa chọn)'}" tại Cột G sheet CAI_DAT.\n\nVui lòng điền ID Shop vào Cột G sheet CAI_DAT tương ứng với Cột B (mã gian)!`);
+          return;
+        }
+        window.open(`https://shopee.vn/product/${shopId}/${productId}/`, '_blank');
+      } catch (err) {
+        alert("Lỗi mở xem trước: " + err.message);
+      } finally {
+        btnPreview.textContent = origText;
+        btnPreview.disabled = false;
+      }
+    };
+
+    const btnPreOrder = document.createElement('button');
+    btnPreOrder.type = 'button';
+    btnPreOrder.textContent = '📦 Đặt trước 15n';
+    btnPreOrder.title = 'Hàng đặt trước: Bật Đồng ý và điền 15 ngày';
+    btnPreOrder.style.cssText = 'padding: 6px 10px !important; font-size: 12px !important; font-weight: bold !important; background: #8b5cf6 !important; color: white !important; border: none !important; border-radius: 6px !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(139,92,246,0.3) !important; white-space: nowrap !important; transition: all 0.2s !important;';
+    btnPreOrder.onmouseover = () => btnPreOrder.style.background = '#7c3aed';
+    btnPreOrder.onmouseout = () => btnPreOrder.style.background = '#8b5cf6';
+    btnPreOrder.onclick = async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const origText = btnPreOrder.textContent;
+      btnPreOrder.textContent = '⏳';
+      btnPreOrder.disabled = true;
+      try {
+        await handleApplyPreOrder(15);
+      } catch (err) {
+        alert("Lỗi cài đặt hàng đặt trước: " + err.message);
+      } finally {
+        btnPreOrder.textContent = origText;
+        btnPreOrder.disabled = false;
+      }
+    };
+
+    btnRow.append(btn1000, btn0, btnPreOrder, btnPreview);
     panel.append(title, btnRow);
     document.body.appendChild(panel);
   }
@@ -12685,7 +14436,7 @@ async function extractProductDataAndSave() {
       btn1000.type = 'button';
       btn1000.textContent = '⚡ Điền 1000';
       btn1000.title = 'Điền 1000 cho tất cả kho của phân loại hàng loạt';
-      btn1000.style.cssText = 'padding: 6px 14px !important; font-size: 12px !important; font-weight: bold !important; background: #16a34a !important; color: white !important; border: 1px solid #15803d !important; border-radius: 4px !important; cursor: pointer !important;';
+      btn1000.style.cssText = 'padding: 6px 14px !important; font-size: 12px !important; font-weight: bold !important; background: #ea580c !important; color: white !important; border: 1px solid #c2410c !important; border-radius: 4px !important; cursor: pointer !important;';
       btn1000.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -12696,7 +14447,7 @@ async function extractProductDataAndSave() {
       btn0.type = 'button';
       btn0.textContent = '⚡ Điền 0';
       btn0.title = 'Điền 0 cho tất cả kho của phân loại hàng loạt';
-      btn0.style.cssText = 'padding: 6px 10px !important; font-size: 12px !important; font-weight: bold !important; background: #ef4444 !important; color: white !important; border: 1px solid #b91c1c !important; border-radius: 4px !important; cursor: pointer !important;';
+      btn0.style.cssText = 'padding: 6px 10px !important; font-size: 12px !important; font-weight: bold !important; background: #f97316 !important; color: white !important; border: 1px solid #ea580c !important; border-radius: 4px !important; cursor: pointer !important;';
       btn0.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -12728,7 +14479,7 @@ async function extractProductDataAndSave() {
         btn0.type = 'button';
         btn0.textContent = '0';
         btn0.title = 'Điền 0 và bấm Áp dụng cho tất cả';
-        btn0.style.cssText = 'padding: 2px 10px !important; font-size: 11px !important; font-weight: bold !important; background: #ff4d4f !important; color: white !important; border: 1px solid #b91c1c !important; border-radius: 3px !important; cursor: pointer !important; height: 22px !important; line-height: 22px !important; display: inline-block !important;';
+        btn0.style.cssText = 'padding: 2px 10px !important; font-size: 11px !important; font-weight: bold !important; background: #f97316 !important; color: white !important; border: 1px solid #ea580c !important; border-radius: 3px !important; cursor: pointer !important; height: 22px !important; line-height: 22px !important; display: inline-block !important;';
         btn0.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -12739,7 +14490,7 @@ async function extractProductDataAndSave() {
         btn1000.type = 'button';
         btn1000.textContent = '1000';
         btn1000.title = 'Điền 1000 và bấm Áp dụng cho tất cả';
-        btn1000.style.cssText = 'padding: 2px 10px !important; font-size: 11px !important; font-weight: bold !important; background: #52c41a !important; color: white !important; border: 1px solid #15803d !important; border-radius: 3px !important; cursor: pointer !important; height: 22px !important; line-height: 22px !important; display: inline-block !important;';
+        btn1000.style.cssText = 'padding: 2px 10px !important; font-size: 11px !important; font-weight: bold !important; background: #ea580c !important; color: white !important; border: 1px solid #c2410c !important; border-radius: 3px !important; cursor: pointer !important; height: 22px !important; line-height: 22px !important; display: inline-block !important;';
         btn1000.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -12769,7 +14520,7 @@ async function extractProductDataAndSave() {
       btn1000.type = 'button';
       btn1000.textContent = '1000';
       btn1000.title = 'Bấm để mở popup và điền 1000 cho từng kho';
-      btn1000.style.cssText = 'font-size: 11px !important; font-weight: bold !important; background: #16a34a !important; color: white !important; border: 1px solid #15803d !important; border-radius: 3px !important; padding: 2px 8px !important; cursor: pointer !important; line-height: 1.2 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;';
+      btn1000.style.cssText = 'font-size: 11px !important; font-weight: bold !important; background: #ea580c !important; color: white !important; border: 1px solid #c2410c !important; border-radius: 3px !important; padding: 2px 8px !important; cursor: pointer !important; line-height: 1.2 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;';
       btn1000.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -12780,7 +14531,7 @@ async function extractProductDataAndSave() {
       btn0.type = 'button';
       btn0.textContent = '0';
       btn0.title = 'Bấm để mở popup và điền 0 cho từng kho';
-      btn0.style.cssText = 'font-size: 11px !important; font-weight: bold !important; background: #ef4444 !important; color: white !important; border: 1px solid #b91c1c !important; border-radius: 3px !important; padding: 2px 6px !important; cursor: pointer !important; line-height: 1.2 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;';
+      btn0.style.cssText = 'font-size: 11px !important; font-weight: bold !important; background: #f97316 !important; color: white !important; border: 1px solid #ea580c !important; border-radius: 3px !important; padding: 2px 6px !important; cursor: pointer !important; line-height: 1.2 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;';
       btn0.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -12917,7 +14668,7 @@ async function extractProductDataAndSave() {
       pBtn1000.type = 'button';
       pBtn1000.textContent = '⚡ Điền 1000';
       pBtn1000.title = 'Điền 1000 cho tất cả các kho đang hoạt động';
-      pBtn1000.style.cssText = 'padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; background: #16a34a !important; color: white !important; border: 1px solid #15803d !important; border-radius: 3px !important; cursor: pointer !important;';
+      pBtn1000.style.cssText = 'padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; background: #ea580c !important; color: white !important; border: 1px solid #c2410c !important; border-radius: 3px !important; cursor: pointer !important;';
       pBtn1000.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -12928,7 +14679,7 @@ async function extractProductDataAndSave() {
       pBtn0.type = 'button';
       pBtn0.textContent = '⚡ Điền 0';
       pBtn0.title = 'Điền 0 cho tất cả các kho đang hoạt động';
-      pBtn0.style.cssText = 'padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; background: #dc2626 !important; color: white !important; border: 1px solid #b91c1c !important; border-radius: 3px !important; cursor: pointer !important;';
+      pBtn0.style.cssText = 'padding: 2px 8px !important; font-size: 11px !important; font-weight: bold !important; background: #f97316 !important; color: white !important; border: 1px solid #ea580c !important; border-radius: 3px !important; cursor: pointer !important;';
       pBtn0.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -12947,6 +14698,7 @@ async function extractProductDataAndSave() {
     processBatchInputs();
     processVariationTables();
     processPopupInputs();
+    injectPreOrderInlineButton();
   }
 
     // =========================================================================

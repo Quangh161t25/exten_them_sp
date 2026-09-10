@@ -592,6 +592,9 @@ async function uploadImageToFreeImageHost(imageUrl) {
         let tinhTrangIdx = headers.findIndex(h => h === "tinh_trang" || h === "tình trạng" || h === "tinh trang" || h.includes("tinh_trang") || h.includes("tình trạng"));
         if (tinhTrangIdx === -1) tinhTrangIdx = 14;
 
+        let trangThaiIdx = headers.findIndex(h => h === "trang_thai" || h === "trạng thái" || h === "trang thai" || h.includes("trang_thai") || h.includes("trạng thái"));
+        if (trangThaiIdx === -1) trangThaiIdx = 15;
+
         const getColLetter = (colIndex) => {
           let temp, letter = '';
           while (colIndex >= 0) {
@@ -606,6 +609,8 @@ async function uploadImageToFreeImageHost(imageUrl) {
         let matchedCount = 0;
         const matchedRowNumbers = [];
         const matchedOrders = new Set();
+        let conflictCount = 0;
+        const conflictedOrders = new Set();
 
         const itemMap = new Map();
         items.forEach(item => {
@@ -651,10 +656,42 @@ async function uploadImageToFreeImageHost(imageUrl) {
               String(item.rawAmount || "").includes("-")
             );
 
-            // Cập nhật dải F -> O (tong_tien đến tinh_trang)
-            // F: tong_tien, G: ma_giam_gia, H: phi_vc, I: phu_phi, J: thue, K: doanh_thu, L: phi_khac, M: tien_sp, N: loi_nhuan, O: tinh_trang
+            // Quy tắc xử lý tinh_trang và trang_thai khi cập nhật doanh thu:
+            // 1. Doanh thu âm: giữ nguyên cả tinh_trang và trang_thai
+            // 2. Doanh thu bình thường:
+            //    - Nếu cột tinh_trang đang TRỐNG (hoặc đã là "XONG"): ghi "XONG" (hoặc giữ nguyên "XONG"), giữ nguyên trang_thai
+            //    - Nếu cột tinh_trang ĐÃ CÓ DỮ LIỆU KHÁC (HỦY, HOÀN, TRẢ,...):
+            //      GIỮ NGUYÊN cột tinh_trang (không ghi đè chữ "XONG"), ghi "xung đột" ở cột trang_thai
+            const rawTinhTrang = (row[tinhTrangIdx] !== undefined && row[tinhTrangIdx] !== null) ? row[tinhTrangIdx] : "";
+            const currentTinhTrang = String(rawTinhTrang).trim();
+            const rawTrangThai = (row[trangThaiIdx] !== undefined && row[trangThaiIdx] !== null) ? row[trangThaiIdx] : "";
+
+            let newTinhTrang = rawTinhTrang;
+            let newTrangThai = rawTrangThai;
+
+            if (isNegativeRevenue) {
+              newTinhTrang = rawTinhTrang;
+              newTrangThai = rawTrangThai;
+            } else {
+              if (!currentTinhTrang) {
+                newTinhTrang = "XONG";
+                newTrangThai = rawTrangThai || "HOÀN THÀNH";
+              } else if (currentTinhTrang.toUpperCase() === "XONG") {
+                newTinhTrang = rawTinhTrang;
+                newTrangThai = rawTrangThai || "HOÀN THÀNH";
+              } else {
+                // Đã có dữ liệu (HỦY, HOÀN, TRẢ,...): giữ nguyên tinh_trang, ghi "XUNG ĐỘT" vào trang_thai
+                newTinhTrang = rawTinhTrang;
+                newTrangThai = "XUNG ĐỘT";
+                conflictCount++;
+                conflictedOrders.add(rowMdh);
+              }
+            }
+
+            // Cập nhật dải F -> P (tong_tien đến trang_thai)
+            // F: tong_tien, G: ma_giam_gia, H: phi_vc, I: phu_phi, J: thue, K: doanh_thu, L: phi_khac, M: tien_sp, N: loi_nhuan, O: tinh_trang, P: trang_thai
             const startCol = tongTienIdx;
-            const endCol = Math.max(doanhThuIdx, loiNhuanIdx, tinhTrangIdx);
+            const endCol = Math.max(doanhThuIdx, loiNhuanIdx, tinhTrangIdx, trangThaiIdx);
 
             const rowValues = [];
             for (let c = startCol; c <= endCol; c++) {
@@ -665,10 +702,8 @@ async function uploadImageToFreeImageHost(imageUrl) {
               else if (c === thueIdx) rowValues.push(thueVal);
               else if (c === doanhThuIdx) rowValues.push(doanhThuVal);
               else if (c === loiNhuanIdx) rowValues.push(loiNhuanVal);
-              else if (c === tinhTrangIdx) {
-                // Đổi thành "XONG". Nếu doanh thu âm thì không cập nhật cột tình trạng (giữ nguyên giá trị cũ)
-                rowValues.push(isNegativeRevenue ? (row[tinhTrangIdx] !== undefined ? row[tinhTrangIdx] : "") : "XONG");
-              }
+              else if (c === tinhTrangIdx) rowValues.push(newTinhTrang);
+              else if (c === trangThaiIdx) rowValues.push(newTrangThai);
               else rowValues.push(row[c] !== undefined ? row[c] : "");
             }
 
@@ -720,8 +755,12 @@ async function uploadImageToFreeImageHost(imageUrl) {
           matchedCount,
           matchedOrders: Array.from(matchedOrders),
           unmatchedOrders,
+          conflictCount,
+          conflictedOrders: Array.from(conflictedOrders),
           rowNums: matchedRowNumbers,
-          message: `Đã cập nhật thành công ${matchedCount} dòng (${matchedOrders.size} đơn hàng) trong Sheet DH!`
+          message: conflictCount > 0
+            ? `Đã cập nhật thành công ${matchedCount} dòng (${matchedOrders.size} đơn hàng) trong Sheet DH! (Phát hiện ${conflictedOrders.size} đơn xung đột trạng thái)`
+            : `Đã cập nhật thành công ${matchedCount} dòng (${matchedOrders.size} đơn hàng) trong Sheet DH!`
         });
       } catch (err) {
         sendResponse({ ok: false, error: err.message });
@@ -1208,71 +1247,84 @@ async function uploadImageToFreeImageHost(imageUrl) {
         }
 
         // 3. Phân loại: Thêm mới hoặc Cập nhật bổ sung (MVD / Link / Gian)
+        const sheetExistingMdhSet = new Set(existingMdhRowMap.keys());
+        const sheetExistingMvdSet = new Set(existingMvdRowMap.keys());
         const newRowsToInsert = [];
         const updateRanges = [];
-        const batchSeenKeys = new Set();
+        const seenExistingOrderKeys = new Set();
+        const batchInsertedSignatures = new Set();
         let updatedCount = 0;
         let skippedCount = 0;
 
         for (const row of validRows) {
           const mdh = String(row[3] || "").trim().toLowerCase();
           const mvd = String(row[4] || "").trim().toLowerCase();
+          const sku = String(row[16] || "").trim().toLowerCase();
+          const idSp = String(row[17] || "").trim().toLowerCase();
+          const slg = String(row[18] || "").trim();
           const link = String(row[24] || "").trim();
           const gian = String(row[0] || "").trim();
-          const dedupKey = mdh || mvd;
+          const orderKey = mdh || mvd;
 
-          if (batchSeenKeys.has(dedupKey)) continue;
-          batchSeenKeys.add(dedupKey);
+          // Kiểm tra xem đơn hàng đã từng tồn tại trong Sheet DH chưa
+          const existsInSheet = (mdh && sheetExistingMdhSet.has(mdh)) || (mvd && sheetExistingMvdSet.has(mvd));
 
-          const existingMatches = (mdh ? existingMdhRowMap.get(mdh) : null) || (mvd ? existingMvdRowMap.get(mvd) : null);
+          if (existsInSheet) {
+            // Đơn hàng ĐÃ CÓ trong Sheet DH -> KHÔNG thêm dòng mới (chỉ thêm 1 lần thôi)
+            // Chỉ cập nhật bổ sung MVD, Link, Mã gian nếu dòng cũ còn thiếu
+            if (!seenExistingOrderKeys.has(orderKey)) {
+              seenExistingOrderKeys.add(orderKey);
+              const existingMatches = (mdh ? existingMdhRowMap.get(mdh) : null) || (mvd ? existingMvdRowMap.get(mvd) : null) || [];
+              let didUpdate = false;
+              for (const match of existingMatches) {
+                const exRow = match.rowData;
+                const exRowNum = match.rowNum;
+                const exMvd = String(exRow[mvdColIdx] || "").trim();
+                const exLink = String(exRow[linkColIdx] || "").trim();
+                const exGian = String(exRow[gianColIdx] || "").trim();
 
-          if (existingMatches && existingMatches.length > 0) {
-            let didUpdate = false;
-            for (const match of existingMatches) {
-              const exRow = match.rowData;
-              const exRowNum = match.rowNum;
-              const exMvd = String(exRow[mvdColIdx] || "").trim();
-              const exLink = String(exRow[linkColIdx] || "").trim();
-              const exGian = String(exRow[gianColIdx] || "").trim();
-
-              // Bổ sung MVD nếu dòng cũ chưa có
-              if (!exMvd && row[4]) {
-                updateRanges.push({
-                  range: `DH!${String.fromCharCode(65 + mvdColIdx)}${exRowNum}`,
-                  values: [[row[4]]]
-                });
-                exRow[mvdColIdx] = row[4];
-                didUpdate = true;
+                // Bổ sung MVD nếu dòng cũ chưa có
+                if (!exMvd && row[4]) {
+                  updateRanges.push({
+                    range: `DH!${String.fromCharCode(65 + mvdColIdx)}${exRowNum}`,
+                    values: [[row[4]]]
+                  });
+                  exRow[mvdColIdx] = row[4];
+                  didUpdate = true;
+                }
+                // Bổ sung Link đơn nếu dòng cũ chưa có
+                if (!exLink && link) {
+                  updateRanges.push({
+                    range: `DH!${String.fromCharCode(65 + linkColIdx)}${exRowNum}`,
+                    values: [[link]]
+                  });
+                  exRow[linkColIdx] = link;
+                  didUpdate = true;
+                }
+                // Bổ sung Mã Gian nếu dòng cũ chưa có
+                if (!exGian && gian) {
+                  updateRanges.push({
+                    range: `DH!${String.fromCharCode(65 + gianColIdx)}${exRowNum}`,
+                    values: [[gian]]
+                  });
+                  exRow[gianColIdx] = gian;
+                  didUpdate = true;
+                }
               }
-              // Bổ sung Link đơn nếu dòng cũ chưa có
-              if (!exLink && link) {
-                updateRanges.push({
-                  range: `DH!${String.fromCharCode(65 + linkColIdx)}${exRowNum}`,
-                  values: [[link]]
-                });
-                exRow[linkColIdx] = link;
-                didUpdate = true;
+              if (didUpdate) {
+                updatedCount++;
+              } else {
+                skippedCount++;
               }
-              // Bổ sung Mã Gian nếu dòng cũ chưa có
-              if (!exGian && gian) {
-                updateRanges.push({
-                  range: `DH!${String.fromCharCode(65 + gianColIdx)}${exRowNum}`,
-                  values: [[gian]]
-                });
-                exRow[gianColIdx] = gian;
-                didUpdate = true;
-              }
-            }
-            if (didUpdate) {
-              updatedCount++;
-            } else {
-              skippedCount++;
             }
           } else {
-            // Đơn mới hoàn toàn
-            newRowsToInsert.push(row);
-            if (mdh) existingMdhRowMap.set(mdh, [{ rowNum: -1, rowData: row }]);
-            if (mvd) existingMvdRowMap.set(mvd, [{ rowNum: -1, rowData: row }]);
+            // Đơn hàng MỚI CHƯA CÓ TRONG SHEET DH
+            // Cho phép thêm nhiều sản phẩm / nhiều dòng cho cùng 1 MDH, chống trùng lặp dòng y hệt trong cùng batch
+            const rowSig = `${orderKey}__${sku}__${idSp}__${slg}`;
+            if (!batchInsertedSignatures.has(rowSig)) {
+              batchInsertedSignatures.add(rowSig);
+              newRowsToInsert.push(row);
+            }
           }
         }
 
@@ -1812,7 +1864,34 @@ async function uploadImageToFreeImageHost(imageUrl) {
       };
     }
 
-    // 4. Cập nhật các cột theo trạng thái (Hủy: tinh_trang=Hủy, doanh_thu=0, tien_sp=0; Hoàn: tinh_trang=hoàn, trang_thai="", tien_sp=0; Trả: tien_sp=0)
+    const isHuy = statusVal === "Hủy" || statusVal === "HỦY" || /^h[uủ]y$/i.test(statusVal);
+    const isHoan = statusVal === "Hoàn" || statusVal === "HOÀN" || /^ho[aà]n$/i.test(statusVal);
+    const isTra = statusVal === "Trả" || statusVal === "TRẢ" || /^tr[aả]$/i.test(statusVal);
+
+    // QUY TẮC CẬP NHẬT TRẠNG THÁI:
+    // 1. Khi ấn HỦY: CHỈ cập nhật đơn nào CHƯA CẬP NHẬT TRẠNG THÁI (chưa có tinh_trang hoặc trạng thái tùy chỉnh)!
+    //    Nếu đơn đã có trạng thái rồi -> BỎ QUA không ghi đè!
+    // 2. Khi ấn HOÀN hoặc TRẢ: Cứ CÓ ĐƠN NÀY trong Sheet DH là CẬP NHẬT TRẠNG THÁI ĐƠN ĐÓ!
+    if (isHuy) {
+      const rowsToUpdate = matchingRows.filter(m => {
+        const existingTinhTrang = String(m.rowData[14] || "").trim();
+        const existingTrangThai = String(m.rowData[15] || "").trim();
+        return !existingTinhTrang && !isModifiedStatusText(existingTrangThai || existingTinhTrang);
+      });
+
+      if (rowsToUpdate.length === 0) {
+        const existingStatus = matchingRows.find(m => m.rowData[14] || m.rowData[15])?.rowData[14] || matchingRows[0]?.rowData[15] || "đã có trạng thái";
+        return {
+          ok: true,
+          skipped: true,
+          alreadyUpdated: true,
+          message: `Mã đơn "${reqOrderId ? reqOrderId.toUpperCase() : trackingVal}" đã cập nhật trạng thái (${existingStatus}) rồi! Chỉ cập nhật đơn nào chưa cập nhật trạng thái thôi.`
+        };
+      }
+      matchingRows = rowsToUpdate;
+    }
+
+    // 4. Cập nhật các cột theo trạng thái (Hủy: tinh_trang=Hủy, doanh_thu=0, tien_sp=0; Hoàn: tinh_trang=hoàn, trang_thai="", tien_sp=0; Trả: tinh_trang=TRẢ, tien_sp=0)
     const updateData = [];
 
     const parseNum = (val) => {
@@ -1825,7 +1904,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
     for (const item of matchingRows) {
       const { rowNum, rowData } = item;
 
-      if (statusVal === "Hủy" || statusVal === "HỦY" || /^h[uủ]y$/i.test(statusVal)) {
+      if (isHuy) {
         // Hủy: tinh_trang = "HỦY", trang_thai = "", doanh_thu = 0, tien_sp = 0, loi_nhuan = 0
         updateData.push({
           range: `DH!K${rowNum}`,
@@ -1835,19 +1914,47 @@ async function uploadImageToFreeImageHost(imageUrl) {
           range: `DH!M${rowNum}:P${rowNum}`,
           values: [[0, 0, "HỦY", ""]]
         });
-      } else if (statusVal === "Hoàn" || statusVal === "HOÀN" || /^ho[aà]n$/i.test(statusVal)) {
+      } else if (isHoan) {
         // Hoàn: tinh_trang = "HOÀN", trang_thai = "", tien_sp = 0, loi_nhuan = doanh_thu - phi_khac
-        const dt = parseNum(rowData[10]);
+        let dt = parseNum(rowData[10]);
         const pk = parseNum(rowData[11]);
+        if (dt === 0) {
+          const tongTien = parseNum(rowData[5]);
+          const maGiamGia = parseNum(rowData[6]);
+          const phiVc = parseNum(rowData[7]);
+          const phuPhi = parseNum(rowData[8]);
+          const thue = parseNum(rowData[9]);
+          if (tongTien > 0) {
+            dt = tongTien - maGiamGia - phiVc - phuPhi - thue;
+            updateData.push({
+              range: `DH!K${rowNum}`,
+              values: [[dt]]
+            });
+          }
+        }
         const newLoiNhuan = dt - pk;
         updateData.push({
           range: `DH!M${rowNum}:P${rowNum}`,
           values: [[0, newLoiNhuan, "HOÀN", ""]]
         });
-      } else if (statusVal === "Trả" || statusVal === "TRẢ" || /^tr[aả]$/i.test(statusVal)) {
+      } else if (isTra) {
         // Trả: tinh_trang = "TRẢ", trang_thai = "", tien_sp = 0, loi_nhuan = doanh_thu - phi_khac
-        const dt = parseNum(rowData[10]);
+        let dt = parseNum(rowData[10]);
         const pk = parseNum(rowData[11]);
+        if (dt === 0) {
+          const tongTien = parseNum(rowData[5]);
+          const maGiamGia = parseNum(rowData[6]);
+          const phiVc = parseNum(rowData[7]);
+          const phuPhi = parseNum(rowData[8]);
+          const thue = parseNum(rowData[9]);
+          if (tongTien > 0) {
+            dt = tongTien - maGiamGia - phiVc - phuPhi - thue;
+            updateData.push({
+              range: `DH!K${rowNum}`,
+              values: [[dt]]
+            });
+          }
+        }
         const newLoiNhuan = dt - pk;
         updateData.push({
           range: `DH!M${rowNum}:P${rowNum}`,
@@ -1973,7 +2080,12 @@ async function uploadImageToFreeImageHost(imageUrl) {
     const updateData = [];
     let updatedOrdersCount = 0;
     let skippedOrdersCount = 0;
+    let skippedAlreadyUpdatedCount = 0;
     const processedRowNums = new Set();
+
+    const isHuy = statusVal === "Hủy" || statusVal === "HỦY" || /^h[uủ]y$/i.test(statusVal);
+    const isHoan = statusVal === "Hoàn" || statusVal === "HOÀN" || /^ho[aà]n$/i.test(statusVal);
+    const isTra = statusVal === "Trả" || statusVal === "TRẢ" || /^tr[aả]$/i.test(statusVal);
 
     for (const item of orders) {
       const oId = String(item.orderId || "").trim();
@@ -2000,33 +2112,75 @@ async function uploadImageToFreeImageHost(imageUrl) {
 
       if (matchedRows.length > 0) {
         let hasNewUpdate = false;
+        let orderAlreadyUpdated = false;
+
         for (const m of matchedRows) {
           if (processedRowNums.has(m.rowNum)) continue;
-          processedRowNums.add(m.rowNum);
-          hasNewUpdate = true;
 
           const { rowNum, rowData } = m;
-          if (statusVal === "Hủy" || statusVal === "HỦY" || /^h[uủ]y$/i.test(statusVal)) {
-            // Hủy: doanh_thu = 0, tien_sp = 0, loi_nhuan = 0, tinh_trang = HỦY, trang_thai = ""
+          const existingTinhTrang = String(rowData[14] || "").trim();
+          const existingTrangThai = String(rowData[15] || "").trim();
+          const isAlreadyUpdated = Boolean(existingTinhTrang || isModifiedStatusText(existingTrangThai || existingTinhTrang));
+
+          if (isHuy) {
+            // HỦY: CHỈ cập nhật đơn nào CHƯA CẬP NHẬT TRẠNG THÁI
+            if (isAlreadyUpdated) {
+              orderAlreadyUpdated = true;
+              continue; // Bỏ qua đơn đã cập nhật trạng thái trước đó!
+            }
+            processedRowNums.add(m.rowNum);
+            hasNewUpdate = true;
             updateData.push({ range: `DH!K${rowNum}`, values: [[0]] });
             updateData.push({ range: `DH!M${rowNum}:P${rowNum}`, values: [[0, 0, "HỦY", ""]] });
-          } else if (statusVal === "Hoàn" || statusVal === "HOÀN" || /^ho[aà]n$/i.test(statusVal)) {
-            // Hoàn: tien_sp = 0, loi_nhuan = doanh_thu - phi_khac, tinh_trang = HOÀN, trang_thai = ""
-            const dt = parseNum(rowData[10]);
+          } else if (isHoan) {
+            // HOÀN: CÓ ĐƠN NÀY LÀ CẬP NHẬT TRẠNG THÁI ĐƠN ĐÓ
+            processedRowNums.add(m.rowNum);
+            hasNewUpdate = true;
+            let dt = parseNum(rowData[10]);
             const pk = parseNum(rowData[11]);
-            updateData.push({ range: `DH!M${rowNum}:P${rowNum}`, values: [[0, dt - pk, "HOÀN", ""]] });
-          } else if (statusVal === "Trả" || statusVal === "TRẢ" || /^tr[aả]$/i.test(statusVal)) {
-            // Trả: tien_sp = 0, loi_nhuan = doanh_thu - phi_khac, tinh_trang = TRẢ, trang_thai = ""
-            const dt = parseNum(rowData[10]);
+            if (dt === 0) {
+              const tongTien = parseNum(rowData[5]);
+              const maGiamGia = parseNum(rowData[6]);
+              const phiVc = parseNum(rowData[7]);
+              const phuPhi = parseNum(rowData[8]);
+              const thue = parseNum(rowData[9]);
+              if (tongTien > 0) {
+                dt = tongTien - maGiamGia - phiVc - phuPhi - thue;
+                updateData.push({ range: `DH!K${rowNum}`, values: [[dt]] });
+              }
+            }
+            const newLoiNhuan = dt - pk;
+            updateData.push({ range: `DH!M${rowNum}:P${rowNum}`, values: [[0, newLoiNhuan, "HOÀN", ""]] });
+          } else if (isTra) {
+            // TRẢ: CÓ ĐƠN NÀY LÀ CẬP NHẬT TRẠNG THÁI ĐƠN ĐÓ
+            processedRowNums.add(m.rowNum);
+            hasNewUpdate = true;
+            let dt = parseNum(rowData[10]);
             const pk = parseNum(rowData[11]);
-            updateData.push({ range: `DH!M${rowNum}:P${rowNum}`, values: [[0, dt - pk, "TRẢ", ""]] });
+            if (dt === 0) {
+              const tongTien = parseNum(rowData[5]);
+              const maGiamGia = parseNum(rowData[6]);
+              const phiVc = parseNum(rowData[7]);
+              const phuPhi = parseNum(rowData[8]);
+              const thue = parseNum(rowData[9]);
+              if (tongTien > 0) {
+                dt = tongTien - maGiamGia - phiVc - phuPhi - thue;
+                updateData.push({ range: `DH!K${rowNum}`, values: [[dt]] });
+              }
+            }
+            const newLoiNhuan = dt - pk;
+            updateData.push({ range: `DH!M${rowNum}:P${rowNum}`, values: [[0, newLoiNhuan, "TRẢ", ""]] });
           }
 
           if (retId || trk) {
             updateData.push({ range: `DH!Z${rowNum}:AA${rowNum}`, values: [[retId, trk]] });
           }
         }
-        if (hasNewUpdate) updatedOrdersCount++;
+        if (hasNewUpdate) {
+          updatedOrdersCount++;
+        } else if (orderAlreadyUpdated) {
+          skippedAlreadyUpdatedCount++;
+        }
       } else {
         // Nếu mã đơn hàng không có ở sheet thì bỏ qua
         skippedOrdersCount++;
@@ -2059,6 +2213,7 @@ async function uploadImageToFreeImageHost(imageUrl) {
       ok: true,
       updatedCount: updatedOrdersCount,
       skippedCount: skippedOrdersCount,
+      skippedAlreadyUpdatedCount: skippedAlreadyUpdatedCount,
       total: orders.length
     };
   }
@@ -2128,6 +2283,81 @@ async function uploadImageToFreeImageHost(imageUrl) {
       } else {
         sendResponse({ ok: true, downloadId });
       }
+    });
+    return true;
+  }
+
+  if (message?.type === "OPEN_AND_SEND_WEBCHAT_MESSAGE") {
+    const webchatUrl = "https://banhang.shopee.vn/new-webchat/conversations";
+    chrome.storage.local.set({
+      pendingAutoChat: {
+        buyerName: message.buyerName || "",
+        message: message.message || "",
+        timestamp: Date.now()
+      }
+    });
+
+    const dispatchToTab = (targetTabId, bName, msg) => {
+      let messageDispatched = false;
+      const onUpdatedListener = (tabId, changeInfo) => {
+        if (tabId === targetTabId && changeInfo.status === "complete" && !messageDispatched) {
+          messageDispatched = true;
+          chrome.tabs.onUpdated.removeListener(onUpdatedListener);
+          const sendTask = () => {
+            chrome.tabs.sendMessage(targetTabId, {
+              type: "EXECUTE_AUTO_CHAT_BUYER",
+              buyerName: bName,
+              message: msg
+            }).catch(() => {});
+          };
+          setTimeout(sendTask, 800);
+          setTimeout(sendTask, 2200);
+        }
+      };
+      chrome.tabs.onUpdated.addListener(onUpdatedListener);
+      setTimeout(() => {
+        try { chrome.tabs.onUpdated.removeListener(onUpdatedListener); } catch (_) {}
+      }, 30000);
+    };
+
+    chrome.tabs.query({}, (tabs) => {
+      const existingTab = tabs?.find(t => t.url && (t.url.includes("new-webchat") || t.url.includes("/webchat/")));
+      if (existingTab && existingTab.id) {
+        chrome.tabs.update(existingTab.id, { active: true }, (updatedTab) => {
+          if (chrome.runtime.lastError || !updatedTab) {
+            chrome.tabs.create({ url: webchatUrl, active: true }, (newTab) => {
+              if (newTab?.id && message.buyerName) {
+                dispatchToTab(newTab.id, message.buyerName, message.message);
+              }
+            });
+          } else {
+            if (existingTab.windowId) {
+              chrome.windows.update(existingTab.windowId, { focused: true }).catch(() => {});
+            }
+            if (message.buyerName) {
+              const sendTask = () => {
+                chrome.tabs.sendMessage(existingTab.id, {
+                  type: "EXECUTE_AUTO_CHAT_BUYER",
+                  buyerName: message.buyerName,
+                  message: message.message
+                }).catch(() => {});
+              };
+              setTimeout(sendTask, 400);
+              setTimeout(sendTask, 1200);
+            }
+          }
+        });
+      } else {
+        chrome.tabs.create({
+          url: webchatUrl,
+          active: true
+        }, (newTab) => {
+          if (newTab?.id && message.buyerName) {
+            dispatchToTab(newTab.id, message.buyerName, message.message);
+          }
+        });
+      }
+      sendResponse({ ok: true });
     });
     return true;
   }

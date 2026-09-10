@@ -8,6 +8,7 @@
   const thead = document.getElementById("nhieu-don-hang-thead");
   const tbody = document.getElementById("nhieu-don-hang-tbody");
   const inputSearch = document.getElementById("nhieu-don-hang-search");
+  const btnClearSearch = document.getElementById("btn-clear-nhieu-don-search");
   const inputGian = document.getElementById("nhieu-don-hang-gian-filter");
   const gianDatalist = document.getElementById("nhieu-don-hang-gian-list");
   const sortSelect = document.getElementById("nhieu-don-hang-sort-select");
@@ -50,6 +51,19 @@
   const btnBatchReturnHuy = document.getElementById("btn-batch-return-huy");
   const btnBatchReturnHoan = document.getElementById("btn-batch-return-hoan");
   const btnBatchReturnTra = document.getElementById("btn-batch-return-tra");
+  const inputBatchReturnMaxPages = document.getElementById("input-batch-return-max-pages");
+  if (inputBatchReturnMaxPages) {
+    chrome.storage.local.get(["batchReturnMaxPages"], (res) => {
+      if (res?.batchReturnMaxPages) {
+        inputBatchReturnMaxPages.value = res.batchReturnMaxPages;
+      }
+    });
+    inputBatchReturnMaxPages.addEventListener("change", () => {
+      const v = Math.max(1, parseInt(inputBatchReturnMaxPages.value, 10) || 1);
+      inputBatchReturnMaxPages.value = v;
+      chrome.storage.local.set({ batchReturnMaxPages: v });
+    });
+  }
   const listScanStatusBox = document.getElementById("nhieu-don-list-scan-status-box");
   const listScanText = document.getElementById("nhieu-don-list-scan-text");
   const btnStopListScan = document.getElementById("btn-stop-list-scan");
@@ -629,12 +643,56 @@
     return cloned;
   }
 
-  // 3. Render bảng và lọc theo Mã Gian + Từ Khóa + Sắp xếp + Phân trang 50 dòng + Chọn đơn
+  // Helper phân tách từ khóa tìm kiếm: hỗ trợ nhiều mã đơn cách nhau bởi dấu phẩy (,), chấm phẩy (;), tab hoặc xuống dòng
+  function parseSearchTokens(rawQuery) {
+    if (!rawQuery) return { tokens: [], tokenSet: new Set() };
+    const tokens = String(rawQuery)
+      .split(/[,;\n\r\t]+/)
+      .map(t => {
+        let clean = t.replace(/^['"\s]+|['"\s]+$/g, '').trim().toLowerCase();
+        clean = clean.replace(/^(?:mã đơn hàng|mã đơn|order sn|mdh|mã đh)[:\s]*/i, '').trim();
+        return clean;
+      })
+      .filter(Boolean);
+    return {
+      tokens,
+      tokenSet: new Set(tokens)
+    };
+  }
+
+  // Helper kiểm tra 1 dòng dữ liệu có khớp với bộ lọc tìm kiếm hay không
+  function isRowMatchingSearch(cells, tokens, tokenSet) {
+    if (!tokens || tokens.length === 0) return true;
+
+    // Fast O(1) match cho các cột mã đơn hàng, mã vận đơn, SKU
+    const mdh = String(cells[mdhColumnIdx] || "").trim().toLowerCase();
+    const mvd = String(cells[mvdColumnIdx] || "").trim().toLowerCase();
+    const sku = String(cells[skuColumnIdx] || "").trim().toLowerCase();
+
+    if (tokenSet) {
+      if (mdh && tokenSet.has(mdh)) return true;
+      if (mvd && tokenSet.has(mvd)) return true;
+      if (sku && tokenSet.has(sku)) return true;
+    }
+
+    // Nếu chỉ có 1 từ khóa tìm kiếm thông thường (ví dụ: gõ "Chờ lấy hàng" hoặc tên khách)
+    if (tokens.length === 1) {
+      const fullRowText = cells.join(" ").toLowerCase();
+      return fullRowText.includes(tokens[0]);
+    }
+
+    // Nếu có nhiều từ khóa (ngăn cách bởi dấu phẩy, xuống dòng...):
+    // Khớp nếu dòng chứa bất kỳ từ khóa nào trong danh sách (OR match)
+    const fullRowText = cells.join(" ").toLowerCase();
+    return tokens.some(tok => fullRowText.includes(tok));
+  }
+
+  // 3. Render bảng và lọc theo Mã Gian + Từ Khóa (nhiều mã) + Sắp xếp + Phân trang 50 dòng + Chọn đơn
   function renderTable() {
     if (!dataLoaded || !tbody) return;
 
     const filterGian = inputGian ? inputGian.value.trim().toLowerCase() : "";
-    const filterQuery = inputSearch ? inputSearch.value.trim().toLowerCase() : "";
+    const { tokens: searchTokens, tokenSet: searchTokenSet } = parseSearchTokens(inputSearch ? inputSearch.value : "");
 
     const previewMdh = (latestPreviewRows && latestPreviewRows.length > 0 && latestPreviewRows[0]?.orderId)
       ? String(latestPreviewRows[0].orderId).trim().toLowerCase()
@@ -655,10 +713,9 @@
         }
       }
 
-      // B. Lọc theo Từ khóa tìm kiếm
-      if (filterQuery) {
-        const fullRowText = cells.join(" ").toLowerCase();
-        if (!fullRowText.includes(filterQuery)) {
+      // B. Lọc theo Từ khóa tìm kiếm (hỗ trợ 1 hoặc nhiều mã đơn cách nhau bởi dấu phẩy, chấm phẩy, tab, xuống dòng)
+      if (searchTokens.length > 0) {
+        if (!isRowMatchingSearch(cells, searchTokens, searchTokenSet)) {
           continue;
         }
       }
@@ -885,6 +942,28 @@
           return;
         }
 
+        const isHuy = status === "Hủy" || status === "HỦY" || /^h[uủ]y$/i.test(status);
+        const isHoan = status === "Hoàn" || status === "HOÀN" || /^ho[aà]n$/i.test(status);
+        const isTra = status === "Trả" || status === "TRẢ" || /^tr[aả]$/i.test(status);
+
+        // QUY TẮC: Ấn HỦY thì CHỈ cập nhật đơn nào CHƯA CẬP NHẬT TRẠNG THÁI!
+        if (isHuy) {
+          const targetItem = allData.find(item => {
+            const rMdh = String(item.cells[mdhColumnIdx] || "").trim();
+            const rMvd = String(item.cells[4] || "").trim();
+            return (mdh && rMdh.toLowerCase() === mdh.toLowerCase()) || (mvd && rMvd.toLowerCase() === mvd.toLowerCase());
+          });
+          if (targetItem) {
+            const existingTinhTrang = String(targetItem.cells[tinhTrangColumnIdx] || "").trim();
+            const existingTrangThai = String(targetItem.cells[trangThaiColumnIdx] || "").trim();
+            const isAlreadyUpdated = Boolean(existingTinhTrang || isOrderCustomOrModifiedStatus(existingTrangThai || existingTinhTrang));
+            if (isAlreadyUpdated) {
+              alert(`Đơn hàng "${mdh}" đã cập nhật trạng thái (${existingTinhTrang || existingTrangThai}) rồi!\n\nChỉ cập nhật đơn nào chưa cập nhật trạng thái thôi.`);
+              return;
+            }
+          }
+        }
+
         const oldText = btn.textContent;
         btn.disabled = true;
         btn.textContent = "⏳...";
@@ -899,25 +978,47 @@
           const rMdh = String(item.cells[mdhColumnIdx] || "").trim();
           const rMvd = String(item.cells[4] || "").trim();
           if ((mdh && rMdh.toLowerCase() === mdh.toLowerCase()) || (mvd && rMvd.toLowerCase() === mvd.toLowerCase())) {
-            if (status === "Hủy" || status === "HỦY" || /^h[uủ]y$/i.test(status)) {
+            if (isHuy) {
               item.cells[10] = "0"; // doanh_thu
               item.cells[12] = "0"; // tien_sp
               item.cells[13] = "0"; // loi_nhuan
               if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "HỦY";
               if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
-            } else if (status === "Hoàn" || status === "HOÀN" || /^ho[aà]n$/i.test(status)) {
+            } else if (isHoan) {
               item.cells[12] = "0"; // tien_sp
               if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "HOÀN";
               if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
-              const dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
+              let dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
               const pk = Number(String(item.cells[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
+              if (dt === 0) {
+                const tongTien = Number(String(item.cells[5] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const maGiamGia = Number(String(item.cells[6] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const phiVc = Number(String(item.cells[7] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const phuPhi = Number(String(item.cells[8] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const thue = Number(String(item.cells[9] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                if (tongTien > 0) {
+                  dt = tongTien - maGiamGia - phiVc - phuPhi - thue;
+                  item.cells[10] = String(dt);
+                }
+              }
               item.cells[13] = String(dt - pk); // loi_nhuan
-            } else if (status === "Trả" || status === "TRẢ" || /^tr[aả]$/i.test(status)) {
+            } else if (isTra) {
               item.cells[12] = "0"; // tien_sp
               if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "TRẢ";
               if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
-              const dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
+              let dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
               const pk = Number(String(item.cells[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
+              if (dt === 0) {
+                const tongTien = Number(String(item.cells[5] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const maGiamGia = Number(String(item.cells[6] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const phiVc = Number(String(item.cells[7] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const phuPhi = Number(String(item.cells[8] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const thue = Number(String(item.cells[9] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                if (tongTien > 0) {
+                  dt = tongTien - maGiamGia - phiVc - phuPhi - thue;
+                  item.cells[10] = String(dt);
+                }
+              }
               item.cells[13] = String(dt - pk); // loi_nhuan
             }
             matchingDhValues.push([...item.cells]);
@@ -938,6 +1039,14 @@
           btn.textContent = oldText;
 
           if (res && res.ok) {
+            if (res.skipped || res.notFound) {
+              if (statusEl) {
+                statusEl.innerHTML = `<span style="color:#d97706; font-weight:bold;">ℹ️ ${escapeHtml(res.message || `Đơn ${mdh} đã bỏ qua.`)}</span>`;
+              }
+              alert(res.message || `Đơn ${mdh} đã bỏ qua.`);
+              loadDhSheetData(false);
+              return;
+            }
             renderTable();
             if (statusEl) {
               statusEl.innerHTML = `<span style="color:#16a34a; font-weight:bold;">✅ Đã cập nhật thành công trạng thái "${status}" cho đơn ${mdh} vào Sheet DH!</span>`;
@@ -985,7 +1094,7 @@
   function updateStatusText(totalItems, currentCount) {
     if (!statusEl) return;
     const filterGian = inputGian ? inputGian.value.trim() : "";
-    const filterQuery = inputSearch ? inputSearch.value.trim() : "";
+    const { tokens: searchTokens } = parseSearchTokens(inputSearch ? inputSearch.value : "");
 
     const now = new Date();
     const timeStr = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
@@ -993,7 +1102,14 @@
     const realtimeBadge = `<span style="background: #dcfce7; color: #15803d; padding: 1px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">🟢 Realtime [${timeStr}]</span>`;
 
     const gianLabel = filterGian ? `Gian: <b>${escapeHtml(filterGian)}</b> | ` : '';
-    const filteredText = (totalItems !== undefined && totalItems < allData.length) ? ` (Lọc: <b style="color:#2563eb;">${totalItems}</b>)` : '';
+    let filteredText = '';
+    if (totalItems !== undefined && totalItems < allData.length) {
+      if (searchTokens.length > 1) {
+        filteredText = ` (Lọc thấy: <b style="color:#2563eb;">${totalItems}</b> dòng / <b>${searchTokens.length}</b> mã)`;
+      } else {
+        filteredText = ` (Lọc: <b style="color:#2563eb;">${totalItems}</b>)`;
+      }
+    }
     statusEl.innerHTML = `${realtimeBadge} ${gianLabel}Tổng: <b>${allData.length}</b> đơn${filteredText}.`;
   }
 
@@ -1023,7 +1139,7 @@
     }
 
     const filterGian = inputGian ? inputGian.value.trim().toLowerCase() : "";
-    const filterQuery = inputSearch ? inputSearch.value.trim().toLowerCase() : "";
+    const { tokens: searchTokens, tokenSet: searchTokenSet } = parseSearchTokens(inputSearch ? inputSearch.value : "");
 
     const lines = [];
     lines.push(headers.join("\t"));
@@ -1036,9 +1152,8 @@
         const cellGian = String(cells[gianColumnIdx] || "").trim().toLowerCase();
         if (!cellGian.includes(filterGian) && cellGian !== filterGian) continue;
       }
-      if (filterQuery) {
-        const fullRowText = cells.join(" ").toLowerCase();
-        if (!fullRowText.includes(filterQuery)) continue;
+      if (searchTokens.length > 0) {
+        if (!isRowMatchingSearch(cells, searchTokens, searchTokenSet)) continue;
       }
       lines.push(cells.join("\t"));
     }
@@ -1056,7 +1171,7 @@
     }
 
     const filterGian = inputGian ? inputGian.value.trim().toLowerCase() : "";
-    const filterQuery = inputSearch ? inputSearch.value.trim().toLowerCase() : "";
+    const { tokens: searchTokens, tokenSet: searchTokenSet } = parseSearchTokens(inputSearch ? inputSearch.value : "");
 
     const exportRows = [headers];
     const sortedData = getSortedData(allData);
@@ -1067,9 +1182,8 @@
         const cellGian = String(cells[gianColumnIdx] || "").trim().toLowerCase();
         if (!cellGian.includes(filterGian) && cellGian !== filterGian) continue;
       }
-      if (filterQuery) {
-        const fullRowText = cells.join(" ").toLowerCase();
-        if (!fullRowText.includes(filterQuery)) continue;
+      if (searchTokens.length > 0) {
+        if (!isRowMatchingSearch(cells, searchTokens, searchTokenSet)) continue;
       }
       exportRows.push(cells);
     }
@@ -1121,8 +1235,35 @@
     inputGian.addEventListener("change", () => { currentPage = 1; renderTable(); });
   }
 
+  function updateClearSearchBtn() {
+    if (btnClearSearch && inputSearch) {
+      btnClearSearch.style.display = inputSearch.value.trim() ? "inline-block" : "none";
+    }
+  }
+
   if (inputSearch) {
-    inputSearch.addEventListener("input", () => { currentPage = 1; renderTable(); });
+    inputSearch.addEventListener("input", () => {
+      updateClearSearchBtn();
+      currentPage = 1;
+      renderTable();
+    });
+    inputSearch.addEventListener("change", () => {
+      updateClearSearchBtn();
+      currentPage = 1;
+      renderTable();
+    });
+  }
+
+  if (btnClearSearch) {
+    btnClearSearch.addEventListener("click", () => {
+      if (inputSearch) {
+        inputSearch.value = "";
+        inputSearch.focus();
+      }
+      updateClearSearchBtn();
+      currentPage = 1;
+      renderTable();
+    });
   }
 
   if (btnReload) {
@@ -1944,6 +2085,20 @@
       return;
     }
 
+    const isHuy = status === "Hủy" || status === "HỦY" || /^h[uủ]y$/i.test(status);
+    const isHoan = status === "Hoàn" || status === "HOÀN" || /^ho[aà]n$/i.test(status);
+    const isTra = status === "Trả" || status === "TRẢ" || /^tr[aả]$/i.test(status);
+
+    // QUY TẮC: Ấn HỦY thì CHỈ cập nhật đơn nào CHƯA CẬP NHẬT TRẠNG THÁI!
+    if (isHuy) {
+      const existingStatus = currentPreviewExistingInfo?.comparison?.existingStatus || 
+                             (latestPreviewDhValues?.[0]?.[14]) || "";
+      if (currentPreviewExistingInfo?.hasModifiedStatus || (existingStatus && isOrderCustomOrModifiedStatus(existingStatus))) {
+        alert(`Đơn hàng "${sampleMdh}" đã cập nhật trạng thái (${existingStatus || "trước đó"}) rồi!\n\nChỉ cập nhật đơn nào chưa cập nhật trạng thái thôi.`);
+        return;
+      }
+    }
+
     const gianVal = inputGian ? inputGian.value.trim() : "";
 
     if (statusEl) {
@@ -1963,25 +2118,47 @@
     if (dhValues && dhValues.length > 0) {
       dhValues = dhValues.map(row => {
         const newRow = [...row];
-        if (status === "Hủy" || status === "HỦY" || /^h[uủ]y$/i.test(status)) {
+        if (isHuy) {
           newRow[10] = "0"; // doanh_thu = 0
           newRow[12] = "0"; // tien_sp = 0
           newRow[13] = "0"; // loi_nhuan = 0
           if (newRow.length > 14) newRow[14] = "HỦY"; // tinh_trang
           if (newRow.length > 15) newRow[15] = ""; // trang_thai
-        } else if (status === "Hoàn" || status === "HOÀN" || /^ho[aà]n$/i.test(status)) {
+        } else if (isHoan) {
           newRow[12] = "0"; // tien_sp = 0
           if (newRow.length > 14) newRow[14] = "HOÀN"; // tinh_trang
           if (newRow.length > 15) newRow[15] = ""; // trang_thai
-          const dt = Number(String(newRow[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
+          let dt = Number(String(newRow[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
           const pk = Number(String(newRow[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
+          if (dt === 0) {
+            const tongTien = Number(String(newRow[5] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const maGiamGia = Number(String(newRow[6] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const phiVc = Number(String(newRow[7] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const phuPhi = Number(String(newRow[8] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const thue = Number(String(newRow[9] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            if (tongTien > 0) {
+              dt = tongTien - maGiamGia - phiVc - phuPhi - thue;
+              newRow[10] = String(dt);
+            }
+          }
           newRow[13] = String(dt - pk); // loi_nhuan
-        } else if (status === "Trả" || status === "TRẢ" || /^tr[aả]$/i.test(status)) {
+        } else if (isTra) {
           newRow[12] = "0"; // tien_sp = 0
           if (newRow.length > 14) newRow[14] = "TRẢ"; // tinh_trang
           if (newRow.length > 15) newRow[15] = ""; // trang_thai
-          const dt = Number(String(newRow[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
+          let dt = Number(String(newRow[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
           const pk = Number(String(newRow[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
+          if (dt === 0) {
+            const tongTien = Number(String(newRow[5] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const maGiamGia = Number(String(newRow[6] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const phiVc = Number(String(newRow[7] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const phuPhi = Number(String(newRow[8] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const thue = Number(String(newRow[9] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            if (tongTien > 0) {
+              dt = tongTien - maGiamGia - phiVc - phuPhi - thue;
+              newRow[10] = String(dt);
+            }
+          }
           newRow[13] = String(dt - pk); // loi_nhuan
         }
         return newRow;
@@ -2014,28 +2191,57 @@
       values: dhValues
     }, (res) => {
       if (res && res.ok) {
+        if (res.skipped || res.notFound) {
+          if (statusEl) {
+            statusEl.innerHTML = `<span style="color:#d97706; font-weight:bold;">ℹ️ ${escapeHtml(res.message || `Đơn ${sampleMdh} đã bỏ qua.`)}</span>`;
+          }
+          alert(res.message || `Đơn ${sampleMdh} đã bỏ qua.`);
+          return;
+        }
         allData.forEach(item => {
           const rMdh = String(item.cells[mdhColumnIdx] || "").trim();
           if (rMdh && rMdh.toLowerCase() === sampleMdh.toLowerCase()) {
-            if (status === "Hủy" || status === "HỦY" || /^h[uủ]y$/i.test(status)) {
+            if (isHuy) {
               item.cells[10] = "0";
               item.cells[12] = "0";
               item.cells[13] = "0";
               if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "HỦY";
               if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
-            } else if (status === "Hoàn" || status === "HOÀN" || /^ho[aà]n$/i.test(status)) {
+            } else if (isHoan) {
               item.cells[12] = "0";
               if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "HOÀN";
               if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
-              const dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
+              let dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
               const pk = Number(String(item.cells[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
+              if (dt === 0) {
+                const tongTien = Number(String(item.cells[5] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const maGiamGia = Number(String(item.cells[6] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const phiVc = Number(String(item.cells[7] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const phuPhi = Number(String(item.cells[8] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const thue = Number(String(item.cells[9] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                if (tongTien > 0) {
+                  dt = tongTien - maGiamGia - phiVc - phuPhi - thue;
+                  item.cells[10] = String(dt);
+                }
+              }
               item.cells[13] = String(dt - pk);
-            } else if (status === "Trả" || status === "TRẢ" || /^tr[aả]$/i.test(status)) {
+            } else if (isTra) {
               item.cells[12] = "0";
               if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "TRẢ";
               if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
-              const dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
+              let dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
               const pk = Number(String(item.cells[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
+              if (dt === 0) {
+                const tongTien = Number(String(item.cells[5] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const maGiamGia = Number(String(item.cells[6] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const phiVc = Number(String(item.cells[7] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const phuPhi = Number(String(item.cells[8] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                const thue = Number(String(item.cells[9] || 0).replace(/[^0-9.-]/g, '')) || 0;
+                if (tongTien > 0) {
+                  dt = tongTien - maGiamGia - phiVc - phuPhi - thue;
+                  item.cells[10] = String(dt);
+                }
+              }
               item.cells[13] = String(dt - pk);
             }
           }
@@ -2993,6 +3199,266 @@
     }
   }
 
+  async function buildDhRowsFromScannedOrders(rawOrders, maGian) {
+    if (!Array.isArray(rawOrders) || rawOrders.length === 0) return [];
+
+    const cleanOrderCode = (v) => {
+      if (!v) return "";
+      let s = String(v).trim();
+      s = s.replace(/(?:Copy(?:\s*All)?|Sao\s*ch[eéê]p|SaoChep|Excel|In\s*đơn|In\s*phiếu|\bC\b)+$/gi, '').trim();
+      s = s.replace(/copy$/i, '').trim();
+      return s;
+    };
+
+    function parseOrderDateFromMdh(mdh) {
+      if (!mdh) return "";
+      const s = String(mdh).trim();
+      // Lấy 6 ký tự đầu của mdh: 2 số năm, 2 số tháng, 2 số ngày. Ví dụ: 260819 -> 19/08/2026
+      const m = s.match(/^(\d{2})(\d{2})(\d{2})/);
+      if (m) {
+        const yy = m[1];
+        const mm = m[2];
+        const dd = m[3];
+        return `${dd}/${mm}/20${yy}`;
+      }
+      return "";
+    }
+
+    // Helper chuẩn hóa text và đối chiếu sản phẩm Shopee
+    function normalizeTextLocal(text) {
+      return String(text || "")
+        .replace(/…/g, "...")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function isShopeeProductNameMatchLocal(sheetName, productName) {
+      const normSheetName = normalizeTextLocal(sheetName).toLowerCase();
+      const normProductName = normalizeTextLocal(productName).toLowerCase();
+
+      if (!normSheetName || !normProductName) return false;
+
+      const sheetPrefix = normSheetName.replace(/\.\.\.$/, "").trim();
+      const productPrefix = normProductName.replace(/\.\.\.$/, "").trim();
+
+      return normSheetName === normProductName ||
+        (normProductName.endsWith("...") && normSheetName.startsWith(productPrefix)) ||
+        (normSheetName.endsWith("...") && normProductName.startsWith(sheetPrefix)) ||
+        normProductName.includes(normSheetName) ||
+        normSheetName.includes(normProductName);
+    }
+
+    function lookupSkuFromSpShopeeLocal(itemName, itemVar, spData, preferredGian) {
+      if (!itemName || !spData || !spData.length) return "";
+
+      const normItemName = normalizeTextLocal(itemName).toLowerCase();
+      const normItemVar = normalizeTextLocal(itemVar || "").toLowerCase();
+      const cleanItemVar = normItemVar.replace(/^(?:variation|ph\u00e2n lo\u1ea1i h\u00e0ng|ph\u00e2n lo\u1ea1i)\s*[:\s]*/i, "").trim();
+      const prefGianNorm = (preferredGian || "").trim().toLowerCase();
+
+      const passes = prefGianNorm ? [prefGianNorm, null] : [null];
+
+      for (const filterGian of passes) {
+        for (const row of spData) {
+          const sheetName = (row[1] || "").trim();
+          const sheetVar = (row[3] || "").trim();
+          const sheetSku = String(row?.[5] || row?.[4] || "").trim();
+          const isFallback = !String(row?.[5] || "").trim() && !!String(row?.[4] || "").trim();
+          const sheetGian = (row[11] || "").trim().toLowerCase();
+
+          if (!sheetName || !sheetSku) continue;
+          if (filterGian && sheetGian && sheetGian !== filterGian) continue;
+
+          const isNameMatch = isShopeeProductNameMatchLocal(sheetName, itemName);
+          if (!isNameMatch) continue;
+
+          const normSheetVar = normalizeTextLocal(sheetVar).toLowerCase();
+          let isVarMatch = false;
+          if (isFallback || (!normSheetVar && !cleanItemVar)) {
+            isVarMatch = true;
+          } else if (normSheetVar && cleanItemVar) {
+            if (normSheetVar === cleanItemVar || cleanItemVar.includes(normSheetVar) || normSheetVar.includes(cleanItemVar)) {
+              isVarMatch = true;
+            }
+          }
+
+          if (isNameMatch && isVarMatch) {
+            return sheetSku;
+          }
+        }
+      }
+
+      return "";
+    }
+
+    // 1. Tải bảng giá từ sheet DS_SP để tra giá bán (don_gia)
+    let dsSpMap = new Map();
+    try {
+      const dsRes = await new Promise((res) => chrome.runtime.sendMessage({ type: "FETCH_DS_SP" }, res));
+      if (dsRes?.ok && Array.isArray(dsRes.values) && dsRes.values.length > 1) {
+        const h = dsRes.values[0].map(x => String(x || "").normalize("NFC").trim().toLowerCase());
+        
+        // Tìm cột id_sp_con (hoặc id_sp_ct) trong sheet DS_SP
+        let idSpConIdx = h.findIndex(x => x === "id_sp_con" || x === "id sp con" || x === "id_sp_ct" || x === "id sp ct");
+        if (idSpConIdx === -1) {
+          idSpConIdx = h.findIndex(x => x.includes("id_sp_con") || x.includes("id_sp_ct"));
+        }
+        const conIdx = idSpConIdx !== -1 ? idSpConIdx : 0; // Mặc định Cột A (index 0)
+
+        // Cột E (gia_ban): Tìm chính xác gia_ban, giá bán (tránh nhận nhầm giá nhập hay giá thấp nhất)
+        let giaBanIdx = h.findIndex(x => x === "gia_ban" || x === "giá bán" || x === "giaban");
+        if (giaBanIdx === -1) {
+          giaBanIdx = h.findIndex(x => (x.includes("gia_ban") || x.includes("giá bán")) && !x.includes("giá nhập"));
+        }
+        const eIdx = giaBanIdx !== -1 ? giaBanIdx : 4; // Mặc định Cột E (index 4)
+
+        // Duyệt từ trên xuống dưới: các dòng sau là mã gần nhất (mới nhất) -> ghi đè dòng trước
+        for (let r = 1; r < dsRes.values.length; r++) {
+          const row = dsRes.values[r];
+          if (!row) continue;
+
+          const keyCon = String(row[conIdx] || "").trim().toLowerCase();
+          const keyB = String(row[1] || "").trim().toLowerCase();
+          const priceStr = String(row[eIdx] || "").replace(/[^\d.-]/g, "");
+          const p = parseFloat(priceStr) || 0;
+
+          // Luôn ưu tiên dòng gần nhất có giá bán > 0 (nếu trùng mã thì dòng sau ghi đè dòng trước)
+          if (keyCon) {
+            if (p > 0 || !dsSpMap.has(keyCon)) {
+              dsSpMap.set(keyCon, p);
+            }
+            // Nếu keyCon có từ 10 ký tự trở lên, lưu thêm 10 ký tự đầu để đối chiếu
+            if (keyCon.length >= 10) {
+              const key10 = keyCon.substring(0, 10);
+              if (p > 0 || !dsSpMap.has(key10)) {
+                dsSpMap.set(key10, p);
+              }
+            }
+          }
+
+          // Dự phòng nếu có mã ở cột B (id_sp)
+          if (keyB && keyB !== keyCon) {
+            if (p > 0 || !dsSpMap.has(keyB)) {
+              dsSpMap.set(keyB, p);
+            }
+            if (keyB.length >= 10) {
+              const keyB10 = keyB.substring(0, 10);
+              if (p > 0 || !dsSpMap.has(keyB10)) {
+                dsSpMap.set(keyB10, p);
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Lỗi đọc sheet DS_SP:", e);
+    }
+
+    // Tải dự phòng sheet SP_SHOPEE để tra cứu SKU nếu đơn quét bị thiếu
+    let spShopeeData = [];
+    try {
+      const spRes = await new Promise((res) => chrome.runtime.sendMessage({ type: "FETCH_SP_SHOPEE" }, res));
+      if (spRes?.ok && Array.isArray(spRes.values)) {
+        spShopeeData = spRes.values;
+      }
+    } catch (e) {
+      console.warn("Lỗi đọc sheet SP_SHOPEE trong buildDhRowsFromScannedOrders:", e);
+    }
+
+    const now = new Date();
+    const defaultDateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+
+    // 2. Chuẩn bị danh sách items sơ bộ
+    const items = rawOrders.map(o => {
+      const mdh = cleanOrderCode(o.mdh);
+      const mvd = cleanOrderCode(o.mvd);
+      let sku = String(o.sku || "").trim();
+      sku = sku.replace(/^SKU\s*[:\s]*/i, '').trim();
+      sku = sku.replace(/(?:Copy(?:\s*All)?|Sao\s*ch[eéê]p|SaoChep|\bC\b)+$/gi, '').trim();
+
+      // Tra cứu dự phòng từ SP_SHOPEE nếu chưa có SKU
+      if (!sku && (o.tenSp || o.tenPhanLoai) && spShopeeData.length > 0) {
+        sku = lookupSkuFromSpShopeeLocal(o.tenSp, o.tenPhanLoai, spShopeeData, maGian);
+      }
+
+      // Cột 17 (id_sp): lấy 10 ký tự của Cột 16 (SKU)
+      const idSp = sku.length >= 10 ? sku.substring(0, 10) : sku;
+      const slg = Number(o.slg) || 1;
+      // Cột 19 (Đơn giá): so sánh với cột id_sp_con sheet DS_SP (ưu tiên mã gần nhất)
+      let donGia = dsSpMap.get(idSp.toLowerCase());
+      if (donGia === undefined || donGia === 0) {
+        const cleanId = idSp.replace(/[-_]+$/, "").toLowerCase();
+        if (cleanId && dsSpMap.has(cleanId)) {
+          donGia = dsSpMap.get(cleanId);
+        }
+      }
+      if (donGia === undefined || donGia === 0) {
+        donGia = dsSpMap.get(sku.toLowerCase()) || 0;
+      }
+      if (donGia === undefined || donGia === null || isNaN(donGia)) donGia = 0;
+
+      // Cột 20 (Thành tiền): slg * don_gia
+      const thanhTien = slg * donGia;
+      const tenKhach = String(o.tenKhach || "").trim();
+      const linkDon = o.linkDon ? String(o.linkDon).replace(/Copy$/i, '') : (mdh ? `https://banhang.shopee.vn/portal/sale/order/${mdh}` : "");
+
+      return {
+        mdh,
+        mvd,
+        sku,
+        idSp,
+        slg,
+        donGia,
+        thanhTien,
+        tenKhach,
+        linkDon
+      };
+    });
+
+    // 3. Tính Cột 12 (Tiền SP): = tổng tiền mdh = nhau (tổng thanh_tien của tất cả sản phẩm cùng mdh)
+    const mdhTienSpMap = new Map();
+    items.forEach(it => {
+      const k = it.mdh || "__order__";
+      mdhTienSpMap.set(k, (mdhTienSpMap.get(k) || 0) + it.thanhTien);
+    });
+
+    // 4. Ánh xạ đủ chuẩn 25 cột
+    return items.map(it => {
+      const orderDate = parseOrderDateFromMdh(it.mdh) || defaultDateStr;
+      const orderDateTime = orderDate; // Cột 2 (Giờ đặt): = Cột 1 (Ngày đặt)
+      const tienSp = mdhTienSpMap.get(it.mdh || "__order__") || 0;
+      const loiNhuan = 0; // Cột 13 (Lợi nhuận): Điền số 0 (Lựa chọn 1 đã chốt)
+
+      return [
+        maGian,            // 0: gian (Lấy từ ô nhập mã gian)
+        orderDate,         // 1: ngay (DD/MM/YYYY)
+        orderDateTime,     // 2: ngay_gio (= Cột 1 Ngày đặt)
+        it.mdh,            // 3: mdh
+        it.mvd,            // 4: mvd
+        0,                 // 5: tong_tien (0)
+        0,                 // 6: ma_giam_gia (0)
+        0,                 // 7: phi_vc (0)
+        0,                 // 8: phu_phi (0)
+        0,                 // 9: thue (0)
+        0,                 // 10: doanh_thu (0)
+        0,                 // 11: phi_khac (0)
+        tienSp,            // 12: tien_sp (= tổng tiền mdh = nhau)
+        loiNhuan,          // 13: loi_nhuan (0)
+        "",                // 14: tinh_trang (Để trống "")
+        "",                // 15: trang_thai (Để trống "")
+        it.sku,            // 16: sku (lấy sku)
+        it.idSp,           // 17: id_sp (left(sku, 4))
+        it.slg,            // 18: slg
+        it.donGia,         // 19: don_gia (cột E gia_ban sheet DS_SP)
+        it.thanhTien,      // 20: thanh_tien (slg * don_gia)
+        it.tenKhach,       // 21: ten_khach (Tên tài khoản người mua)
+        "",                // 22: ng_nhan (Để trống "")
+        "",                // 23: dia_chi (Để trống "")
+        it.linkDon         // 24: link_don
+      ];
+    });
+  }
+
   async function handleReadOrderListPage() {
     const tab = await getShopeeOrderListTab();
     if (!tab?.id) {
@@ -3017,62 +3483,22 @@
         return;
       }
 
-      const cleanOrderCode = (v) => {
-        if (!v) return "";
-        let s = String(v).trim();
-        s = s.replace(/(?:Copy(?:\s*All)?|Sao\s*ch[eéê]p|SaoChep|Excel|In\s*đơn|In\s*phiếu|\bC\b)+$/gi, '').trim();
-        s = s.replace(/copy$/i, '').trim();
-        return s;
-      };
-
       const maGian = (inputGian?.value || "").trim();
-      const todayStr = new Date().toISOString().split("T")[0];
-      const rows = res.orders.map(o => {
-        const orderDate = o.ngay || todayStr;
-        const tongTien = o.tongTien || 0;
-        const sku = o.sku || "";
-        const tenSp = o.tenSp || "";
-        const slg = o.slg || 1;
-        const donGia = o.donGia || tongTien;
-        const thanhTien = o.thanhTien || tongTien;
-        const tenKhach = o.tenKhach || "";
-        const mdh = cleanOrderCode(o.mdh);
-        const mvd = cleanOrderCode(o.mvd);
-        const linkDon = o.linkDon ? String(o.linkDon).replace(/Copy$/i, '') : (mdh ? `https://banhang.shopee.vn/portal/sale/order/${mdh}` : "");
+      const rows = await buildDhRowsFromScannedOrders(res.orders, maGian);
 
-        return [
-          maGian,                                              // 0: gian
-          orderDate,                                           // 1: ngay
-          orderDate ? `${orderDate} 00:00` : "",               // 2: ngay_gio
-          mdh,                                                 // 3: mdh
-          mvd,                                                 // 4: mvd
-          tongTien,                                            // 5: tong_tien
-          0,                                                   // 6: ma_giam_gia
-          0,                                                   // 7: phi_vc
-          0,                                                   // 8: phu_phi
-          0,                                                   // 9: thue
-          tongTien,                                            // 10: doanh_thu
-          0,                                                   // 11: phi_khac
-          0,                                                   // 12: tien_sp
-          tongTien,                                            // 13: loi_nhuan
-          "",                                                  // 14: tinh_trang
-          "",                                                  // 15: trang_thai
-          sku,                                                 // 16: sku
-          o.idSp || "",                                        // 17: id_sp
-          slg,                                                 // 18: slg
-          donGia,                                              // 19: don_gia
-          thanhTien,                                           // 20: thanh_tien
-          tenKhach,                                            // 21: ten_khach
-          "",                                                  // 22: ng_nhan
-          "",                                                  // 23: dia_chi
-          linkDon                                              // 24: link_don
-        ];
+      // 1. Hiển thị ngay lập tức lên bảng giao diện (nhóm theo MDH để tránh duplicate trong UI)
+      const rowsByMdh = new Map();
+      rows.forEach(r => {
+        const m = String(r[3] || "").trim().toLowerCase();
+        if (!rowsByMdh.has(m)) rowsByMdh.set(m, []);
+        rowsByMdh.get(m).push(r);
       });
 
-      // 1. Hiển thị ngay lập tức lên bảng giao diện
-      addDhRows(rows, "", "", false);
+      rowsByMdh.forEach((mRows) => {
+        addDhRows(mRows, mRows[0][3], mRows[0][4], false);
+      });
 
-      // 2. Ghi trực tiếp vào Google Sheet DH
+      // 2. Ghi trực tiếp vào Google Sheet DH (chống trùng lặp tuyệt đối)
       const saveRes = await new Promise(r => {
         chrome.runtime.sendMessage({ type: "INSERT_NEW_DH_ORDERS_IF_NOT_EXISTS", values: rows }, r);
       });
@@ -3159,27 +3585,7 @@
         const res = await sendMessageToTab(tab.id, { action: "SHOPEE_READ_ORDER_LIST_PAGE", type: "SHOPEE_READ_ORDER_LIST_PAGE" });
         if (res?.ok && res.orders && res.orders.length > 0) {
           totalScanned += res.orders.length;
-          const rows = res.orders.map(o => {
-            const orderDate = o.ngay || todayStr;
-            const tongTien = o.tongTien || 0;
-            const sku = o.sku || "";
-            const tenSp = o.tenSp || "";
-            const slg = o.slg || 1;
-            const donGia = o.donGia || tongTien;
-            const thanhTien = o.thanhTien || tongTien;
-            const tenKhach = o.tenKhach || "";
-            const mdh = cleanOrderCode(o.mdh);
-            const mvd = cleanOrderCode(o.mvd);
-            const linkDon = o.linkDon ? String(o.linkDon).replace(/Copy$/i, '') : (mdh ? `https://banhang.shopee.vn/portal/sale/order/${mdh}` : "");
-
-            return [
-              maGian, orderDate, orderDate ? `${orderDate} 00:00` : "",
-              mdh, mvd,
-              tongTien, 0, 0, 0, 0, tongTien, 0, 0, tongTien,
-              "", "", sku, o.idSp || "", slg, donGia, thanhTien,
-              tenKhach, "", "", linkDon
-            ];
-          });
+          const rows = await buildDhRowsFromScannedOrders(res.orders, maGian);
 
           // 2. Thêm/Cập nhật vào Sheet DH (chống trùng lặp tuyệt đối)
           const saveRes = await new Promise(r => {
@@ -3196,18 +3602,18 @@
         if (cancelListScanRequested) break;
 
         if (listScanText) {
-          listScanText.innerHTML = `<span>🔄</span> Đang chuyển sang trang tiếp theo... (Trang ${totalPages}: +${grandTotalInserted} mới, ${grandTotalUpdated} cập nhật)`;
+          listScanText.innerHTML = `<span>🔄</span> Đang chuyển sang trang tiếp theo và chờ tải xong... (Đã quét: ${totalPages} trang, +${grandTotalInserted} mới, ${grandTotalUpdated} cập nhật)`;
         }
 
-        // 3. Bấm nút Next trang
+        // 3. Bấm nút Next trang (content script tự động chờ trang mới load xong 100% + tiêm badge SKU)
         const nextRes = await sendMessageToTab(tab.id, { action: "SHOPEE_CLICK_NEXT_PAGE", type: "SHOPEE_CLICK_NEXT_PAGE" });
         if (!nextRes?.ok || !nextRes.hasNext) {
           // Đã đến trang cuối cùng
           break;
         }
 
-        // 4. Chờ 2.5 giây cho Shopee load bảng trang tiếp theo
-        for (let w = 0; w < 25; w++) {
+        // 4. Đệm thêm thời gian để trình duyệt ổn định DOM trước khi quét trang tiếp
+        for (let w = 0; w < 8; w++) {
           if (cancelListScanRequested) break;
           await new Promise(r => setTimeout(r, 100));
         }
@@ -3668,12 +4074,105 @@
     }
   }
 
+  function updateLocalDataForReturnOrders(status, orders) {
+    if (!orders || orders.length === 0) return;
+    const isHuy = status === "Hủy" || status === "HỦY" || /^h[uủ]y$/i.test(status);
+    const isHoan = status === "Hoàn" || status === "HOÀN" || /^ho[aà]n$/i.test(status);
+    const isTra = status === "Trả" || status === "TRẢ" || /^tr[aả]$/i.test(status);
+
+    const orderIdSet = new Set(orders.map(o => String(o.orderId || "").trim().toLowerCase()).filter(Boolean));
+    const trackingSet = new Set(orders.map(o => String(o.tracking || "").trim().toLowerCase()).filter(Boolean));
+
+    allData.forEach(item => {
+      const rMdh = String(item.cells[mdhColumnIdx] || "").trim().toLowerCase();
+      const rMvd = String(item.cells[mvdColumnIdx] || "").trim().toLowerCase();
+      if ((rMdh && orderIdSet.has(rMdh)) || (rMvd && trackingSet.has(rMvd))) {
+        const existingTinhTrang = String(item.cells[tinhTrangColumnIdx] || "").trim();
+        const existingTrangThai = String(item.cells[trangThaiColumnIdx] || "").trim();
+        const isAlreadyUpdated = Boolean(existingTinhTrang || isOrderCustomOrModifiedStatus(existingTrangThai || existingTinhTrang));
+
+        if (isHuy) {
+          // HỦY: CHỈ cập nhật đơn nào CHƯA CẬP NHẬT TRẠNG THÁI
+          if (isAlreadyUpdated) return;
+
+          item.cells[10] = "0";
+          item.cells[12] = "0";
+          item.cells[13] = "0";
+          if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "HỦY";
+          if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
+        } else if (isHoan) {
+          // HOÀN: Có đơn này là cập nhật trạng thái đơn đó
+          item.cells[12] = "0";
+          if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "HOÀN";
+          if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
+          let dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
+          const pk = Number(String(item.cells[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
+          if (dt === 0) {
+            const tongTien = Number(String(item.cells[5] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const maGiamGia = Number(String(item.cells[6] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const phiVc = Number(String(item.cells[7] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const phuPhi = Number(String(item.cells[8] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const thue = Number(String(item.cells[9] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            if (tongTien > 0) {
+              dt = tongTien - maGiamGia - phiVc - phuPhi - thue;
+              item.cells[10] = String(dt);
+            }
+          }
+          item.cells[13] = String(dt - pk);
+        } else if (isTra) {
+          // TRẢ: Có đơn này là cập nhật trạng thái đơn đó
+          item.cells[12] = "0";
+          if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "TRẢ";
+          if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
+          let dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
+          const pk = Number(String(item.cells[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
+          if (dt === 0) {
+            const tongTien = Number(String(item.cells[5] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const maGiamGia = Number(String(item.cells[6] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const phiVc = Number(String(item.cells[7] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const phuPhi = Number(String(item.cells[8] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            const thue = Number(String(item.cells[9] || 0).replace(/[^0-9.-]/g, '')) || 0;
+            if (tongTien > 0) {
+              dt = tongTien - maGiamGia - phiVc - phuPhi - thue;
+              item.cells[10] = String(dt);
+            }
+          }
+          item.cells[13] = String(dt - pk);
+        }
+      }
+    });
+  }
+
   async function handleBatchReturnStatusUpdate(status) {
     const tab = await getShopeeReturnPageTab();
     if (!tab?.id) {
       alert("Vui lòng mở trang Quản lý Trả hàng / Hoàn tiền Shopee:\nhttps://banhang.shopee.vn/portal/sale/returnrefundcancel\ntrước khi bấm nút!");
       return;
     }
+
+    if (isListScanning) {
+      alert("Tiến trình quét đang chạy, vui lòng đợi hoặc bấm 'Dừng'!");
+      return;
+    }
+
+    const maxPages = Math.max(1, parseInt(inputBatchReturnMaxPages?.value, 10) || 1);
+    const isHuy = status === "Hủy" || status === "HỦY" || /^h[uủ]y$/i.test(status);
+
+    let confirmMsg = "";
+    if (maxPages > 1) {
+      if (isHuy) {
+        confirmMsg = `⚡ Tự động quét và cập nhật tình trạng "HỦY" cho tối đa ${maxPages} trang.\n\n(Chỉ cập nhật các đơn CHƯA CẬP NHẬT TRẠNG THÁI trong Sheet DH, các đơn đã có trạng thái trước đó sẽ được giữ nguyên).\n\nBạn có muốn bắt đầu không?`;
+      } else {
+        confirmMsg = `⚡ Tự động quét và cập nhật tình trạng "${status.toUpperCase()}" cho tối đa ${maxPages} trang vào Sheet DH.\n\nBạn có muốn bắt đầu không?`;
+      }
+    } else {
+      if (isHuy) {
+        confirmMsg = `Bạn có chắc muốn cập nhật tình trạng "HỦY" cho các đơn trên trang hiện tại vào Sheet DH không?\n(Chỉ cập nhật các đơn CHƯA CẬP NHẬT TRẠNG THÁI)`;
+      } else {
+        confirmMsg = `Bạn có chắc muốn cập nhật tình trạng "${status.toUpperCase()}" cho các đơn trên trang hiện tại vào Sheet DH không?`;
+      }
+    }
+    if (!confirm(confirmMsg)) return;
 
     let targetBtn = null;
     let oldBtnHtml = "";
@@ -3684,82 +4183,136 @@
     if (targetBtn) {
       oldBtnHtml = targetBtn.innerHTML;
       targetBtn.disabled = true;
-      targetBtn.innerHTML = "⏳...";
+      targetBtn.innerHTML = "⏳ Đang chạy...";
     }
 
+    isListScanning = true;
+    cancelListScanRequested = false;
+
+    if (listScanStatusBox) listScanStatusBox.style.display = "block";
+    if (listScanBar) listScanBar.style.width = "10%";
+
+    let totalPagesScanned = 0;
+    let grandTotalUpdated = 0;
+    let grandTotalSkippedAlready = 0;
+    let grandTotalSkippedNotInSheet = 0;
+    const seenOrdersOverall = new Set();
+    const gianVal = (inputGian?.value || "").trim();
+
     try {
-      const res = await sendMessageToTab(tab.id, { action: "SHOPEE_READ_RETURN_CANCEL_ORDERS", type: "SHOPEE_READ_RETURN_CANCEL_ORDERS" });
-      if (!res || !res.ok) {
-        alert("Không đọc được đơn hàng trên trang này: " + (res?.error || "Lỗi không xác định. Hãy bấm F5 tải lại trang Shopee rồi thử lại!"));
-        return;
-      }
+      for (let currentPage = 1; currentPage <= maxPages; currentPage++) {
+        if (cancelListScanRequested) break;
+        totalPagesScanned++;
 
-      if (!res.orders || res.orders.length === 0) {
-        alert("Không tìm thấy mã đơn hàng nào trên trang Shopee hiện tại.\n\nHãy đảm bảo bạn đang ở trang https://banhang.shopee.vn/portal/sale/returnrefundcancel và danh sách đơn đã tải xong.");
-        return;
-      }
+        if (listScanText) {
+          listScanText.innerHTML = `<span>⏳</span> Đang đọc & cập nhật <b>${status.toUpperCase()}</b> trang ${currentPage}/${maxPages}... (Đã cập nhật: <b style="color:#15803d;">${grandTotalUpdated}</b> đơn)`;
+        }
+        if (listScanBar) {
+          const pct = Math.min(95, Math.round((currentPage / maxPages) * 100));
+          listScanBar.style.width = `${pct}%`;
+        }
 
-      const confirmMsg = `🔍 Phát hiện ${res.orders.length} mã đơn hàng trên trang Trả hàng / Hoàn tiền.\n\nBạn có chắc chắn muốn cập nhật cột tình trạng thành "${status}" cho tất cả các đơn này vào Sheet DH không?`;
-      if (!confirm(confirmMsg)) return;
-
-      const gianVal = (inputGian?.value || "").trim();
-
-      const batchRes = await new Promise(r => {
-        chrome.runtime.sendMessage({
-          type: "UPDATE_BATCH_DH_RETURN_STATUS",
-          status: status,
-          orders: res.orders,
-          maGian: gianVal
-        }, r);
-      });
-
-      if (batchRes && batchRes.ok) {
-        const orderIdSet = new Set(res.orders.map(o => String(o.orderId || "").trim().toLowerCase()).filter(Boolean));
-        const trackingSet = new Set(res.orders.map(o => String(o.tracking || "").trim().toLowerCase()).filter(Boolean));
-
-        allData.forEach(item => {
-          const rMdh = String(item.cells[mdhColumnIdx] || "").trim().toLowerCase();
-          const rMvd = String(item.cells[mvdColumnIdx] || "").trim().toLowerCase();
-          if ((rMdh && orderIdSet.has(rMdh)) || (rMvd && trackingSet.has(rMvd))) {
-            if (status === "Hủy" || status === "HỦY" || /^h[uủ]y$/i.test(status)) {
-              item.cells[10] = "0";
-              item.cells[12] = "0";
-              item.cells[13] = "0";
-              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "HỦY";
-              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
-            } else if (status === "Hoàn" || status === "HOÀN" || /^ho[aà]n$/i.test(status)) {
-              item.cells[12] = "0";
-              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "HOÀN";
-              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
-              const dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
-              const pk = Number(String(item.cells[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
-              item.cells[13] = String(dt - pk);
-            } else if (status === "Trả" || status === "TRẢ" || /^tr[aả]$/i.test(status)) {
-              item.cells[12] = "0";
-              if (tinhTrangColumnIdx !== -1) item.cells[tinhTrangColumnIdx] = "TRẢ";
-              if (trangThaiColumnIdx !== -1) item.cells[trangThaiColumnIdx] = "";
-              const dt = Number(String(item.cells[10] || 0).replace(/[^0-9.-]/g, '')) || 0;
-              const pk = Number(String(item.cells[11] || 0).replace(/[^0-9.-]/g, '')) || 0;
-              item.cells[13] = String(dt - pk);
-            }
+        // 1. Đọc đơn trang hiện tại
+        const res = await sendMessageToTab(tab.id, { action: "SHOPEE_READ_RETURN_CANCEL_ORDERS", type: "SHOPEE_READ_RETURN_CANCEL_ORDERS" });
+        if (!res || !res.ok) {
+          console.warn("Không đọc được đơn hàng trang return:", res?.error);
+          if (totalPagesScanned === 1) {
+            alert("Không đọc được đơn hàng trên trang này: " + (res?.error || "Lỗi không xác định. Hãy bấm F5 tải lại trang Shopee rồi thử lại!"));
+            return;
           }
+          break;
+        }
+
+        if (!res.orders || res.orders.length === 0) {
+          if (totalPagesScanned === 1) {
+            alert("Không tìm thấy mã đơn hàng nào trên trang Shopee hiện tại.\n\nHãy đảm bảo bạn đang ở trang https://banhang.shopee.vn/portal/sale/returnrefundcancel và danh sách đơn đã tải xong.");
+            return;
+          }
+          break;
+        }
+
+        // 2. Lọc đơn chưa xử lý ở các trang trước
+        const pageOrders = res.orders.filter(o => {
+          const k = String(o.orderId || o.tracking || "").trim().toLowerCase();
+          if (!k || seenOrdersOverall.has(k)) return false;
+          seenOrdersOverall.add(k);
+          return true;
         });
 
-        renderTable();
-        const skippedMsg = (batchRes.skippedCount && batchRes.skippedCount > 0) ? `\n(Đã bỏ qua ${batchRes.skippedCount} đơn không có trong Sheet DH)` : "";
-        alert(`🎉 Đã cập nhật thành công tình trạng "${status}" cho ${batchRes.updatedCount || 0} đơn hàng có trong Sheet DH!${skippedMsg}`);
-        loadDhSheetData(false);
-      } else {
-        alert("Lỗi khi cập nhật Sheet DH: " + (batchRes?.error || "Lỗi không xác định"));
+        if (pageOrders.length > 0) {
+          const batchRes = await new Promise(r => {
+            chrome.runtime.sendMessage({
+              type: "UPDATE_BATCH_DH_RETURN_STATUS",
+              status: status,
+              orders: pageOrders,
+              maGian: gianVal
+            }, r);
+          });
+
+          if (batchRes && batchRes.ok) {
+            grandTotalUpdated += (batchRes.updatedCount || 0);
+            grandTotalSkippedAlready += (batchRes.skippedAlreadyUpdatedCount || 0);
+            grandTotalSkippedNotInSheet += (batchRes.skippedCount || 0);
+
+            updateLocalDataForReturnOrders(status, pageOrders);
+            renderTable();
+          } else {
+            console.error("Lỗi khi cập nhật Sheet DH ở trang " + currentPage, batchRes);
+          }
+        }
+
+        if (cancelListScanRequested) break;
+        if (currentPage >= maxPages) break;
+
+        // 3. Next sang trang tiếp theo
+        if (listScanText) {
+          listScanText.innerHTML = `<span>🔄</span> Đang chuyển sang trang ${currentPage + 1}/${maxPages}... (Đã cập nhật: <b style="color:#15803d;">${grandTotalUpdated}</b> đơn)`;
+        }
+
+        const nextRes = await sendMessageToTab(tab.id, { action: "SHOPEE_CLICK_NEXT_PAGE", type: "SHOPEE_CLICK_NEXT_PAGE" });
+        if (!nextRes?.ok || !nextRes.hasNext) {
+          // Đã tới trang cuối cùng
+          break;
+        }
+
+        // 4. Đệm thời gian chờ trang tải ổn định trước khi quét tiếp
+        for (let w = 0; w < 8; w++) {
+          if (cancelListScanRequested) break;
+          await new Promise(r => setTimeout(r, 100));
+        }
       }
+
+      if (listScanText) {
+        listScanText.innerHTML = `<span>🎉</span> Hoàn tất! Đã quét ${totalPagesScanned} trang: Cập nhật thành công <b>${grandTotalUpdated}</b> đơn hàng.`;
+      }
+      if (listScanBar) listScanBar.style.width = "100%";
+
+      let msg = `🎉 Đã quét xong ${totalPagesScanned} trang Trả hàng / Hoàn tiền!\n\n` +
+                `- Cập nhật thành công "${status}": ${grandTotalUpdated} đơn hàng có trong Sheet DH\n`;
+      if (grandTotalSkippedAlready > 0) {
+        msg += `- Giữ nguyên ${grandTotalSkippedAlready} đơn đã cập nhật trạng thái trước đó\n`;
+      }
+      if (grandTotalSkippedNotInSheet > 0) {
+        msg += `- Bỏ qua ${grandTotalSkippedNotInSheet} đơn không có trong Sheet DH\n`;
+      }
+      alert(msg);
+      loadDhSheetData(false);
+
     } catch (err) {
       console.error("Lỗi cập nhật trạng thái hàng loạt:", err);
       alert("Lỗi: " + err.message);
     } finally {
+      isListScanning = false;
+      cancelListScanRequested = false;
       if (targetBtn) {
         targetBtn.disabled = false;
         targetBtn.innerHTML = oldBtnHtml;
       }
+      setTimeout(() => {
+        if (listScanStatusBox && !isListScanning) {
+          listScanStatusBox.style.display = "none";
+        }
+      }, 5000);
     }
   }
 
