@@ -4,41 +4,65 @@
 function findGeminiTextarea() {
   return document.querySelector('.ql-editor[contenteditable="true"][aria-label]') ||
          document.querySelector('.ql-editor[contenteditable="true"]') ||
-         document.querySelector('[data-placeholder][contenteditable="true"]');
+         document.querySelector('div.rich-textarea') ||
+         document.querySelector('[data-placeholder][contenteditable="true"]') ||
+         document.querySelector('div[contenteditable="true"]') ||
+         document.querySelector('textarea');
 }
 
 function typeIntoGemini(editor, text) {
+  if (!editor || !text) return;
   editor.focus();
-  // Clear existing content
-  editor.innerHTML = '<p><br></p>';
   
-  // Use execCommand for compatibility with Angular/Quill
-  document.execCommand('selectAll', false, null);
-  document.execCommand('insertText', false, text);
+  try {
+    editor.innerHTML = '<p><br></p>';
+    document.execCommand('selectAll', false, null);
+    document.execCommand('insertText', false, text);
+  } catch(e) {
+    editor.textContent = text;
+  }
   
-  // Also dispatch input events
   editor.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, inputType: 'insertText', data: text }));
   editor.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 async function pasteImageToGemini(editor, base64Data, mimeType) {
   try {
-    const byteString = atob(base64Data);
+    let cleanBase64 = base64Data;
+    if (cleanBase64.includes(',')) {
+      cleanBase64 = cleanBase64.split(',')[1];
+    }
+    const byteString = atob(cleanBase64);
     const arr = new Uint8Array(byteString.length);
     for (let i = 0; i < byteString.length; i++) {
       arr[i] = byteString.charCodeAt(i);
     }
+    mimeType = mimeType || 'image/png';
+    const ext = mimeType.split('/')[1] || 'png';
     const blob = new Blob([arr], { type: mimeType });
-    const file = new File([blob], 'template.png', { type: mimeType });
+    const file = new File([blob], `image.${ext}`, { type: mimeType, lastModified: Date.now() });
     
     const dt = new DataTransfer();
     dt.items.add(file);
     
-    const pasteEvent = new ClipboardEvent('paste', {
-      bubbles: true,
-      cancelable: true,
-      clipboardData: dt
-    });
+    let pasteEvent;
+    try {
+      pasteEvent = new ClipboardEvent('paste', {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: dt
+      });
+    } catch(e) {
+      pasteEvent = new Event('paste', { bubbles: true, cancelable: true });
+    }
+    
+    try {
+      Object.defineProperty(pasteEvent, 'clipboardData', {
+        value: dt,
+        writable: false,
+        configurable: true
+      });
+    } catch(e) {}
     
     editor.focus();
     editor.dispatchEvent(pasteEvent);
@@ -49,42 +73,61 @@ async function pasteImageToGemini(editor, base64Data, mimeType) {
   }
 }
 
-// Lắng nghe message từ popup/background
+// Biến cờ ngăn chặn xử lý 2 lần
+let isProcessingGemini = false;
+
+function handleGeminiFill(message, sendResponse) {
+  if (isProcessingGemini) {
+    if (sendResponse) sendResponse({ ok: true, ignored: true });
+    return;
+  }
+  isProcessingGemini = true;
+
+  const tryFill = (attempts) => {
+    const editor = findGeminiTextarea();
+    if (!editor) {
+      if (attempts > 0) {
+        setTimeout(() => tryFill(attempts - 1), 600);
+      } else {
+        isProcessingGemini = false;
+        if (sendResponse) sendResponse({ ok: false, message: 'Không tìm thấy khung nhập Gemini' });
+      }
+      return;
+    }
+
+    // 1. Điền text trước
+    if (message.text) {
+      typeIntoGemini(editor, message.text);
+    }
+
+    // 2. Dán ảnh (nếu có)
+    const images = message.images || [];
+    if (images.length > 0) {
+      setTimeout(async () => {
+        const imgData = images[0];
+        await pasteImageToGemini(editor, imgData.base64, imgData.mimeType || 'image/png');
+        
+        // Nhả cờ sau khi hoàn tất
+        setTimeout(() => {
+          isProcessingGemini = false;
+          if (sendResponse) sendResponse({ ok: true });
+        }, 1000);
+      }, 300);
+    } else {
+      isProcessingGemini = false;
+      if (sendResponse) sendResponse({ ok: true });
+    }
+  };
+  
+  tryFill(20);
+}
+
+// Lắng nghe message từ popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GEMINI_FILL') {
-    const tryFill = (attempts) => {
-      const editor = findGeminiTextarea();
-      if (!editor) {
-        if (attempts > 0) {
-          setTimeout(() => tryFill(attempts - 1), 800);
-        } else {
-          sendResponse({ ok: false, message: 'Khong tim thay textarea Gemini' });
-        }
-        return;
-      }
-
-      // Điền text vào
-      if (message.text) {
-        typeIntoGemini(editor, message.text);
-      }
-
-      // Paste ảnh lần lượt (nếu có)
-      const images = message.images || [];
-      let imgIndex = 0;
-      const pasteNext = () => {
-        if (imgIndex >= images.length) {
-          sendResponse({ ok: true });
-          return;
-        }
-        const imgData = images[imgIndex++];
-        pasteImageToGemini(editor, imgData.base64, imgData.mimeType || 'image/png').then(pasteNext);
-      };
-      pasteNext();
-    };
-    
-    tryFill(15); // thử 15 lần x 0.8s = 12 giây max
-    return true; // async response
+    handleGeminiFill(message, sendResponse);
+    return true;
   }
 });
 
-console.log('[Shopee Extension] Gemini content script loaded');
+console.log('[Shopee Extension] Gemini content script ready');

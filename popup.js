@@ -2835,6 +2835,16 @@ async function openAiInNewTab(aiType, file, text, btnEl) {
   try {
     const images = [];
     try {
+      if (file) {
+        try {
+          const pngBlob = await convertImageBlobToPng(file);
+          if (pngBlob) {
+            await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
+          }
+        } catch(ce) {
+          console.warn("Could not copy file to clipboard:", ce);
+        }
+      }
       const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result.split(',')[1]);
@@ -2845,7 +2855,6 @@ async function openAiInNewTab(aiType, file, text, btnEl) {
     } catch(e) { console.warn('Could not read image file', e); }
     
     if (aiType === 'gemini') {
-      await chrome.storage.local.set({ geminiPayload: { text: text, images, timestamp: Date.now() } });
       const tab = await chrome.tabs.create({ url: 'https://gemini.google.com/app', active: true });
       const onUpdated = (tabId, info) => {
         if (tabId !== tab.id || info.status !== 'complete') return;
@@ -2856,14 +2865,13 @@ async function openAiInNewTab(aiType, file, text, btnEl) {
       };
       chrome.tabs.onUpdated.addListener(onUpdated);
     } else {
-      await chrome.storage.local.set({ chatgptPayload: { text: text, images, timestamp: Date.now() } });
       const tab = await chrome.tabs.create({ url: 'https://chatgpt.com/', active: true });
       const onUpdated = (tabId, info) => {
         if (tabId !== tab.id || info.status !== 'complete') return;
         chrome.tabs.onUpdated.removeListener(onUpdated);
         setTimeout(() => {
           chrome.tabs.sendMessage(tab.id, { type: 'CHATGPT_FILL', text: text, images });
-        }, 3000);
+        }, 2500);
       };
       chrome.tabs.onUpdated.addListener(onUpdated);
     }
@@ -8754,7 +8762,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const imgId = `ai-template-img-${idx + 1}`;
         return `
           <div style="position: relative; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; flex-shrink: 0; background: #f8fafc; width: 62px; height: 62px; display: flex; align-items: center; justify-content: center;">
-            <img id="${imgId}" src="${url}" style="width: 100%; height: 100%; object-fit: contain; display: block;" title="Ảnh mẫu ${idx + 1}">
+            <img id="${imgId}" src="${url}" draggable="true" style="width: 100%; height: 100%; object-fit: contain; display: block; cursor: grab;" title="Ảnh mẫu ${idx + 1}">
             <div style="position: absolute; top: 2px; right: 2px; display: flex; gap: 2px; background: rgba(0,0,0,0.5); padding: 1px 2px; border-radius: 3px; backdrop-filter: blur(2px);">
               <button type="button" class="ai-tab-open-gpt" data-target="${imgId}" style="width: 16px !important; height: 16px !important; min-height: unset !important; padding: 0 !important; font-size: 9px; background: #10a37f; color: white; border: none; border-radius: 2px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="Mở trên ChatGPT">🤖</button>
               <button type="button" class="ai-tab-open-gemini" data-target="${imgId}" style="width: 16px !important; height: 16px !important; min-height: unset !important; padding: 0 !important; font-size: 9px; background: #1a73e8; color: white; border: none; border-radius: 2px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="Mở trên Gemini">✨</button>
@@ -9572,6 +9580,117 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Hàm Copy Ảnh (dữ liệu nhị phân / PNG Blob) vào Clipboard hệ thống
+  async function copyImageFromUrlToClipboard(url) {
+    if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+      throw new Error("Trình duyệt chưa hỗ trợ sao chép ảnh trực tiếp vào Clipboard.");
+    }
+
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      throw new Error(`Không tải được ảnh (${resp.status})`);
+    }
+    const blob = await resp.blob();
+
+    let pngBlob = blob;
+    if (blob.type !== "image/png") {
+      const imgBitmap = await createImageBitmap(blob);
+      const canvas = document.createElement("canvas");
+      canvas.width = imgBitmap.width;
+      canvas.height = imgBitmap.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(imgBitmap, 0, 0);
+      pngBlob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      imgBitmap.close();
+    }
+
+    if (!pngBlob) {
+      throw new Error("Không chuyển đổi được định dạng ảnh sang PNG.");
+    }
+
+    await navigator.clipboard.write([
+      new ClipboardItem({ "image/png": pngBlob })
+    ]);
+  }
+
+  // Hàm Mở ChatGPT, dán ảnh và điền câu lệnh Prompt
+  async function openChatGptWithImage(imageUrl, promptText, btnEl) {
+    try {
+      await copyImageFromUrlToClipboard(imageUrl);
+    } catch(ce) {
+      console.warn("Clipboard prime error:", ce);
+    }
+
+    const resp = await fetch(imageUrl);
+    if (!resp.ok) {
+      throw new Error(`Không tải được ảnh: ${resp.status}`);
+    }
+    const blob = await resp.blob();
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    const mimeType = blob.type || "image/png";
+    const images = [{ base64, mimeType }];
+
+    const tab = await chrome.tabs.create({ url: "https://chatgpt.com/", active: true });
+
+    const onUpdated = (tabId, info) => {
+      if (tabId !== tab.id || info.status !== "complete") return;
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      setTimeout(() => {
+        chrome.tabs.sendMessage(tab.id, {
+          type: "CHATGPT_FILL",
+          text: promptText,
+          images
+        });
+      }, 2500);
+    };
+    chrome.tabs.onUpdated.addListener(onUpdated);
+  }
+
+  // Hàm Mở Gemini, dán ảnh và điền câu lệnh Prompt
+  async function openGeminiWithImage(imageUrl, promptText, btnEl) {
+    try {
+      await copyImageFromUrlToClipboard(imageUrl);
+    } catch(ce) {
+      console.warn("Clipboard prime error:", ce);
+    }
+
+    const resp = await fetch(imageUrl);
+    if (!resp.ok) {
+      throw new Error(`Không tải được ảnh: ${resp.status}`);
+    }
+    const blob = await resp.blob();
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    const mimeType = blob.type || "image/png";
+    const images = [{ base64, mimeType }];
+
+    const tab = await chrome.tabs.create({ url: "https://gemini.google.com/app", active: true });
+
+    const onUpdated = (tabId, info) => {
+      if (tabId !== tab.id || info.status !== "complete") return;
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      setTimeout(() => {
+        chrome.tabs.sendMessage(tab.id, {
+          type: "GEMINI_FILL",
+          text: promptText,
+          images
+        });
+      }, 2500);
+    };
+    chrome.tabs.onUpdated.addListener(onUpdated);
+  }
+
   function renderUploadedItems() {
     // Đảo ngược danh sách để hiển thị đầy đủ ảnh từ dưới lên trên (dòng dưới cùng trong Sheet = ảnh mới nhất lên đầu)
     const reversedList = [...uploadedList].reverse();
@@ -9605,17 +9724,19 @@ document.addEventListener("DOMContentLoaded", () => {
           </td>
           <td style="padding: 6px 8px; text-align: center; color: #64748b;">${totalItems - (startIndex + idx)}</td>
           <td style="padding: 6px 8px;">
-            <img src="${item.link}" style="width: 36px; height: 36px; object-fit: cover; border-radius: 4px; border: 1px solid #e2e8f0; display: block;" loading="lazy">
+            <img src="${item.link}" draggable="true" class="api-draggable-img" style="width: 36px; height: 36px; object-fit: cover; border-radius: 4px; border: 1px solid #e2e8f0; display: block; cursor: grab;" loading="lazy" title="${item.ten_anh || 'image'}">
           </td>
-          <td style="padding: 6px 8px; font-weight: 500; color: #1e293b; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.ten_anh}">${item.ten_anh}</td>
-          <td style="padding: 6px 8px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          <td style="padding: 6px 8px; font-weight: 500; color: #1e293b; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.ten_anh}">${item.ten_anh}</td>
+          <td style="padding: 6px 8px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
             <a href="${item.link}" target="_blank" style="color: #2563eb; text-decoration: none;" title="${item.link}">${item.link}</a>
           </td>
-          <td style="padding: 6px 8px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          <td style="padding: 6px 8px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
             ${item.link_cu ? `<a href="${item.link_cu}" target="_blank" style="color: #64748b; text-decoration: none;" title="${item.link_cu}">${item.link_cu}</a>` : `<span style="color: #94a3b8;">-</span>`}
           </td>
-          <td style="padding: 6px 8px; text-align: center;">
-            <button type="button" class="api-copy-btn" data-link="${item.link}" style="padding: 2px 6px; font-size: 10px; background: #0284c7; color: white; border: none; border-radius: 3px; cursor: pointer;">Copy</button>
+          <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">
+            <button type="button" class="api-copy-image-btn" data-link="${item.link}" style="padding: 2px 5px; font-size: 10px; font-weight: 600; background: #2563eb; color: white; border: none; border-radius: 3px; cursor: pointer; margin-right: 2px;" title="Copy Ảnh vào Clipboard để Dán (Ctrl+V)">📋 Copy</button>
+            <button type="button" class="api-chatgpt-btn" data-link="${item.link}" style="padding: 2px 5px; font-size: 10px; font-weight: 600; background: #10a37f; color: white; border: none; border-radius: 3px; cursor: pointer; margin-right: 2px;" title="Mở ChatGPT và tạo lại ảnh này khác phong cách">🤖 GPT</button>
+            <button type="button" class="api-gemini-btn" data-link="${item.link}" style="padding: 2px 5px; font-size: 10px; font-weight: 600; background: #7c3aed; color: white; border: none; border-radius: 3px; cursor: pointer;" title="Mở Gemini và tạo lại ảnh này khác phong cách">✨ Gemini</button>
           </td>
           <td style="padding: 6px 8px; text-align: center;">
             <button type="button" class="api-delete-single-btn" data-id="${item.id}" data-link="${item.link}" style="padding: 2px 5px; font-size: 10px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 3px; cursor: pointer;" title="Xóa ảnh này">🗑️</button>
@@ -9634,30 +9755,131 @@ document.addEventListener("DOMContentLoaded", () => {
         const key = item.id || item.link;
         const isSelected = selectedApiItemIds.has(key);
         return `
-        <div style="position: relative; border: 1px solid ${isSelected ? '#3b82f6' : '#e2e8f0'}; border-radius: 6px; overflow: hidden; background: #f8fafc; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; ${isSelected ? 'outline: 2px solid #3b82f6;' : ''}">
+        <div class="api-img-card" style="position: relative; border: 1px solid ${isSelected ? '#3b82f6' : '#e2e8f0'}; border-radius: 6px; overflow: hidden; background: #f8fafc; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; ${isSelected ? 'outline: 2px solid #3b82f6;' : ''}">
           <input type="checkbox" class="api-item-chk" data-id="${item.id}" data-link="${item.link}" ${isSelected ? 'checked' : ''} style="position: absolute; top: 5px; left: 5px; z-index: 2; margin: 0; cursor: pointer; transform: scale(1.2); filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));">
-          <img src="${item.link}" style="width: 100%; height: 100%; object-fit: cover; display: block;" title="${item.ten_anh || item.id}" loading="lazy">
-          <button type="button" class="api-copy-btn" data-link="${item.link}" style="position: absolute; bottom: 4px; right: 4px; padding: 2px 6px; font-size: 9px; font-weight: bold; background: rgba(0,0,0,0.65); color: white; border: none; border-radius: 3px; cursor: pointer;" title="Copy Link .jpg">📋 Copy</button>
+          <img src="${item.link}" draggable="true" class="api-draggable-img" style="width: 100%; height: 100%; object-fit: cover; display: block; cursor: grab;" title="${item.ten_anh || item.id}" loading="lazy">
+          
+          <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(2px); padding: 3px 2px; display: flex; align-items: center; justify-content: space-between; gap: 2px; z-index: 2;">
+            <button type="button" class="api-copy-image-btn" data-link="${item.link}" style="flex: 1; min-width: 0; padding: 3px 1px; font-size: 8.5px; font-weight: bold; background: #2563eb; color: white; border: none; border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 1px; white-space: nowrap;" title="Copy Ảnh vào Clipboard để Dán (Ctrl+V)">📋 Copy</button>
+            <button type="button" class="api-chatgpt-btn" data-link="${item.link}" style="flex: 1; min-width: 0; padding: 3px 1px; font-size: 8.5px; font-weight: bold; background: #10a37f; color: white; border: none; border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 1px; white-space: nowrap;" title="Mở ChatGPT và tạo lại ảnh này khác phong cách">🤖 GPT</button>
+            <button type="button" class="api-gemini-btn" data-link="${item.link}" style="flex: 1; min-width: 0; padding: 3px 1px; font-size: 8.5px; font-weight: bold; background: #7c3aed; color: white; border: none; border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 1px; white-space: nowrap;" title="Mở Gemini và tạo lại ảnh này khác phong cách">✨ Gemini</button>
+          </div>
         </div>
       `;
       }).join("");
     }
   }
 
-  // Sự kiện copy link ảnh
-  document.addEventListener("click", (e) => {
-    const copyBtn = e.target.closest(".api-copy-btn");
+  // Hỗ trợ Kéo ảnh (Drag & Drop) ra ngoài trang web, ChatGPT, Gemini, Photoshop, Discord hoặc Desktop
+  document.addEventListener("dragstart", (e) => {
+    const img = e.target.closest("img");
+    if (img && img.src) {
+      const src = img.src;
+      const title = img.getAttribute("title") || img.getAttribute("alt") || "image.png";
+      e.dataTransfer.effectAllowed = "copyMove";
+      e.dataTransfer.setData("text/plain", src);
+      e.dataTransfer.setData("text/uri-list", src);
+      e.dataTransfer.setData("text/html", `<img src="${src}">`);
+      try {
+        e.dataTransfer.setData("DownloadURL", `image/png:${title}:${src}`);
+      } catch (err) {}
+    }
+  });
+
+  const DEFAULT_AI_PROMPT = "tạo lại bức ảnh này với nội dung y hệt nhưng khác phong cách";
+
+  // Sự kiện click cho nút Copy Ảnh và nút Mở ChatGPT / Gemini
+  document.addEventListener("click", async (e) => {
+    // 1. Nút Copy Ảnh vào Clipboard
+    const copyBtn = e.target.closest(".api-copy-image-btn") || e.target.closest(".api-copy-btn");
     if (copyBtn) {
+      e.preventDefault();
+      e.stopPropagation();
       const link = copyBtn.getAttribute("data-link");
-      if (link) {
-        navigator.clipboard.writeText(link).then(() => {
-          const orig = copyBtn.textContent;
-          copyBtn.textContent = "✓ Đã copy";
-          setTimeout(() => { copyBtn.textContent = orig; }, 1200);
-        }).catch(err => {
-          console.error("Lỗi copy link ảnh:", err);
-        });
+      if (!link) return;
+
+      const origText = copyBtn.innerHTML;
+      copyBtn.innerHTML = "⏳...";
+      copyBtn.disabled = true;
+
+      try {
+        await copyImageFromUrlToClipboard(link);
+        copyBtn.innerHTML = "✓ Đã copy";
+        copyBtn.style.background = "#16a34a";
+        showStatus("✅ Đã sao chép ảnh vào Clipboard! Bạn có thể dán (Ctrl + V) bất cứ đâu.", "#16a34a");
+      } catch (err) {
+        console.warn("Lỗi copy nhị phân ảnh, thử fallback copy link:", err);
+        try {
+          await navigator.clipboard.writeText(link);
+          copyBtn.innerHTML = "✓ Đã copy link";
+          showStatus("⚠️ Đã copy link ảnh vào Clipboard.", "#d97706");
+        } catch (linkErr) {
+          showStatus(`Lỗi copy ảnh: ${err.message}`, "red");
+        }
+      } finally {
+        setTimeout(() => {
+          copyBtn.innerHTML = origText;
+          copyBtn.style.background = "";
+          copyBtn.disabled = false;
+        }, 1500);
       }
+      return;
+    }
+
+    // 2. Nút Mở ChatGPT với Ảnh & Prompt
+    const gptBtn = e.target.closest(".api-chatgpt-btn");
+    if (gptBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const link = gptBtn.getAttribute("data-link");
+      if (!link) return;
+
+      const origText = gptBtn.innerHTML;
+      gptBtn.innerHTML = "⏳...";
+      gptBtn.disabled = true;
+
+      showStatus("🤖 Đang mở ChatGPT, dán ảnh & điền câu lệnh...", "#2563eb");
+      try {
+        await openChatGptWithImage(link, DEFAULT_AI_PROMPT, gptBtn);
+        showStatus("✅ Đã mở tab ChatGPT và gửi ảnh thành công!", "#16a34a");
+      } catch (err) {
+        console.error("Lỗi ChatGPT:", err);
+        showStatus(`Lỗi mở ChatGPT: ${err.message}`, "red");
+      } finally {
+        setTimeout(() => {
+          gptBtn.innerHTML = origText;
+          gptBtn.disabled = false;
+        }, 2500);
+      }
+      return;
+    }
+
+    // 3. Nút Mở Gemini với Ảnh & Prompt
+    const geminiBtn = e.target.closest(".api-gemini-btn");
+    if (geminiBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const link = geminiBtn.getAttribute("data-link");
+      if (!link) return;
+
+      const origText = geminiBtn.innerHTML;
+      geminiBtn.innerHTML = "⏳...";
+      geminiBtn.disabled = true;
+
+      showStatus("✨ Đang mở Gemini, dán ảnh & điền câu lệnh...", "#7c3aed");
+      try {
+        await openGeminiWithImage(link, DEFAULT_AI_PROMPT, geminiBtn);
+        showStatus("✅ Đã mở tab Gemini và gửi ảnh thành công!", "#16a34a");
+      } catch (err) {
+        console.error("Lỗi Gemini:", err);
+        showStatus(`Lỗi mở Gemini: ${err.message}`, "red");
+      } finally {
+        setTimeout(() => {
+          geminiBtn.innerHTML = origText;
+          geminiBtn.disabled = false;
+        }, 2500);
+      }
+      return;
     }
   });
 
