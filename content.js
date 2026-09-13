@@ -449,6 +449,13 @@ Chúc anh/chị có một ngày thật vui vẻ, nhiều năng lượng và tố
       #btn-pre-order-sidebar:hover {
         background: #7c3aed !important;
       }
+      #btn-disable-pre-order-sidebar {
+        background: #64748b !important;
+        background-color: #64748b !important;
+      }
+      #btn-disable-pre-order-sidebar:hover {
+        background: #475569 !important;
+      }
     `;
     document.documentElement.append(style);
   }
@@ -560,6 +567,60 @@ Chúc anh/chị có một ngày thật vui vẻ, nhiều năng lượng và tố
     }
     if (trueInputs.length > 0) {
       return { label: trueInputs[0].closest('label') || trueInputs[0].parentElement || trueInputs[0], input: trueInputs[0] };
+    }
+
+    return null;
+  }
+
+  function findDisablePreOrderRadio() {
+    // 1. Từ radio "Đồng ý", tìm radio "Không" cùng nhóm
+    const preOrderObj = findPreOrderRadio();
+    if (preOrderObj && preOrderObj.label) {
+      const parentGroup = preOrderObj.label.closest('.eds-radio-group, .product-edit-form-item, .form-item, .eds-form-item, div');
+      if (parentGroup) {
+        const radiosInGroup = Array.from(parentGroup.querySelectorAll('label.eds-radio, .eds-radio, label'));
+        for (const lbl of radiosInGroup) {
+          if (lbl === preOrderObj.label) continue;
+          const text = (lbl.textContent || '').trim();
+          if (text === 'Không' || text.includes('Không') || text.startsWith('Không')) {
+            const input = lbl.querySelector('input.eds-radio__input, input[type="radio"]') || (lbl.tagName === 'INPUT' ? lbl : null);
+            return { label: lbl, input };
+          }
+        }
+        const falseInput = parentGroup.querySelector('input.eds-radio__input[value="false"], input[type="radio"][value="false"], input[value="0"]');
+        if (falseInput) {
+          return { label: falseInput.closest('label') || falseInput.parentElement || falseInput, input: falseInput };
+        }
+      }
+    }
+
+    // 2. Tìm theo nhãn / span có chữ "Không" nằm trong khối Hàng đặt trước
+    const candidateLabels = Array.from(document.querySelectorAll('label.eds-radio, .eds-radio, label'));
+    for (const lbl of candidateLabels) {
+      if (lbl.closest('.eds-modal, .eds-dialog, .shopee-modal')) continue;
+      const text = (lbl.textContent || '').trim();
+      if (text === 'Không' || text.startsWith('Không')) {
+        const formItem = lbl.closest('.product-edit-form-item, .form-item, .eds-form-item, .eds-form-group, div');
+        const itemText = formItem ? formItem.textContent : '';
+        if (itemText.includes('đặt trước') || itemText.includes('chuẩn bị hàng') || itemText.includes('Đồng ý')) {
+          const input = lbl.querySelector('input.eds-radio__input, input[type="radio"]') || (lbl.tagName === 'INPUT' ? lbl : null);
+          return { label: lbl, input };
+        }
+      }
+    }
+
+    // 3. Tìm theo input[type="radio"][value="false"] nằm trong mục đặt trước
+    const falseInputs = Array.from(document.querySelectorAll('input.eds-radio__input[value="false"], input[type="radio"][value="false"]'))
+      .filter(inp => !inp.closest('.eds-modal, .eds-dialog, .shopee-modal'));
+    for (const inp of falseInputs) {
+      const formItem = inp.closest('.product-edit-form-item, .form-item, .eds-form-item, div');
+      const itemText = formItem ? formItem.textContent : '';
+      if (itemText.includes('Không') || itemText.includes('đặt trước') || itemText.includes('chuẩn bị hàng')) {
+        return { label: inp.closest('label') || inp.parentElement || inp, input: inp };
+      }
+    }
+    if (falseInputs.length > 0) {
+      return { label: falseInputs[0].closest('label') || falseInputs[0].parentElement || falseInputs[0], input: falseInputs[0] };
     }
 
     return null;
@@ -744,6 +805,40 @@ Chúc anh/chị có một ngày thật vui vẻ, nhiều năng lượng và tố
     return true;
   }
 
+  async function handleApplyDisablePreOrder() {
+    if (typeof showTopNotification === 'function') {
+      showTopNotification("⏳ Đang tắt Hàng đặt trước (chọn 'Không')...");
+    }
+
+    const radioObj = findDisablePreOrderRadio();
+    if (!radioObj || !radioObj.label) {
+      if (typeof showTopNotification === 'function') {
+        showTopNotification("❌ Không tìm thấy tùy chọn 'Không' ở mục Hàng đặt trước!", true);
+      }
+      alert("Không tìm thấy tùy chọn 'Không' của Hàng đặt trước trên trang hiện tại!\nVui lòng đảm bảo bạn đang ở trang chỉnh sửa sản phẩm.");
+      return false;
+    }
+
+    await activatePreOrderRadio(radioObj);
+    await new Promise(r => setTimeout(r, 200));
+
+    // Xử lý popup xác nhận (nếu Shopee hiển thị modal xác nhận tắt hàng đặt trước)
+    const confirmBtns = Array.from(document.querySelectorAll('.eds-modal .eds-button--primary, .shopee-modal .shopee-button--primary, .eds-dialog .eds-button--primary'));
+    for (const b of confirmBtns) {
+      const text = (b.textContent || '').trim().toLowerCase();
+      if (text.includes('xác nhận') || text.includes('đồng ý') || text.includes('confirm') || text.includes('ok')) {
+        b.click();
+        await new Promise(r => setTimeout(r, 200));
+        break;
+      }
+    }
+
+    if (typeof showTopNotification === 'function') {
+      showTopNotification(`✅ Đã tắt Hàng đặt trước (chọn 'Không' - Hàng có sẵn) thành công!`);
+    }
+    return true;
+  }
+
   function injectPreOrderInlineButton() {
     const path = window.location.pathname;
     const isEdit = path.startsWith("/portal/product/new") || (path.startsWith("/portal/product/") && !path.includes("/list"));
@@ -756,12 +851,15 @@ Chúc anh/chị có một ngày thật vui vẻ, nhiều năng lượng và tố
       if (text === 'Đồng ý' || text.includes('Đồng ý')) {
         const parent = lbl.parentElement;
         if (parent && !parent.querySelector('.shopee-qlsp-inline-preorder-btn')) {
+          const inlineWrap = document.createElement('span');
+          inlineWrap.className = 'shopee-qlsp-inline-preorder-btn';
+          inlineWrap.style.cssText = 'display: inline-flex !important; gap: 6px !important; margin-left: 10px !important; vertical-align: middle !important;';
+
           const inlineBtn = document.createElement('button');
           inlineBtn.type = 'button';
-          inlineBtn.className = 'shopee-qlsp-inline-preorder-btn';
           inlineBtn.textContent = '⚡ Đặt trước 15 ngày';
           inlineBtn.title = 'Bấm để tự động chọn Đồng ý và điền 15 ngày';
-          inlineBtn.style.cssText = 'margin-left: 10px !important; padding: 2px 10px !important; font-size: 11px !important; font-weight: bold !important; background: #8b5cf6 !important; color: white !important; border: 1px solid #7c3aed !important; border-radius: 4px !important; cursor: pointer !important; vertical-align: middle !important; display: inline-flex !important; align-items: center !important;';
+          inlineBtn.style.cssText = 'padding: 2px 10px !important; font-size: 11px !important; font-weight: bold !important; background: #8b5cf6 !important; color: white !important; border: 1px solid #7c3aed !important; border-radius: 4px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important;';
           inlineBtn.onclick = async (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -772,7 +870,26 @@ Chúc anh/chị có một ngày thật vui vẻ, nhiều năng lượng và tố
               inlineBtn.textContent = '⚡ Đặt trước 15 ngày';
             }
           };
-          parent.appendChild(inlineBtn);
+
+          const disableBtn = document.createElement('button');
+          disableBtn.type = 'button';
+          disableBtn.textContent = '🚫 Tắt đặt trước';
+          disableBtn.title = 'Bấm để chọn Không (tắt hàng đặt trước)';
+          disableBtn.style.cssText = 'padding: 2px 10px !important; font-size: 11px !important; font-weight: bold !important; background: #64748b !important; color: white !important; border: 1px solid #475569 !important; border-radius: 4px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important;';
+          disableBtn.onclick = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            disableBtn.textContent = '⏳';
+            try {
+              await handleApplyDisablePreOrder();
+            } finally {
+              disableBtn.textContent = '🚫 Tắt đặt trước';
+            }
+          };
+
+          inlineWrap.appendChild(inlineBtn);
+          inlineWrap.appendChild(disableBtn);
+          parent.appendChild(inlineWrap);
         }
         break;
       }
@@ -1175,13 +1292,41 @@ Chúc anh/chị có một ngày thật vui vẻ, nhiều năng lượng và tố
       }
     });
 
-    wrap.append(topButton, upButton, downButton, bottomButton, bulkExcelBtn, stock1000Btn, stock0Btn, saveSheetBtn, preOrderBtn, previewBtn);
+    // Nút Tắt đặt trước (chọn Không)
+    const disablePreOrderBtn = document.createElement("button");
+    disablePreOrderBtn.id = "btn-disable-pre-order-sidebar";
+    disablePreOrderBtn.type = "button";
+    disablePreOrderBtn.title = "Hàng đặt trước: Chọn 'Không' (Tắt đặt trước)";
+    disablePreOrderBtn.innerHTML = "Tắt<br>ĐT";
+    disablePreOrderBtn.style.setProperty("background-color", "#64748b", "important");
+    disablePreOrderBtn.style.setProperty("background", "#64748b", "important");
+    disablePreOrderBtn.style.fontSize = "10px";
+    disablePreOrderBtn.style.lineHeight = "1.1";
+    disablePreOrderBtn.style.fontWeight = "bold";
+    disablePreOrderBtn.style.textAlign = "center";
+    disablePreOrderBtn.style.setProperty("display", "none", "important");
+    disablePreOrderBtn.addEventListener("click", async () => {
+      const origHtml = disablePreOrderBtn.innerHTML;
+      disablePreOrderBtn.textContent = "⏳";
+      disablePreOrderBtn.disabled = true;
+      try {
+        await handleApplyDisablePreOrder();
+      } catch (err) {
+        console.error("Lỗi tắt đặt trước:", err);
+        alert("Lỗi tắt hàng đặt trước: " + err.message);
+      } finally {
+        disablePreOrderBtn.innerHTML = origHtml;
+        disablePreOrderBtn.disabled = false;
+      }
+    });
+
+    wrap.append(topButton, upButton, downButton, bottomButton, bulkExcelBtn, stock1000Btn, stock0Btn, saveSheetBtn, preOrderBtn, disablePreOrderBtn, previewBtn);
     document.documentElement.append(wrap);
     toggleBulkExcelBtn();
     
     let lastCheckedMaSp = null;
     
-    // Toggle the Save SP, 1000, Kho 0, Đặt trước and Xem trước buttons visibility based on URL
+    // Toggle the Save SP, 1000, Kho 0, Đặt trước, Tắt Đặt trước and Xem trước buttons visibility based on URL
     window.setInterval(() => {
         const path = window.location.pathname;
         const isEdit = path.startsWith("/portal/product/new") || (path.startsWith("/portal/product/") && !path.includes("/list"));
@@ -1190,12 +1335,14 @@ Chúc anh/chị có một ngày thật vui vẻ, nhiều năng lượng và tố
             stock1000Btn.style.setProperty("display", "flex", "important");
             stock0Btn.style.setProperty("display", "flex", "important");
             preOrderBtn.style.setProperty("display", "flex", "important");
+            disablePreOrderBtn.style.setProperty("display", "flex", "important");
             previewBtn.style.setProperty("display", "flex", "important");
         } else {
             saveSheetBtn.style.setProperty("display", "none", "important");
             stock1000Btn.style.setProperty("display", "none", "important");
             stock0Btn.style.setProperty("display", "none", "important");
             preOrderBtn.style.setProperty("display", "none", "important");
+            disablePreOrderBtn.style.setProperty("display", "none", "important");
             previewBtn.style.setProperty("display", "none", "important");
         }
         
@@ -2519,19 +2666,21 @@ Chúc anh/chị có một ngày thật vui vẻ, nhiều năng lượng và tố
   }
 
   function getDroppedImageFiles(dataTransfer) {
-    const items = Array.from(dataTransfer.items || []);
-    const itemFiles = items
-      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
-      .map((item) => item.getAsFile())
-      .filter(Boolean);
-
-    if (itemFiles.length) {
-      return itemFiles;
+    if (!dataTransfer) return [];
+    if (dataTransfer.files && dataTransfer.files.length > 0) {
+      return Array.from(dataTransfer.files).filter((file) => {
+        return !file.type || file.type.startsWith("image/") || isImageFileName(file.name);
+      });
     }
 
-    return Array.from(dataTransfer.files || []).filter((file) => {
-      return file.type.startsWith("image/") || isImageFileName(file.name);
-    });
+    const items = Array.from(dataTransfer.items || []);
+    const itemFiles = items
+      .filter((item) => item.kind === "file")
+      .map((item) => item.getAsFile())
+      .filter(Boolean)
+      .filter((file) => !file.type || file.type.startsWith("image/") || isImageFileName(file.name));
+
+    return itemFiles;
   }
 
   async function fileFromDroppedImageUrl(url, index) {
@@ -7225,6 +7374,20 @@ Chúc anh/chị có một ngày thật vui vẻ, nhiều năng lượng và tố
 
     if (message?.type === "ADD_NEW_PRODUCT_ATTRIBUTE") {
       addNewProductAttribute(message.labelName, message.value).then(sendResponse);
+      return true;
+    }
+
+    if (message?.type === "APPLY_PRE_ORDER") {
+      handleApplyPreOrder(message.targetDays || 15)
+        .then(ok => sendResponse({ ok, message: ok ? "Đã bật hàng đặt trước thành công." : "Không thể bật hàng đặt trước." }))
+        .catch(err => sendResponse({ ok: false, message: err.message }));
+      return true;
+    }
+
+    if (message?.type === "DISABLE_PRE_ORDER") {
+      handleApplyDisablePreOrder()
+        .then(ok => sendResponse({ ok, message: ok ? "Đã tắt hàng đặt trước thành công." : "Không thể tắt hàng đặt trước." }))
+        .catch(err => sendResponse({ ok: false, message: err.message }));
       return true;
     }
 
@@ -14419,7 +14582,30 @@ async function extractProductDataAndSave() {
       }
     };
 
-    btnRow.append(btn1000, btn0, btnPreOrder, btnPreview);
+    const btnDisablePreOrder = document.createElement('button');
+    btnDisablePreOrder.type = 'button';
+    btnDisablePreOrder.textContent = '🚫 Tắt đặt trước';
+    btnDisablePreOrder.title = 'Hàng đặt trước: Chọn Không (tắt đặt trước)';
+    btnDisablePreOrder.style.cssText = 'padding: 6px 10px !important; font-size: 12px !important; font-weight: bold !important; background: #64748b !important; color: white !important; border: none !important; border-radius: 6px !important; cursor: pointer !important; box-shadow: 0 2px 4px rgba(100,116,139,0.3) !important; white-space: nowrap !important; transition: all 0.2s !important;';
+    btnDisablePreOrder.onmouseover = () => btnDisablePreOrder.style.background = '#475569';
+    btnDisablePreOrder.onmouseout = () => btnDisablePreOrder.style.background = '#64748b';
+    btnDisablePreOrder.onclick = async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const origText = btnDisablePreOrder.textContent;
+      btnDisablePreOrder.textContent = '⏳';
+      btnDisablePreOrder.disabled = true;
+      try {
+        await handleApplyDisablePreOrder();
+      } catch (err) {
+        alert("Lỗi tắt hàng đặt trước: " + err.message);
+      } finally {
+        btnDisablePreOrder.textContent = origText;
+        btnDisablePreOrder.disabled = false;
+      }
+    };
+
+    btnRow.append(btn1000, btn0, btnPreOrder, btnDisablePreOrder, btnPreview);
     panel.append(title, btnRow);
     document.body.appendChild(panel);
   }

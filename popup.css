@@ -1812,3 +1812,38 @@ textarea {
 #btn-nhieu-don-fill-selected:hover {
   background: #be123c !important;
 }
+
+/* API Image Dropzone Styles */
+#api-img-dropzone {
+  border: 2px dashed #3b82f6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+  background: #f0f7ff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  user-select: none;
+}
+
+#api-img-dropzone:hover {
+  background: #e0f2fe;
+  border-color: #0284c7;
+}
+
+#api-img-dropzone.drag-active {
+  background: #dbeafe !important;
+  border-color: #2563eb !important;
+  border-style: solid !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.25) !important;
+  transform: scale(1.02);
+}
+
+#api-img-dropzone * {
+  pointer-events: none;
+}

@@ -70,55 +70,61 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
 async function uploadImageToFreeImageHost(imageUrl) {
-  const apiKey = "6d207e02198a847aa98d0a2a901485a5";
-  
-  // Nguồn ảnh là Data URL base64 hoặc URL HTTP/HTTPS
-  let sourceToUpload = imageUrl;
+  let blob = null;
+  let fileName = "image.png";
 
-  // Nếu là đường dẫn URL, fetch về dạng blob/base64 để upload chắc chắn
-  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://") || imageUrl.startsWith("blob:")) {
     try {
       const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      const base64Data = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          // Bỏ tiền tố "data:image/jpeg;base64," chỉ lấy chuỗi base64 thuần
-          const resStr = reader.result;
-          const commaIdx = resStr.indexOf(",");
-          resolve(commaIdx !== -1 ? resStr.substring(commaIdx + 1) : resStr);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-      sourceToUpload = base64Data;
+      const arrayBuf = await response.arrayBuffer();
+      if (arrayBuf && arrayBuf.byteLength > 0) {
+        const mime = response.headers.get("content-type") || "image/png";
+        blob = new Blob([arrayBuf], { type: mime });
+        const urlPath = new URL(imageUrl).pathname;
+        const lastSeg = urlPath.split("/").pop();
+        if (lastSeg && lastSeg.includes(".")) {
+          fileName = lastSeg;
+        }
+      }
     } catch (e) {
-      console.warn("Không fetch trực tiếp được blob ảnh, dùng thẳng URL:", e);
+      console.warn("Không fetch trực tiếp được blob ảnh:", e);
     }
   } else if (imageUrl.startsWith("data:image")) {
-    const commaIdx = imageUrl.indexOf(",");
-    if (commaIdx !== -1) {
-      sourceToUpload = imageUrl.substring(commaIdx + 1);
+    const parts = imageUrl.split(",");
+    const mimeMatch = parts[0]?.match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : "image/png";
+    const b64 = parts[1] || "";
+    const binStr = atob(b64);
+    const len = binStr.length;
+    const u8arr = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      u8arr[i] = binStr.charCodeAt(i);
     }
+    blob = new Blob([u8arr], { type: mime });
   }
 
-  const formData = new FormData();
-  formData.append("key", apiKey);
-  formData.append("action", "upload");
-  formData.append("source", sourceToUpload);
-  formData.append("format", "json");
+  if (!blob || blob.size === 0) {
+    throw new Error("Không thể xử lý dữ liệu ảnh hoặc dữ liệu ảnh rỗng để upload!");
+  }
 
-  const res = await fetch("https://freeimage.host/api/1/upload", {
+  const ext = (fileName.split(".").pop() || "png").toLowerCase();
+  const safeName = fileName || `image_${Date.now()}.${ext}`;
+
+  // Tải lên duy nhất qua API Catbox (https://catbox.moe/user/api.php)
+  const fdCatbox = new FormData();
+  fdCatbox.append("reqtype", "fileupload");
+  fdCatbox.append("fileToUpload", blob, safeName);
+
+  const resCatbox = await fetch("https://catbox.moe/user/api.php", {
     method: "POST",
-    body: formData
+    body: fdCatbox
   });
-
-  const data = await res.json();
-  if (data && data.status_code === 200 && data.image && data.image.url) {
-    return data.image.url; // Link ảnh sau khi upload thành công
-  } else {
-    throw new Error(data?.error?.message || "Lỗi upload ảnh lên FreeImage.host");
+  const textCatbox = await resCatbox.text();
+  if (resCatbox.ok && textCatbox && textCatbox.trim().startsWith("http")) {
+    return textCatbox.trim();
   }
+
+  throw new Error(textCatbox || "Không thể upload ảnh lên API Catbox (https://files.catbox.moe/).");
 }
 
   if (message?.type === "SAVE_IMAGE_TO_SHEET_API") {

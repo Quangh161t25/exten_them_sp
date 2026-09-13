@@ -15,6 +15,8 @@ const fillAllAutoButton = document.querySelector("#fill-all-auto");
 const fillProductBrandButton = document.querySelector("#fill-product-brand");
 const fillStock0Button = document.querySelector("#fill-stock-0");
 const fillStock300Button = document.querySelector("#fill-stock-300");
+const btnPreOrderPopup = document.querySelector("#btn-preorder-popup");
+const btnDisablePreOrderPopup = document.querySelector("#btn-disable-preorder-popup");
 const btnLayAnh = document.querySelector("#btn-lay-anh");
 const btnLayText = document.querySelector("#btn-lay-text");
 const btnLayTextCoAnh = document.querySelector("#btn-lay-text-co-anh");
@@ -2218,48 +2220,91 @@ function readFileAsDataUrl(file) {
   });
 }
 
-async function uploadFileToImgBB(file) {
-  const formData = new FormData();
+async function uploadFileToCatbox(file) {
+  let fileObj = null;
+  let fileName = file?.name || "image.png";
 
-  formData.append("key", "6d207e02198a847aa98d0a2a901485a5");
-  formData.append("action", "upload");
-  formData.append("source", file);
-  formData.append("format", "json");
-
-  const response = await fetch("https://freeimage.host/api/1/upload", {
-    method: "POST",
-    body: formData
-  });
-  const data = await response.json();
-
-  if (!response.ok || data.status_code !== 200) {
-    throw new Error(data.success?.message || data.error?.message || `Khong tai duoc ${file.name} len Freeimage.host.`);
-  }
-
-  const links = [
-    data.image?.url,
-    data.image?.medium?.url,
-    data.image?.thumb?.url,
-    data.image?.display_url
-  ].filter(Boolean);
-  const originalExtension = file.name.split(".").pop()?.toLowerCase();
-
-  if (originalExtension && IMAGE_EXTENSIONS.has(originalExtension)) {
-    const matchingLink = links.find((link) => getExtensionFromUrl(link) === originalExtension);
-
-    if (matchingLink) {
-      return matchingLink;
+  if (typeof file === "string") {
+    const rawStr = file.trim();
+    if (rawStr.startsWith("data:image")) {
+      const parts = rawStr.split(",");
+      const mimeMatch = parts[0]?.match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : "image/png";
+      const b64 = parts[1] || "";
+      const binStr = atob(b64);
+      const len = binStr.length;
+      const u8arr = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        u8arr[i] = binStr.charCodeAt(i);
+      }
+      const ext = (mime.split("/")[1] || "png").replace("jpeg", "jpg");
+      fileName = `image_${Date.now()}.${ext}`;
+      fileObj = new Blob([u8arr], { type: mime });
+    } else if (rawStr.startsWith("http://") || rawStr.startsWith("https://") || rawStr.startsWith("blob:")) {
+      try {
+        const resp = await fetch(rawStr);
+        const arrayBuf = await resp.arrayBuffer();
+        if (!arrayBuf || arrayBuf.byteLength === 0) {
+          throw new Error(`Dữ liệu ảnh rỗng hoặc không tải được từ URL: ${rawStr}`);
+        }
+        const mime = resp.headers.get("content-type") || "image/png";
+        const ext = (mime.split("/")[1] || "png").replace("jpeg", "jpg");
+        try {
+          const urlPath = new URL(rawStr).pathname;
+          const last = urlPath.split("/").pop();
+          if (last && last.includes(".")) fileName = last;
+          else fileName = `image_${Date.now()}.${ext}`;
+        } catch (e) {
+          fileName = `image_${Date.now()}.${ext}`;
+        }
+        fileObj = new Blob([arrayBuf], { type: mime });
+      } catch (err) {
+        console.warn("Không fetch được remote URL ảnh:", err);
+        throw err;
+      }
     }
+  } else if (file instanceof File || file instanceof Blob) {
+    const arrayBuf = await file.arrayBuffer();
+    if (!arrayBuf || arrayBuf.byteLength === 0) {
+      throw new Error("Dữ liệu ảnh rỗng (0 bytes), vui lòng chọn hoặc dán lại ảnh!");
+    }
+    const mime = file.type || "image/png";
+    const ext = (mime.split("/")[1] || "png").replace("jpeg", "jpg");
+    fileName = file.name || `image_${Date.now()}.${ext}`;
+    fileObj = new Blob([arrayBuf], { type: mime });
+  } else if (file && typeof file === "object" && file.dataUrl) {
+    return uploadFileToCatbox(file.dataUrl);
   }
 
-  return links[0] || "";
+  if (!fileObj || fileObj.size === 0) {
+    throw new Error("Không có dữ liệu ảnh hoặc file ảnh 0 bytes để upload!");
+  }
+
+  // Tải lên duy nhất qua API Catbox (https://catbox.moe/user/api.php)
+  const fdCatbox = new FormData();
+  fdCatbox.append("reqtype", "fileupload");
+  fdCatbox.append("fileToUpload", fileObj, fileName);
+
+  const resCatbox = await fetch("https://catbox.moe/user/api.php", {
+    method: "POST",
+    body: fdCatbox
+  });
+  const textCatbox = await resCatbox.text();
+  if (resCatbox.ok && textCatbox && textCatbox.trim().startsWith("http")) {
+    return textCatbox.trim();
+  }
+
+  throw new Error(textCatbox || `Không thể upload ${fileName} lên API Catbox (https://files.catbox.moe/).`);
 }
+
+// Alias để tương thích các hàm cũ
+const uploadFileToImgBB = uploadFileToCatbox;
 
 async function saveImgBBLinksToSheet(imageLinks) {
   const id = productIdInput.value.trim();
 
   if (!id) {
-    throw new Error("Nhap ID san pham truoc khi luu link ImgBB vao Sheet.");
+    throw new Error("Nhap ID san pham truoc khi luu link Catbox vao Sheet.");
   }
 
   const token = await getAccessToken();
@@ -2308,7 +2353,7 @@ async function saveImgBBLinksToSheet(imageLinks) {
 
 async function uploadVisibleImagesToImgBB() {
   uploadImagesImgbbButton.disabled = true;
-  statusText.textContent = "Dang chuan bi tai anh len ImgBB...";
+  statusText.textContent = "Dang chuan bi tai anh len Catbox (files.catbox.moe)...";
 
   try {
     if (!loadedImageFiles.length) {
@@ -2318,15 +2363,15 @@ async function uploadVisibleImagesToImgBB() {
     const files = getVisibleImageFiles();
 
     if (!files.length) {
-      statusText.textContent = "Chua co anh dang hien thi de tai len ImgBB.";
+      statusText.textContent = "Chua co anh dang hien thi de tai len Catbox.";
       return;
     }
 
     const imageLinks = [];
 
     for (const [index, file] of files.entries()) {
-      statusText.textContent = `Dang tai ImgBB ${index + 1}/${files.length}...`;
-      const link = await uploadFileToImgBB(file);
+      statusText.textContent = `Dang tai Catbox ${index + 1}/${files.length}...`;
+      const link = await uploadFileToCatbox(file);
 
       if (link) {
         imageLinks.push(link);
@@ -2334,16 +2379,16 @@ async function uploadVisibleImagesToImgBB() {
     }
 
     if (!imageLinks.length) {
-      statusText.textContent = "ImgBB khong tra ve link anh.";
+      statusText.textContent = "Catbox khong tra ve link anh.";
       return;
     }
 
-    statusText.textContent = "Dang luu link ImgBB vao cot E...";
+    statusText.textContent = "Dang luu link Catbox vao cot E...";
     const savedRange = await saveImgBBLinksToSheet(imageLinks);
     sheetProductCache = null;
-    statusText.textContent = `Da tai ${imageLinks.length} anh len ImgBB va them vao test!E${savedRange.rowNum}.`;
+    statusText.textContent = `Da tai ${imageLinks.length} anh len Catbox (files.catbox.moe) va them vao test!E${savedRange.rowNum}.`;
   } catch (error) {
-    statusText.textContent = `Loi ImgBB: ${error?.message || "khong tai duoc anh"}`;
+    statusText.textContent = `Loi Catbox: ${error?.message || "khong tai duoc anh"}`;
   } finally {
     uploadImagesImgbbButton.disabled = false;
   }
@@ -2521,19 +2566,21 @@ function getDroppedImageUrls(dataTransfer) {
 }
 
 function getDroppedImageFiles(dataTransfer) {
-  const items = Array.from(dataTransfer.items || []);
-  const imageFiles = items
-    .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
-    .map((item) => item.getAsFile())
-    .filter(Boolean);
-
-  if (imageFiles.length) {
-    return imageFiles;
+  if (!dataTransfer) return [];
+  if (dataTransfer.files && dataTransfer.files.length > 0) {
+    return Array.from(dataTransfer.files).filter((file) => {
+      return !file.type || file.type.startsWith("image/") || isImageFileName(file.name);
+    });
   }
 
-  return Array.from(dataTransfer.files || []).filter((file) => {
-    return file.type.startsWith("image/") || isImageFileName(file.name);
-  });
+  const items = Array.from(dataTransfer.items || []);
+  const imageFiles = items
+    .filter((item) => item.kind === "file")
+    .map((item) => item.getAsFile())
+    .filter(Boolean)
+    .filter((file) => !file.type || file.type.startsWith("image/") || isImageFileName(file.name));
+
+  return imageFiles;
 }
 
 function getExtensionFromMimeType(mimeType) {
@@ -4058,6 +4105,23 @@ imageList.addEventListener("dragleave", (event) => {
 
 imageList.addEventListener("drop", handleDroppedImages);
 
+const sharedImageSection = document.getElementById("shared-image-section");
+if (sharedImageSection) {
+  sharedImageSection.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "copy";
+    }
+    imageList.classList.add("drop-target");
+  });
+  sharedImageSection.addEventListener("dragleave", (event) => {
+    if (!sharedImageSection.contains(event.relatedTarget)) {
+      imageList.classList.remove("drop-target");
+    }
+  });
+  sharedImageSection.addEventListener("drop", handleDroppedImages);
+}
+
 if (uploadImagesImgbbButton) {
   uploadImagesImgbbButton.addEventListener("click", uploadVisibleImagesToImgBB);
 }
@@ -4456,6 +4520,31 @@ async function fillStock(value) {
 
 fillStock0Button.addEventListener("click", () => fillStock(0));
 fillStock300Button.addEventListener("click", () => fillStock(300));
+
+async function togglePreOrderPopup(enable = true, days = 15) {
+  try {
+    const tab = await getActiveTab();
+    if (!tab?.id || !tab.url?.startsWith("https://banhang.shopee.vn/")) {
+      statusText.textContent = "Hãy mở trang chỉnh sửa sản phẩm Shopee trước.";
+      return;
+    }
+    statusText.textContent = enable ? `Đang bật đặt trước ${days} ngày...` : "Đang tắt hàng đặt trước...";
+    const response = await sendMessageToTab(tab.id, {
+      type: enable ? "APPLY_PRE_ORDER" : "DISABLE_PRE_ORDER",
+      targetDays: days
+    });
+    statusText.textContent = response?.message || (enable ? "Đã bật đặt trước." : "Đã tắt đặt trước.");
+  } catch (error) {
+    statusText.textContent = "Không thể thao tác đặt trước, hãy tải lại trang Shopee.";
+  }
+}
+
+if (btnPreOrderPopup) {
+  btnPreOrderPopup.addEventListener("click", () => togglePreOrderPopup(true, 15));
+}
+if (btnDisablePreOrderPopup) {
+  btnDisablePreOrderPopup.addEventListener("click", () => togglePreOrderPopup(false));
+}
 
 uploadButton.addEventListener("click", async () => {
   uploadButton.disabled = true;
@@ -9007,31 +9096,204 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Hàm trích xuất dữ liệu ảnh toàn diện từ thao tác Kéo Thả (hỗ trợ file máy tính, web images, URLs)
+  async function extractDroppedImages(dataTransfer) {
+    if (!dataTransfer) return [];
+    const resultFiles = [];
+    const seenUrls = new Set();
+
+    // 1. Trích xuất File / Blob từ dataTransfer.items hoặc dataTransfer.files
+    const items = Array.from(dataTransfer.items || []);
+    let processedFromItems = false;
+
+    if (items.length > 0) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === "file") {
+          const file = item.getAsFile();
+          if (file) {
+            let mime = file.type || "";
+            const name = file.name || "";
+            const isImgExt = /\.(png|jpe?g|webp|gif|bmp|jfif|ico|svg|avif|tiff?)$/i.test(name);
+            if (mime.startsWith("image/") || isImgExt || mime === "") {
+              if (!mime || !mime.startsWith("image/")) {
+                const ext = (name.split(".").pop() || "png").toLowerCase();
+                mime = ext === "jpg" || ext === "jpeg" || ext === "jfif" ? "image/jpeg" : `image/${ext}`;
+              }
+              try {
+                const arrayBuf = await file.arrayBuffer();
+                if (arrayBuf && arrayBuf.byteLength > 0) {
+                  const safeName = name && name !== "image.png" && name !== "blob"
+                    ? name
+                    : `dropped_image_${Date.now()}_${i + 1}.${mime.split("/")[1] || "png"}`;
+                  resultFiles.push(new File([arrayBuf], safeName, { type: mime }));
+                  processedFromItems = true;
+                }
+              } catch (e) {
+                console.warn("Lỗi đọc buffer dropped item:", e);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (!processedFromItems && dataTransfer.files && dataTransfer.files.length > 0) {
+      const rawFiles = Array.from(dataTransfer.files);
+      for (let i = 0; i < rawFiles.length; i++) {
+        const file = rawFiles[i];
+        let mime = file.type || "";
+        const name = file.name || "";
+        const isImgExt = /\.(png|jpe?g|webp|gif|bmp|jfif|ico|svg|avif|tiff?)$/i.test(name);
+        if (mime.startsWith("image/") || isImgExt || mime === "") {
+          if (!mime || !mime.startsWith("image/")) {
+            const ext = (name.split(".").pop() || "png").toLowerCase();
+            mime = ext === "jpg" || ext === "jpeg" || ext === "jfif" ? "image/jpeg" : `image/${ext}`;
+          }
+          try {
+            const arrayBuf = await file.arrayBuffer();
+            if (arrayBuf && arrayBuf.byteLength > 0) {
+              const safeName = name && name !== "image.png" && name !== "blob"
+                ? name
+                : `dropped_image_${Date.now()}_${i + 1}.${mime.split("/")[1] || "png"}`;
+              resultFiles.push(new File([arrayBuf], safeName, { type: mime }));
+            }
+          } catch (e) {
+            console.warn("Lỗi đọc buffer dropped file:", e);
+          }
+        }
+      }
+    }
+
+    // 2. Trích xuất URL từ text/html (khi kéo trực tiếp ảnh từ trang web khác sang extension)
+    const html = dataTransfer.getData("text/html");
+    if (html) {
+      try {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const imgs = Array.from(doc.querySelectorAll("img"));
+        for (const img of imgs) {
+          const src = (img.currentSrc || img.src || img.getAttribute("src") || "").trim();
+          if (src && !seenUrls.has(src) && !src.startsWith("data:")) {
+            seenUrls.add(src);
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 3. Trích xuất URL từ text/uri-list hoặc text/plain
+    const uriList = dataTransfer.getData("text/uri-list");
+    if (uriList) {
+      uriList.split(/\r?\n/).forEach(u => {
+        const clean = u.trim();
+        if (clean && !clean.startsWith("#") && /^https?:\/\//i.test(clean)) {
+          seenUrls.add(clean);
+        }
+      });
+    }
+
+    const plainText = dataTransfer.getData("text/plain");
+    if (plainText) {
+      plainText.split(/\r?\n/).forEach(u => {
+        const clean = u.trim();
+        if (clean && /^https?:\/\//i.test(clean) && (/\.(png|jpe?g|webp|gif|bmp|jfif|svg|avif)(\?.*)?$/i.test(clean) || clean.includes("catbox") || clean.includes("image") || clean.includes("img") || clean.includes("shopee") || clean.includes("alicdn") || clean.includes("fbcdn"))) {
+          seenUrls.add(clean);
+        }
+      });
+    }
+
+    // Đóng gói các URL thành file objects
+    let urlIdx = 0;
+    for (const url of seenUrls) {
+      urlIdx++;
+      resultFiles.push({
+        name: `web_image_${Date.now()}_${urlIdx}.jpg`,
+        type: "image/jpeg",
+        originalUrl: url,
+        url: url,
+        isDirectUrl: true
+      });
+    }
+
+    return resultFiles;
+  }
+
+  function setDropzoneActive(active) {
+    if (!dropzone) return;
+    if (active) {
+      dropzone.style.background = "#dbeafe";
+      dropzone.style.borderColor = "#2563eb";
+      dropzone.style.transform = "scale(1.01)";
+    } else {
+      dropzone.style.background = "#f0f7ff";
+      dropzone.style.borderColor = "#3b82f6";
+      dropzone.style.transform = "none";
+    }
+  }
+
   dropzone.addEventListener("click", () => fileInput.click());
+
+  dropzone.addEventListener("dragenter", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDropzoneActive(true);
+  });
 
   dropzone.addEventListener("dragover", (e) => {
     e.preventDefault();
-    dropzone.style.background = "#dbeafe";
-    dropzone.style.borderColor = "#2563eb";
+    e.stopPropagation();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = "copy";
+    }
+    setDropzoneActive(true);
   });
 
   dropzone.addEventListener("dragleave", (e) => {
     e.preventDefault();
-    dropzone.style.background = "#f0f7ff";
-    dropzone.style.borderColor = "#3b82f6";
+    e.stopPropagation();
+    setDropzoneActive(false);
   });
 
-  dropzone.addEventListener("drop", (e) => {
+  dropzone.addEventListener("drop", async (e) => {
     e.preventDefault();
-    dropzone.style.background = "#f0f7ff";
-    dropzone.style.borderColor = "#3b82f6";
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleApiImageFiles(Array.from(e.dataTransfer.files));
+    e.stopPropagation();
+    setDropzoneActive(false);
+    showStatus("⏳ Đang tiếp nhận ảnh vừa kéo thả...", "#2563eb");
+    const files = await extractDroppedImages(e.dataTransfer);
+    if (files.length > 0) {
+      handleApiImageFiles(files);
+    } else {
+      showStatus("Không tìm thấy dữ liệu ảnh trong thao tác kéo thả!", "red");
     }
   });
 
+  // Hỗ trợ kéo thả trên toàn bộ Tab 2 (tránh trượt ra ngoài dropzone)
+  const tabApiContainer = document.getElementById("tab-api-images");
+  if (tabApiContainer) {
+    tabApiContainer.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = "copy";
+      }
+    });
+
+    tabApiContainer.addEventListener("drop", async (e) => {
+      if (!dropzone.contains(e.target) && e.target !== dropzone) {
+        e.preventDefault();
+        e.stopPropagation();
+        setDropzoneActive(false);
+        showStatus("⏳ Đang tiếp nhận ảnh vừa kéo thả...", "#2563eb");
+        const files = await extractDroppedImages(e.dataTransfer);
+        if (files.length > 0) {
+          handleApiImageFiles(files);
+        } else {
+          showStatus("Không tìm thấy dữ liệu ảnh trong thao tác kéo thả!", "red");
+        }
+      }
+    });
+  }
+
   // Hỗ trợ sự kiện Dán ảnh (Ctrl + V) hoặc Dán Link ảnh từ Clipboard
-  function handlePasteImage(e) {
+  async function handlePasteImage(e) {
     const tabApi = document.getElementById("tab-api-images");
     if (!tabApi || tabApi.hidden) return; // Chỉ xử lý khi đang ở tab Ảnh API
 
@@ -9056,49 +9318,94 @@ document.addEventListener("DOMContentLoaded", () => {
     const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
     if (!items) return;
 
-    const files = [];
+    const imageItems = [];
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      if (item.type.indexOf("image") !== -1) {
-        const file = item.getAsFile();
-        if (file) {
-          // Tạo tên file ngẫu nhiên nếu file paste không có tên
-          const ext = file.type.split("/")[1] || "png";
-          const newName = file.name && file.name !== "image.png" 
-            ? file.name 
-            : `pasted_image_${Date.now()}_${i + 1}.${ext}`;
-          
-          const renamedFile = new File([file], newName, { type: file.type });
-          files.push(renamedFile);
-        }
+      if (item.type && item.type.indexOf("image") !== -1) {
+        imageItems.push(item);
       }
     }
 
-    if (files.length > 0) {
+    if (imageItems.length > 0) {
       e.preventDefault();
-      handleApiImageFiles(files);
+      const files = [];
+      for (let i = 0; i < imageItems.length; i++) {
+        const item = imageItems[i];
+        const file = item.getAsFile();
+        if (file) {
+          const ext = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
+          const newName = file.name && file.name !== "image.png" && file.name !== "blob"
+            ? file.name 
+            : `pasted_image_${Date.now()}_${i + 1}.${ext}`;
+          
+          try {
+            const arrayBuf = await file.arrayBuffer();
+            if (arrayBuf && arrayBuf.byteLength > 0) {
+              const renamedFile = new File([arrayBuf], newName, { type: file.type || "image/png" });
+              files.push(renamedFile);
+            }
+          } catch (readErr) {
+            console.error("Lỗi đọc buffer file clipboard:", readErr);
+          }
+        }
+      }
+
+      if (files.length > 0) {
+        handleApiImageFiles(files);
+      }
     }
   }
 
   document.addEventListener("paste", handlePasteImage);
 
-  fileInput.addEventListener("change", (e) => {
+  fileInput.addEventListener("change", async (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      handleApiImageFiles(Array.from(e.target.files));
+      const rawFiles = Array.from(e.target.files);
+      const readyFiles = [];
+      for (let i = 0; i < rawFiles.length; i++) {
+        const file = rawFiles[i];
+        let mime = file.type || "";
+        const name = file.name || "";
+        const isImgExt = /\.(png|jpe?g|webp|gif|bmp|jfif|ico|svg|avif|tiff?)$/i.test(name);
+        if (mime.startsWith("image/") || isImgExt || mime === "") {
+          if (!mime || !mime.startsWith("image/")) {
+            const ext = (name.split(".").pop() || "png").toLowerCase();
+            mime = ext === "jpg" || ext === "jpeg" || ext === "jfif" ? "image/jpeg" : `image/${ext}`;
+          }
+          try {
+            const arrayBuf = await file.arrayBuffer();
+            if (arrayBuf && arrayBuf.byteLength > 0) {
+              readyFiles.push(new File([arrayBuf], name || `image_${Date.now()}_${i + 1}.${mime.split("/")[1] || "png"}`, { type: mime }));
+            }
+          } catch (err) {
+            readyFiles.push(file);
+          }
+        }
+      }
+      handleApiImageFiles(readyFiles.length > 0 ? readyFiles : rawFiles);
       fileInput.value = "";
     }
   });
 
-  // Chuyển đuôi file link ảnh API thành .jpg
+  // Chuẩn hóa link ảnh
   function formatLinkToJpg(url) {
     if (!url) return "";
-    return url.replace(/\.(webp|png|gif|jpeg|bmp)(\?.*)?$/i, ".jpg$2");
+    return url.trim();
   }
 
   async function handleApiImageFiles(files) {
-    const imageFiles = files.filter(f => f.isDirectUrl || (f.type && f.type.startsWith("image/")));
+    const isImageObj = (f) => {
+      if (!f) return false;
+      if (f.isDirectUrl) return true;
+      if (f.type && f.type.startsWith("image/")) return true;
+      if (f.name && /\.(png|jpe?g|webp|gif|bmp|jfif|ico|svg|avif|tiff?)$/i.test(f.name)) return true;
+      if (f instanceof File || f instanceof Blob) return true;
+      return false;
+    };
+
+    const imageFiles = files.filter(isImageObj);
     if (imageFiles.length === 0) {
-      showStatus("Vui lòng chọn file hình ảnh hợp lệ hoặc dán link ảnh!", "red");
+      showStatus("Vui lòng chọn hoặc kéo thả file hình ảnh hợp lệ!", "red");
       return;
     }
 
@@ -9116,9 +9423,14 @@ document.addEventListener("DOMContentLoaded", () => {
           // Có link sẵn thì không cần tải lên API nữa, lấy link đó add thẳng vào cột B
           imgUrl = directUrl;
         } else {
-          showStatus(`Đang upload ảnh ${i + 1}/${imageFiles.length}: ${file.name}...`, "#2563eb");
-          imgUrl = await uploadFileToImgBB(file);
-          // Đổi thành đuôi .jpg theo yêu cầu
+          showStatus(`Đang upload ảnh lên Catbox ${i + 1}/${imageFiles.length}: ${file.name}...`, "#2563eb");
+          let fileToUpload = file;
+          if ((file instanceof File || file instanceof Blob) && (!file.type || !file.type.startsWith("image/"))) {
+            const ext = (file.name?.split(".").pop() || "png").toLowerCase();
+            const mime = ext === "jpg" || ext === "jpeg" || ext === "jfif" ? "image/jpeg" : `image/${ext}`;
+            fileToUpload = new File([file], file.name || `image_${Date.now()}.${ext}`, { type: mime });
+          }
+          imgUrl = await uploadFileToCatbox(fileToUpload);
           imgUrl = formatLinkToJpg(imgUrl);
         }
 
@@ -9134,7 +9446,7 @@ document.addEventListener("DOMContentLoaded", () => {
         uploadedList.push(item);
         sheetRowsToSave.push([item.id, item.link, item.ten_anh, item.link_cu || ""]);
       } catch (err) {
-        console.error("Lỗi upload ảnh API:", err);
+        console.error("Lỗi upload ảnh Catbox:", err);
         showStatus(`Lỗi khi tải ảnh ${file.name}: ${err.message}`, "red");
       }
     }
@@ -9143,7 +9455,7 @@ document.addEventListener("DOMContentLoaded", () => {
       showStatus(`Đang lưu ${sheetRowsToSave.length} ảnh vào Sheet LUU_ANH_API...`, "#2563eb");
       chrome.runtime.sendMessage({ type: "UPLOAD_LUU_ANH_API", rows: sheetRowsToSave }, (res) => {
         if (res && res.ok) {
-          showStatus(`✅ Đã tải lên và lưu thành công ${sheetRowsToSave.length} ảnh vào Sheet LUU_ANH_API!`, "#16a34a");
+          showStatus(`✅ Đã tải lên Catbox (files.catbox.moe) và lưu thành công ${sheetRowsToSave.length} ảnh vào Sheet LUU_ANH_API!`, "#16a34a");
         } else {
           showStatus(`⚠️ Tải ảnh thành công nhưng lỗi khi lưu Sheet: ${res?.error || "Lỗi không xác định"}`, "#d97706");
         }
@@ -9403,4 +9715,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+
+  // Ngăn chặn hành vi mặc định của Chrome khi kéo file vào cửa sổ popup
+  window.addEventListener("dragover", (e) => {
+    e.preventDefault();
+  }, false);
+
+  window.addEventListener("drop", (e) => {
+    if (!e.defaultPrevented) {
+      e.preventDefault();
+    }
+  }, false);
 });
