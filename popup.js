@@ -803,13 +803,43 @@ async function selectPrintWarehouse(name, warehouseButton) {
       name
     });
 
-    if (statusText) statusText.textContent = response?.message || `Đã chọn kho ${name}.`;
-    if (name.includes("Hà Nội") || name.includes("Ha Noi")) {
-      selectWarehouseHanoiButton.className = "primary-action";
-      selectWarehouseHcmButton.className = "secondary";
+    const isHcm = !name.includes("Hà Nội") && !name.includes("Ha Noi");
+
+    if (isHcm) {
+      // Giữ nguyên Kho Hồ Chí Minh là active (màu đỏ)
+      if (selectWarehouseHanoiButton) selectWarehouseHanoiButton.className = "secondary";
+      if (selectWarehouseHcmButton) selectWarehouseHcmButton.className = "primary-action";
+      if (autoWarehouseLocationSelect) autoWarehouseLocationSelect.value = "Hồ Chí Minh";
+
+      // Đợi 5 giây đếm ngược cho Shopee tải xong đơn của Kho Hồ Chí Minh
+      for (let sec = 5; sec >= 1; sec--) {
+        if (statusText) statusText.textContent = `⏳ Đã chọn Kho HCM. Đang đợi ${sec}s để Shopee tải dữ liệu...`;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+
+      if (statusText) statusText.textContent = "Đang tự động chọn Địa chỉ lấy hàng Hà Nội...";
+
+      // Tự động chọn Địa chỉ Hà Nội sau khi Shopee load xong
+      try {
+        await sendMessageToTab(tab.id, {
+          type: "PRINT_FLOW_SELECT_ADDRESS_LOCATION",
+          location: "Hà Nội"
+        });
+      } catch (addrErr) {
+        console.warn("Select Ha Noi address error:", addrErr);
+      }
+
+      // Cập nhật trạng thái nút Địa chỉ Hà Nội thành active (màu đỏ)
+      if (selectAddressHanoiButton) selectAddressHanoiButton.className = "primary-action";
+      if (selectAddressHcmButton) selectAddressHcmButton.className = "secondary";
+      if (autoAddressLocationSelect) autoAddressLocationSelect.value = "Hà Nội";
+
+      if (statusText) statusText.textContent = "✅ Đã chọn Kho Hồ Chí Minh -> Đợi tải xong -> Đã tự động chọn Địa chỉ Hà Nội!";
     } else {
-      selectWarehouseHanoiButton.className = "secondary";
-      selectWarehouseHcmButton.className = "primary-action";
+      if (selectWarehouseHanoiButton) selectWarehouseHanoiButton.className = "primary-action";
+      if (selectWarehouseHcmButton) selectWarehouseHcmButton.className = "secondary";
+      if (autoWarehouseLocationSelect) autoWarehouseLocationSelect.value = "Hà Nội";
+      if (statusText) statusText.textContent = response?.message || `Đã chọn kho ${name}.`;
     }
   } catch (error) {
     if (statusText) statusText.textContent = error?.message || "Không chọn được kho.";
@@ -912,6 +942,14 @@ async function selectPrintAddressLocation(location, addressButton) {
       type: "PRINT_FLOW_SELECT_ADDRESS_LOCATION",
       location
     });
+
+    if (location.includes("Hà Nội") || location.includes("Ha Noi")) {
+      if (selectAddressHanoiButton) selectAddressHanoiButton.className = "primary-action";
+      if (selectAddressHcmButton) selectAddressHcmButton.className = "secondary";
+    } else {
+      if (selectAddressHanoiButton) selectAddressHanoiButton.className = "secondary";
+      if (selectAddressHcmButton) selectAddressHcmButton.className = "primary-action";
+    }
 
     if (statusText) statusText.textContent = response?.message || `Đã chọn địa chỉ ${location}.`;
   } catch (error) {
@@ -3866,6 +3904,17 @@ if (selectAddressHanoiButton) {
 
 if (selectAddressHcmButton) {
   selectAddressHcmButton.addEventListener("click", () => selectPrintAddressLocation("Hồ Chí Minh", selectAddressHcmButton));
+}
+
+if (autoWarehouseLocationSelect) {
+  autoWarehouseLocationSelect.addEventListener("change", () => {
+    const val = String(autoWarehouseLocationSelect.value || "").toLowerCase();
+    if (val.includes("hồ chí minh") || val.includes("ho chi minh") || val.includes("hcm")) {
+      if (autoAddressLocationSelect) {
+        autoAddressLocationSelect.value = "Hà Nội";
+      }
+    }
+  });
 }
 
 if (arrangePickupConfirmButton) {
@@ -9734,9 +9783,10 @@ document.addEventListener("DOMContentLoaded", () => {
             ${item.link_cu ? `<a href="${item.link_cu}" target="_blank" style="color: #64748b; text-decoration: none;" title="${item.link_cu}">${item.link_cu}</a>` : `<span style="color: #94a3b8;">-</span>`}
           </td>
           <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">
-            <button type="button" class="api-copy-image-btn" data-link="${item.link}" style="padding: 2px 5px; font-size: 10px; font-weight: 600; background: #2563eb; color: white; border: none; border-radius: 3px; cursor: pointer; margin-right: 2px;" title="Copy Ảnh vào Clipboard để Dán (Ctrl+V)">📋 Copy</button>
-            <button type="button" class="api-chatgpt-btn" data-link="${item.link}" style="padding: 2px 5px; font-size: 10px; font-weight: 600; background: #10a37f; color: white; border: none; border-radius: 3px; cursor: pointer; margin-right: 2px;" title="Mở ChatGPT và tạo lại ảnh này khác phong cách">🤖 GPT</button>
-            <button type="button" class="api-gemini-btn" data-link="${item.link}" style="padding: 2px 5px; font-size: 10px; font-weight: 600; background: #7c3aed; color: white; border: none; border-radius: 3px; cursor: pointer;" title="Mở Gemini và tạo lại ảnh này khác phong cách">✨ Gemini</button>
+            <button type="button" class="api-copy-image-btn" data-link="${item.link}" style="padding: 2px 4px; font-size: 9px; font-weight: 600; background: #2563eb; color: white; border: none; border-radius: 3px; cursor: pointer; margin-right: 2px;" title="Copy Ảnh vào Clipboard để Dán (Ctrl+V)">📋 Copy</button>
+            <button type="button" class="api-chatgpt-btn" data-link="${item.link}" style="padding: 2px 4px; font-size: 9px; font-weight: 600; background: #10a37f; color: white; border: none; border-radius: 3px; cursor: pointer; margin-right: 2px;" title="Mở ChatGPT và tạo lại ảnh này khác phong cách">🤖 GPT</button>
+            <button type="button" class="api-gemini-btn" data-link="${item.link}" style="padding: 2px 4px; font-size: 9px; font-weight: 600; background: #7c3aed; color: white; border: none; border-radius: 3px; cursor: pointer; margin-right: 2px;" title="Mở Gemini và tạo lại ảnh này khác phong cách">✨ Gem</button>
+            <button type="button" class="api-ai-section-btn" data-link="${item.link}" style="padding: 2px 4px; font-size: 9px; font-weight: 600; background: #dc2626; color: white; border: none; border-radius: 3px; cursor: pointer;" title="Mở ảnh này vào mục Tạo ảnh AI (Section 1) + gửi Gemini với Prompt đã nhập">🔄 AI</button>
           </td>
           <td style="padding: 6px 8px; text-align: center;">
             <button type="button" class="api-delete-single-btn" data-id="${item.id}" data-link="${item.link}" style="padding: 2px 5px; font-size: 10px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 3px; cursor: pointer;" title="Xóa ảnh này">🗑️</button>
@@ -9759,10 +9809,11 @@ document.addEventListener("DOMContentLoaded", () => {
           <input type="checkbox" class="api-item-chk" data-id="${item.id}" data-link="${item.link}" ${isSelected ? 'checked' : ''} style="position: absolute; top: 5px; left: 5px; z-index: 2; margin: 0; cursor: pointer; transform: scale(1.2); filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));">
           <img src="${item.link}" draggable="true" class="api-draggable-img" style="width: 100%; height: 100%; object-fit: cover; display: block; cursor: grab;" title="${item.ten_anh || item.id}" loading="lazy">
           
-          <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(2px); padding: 3px 2px; display: flex; align-items: center; justify-content: space-between; gap: 2px; z-index: 2;">
-            <button type="button" class="api-copy-image-btn" data-link="${item.link}" style="flex: 1; min-width: 0; padding: 3px 1px; font-size: 8.5px; font-weight: bold; background: #2563eb; color: white; border: none; border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 1px; white-space: nowrap;" title="Copy Ảnh vào Clipboard để Dán (Ctrl+V)">📋 Copy</button>
-            <button type="button" class="api-chatgpt-btn" data-link="${item.link}" style="flex: 1; min-width: 0; padding: 3px 1px; font-size: 8.5px; font-weight: bold; background: #10a37f; color: white; border: none; border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 1px; white-space: nowrap;" title="Mở ChatGPT và tạo lại ảnh này khác phong cách">🤖 GPT</button>
-            <button type="button" class="api-gemini-btn" data-link="${item.link}" style="flex: 1; min-width: 0; padding: 3px 1px; font-size: 8.5px; font-weight: bold; background: #7c3aed; color: white; border: none; border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 1px; white-space: nowrap;" title="Mở Gemini và tạo lại ảnh này khác phong cách">✨ Gemini</button>
+          <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(2px); padding: 2px 2px; display: flex; align-items: center; justify-content: space-between; gap: 1px; z-index: 2;">
+            <button type="button" class="api-copy-image-btn" data-link="${item.link}" style="flex: 1; min-width: 0; padding: 2px 0px; font-size: 6.5px; font-weight: bold; background: #2563eb; color: white; border: none; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 1px; white-space: nowrap;" title="Copy Ảnh vào Clipboard để Dán (Ctrl+V)">📋 Copy</button>
+            <button type="button" class="api-chatgpt-btn" data-link="${item.link}" style="flex: 1; min-width: 0; padding: 2px 0px; font-size: 6.5px; font-weight: bold; background: #10a37f; color: white; border: none; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 1px; white-space: nowrap;" title="Mở ChatGPT và tạo lại ảnh này khác phong cách">🤖 GPT</button>
+            <button type="button" class="api-gemini-btn" data-link="${item.link}" style="flex: 1; min-width: 0; padding: 2px 0px; font-size: 6.5px; font-weight: bold; background: #7c3aed; color: white; border: none; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 1px; white-space: nowrap;" title="Mở Gemini và tạo lại ảnh này khác phong cách">✨ Gem</button>
+            <button type="button" class="api-ai-section-btn" data-link="${item.link}" style="flex: 1; min-width: 0; padding: 2px 0px; font-size: 6.5px; font-weight: bold; background: #dc2626; color: white; border: none; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 1px; white-space: nowrap;" title="Mở ảnh này vào mục Tạo ảnh AI (Section 1) + gửi Gemini với Prompt đã nhập">🔄 AI</button>
           </div>
         </div>
       `;
@@ -9878,6 +9929,42 @@ document.addEventListener("DOMContentLoaded", () => {
           geminiBtn.innerHTML = origText;
           geminiBtn.disabled = false;
         }, 2500);
+      }
+      return;
+    }
+
+    // 4. Nút 🔄 AI - Mở ảnh vào Section Tạo ảnh AI (dùng prompt từ ai-final-prompt)
+    const aiSectionBtn = e.target.closest(".api-ai-section-btn");
+    if (aiSectionBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const link = aiSectionBtn.getAttribute("data-link");
+      if (!link) return;
+
+      const origText = aiSectionBtn.innerHTML;
+      aiSectionBtn.innerHTML = "⏳...";
+      aiSectionBtn.disabled = true;
+
+      // Lấy prompt từ textarea Section 1 (Tạo ảnh AI)
+      const promptEl = document.getElementById("ai-final-prompt");
+      const promptText = promptEl ? promptEl.value.trim() : DEFAULT_AI_PROMPT;
+
+      showStatus("🔄 Đang mở Gemini với ảnh & prompt từ Section 1...", "#dc2626");
+      try {
+        const res = await fetch(link);
+        const blob = await res.blob();
+        const filename = link.split("/").pop().split("?")[0] || "image.png";
+        const file = new File([blob], filename, { type: blob.type || "image/png" });
+        await openAiInNewTab("gemini", file, promptText || DEFAULT_AI_PROMPT, aiSectionBtn);
+        showStatus("✅ Đã mở Gemini với ảnh & prompt! Đợi ~1 phút rồi chuyển sang ảnh kế tiếp.", "#16a34a");
+      } catch (err) {
+        console.error("Lỗi mở AI Section:", err);
+        showStatus(`Lỗi mở AI: ${err.message}`, "red");
+      } finally {
+        setTimeout(() => {
+          aiSectionBtn.innerHTML = origText;
+          aiSectionBtn.disabled = false;
+        }, 3000);
       }
       return;
     }
