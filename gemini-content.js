@@ -11,7 +11,6 @@ function findGeminiTextarea() {
 }
 
 function findGeminiSendButton() {
-  // Nút gửi của Gemini (nhiều selector để tương thích)
   return document.querySelector('button[aria-label="Send message"]') ||
          document.querySelector('button[data-mat-icon-name="send"]') ||
          document.querySelector('button.send-button') ||
@@ -25,7 +24,6 @@ function findGeminiSendButton() {
 function typeIntoGemini(editor, text) {
   if (!editor || !text) return;
   editor.focus();
-  
   try {
     editor.innerHTML = '<p><br></p>';
     document.execCommand('selectAll', false, null);
@@ -33,66 +31,54 @@ function typeIntoGemini(editor, text) {
   } catch(e) {
     editor.textContent = text;
   }
-  
   editor.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, inputType: 'insertText', data: text }));
   editor.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-async function pasteImageToGemini(editor, base64Data, mimeType) {
+// Paste NHIỀU ảnh cùng lúc trong 1 DataTransfer → Gemini nhận đủ tất cả ảnh
+async function pasteImagesToGemini(editor, imagesData) {
   try {
-    let cleanBase64 = base64Data;
-    if (cleanBase64.includes(',')) {
-      cleanBase64 = cleanBase64.split(',')[1];
-    }
-    const byteString = atob(cleanBase64);
-    const arr = new Uint8Array(byteString.length);
-    for (let i = 0; i < byteString.length; i++) {
-      arr[i] = byteString.charCodeAt(i);
-    }
-    mimeType = mimeType || 'image/png';
-    const ext = mimeType.split('/')[1] || 'png';
-    const blob = new Blob([arr], { type: mimeType });
-    const file = new File([blob], `image.${ext}`, { type: mimeType, lastModified: Date.now() });
-    
     const dt = new DataTransfer();
-    dt.items.add(file);
-    
+
+    for (let i = 0; i < imagesData.length; i++) {
+      const imgData = imagesData[i];
+      let cleanBase64 = imgData.base64;
+      if (cleanBase64.includes(',')) cleanBase64 = cleanBase64.split(',')[1];
+      const byteString = atob(cleanBase64);
+      const arr = new Uint8Array(byteString.length);
+      for (let j = 0; j < byteString.length; j++) arr[j] = byteString.charCodeAt(j);
+      const mimeType = imgData.mimeType || 'image/png';
+      const ext = mimeType.split('/')[1] || 'png';
+      const blob = new Blob([arr], { type: mimeType });
+      const file = new File([blob], `image_${i + 1}.${ext}`, { type: mimeType, lastModified: Date.now() });
+      dt.items.add(file);
+    }
+
     let pasteEvent;
     try {
-      pasteEvent = new ClipboardEvent('paste', {
-        bubbles: true,
-        cancelable: true,
-        clipboardData: dt
-      });
+      pasteEvent = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt });
     } catch(e) {
       pasteEvent = new Event('paste', { bubbles: true, cancelable: true });
     }
-    
     try {
-      Object.defineProperty(pasteEvent, 'clipboardData', {
-        value: dt,
-        writable: false,
-        configurable: true
-      });
+      Object.defineProperty(pasteEvent, 'clipboardData', { value: dt, writable: false, configurable: true });
     } catch(e) {}
-    
+
     editor.focus();
     editor.dispatchEvent(pasteEvent);
     return true;
   } catch(e) {
-    console.error('Gemini paste image error:', e);
+    console.error('Gemini paste images error:', e);
     return false;
   }
 }
 
 function clickGeminiSend() {
-  // Thử click nút gửi
   const btn = findGeminiSendButton();
   if (btn && !btn.disabled) {
     btn.click();
     return true;
   }
-  // Fallback: gửi phím Enter vào editor
   const editor = findGeminiTextarea();
   if (editor) {
     editor.focus();
@@ -131,43 +117,30 @@ function handleGeminiFill(message, sendResponse) {
       typeIntoGemini(editor, message.text);
     }
 
-    // 2. Dán tất cả ảnh tuần tự (nếu có)
+    // 2. Dán TẤT CẢ ảnh cùng lúc trong 1 DataTransfer (paste 1 lần duy nhất)
     const images = message.images || [];
-    const autoSend = message.autoSend !== false; // mặc định true
+    const autoSend = message.autoSend !== false;
 
     if (images.length > 0) {
-      // Dán từng ảnh cách nhau 400ms
-      const pasteNext = async (idx) => {
-        if (idx >= images.length) {
-          // Tất cả ảnh đã paste xong
-          setTimeout(() => {
-            isProcessingGemini = false;
-            if (sendResponse) sendResponse({ ok: true });
-            // Ấn Enter/Submit sau khi paste xong (nếu autoSend)
-            if (autoSend) {
-              setTimeout(() => {
-                clickGeminiSend();
-              }, 600);
-            }
-          }, 800);
-          return;
-        }
-        const imgData = images[idx];
-        await pasteImageToGemini(editor, imgData.base64, imgData.mimeType || 'image/png');
-        setTimeout(() => pasteNext(idx + 1), 400);
-      };
-
-      setTimeout(() => pasteNext(0), 300);
+      setTimeout(async () => {
+        await pasteImagesToGemini(editor, images);
+        setTimeout(() => {
+          isProcessingGemini = false;
+          if (sendResponse) sendResponse({ ok: true });
+          if (autoSend) {
+            setTimeout(() => clickGeminiSend(), 800);
+          }
+        }, 1000);
+      }, 300);
     } else {
       isProcessingGemini = false;
       if (sendResponse) sendResponse({ ok: true });
-      // Ấn Enter ngay nếu không có ảnh
       if (autoSend) {
         setTimeout(() => clickGeminiSend(), 400);
       }
     }
   };
-  
+
   tryFill(20);
 }
 
