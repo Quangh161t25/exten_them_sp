@@ -73,12 +73,18 @@ async function pasteImagesToGemini(editor, imagesData) {
   }
 }
 
-function clickGeminiSend() {
+function clickGeminiSend(retries = 15) {
   const btn = findGeminiSendButton();
-  if (btn && !btn.disabled) {
+  if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
     btn.click();
     return true;
   }
+  
+  if (retries > 0) {
+    setTimeout(() => clickGeminiSend(retries - 1), 400);
+    return false;
+  }
+
   const editor = findGeminiTextarea();
   if (editor) {
     editor.focus();

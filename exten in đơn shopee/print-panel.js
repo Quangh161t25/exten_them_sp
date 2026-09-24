@@ -338,7 +338,37 @@ async function selectPrintWarehouse(name, button) {
 
   try {
     const response = await selectPrintWarehouseByName(name);
-    setStatus(response?.message || `Da chon kho ${name}.`);
+    const isHcm = !name.toLowerCase().includes("ha noi");
+
+    if (isHcm) {
+      if (selectWarehouseHanoiButton) selectWarehouseHanoiButton.className = "secondary";
+      if (selectWarehouseHcmButton) selectWarehouseHcmButton.className = "primary-action";
+      if (autoWarehouseLocationSelect) autoWarehouseLocationSelect.value = "Ho Chi Minh";
+
+      for (let sec = 5; sec >= 1; sec--) {
+        setStatus(`⏳ Đã chọn Kho HCM. Đang đợi ${sec}s để Shopee tải dữ liệu...`);
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+
+      setStatus("Đang tự động chọn Địa chỉ lấy hàng Hà Nội...");
+
+      try {
+        await selectPrintAddressByLocation("Ha Noi");
+      } catch (addrErr) {
+        console.warn("Select Ha Noi address error:", addrErr);
+      }
+
+      if (selectAddressHanoiButton) selectAddressHanoiButton.className = "primary-action";
+      if (selectAddressHcmButton) selectAddressHcmButton.className = "secondary";
+      if (autoAddressLocationSelect) autoAddressLocationSelect.value = "Ha Noi";
+
+      setStatus("✅ Đã chọn Kho Hồ Chí Minh -> Đợi tải xong -> Đã tự động chọn Địa chỉ Hà Nội!");
+    } else {
+      if (selectWarehouseHanoiButton) selectWarehouseHanoiButton.className = "primary-action";
+      if (selectWarehouseHcmButton) selectWarehouseHcmButton.className = "secondary";
+      if (autoWarehouseLocationSelect) autoWarehouseLocationSelect.value = "Ha Noi";
+      setStatus(response?.message || `Da chon kho ${name}.`);
+    }
   } catch (error) {
     setStatus(error?.message || "Khong chon duoc kho.");
   } finally {
@@ -432,6 +462,13 @@ async function selectPrintAddressLocation(location, button) {
 
   try {
     const response = await selectPrintAddressByLocation(location);
+    if (location.toLowerCase().includes("ha noi")) {
+      if (selectAddressHanoiButton) selectAddressHanoiButton.className = "primary-action";
+      if (selectAddressHcmButton) selectAddressHcmButton.className = "secondary";
+    } else {
+      if (selectAddressHanoiButton) selectAddressHanoiButton.className = "secondary";
+      if (selectAddressHcmButton) selectAddressHcmButton.className = "primary-action";
+    }
     setStatus(response?.message || `Da chon dia chi ${location}.`);
   } catch (error) {
     setStatus(error?.message || "Khong chon duoc dia chi.");

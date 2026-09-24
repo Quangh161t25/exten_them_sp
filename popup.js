@@ -9953,8 +9953,8 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const images = [];
 
-        // Ảnh 1: Ảnh mẫu số 1 từ Section "1. Tạo ảnh AI" (img#ai-template-img-1)
-        const templateImg = document.getElementById("ai-template-img-1");
+        // Ảnh 1: Ảnh mẫu số 1 từ Section "1. Tạo ảnh AI" (img#ai-template-img-1 hoặc ảnh đầu tiên trong container)
+        const templateImg = document.getElementById("ai-template-img-1") || document.querySelector("#ai-template-images-container img");
         if (templateImg && templateImg.src) {
           try {
             const res1 = await fetch(templateImg.src);
