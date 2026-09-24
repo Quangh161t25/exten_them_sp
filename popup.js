@@ -8935,6 +8935,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let uploadedList = [];
   let currentViewMode = "grid3"; // Mặc định là Lưới 3 cột
   const selectedApiItemIds = new Set();
+  let isAiBatchRunning = false;
 
   function updateDeleteButtonUI() {
     const btnDeleteSelected = document.getElementById("api-btn-delete-selected");
@@ -9933,86 +9934,125 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // 4. Nút 🔄 AI - Mở ảnh vào Section Tạo ảnh AI (dùng prompt từ ai-final-prompt)
+    // 4. Nút 🔄 AI - Mở ảnh vào Section Tạo ảnh AI + Tự động lặp qua tất cả ảnh mẫu (đợi ~1 phút mỗi ảnh)
     const aiSectionBtn = e.target.closest(".api-ai-section-btn");
     if (aiSectionBtn) {
       e.preventDefault();
       e.stopPropagation();
+
+      if (isAiBatchRunning) {
+        isAiBatchRunning = false;
+        showStatus("⏹️ Đã yêu cầu dừng tiến trình AI tự động!", "#dc2626");
+        return;
+      }
+
       const link = aiSectionBtn.getAttribute("data-link");
       if (!link) return;
 
       const origText = aiSectionBtn.innerHTML;
-      aiSectionBtn.innerHTML = "⏳...";
-      aiSectionBtn.disabled = true;
-
-      // Lấy prompt từ textarea Section 1 (Tạo ảnh AI)
       const promptEl = document.getElementById("ai-final-prompt");
       const promptText = promptEl ? promptEl.value.trim() : DEFAULT_AI_PROMPT;
 
-      showStatus("🔄 Đang chuẩn bị mở Gemini với ảnh mẫu + ảnh API...", "#dc2626");
-      try {
-        const images = [];
+      // Tìm tất cả ảnh mẫu trong Section 1
+      let templateImgEls = Array.from(document.querySelectorAll("#ai-template-images-container img")).filter(img => img.src && !img.src.includes("data:image/svg"));
+      if (templateImgEls.length === 0) {
+        const single = document.getElementById("ai-template-img-1");
+        if (single && single.src) templateImgEls = [single];
+      }
 
-        // Ảnh 1: Ảnh mẫu số 1 từ Section "1. Tạo ảnh AI" (img#ai-template-img-1 hoặc ảnh đầu tiên trong container)
-        const templateImg = document.getElementById("ai-template-img-1") || document.querySelector("#ai-template-images-container img");
-        if (templateImg && templateImg.src) {
+      const totalTemplates = Math.max(1, templateImgEls.length);
+      isAiBatchRunning = true;
+      aiSectionBtn.style.background = "#ea580c";
+
+      try {
+        for (let idx = 0; idx < totalTemplates; idx++) {
+          if (!isAiBatchRunning) break;
+
+          const currentTemplateSrc = templateImgEls[idx] ? templateImgEls[idx].src : null;
+          aiSectionBtn.innerHTML = `🚀 ${idx + 1}/${totalTemplates}`;
+          showStatus(`🚀 [Ảnh mẫu ${idx + 1}/${totalTemplates}] Đang mở Gemini, dán 2 ảnh & gửi câu lệnh...`, "#2563eb");
+
+          const images = [];
+
+          // 1. Ảnh mẫu số (idx + 1) từ Section 1
+          if (currentTemplateSrc) {
+            try {
+              const res1 = await fetch(currentTemplateSrc);
+              const blob1 = await res1.blob();
+              const base64_1 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(",")[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob1);
+              });
+              images.push({ base64: base64_1, mimeType: blob1.type || "image/png" });
+            } catch (e1) {
+              console.warn("Không lấy được ảnh mẫu:", e1);
+            }
+          }
+
+          // 2. Ảnh API (ảnh đang bấm)
           try {
-            const res1 = await fetch(templateImg.src);
-            const blob1 = await res1.blob();
-            const base64_1 = await new Promise((resolve, reject) => {
+            const res2 = await fetch(link);
+            const blob2 = await res2.blob();
+            const base64_2 = await new Promise((resolve, reject) => {
               const reader = new FileReader();
               reader.onload = () => resolve(reader.result.split(",")[1]);
               reader.onerror = reject;
-              reader.readAsDataURL(blob1);
+              reader.readAsDataURL(blob2);
             });
-            images.push({ base64: base64_1, mimeType: blob1.type || "image/png" });
-          } catch (e1) {
-            console.warn("Không lấy được ảnh mẫu #1:", e1);
+            images.push({ base64: base64_2, mimeType: blob2.type || "image/png" });
+
+            try {
+              const pngBlob = await convertImageBlobToPng(blob2);
+              if (pngBlob) await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
+            } catch (ce) {}
+          } catch (e2) {
+            console.warn("Không lấy được ảnh API:", e2);
+          }
+
+          // Mở tab Gemini và gửi ảnh + prompt + tự bấm Gửi
+          const tab = await chrome.tabs.create({ url: "https://gemini.google.com/app", active: true });
+          await new Promise((resolve) => {
+            const onUpdated = (tabId, info) => {
+              if (tabId !== tab.id || info.status !== "complete") return;
+              chrome.tabs.onUpdated.removeListener(onUpdated);
+              setTimeout(() => {
+                chrome.tabs.sendMessage(tab.id, {
+                  type: "GEMINI_FILL",
+                  text: promptText || DEFAULT_AI_PROMPT,
+                  images,
+                  autoSend: true
+                });
+                resolve(tab);
+              }, 2500);
+            };
+            chrome.tabs.onUpdated.addListener(onUpdated);
+          });
+
+          showStatus(`✅ Đã gửi xong ảnh mẫu ${idx + 1}/${totalTemplates} vào Gemini!`, "#16a34a");
+
+          // Nếu còn ảnh mẫu tiếp theo: đếm ngược 60 giây (1 phút)
+          if (idx < totalTemplates - 1 && isAiBatchRunning) {
+            for (let s = 60; s > 0; s--) {
+              if (!isAiBatchRunning) break;
+              aiSectionBtn.innerHTML = `⏳ ${s}s`;
+              showStatus(`⏳ Đã gửi ảnh mẫu ${idx + 1}/${totalTemplates}. Đang chờ ${s}s để tự động mở ảnh mẫu ${idx + 2}... (Bấm lại nút để DỪNG)`, "#d97706");
+              await new Promise(r => setTimeout(r, 1000));
+            }
           }
         }
 
-        // Ảnh 2: Ảnh API (ảnh được click nút 🔄 AI)
-        const res2 = await fetch(link);
-        const blob2 = await res2.blob();
-        const base64_2 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result.split(",")[1]);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob2);
-        });
-        images.push({ base64: base64_2, mimeType: blob2.type || "image/png" });
-
-        // Priming clipboard với ảnh API (tùy chọn, giống openAiInNewTab)
-        try {
-          const pngBlob = await convertImageBlobToPng(blob2);
-          if (pngBlob) await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
-        } catch (ce) { console.warn("Không thể prime clipboard:", ce); }
-
-        // Mở tab Gemini và gửi cả 2 ảnh + prompt + tự ấn Enter
-        const tab = await chrome.tabs.create({ url: "https://gemini.google.com/app", active: true });
-        const onUpdated = (tabId, info) => {
-          if (tabId !== tab.id || info.status !== "complete") return;
-          chrome.tabs.onUpdated.removeListener(onUpdated);
-          setTimeout(() => {
-            chrome.tabs.sendMessage(tab.id, {
-              type: "GEMINI_FILL",
-              text: promptText || DEFAULT_AI_PROMPT,
-              images,
-              autoSend: true
-            });
-          }, 2500);
-        };
-        chrome.tabs.onUpdated.addListener(onUpdated);
-
-        showStatus("✅ Đã mở Gemini! Đang điền ảnh & prompt, tự động gửi sau vài giây.", "#16a34a");
+        if (isAiBatchRunning) {
+          showStatus(`🎉 Đã hoàn thành gửi tất cả ${totalTemplates} ảnh mẫu vào Gemini!`, "#16a34a");
+        }
       } catch (err) {
-        console.error("Lỗi mở AI Section:", err);
-        showStatus(`Lỗi mở AI: ${err.message}`, "red");
+        console.error("Lỗi tiến trình batch AI:", err);
+        showStatus(`Lỗi batch AI: ${err.message}`, "red");
       } finally {
-        setTimeout(() => {
-          aiSectionBtn.innerHTML = origText;
-          aiSectionBtn.disabled = false;
-        }, 3000);
+        isAiBatchRunning = false;
+        aiSectionBtn.innerHTML = origText;
+        aiSectionBtn.style.background = "";
       }
       return;
     }
