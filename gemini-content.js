@@ -10,6 +10,18 @@ function findGeminiTextarea() {
          document.querySelector('textarea');
 }
 
+function findGeminiSendButton() {
+  // Nút gửi của Gemini (nhiều selector để tương thích)
+  return document.querySelector('button[aria-label="Send message"]') ||
+         document.querySelector('button[data-mat-icon-name="send"]') ||
+         document.querySelector('button.send-button') ||
+         document.querySelector('button[jsname="Qoeydf"]') ||
+         document.querySelector('button[aria-label*="gửi"]') ||
+         document.querySelector('button[aria-label*="Send"]') ||
+         document.querySelector('.send-button-container button') ||
+         document.querySelector('mat-icon[fonticon="send"]')?.closest('button');
+}
+
 function typeIntoGemini(editor, text) {
   if (!editor || !text) return;
   editor.focus();
@@ -73,6 +85,25 @@ async function pasteImageToGemini(editor, base64Data, mimeType) {
   }
 }
 
+function clickGeminiSend() {
+  // Thử click nút gửi
+  const btn = findGeminiSendButton();
+  if (btn && !btn.disabled) {
+    btn.click();
+    return true;
+  }
+  // Fallback: gửi phím Enter vào editor
+  const editor = findGeminiTextarea();
+  if (editor) {
+    editor.focus();
+    editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true, composed: true }));
+    editor.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', keyCode: 13, bubbles: true, composed: true }));
+    editor.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', keyCode: 13, bubbles: true, composed: true }));
+    return true;
+  }
+  return false;
+}
+
 // Biến cờ ngăn chặn xử lý 2 lần
 let isProcessingGemini = false;
 
@@ -100,22 +131,40 @@ function handleGeminiFill(message, sendResponse) {
       typeIntoGemini(editor, message.text);
     }
 
-    // 2. Dán ảnh (nếu có)
+    // 2. Dán tất cả ảnh tuần tự (nếu có)
     const images = message.images || [];
+    const autoSend = message.autoSend !== false; // mặc định true
+
     if (images.length > 0) {
-      setTimeout(async () => {
-        const imgData = images[0];
+      // Dán từng ảnh cách nhau 400ms
+      const pasteNext = async (idx) => {
+        if (idx >= images.length) {
+          // Tất cả ảnh đã paste xong
+          setTimeout(() => {
+            isProcessingGemini = false;
+            if (sendResponse) sendResponse({ ok: true });
+            // Ấn Enter/Submit sau khi paste xong (nếu autoSend)
+            if (autoSend) {
+              setTimeout(() => {
+                clickGeminiSend();
+              }, 600);
+            }
+          }, 800);
+          return;
+        }
+        const imgData = images[idx];
         await pasteImageToGemini(editor, imgData.base64, imgData.mimeType || 'image/png');
-        
-        // Nhả cờ sau khi hoàn tất
-        setTimeout(() => {
-          isProcessingGemini = false;
-          if (sendResponse) sendResponse({ ok: true });
-        }, 1000);
-      }, 300);
+        setTimeout(() => pasteNext(idx + 1), 400);
+      };
+
+      setTimeout(() => pasteNext(0), 300);
     } else {
       isProcessingGemini = false;
       if (sendResponse) sendResponse({ ok: true });
+      // Ấn Enter ngay nếu không có ảnh
+      if (autoSend) {
+        setTimeout(() => clickGeminiSend(), 400);
+      }
     }
   };
   

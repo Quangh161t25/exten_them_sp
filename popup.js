@@ -9949,14 +9949,62 @@ document.addEventListener("DOMContentLoaded", () => {
       const promptEl = document.getElementById("ai-final-prompt");
       const promptText = promptEl ? promptEl.value.trim() : DEFAULT_AI_PROMPT;
 
-      showStatus("🔄 Đang mở Gemini với ảnh & prompt từ Section 1...", "#dc2626");
+      showStatus("🔄 Đang chuẩn bị mở Gemini với ảnh mẫu + ảnh API...", "#dc2626");
       try {
-        const res = await fetch(link);
-        const blob = await res.blob();
-        const filename = link.split("/").pop().split("?")[0] || "image.png";
-        const file = new File([blob], filename, { type: blob.type || "image/png" });
-        await openAiInNewTab("gemini", file, promptText || DEFAULT_AI_PROMPT, aiSectionBtn);
-        showStatus("✅ Đã mở Gemini với ảnh & prompt! Đợi ~1 phút rồi chuyển sang ảnh kế tiếp.", "#16a34a");
+        const images = [];
+
+        // Ảnh 1: Ảnh mẫu số 1 từ Section "1. Tạo ảnh AI" (img#ai-template-img-1)
+        const templateImg = document.getElementById("ai-template-img-1");
+        if (templateImg && templateImg.src) {
+          try {
+            const res1 = await fetch(templateImg.src);
+            const blob1 = await res1.blob();
+            const base64_1 = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result.split(",")[1]);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob1);
+            });
+            images.push({ base64: base64_1, mimeType: blob1.type || "image/png" });
+          } catch (e1) {
+            console.warn("Không lấy được ảnh mẫu #1:", e1);
+          }
+        }
+
+        // Ảnh 2: Ảnh API (ảnh được click nút 🔄 AI)
+        const res2 = await fetch(link);
+        const blob2 = await res2.blob();
+        const base64_2 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(",")[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob2);
+        });
+        images.push({ base64: base64_2, mimeType: blob2.type || "image/png" });
+
+        // Priming clipboard với ảnh API (tùy chọn, giống openAiInNewTab)
+        try {
+          const pngBlob = await convertImageBlobToPng(blob2);
+          if (pngBlob) await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
+        } catch (ce) { console.warn("Không thể prime clipboard:", ce); }
+
+        // Mở tab Gemini và gửi cả 2 ảnh + prompt + tự ấn Enter
+        const tab = await chrome.tabs.create({ url: "https://gemini.google.com/app", active: true });
+        const onUpdated = (tabId, info) => {
+          if (tabId !== tab.id || info.status !== "complete") return;
+          chrome.tabs.onUpdated.removeListener(onUpdated);
+          setTimeout(() => {
+            chrome.tabs.sendMessage(tab.id, {
+              type: "GEMINI_FILL",
+              text: promptText || DEFAULT_AI_PROMPT,
+              images,
+              autoSend: true
+            });
+          }, 2500);
+        };
+        chrome.tabs.onUpdated.addListener(onUpdated);
+
+        showStatus("✅ Đã mở Gemini! Đang điền ảnh & prompt, tự động gửi sau vài giây.", "#16a34a");
       } catch (err) {
         console.error("Lỗi mở AI Section:", err);
         showStatus(`Lỗi mở AI: ${err.message}`, "red");
