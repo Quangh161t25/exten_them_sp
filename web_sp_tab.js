@@ -276,6 +276,131 @@
     }
     loadDsSpMapping();
 
+    async function downloadSingleImage(url, defaultFilename = 'image.png') {
+        try {
+            if (chrome && chrome.downloads && chrome.downloads.download) {
+                chrome.downloads.download({
+                    url: url,
+                    filename: defaultFilename,
+                    saveAs: false
+                }, (downloadId) => {
+                    if (chrome.runtime.lastError || !downloadId) {
+                        downloadImageViaBlob(url, defaultFilename);
+                    }
+                });
+                return;
+            }
+            await downloadImageViaBlob(url, defaultFilename);
+        } catch (e) {
+            await downloadImageViaBlob(url, defaultFilename);
+        }
+    }
+
+    async function downloadImageViaBlob(url, filename) {
+        try {
+            const res = await fetch(url);
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = filename || 'image.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        } catch (err) {
+            console.error("Download blob error:", err);
+            window.open(url, '_blank');
+        }
+    }
+
+    async function downloadAllImagesFromContainer(container, prefix = 'product-image', btnEl) {
+        const imgEls = Array.from(container.querySelectorAll('img')).filter(img => img.src && !img.src.includes('data:image/svg'));
+        if (!imgEls.length) {
+            alert("Chưa có ảnh để tải về!");
+            return;
+        }
+
+        const oldText = btnEl ? btnEl.textContent : '';
+        if (btnEl) {
+            btnEl.textContent = "⏳ Đang tải...";
+            btnEl.disabled = true;
+        }
+
+        try {
+            for (let i = 0; i < imgEls.length; i++) {
+                const src = imgEls[i].src;
+                let ext = 'jpg';
+                if (src.includes('.png')) ext = 'png';
+                else if (src.includes('.webp')) ext = 'webp';
+
+                const filename = `${prefix}-${i + 1}.${ext}`;
+                await downloadSingleImage(src, filename);
+                await new Promise(r => setTimeout(r, 250));
+            }
+            if (btnEl) btnEl.textContent = `✓ Đã tải (${imgEls.length})`;
+        } catch (err) {
+            console.error("Lỗi tải toàn bộ ảnh:", err);
+            if (btnEl) btnEl.textContent = "Lỗi tải!";
+        } finally {
+            setTimeout(() => {
+                if (btnEl) {
+                    btnEl.textContent = oldText;
+                    btnEl.disabled = false;
+                }
+            }, 1800);
+        }
+    }
+
+    function createSingleImageCard(url, defaultPrefix = 'image', index = 1) {
+        const card = document.createElement('div');
+        card.className = "web-sp-img-card";
+        card.style.cssText = "position: relative; width: 54px; height: 54px; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #f8fafc; display: flex; align-items: center; justify-content: center;";
+
+        const img = document.createElement('img');
+        img.src = url;
+        img.draggable = true;
+        img.style.cssText = "width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer;";
+        img.title = "Click để xem ảnh kích thước lớn";
+        img.onclick = () => window.open(url, '_blank');
+
+        const btnGroup = document.createElement('div');
+        btnGroup.style.cssText = "position: absolute; top: 1px; right: 1px; display: flex; gap: 2px; background: rgba(15, 23, 42, 0.7); padding: 1px 2px; border-radius: 3px; backdrop-filter: blur(2px); z-index: 2;";
+
+        // Nút 1: Mở ảnh trong tab mới
+        const btnOpen = document.createElement('button');
+        btnOpen.type = "button";
+        btnOpen.innerHTML = "🔍";
+        btnOpen.title = "Mở ảnh trong tab mới";
+        btnOpen.style.cssText = "width: 15px !important; height: 15px !important; min-height: unset !important; padding: 0 !important; font-size: 8px; background: #2563eb; color: white; border: none; border-radius: 2px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;";
+        btnOpen.onclick = (e) => {
+            e.stopPropagation();
+            window.open(url, '_blank');
+        };
+
+        // Nút 2: Tải ảnh này về máy
+        const btnDl = document.createElement('button');
+        btnDl.type = "button";
+        btnDl.innerHTML = "⬇️";
+        btnDl.title = "Tải ảnh này về máy tính";
+        btnDl.style.cssText = "width: 15px !important; height: 15px !important; min-height: unset !important; padding: 0 !important; font-size: 8px; background: #16a34a; color: white; border: none; border-radius: 2px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;";
+        btnDl.onclick = async (e) => {
+            e.stopPropagation();
+            const ext = url.includes('.png') ? 'png' : (url.includes('.webp') ? 'webp' : 'jpg');
+            const filename = `${defaultPrefix}-${index}.${ext}`;
+            btnDl.innerHTML = "⏳";
+            await downloadSingleImage(url, filename);
+            setTimeout(() => { btnDl.innerHTML = "⬇️"; }, 1000);
+        };
+
+        btnGroup.appendChild(btnOpen);
+        btnGroup.appendChild(btnDl);
+        card.appendChild(img);
+        card.appendChild(btnGroup);
+
+        return card;
+    }
+
     function renderImageList(container, urlsString, placeholderText) {
         container.innerHTML = '';
         if (!urlsString) {
@@ -294,18 +419,10 @@
             return;
         }
 
-        urls.forEach(url => {
-            const img = document.createElement('img');
-            img.src = url;
-            img.style.width = "48px";
-            img.style.height = "48px";
-            img.style.objectFit = "cover";
-            img.style.borderRadius = "4px";
-            img.style.border = "1px solid #cbd5e1";
-            img.style.cursor = "pointer";
-            img.title = "Click để xem ảnh kích thước đầy đủ";
-            img.onclick = () => window.open(url, '_blank');
-            container.appendChild(img);
+        const prefix = (container === containerAnh) ? 'sp-anh' : 'sp-mota';
+        urls.forEach((url, idx) => {
+            const card = createSingleImageCard(url, prefix, idx + 1);
+            container.appendChild(card);
         });
     }
 
@@ -1100,7 +1217,7 @@
         });
     }
 
-    // 6. Nút Tải ảnh sản phẩm
+    // 6. Nút Tải ảnh sản phẩm (chọn file từ máy)
     const btnUploadAnh = document.getElementById('web-sp-btn-upload-anh');
     const fileAnh = document.getElementById('web-sp-file-anh');
     if (btnUploadAnh && fileAnh) {
@@ -1108,18 +1225,19 @@
         fileAnh.addEventListener('change', (e) => {
             const files = Array.from(e.target.files);
             if (!files.length) return;
-            files.forEach(file => {
+            const span = containerAnh.querySelector('span');
+            if (span) span.remove();
+
+            const curCount = containerAnh.querySelectorAll('img').length;
+            files.forEach((file, fIdx) => {
                 const url = URL.createObjectURL(file);
-                const img = document.createElement('img');
-                img.src = url;
-                img.style.cssText = "width: 48px; height: 48px; object-fit: cover; border-radius: 4px; border: 1px solid #cbd5e1; cursor: pointer;";
-                img.onclick = () => window.open(url, '_blank');
-                containerAnh.appendChild(img);
+                const card = createSingleImageCard(url, 'sp-anh', curCount + fIdx + 1);
+                containerAnh.appendChild(card);
             });
         });
     }
 
-    // 6. Nút Tải ảnh mô tả
+    // 6b. Nút Tải ảnh mô tả (chọn file từ máy)
     const btnUploadAnhMota = document.getElementById('web-sp-btn-upload-anh-mota');
     const fileAnhMota = document.getElementById('web-sp-file-anh-mota');
     if (btnUploadAnhMota && fileAnhMota) {
@@ -1127,14 +1245,31 @@
         fileAnhMota.addEventListener('change', (e) => {
             const files = Array.from(e.target.files);
             if (!files.length) return;
-            files.forEach(file => {
+            const span = containerAnhMoTa.querySelector('span');
+            if (span) span.remove();
+
+            const curCount = containerAnhMoTa.querySelectorAll('img').length;
+            files.forEach((file, fIdx) => {
                 const url = URL.createObjectURL(file);
-                const img = document.createElement('img');
-                img.src = url;
-                img.style.cssText = "width: 48px; height: 48px; object-fit: cover; border-radius: 4px; border: 1px solid #cbd5e1; cursor: pointer;";
-                img.onclick = () => window.open(url, '_blank');
-                containerAnhMoTa.appendChild(img);
+                const card = createSingleImageCard(url, 'sp-mota', curCount + fIdx + 1);
+                containerAnhMoTa.appendChild(card);
             });
+        });
+    }
+
+    // 6c. Nút Tải TẤT CẢ ảnh sản phẩm về máy tính
+    const btnDownloadAllAnh = document.getElementById('web-sp-btn-download-all-anh');
+    if (btnDownloadAllAnh) {
+        btnDownloadAllAnh.addEventListener('click', () => {
+            downloadAllImagesFromContainer(containerAnh, 'sp-anh', btnDownloadAllAnh);
+        });
+    }
+
+    // 6d. Nút Tải TẤT CẢ ảnh mô tả về máy tính
+    const btnDownloadAllAnhMota = document.getElementById('web-sp-btn-download-all-anh-mota');
+    if (btnDownloadAllAnhMota) {
+        btnDownloadAllAnhMota.addEventListener('click', () => {
+            downloadAllImagesFromContainer(containerAnhMoTa, 'sp-mota', btnDownloadAllAnhMota);
         });
     }
 

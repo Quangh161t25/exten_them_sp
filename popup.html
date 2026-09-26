@@ -1190,11 +1190,12 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
       <div>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
           <label style="font-size: 11px; font-weight: 600; color: #475569;">Khung ảnh sản phẩm:</label>
-          <div style="display: flex; gap: 4px;">
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
             <button type="button" id="web-sp-btn-copy-anh" style="width: auto !important; min-height: 20px !important; height: 20px !important; padding: 0 6px; font-size: 10px; font-weight: bold; background: #64748b; color: white; border: none; border-radius: 3px; cursor: pointer; line-height: 20px;" title="Copy danh sách link/ảnh sản phẩm">Copy</button>
             <button type="button" id="web-sp-btn-dua-anh-chinh" style="width: auto !important; min-height: 20px !important; height: 20px !important; padding: 0 6px; font-size: 10px; font-weight: bold; background: #2563eb; color: white; border: none; border-radius: 3px; cursor: pointer; line-height: 20px;">Đưa vào ảnh chính</button>
             <button type="button" id="web-sp-btn-dua-anh-mota" style="width: auto !important; min-height: 20px !important; height: 20px !important; padding: 0 6px; font-size: 10px; font-weight: bold; background: #0284c7; color: white; border: none; border-radius: 3px; cursor: pointer; line-height: 20px;">Đưa vào mô tả</button>
-            <button type="button" id="web-sp-btn-upload-anh" style="width: auto !important; min-height: 20px !important; height: 20px !important; padding: 0 6px; font-size: 10px; font-weight: bold; background: #8b5cf6; color: white; border: none; border-radius: 3px; cursor: pointer; line-height: 20px;">Tải ảnh</button>
+            <button type="button" id="web-sp-btn-upload-anh" style="width: auto !important; min-height: 20px !important; height: 20px !important; padding: 0 6px; font-size: 10px; font-weight: bold; background: #8b5cf6; color: white; border: none; border-radius: 3px; cursor: pointer; line-height: 20px;" title="Chọn ảnh tải lên từ máy tính">Tải ảnh</button>
+            <button type="button" id="web-sp-btn-download-all-anh" style="width: auto !important; min-height: 20px !important; height: 20px !important; padding: 0 6px; font-size: 10px; font-weight: bold; background: #16a34a; color: white; border: none; border-radius: 3px; cursor: pointer; line-height: 20px;" title="Tải tất cả ảnh sản phẩm về máy tính">⬇️ Tải về máy</button>
           </div>
         </div>
         <input type="file" id="web-sp-file-anh" accept="image/*" multiple style="display: none;">
@@ -1207,11 +1208,12 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
       <div>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
           <label style="font-size: 11px; font-weight: 600; color: #475569;">Khung ảnh mô tả:</label>
-          <div style="display: flex; gap: 4px;">
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
             <button type="button" id="web-sp-btn-copy-anh-mota" style="width: auto !important; min-height: 20px !important; height: 20px !important; padding: 0 6px; font-size: 10px; font-weight: bold; background: #64748b; color: white; border: none; border-radius: 3px; cursor: pointer; line-height: 20px;" title="Copy danh sách link/ảnh mô tả">Copy</button>
             <button type="button" id="web-sp-btn-dua-anh-chinh-mota" style="width: auto !important; min-height: 20px !important; height: 20px !important; padding: 0 6px; font-size: 10px; font-weight: bold; background: #2563eb; color: white; border: none; border-radius: 3px; cursor: pointer; line-height: 20px;">Đưa vào ảnh chính</button>
             <button type="button" id="web-sp-btn-dua-anh-mota-mota" style="width: auto !important; min-height: 20px !important; height: 20px !important; padding: 0 6px; font-size: 10px; font-weight: bold; background: #0284c7; color: white; border: none; border-radius: 3px; cursor: pointer; line-height: 20px;">Đưa vào mô tả</button>
-            <button type="button" id="web-sp-btn-upload-anh-mota" style="width: auto !important; min-height: 20px !important; height: 20px !important; padding: 0 6px; font-size: 10px; font-weight: bold; background: #8b5cf6; color: white; border: none; border-radius: 3px; cursor: pointer; line-height: 20px;">Tải ảnh mô tả</button>
+            <button type="button" id="web-sp-btn-upload-anh-mota" style="width: auto !important; min-height: 20px !important; height: 20px !important; padding: 0 6px; font-size: 10px; font-weight: bold; background: #8b5cf6; color: white; border: none; border-radius: 3px; cursor: pointer; line-height: 20px;" title="Chọn ảnh mô tả tải lên từ máy tính">Tải ảnh mô tả</button>
+            <button type="button" id="web-sp-btn-download-all-anh-mota" style="width: auto !important; min-height: 20px !important; height: 20px !important; padding: 0 6px; font-size: 10px; font-weight: bold; background: #16a34a; color: white; border: none; border-radius: 3px; cursor: pointer; line-height: 20px;" title="Tải tất cả ảnh mô tả về máy tính">⬇️ Tải về máy</button>
           </div>
         </div>
         <input type="file" id="web-sp-file-anh-mota" accept="image/*" multiple style="display: none;">
