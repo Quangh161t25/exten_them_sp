@@ -15688,6 +15688,356 @@ QUY TẮC BẮT BUỘC TRẢ LỜI:
     toolbar.appendChild(btn);
   }
 
+  // ==========================================
+  // HỖ TRỢ PASTE (CTRL+V) ẢNH VÀ NÚT COPY LINK ẢNH SHOPEE
+  // ==========================================
+
+  let lastHoveredImageManager = null;
+  document.addEventListener("mouseover", (e) => {
+    const mgr = e.target.closest?.(
+      ".image-manager-wrapper, .shopee-image-manager, .shopee-image-manager__itembox, .eds-upload, [data-product-edit-field-unique-id='images']"
+    );
+    if (mgr) {
+      lastHoveredImageManager = mgr;
+    }
+  }, { passive: true });
+
+  async function copyTextToClipboard(text) {
+    if (!text) return false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (e) {}
+
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      ta.style.top = "-9999px";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const res = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return res;
+    } catch (e2) {
+      console.warn("Lỗi copy clipboard:", e2);
+      return false;
+    }
+  }
+
+  function cleanShopeeImageUrl(url) {
+    if (!url) return "";
+    return url.replace(/_tn(\?|$)/, "$1").replace(/_zoom(\?|$)/, "$1");
+  }
+
+  function getImageUrlFromItembox(itembox) {
+    const img = itembox.querySelector("img");
+    if (img && img.src && !img.src.startsWith("data:image/svg")) {
+      return cleanShopeeImageUrl(img.src);
+    }
+
+    const allEls = itembox.querySelectorAll("*");
+    for (const el of allEls) {
+      const bg = el.style?.backgroundImage || window.getComputedStyle(el).backgroundImage;
+      if (bg && bg.includes("http")) {
+        const match = bg.match(/url\(["']?(https?:\/\/[^"')]+)["']?\)/i);
+        if (match && match[1]) {
+          return cleanShopeeImageUrl(match[1]);
+        }
+      }
+    }
+
+    const dataEl = itembox.querySelector("[data-src], [data-url]");
+    if (dataEl) {
+      const url = dataEl.getAttribute("data-src") || dataEl.getAttribute("data-url");
+      if (url) return cleanShopeeImageUrl(url);
+    }
+
+    return "";
+  }
+
+  function findShopeeProductImageInput(targetEl) {
+    if (targetEl) {
+      const manager = targetEl.closest?.(
+        ".image-manager-wrapper, .shopee-image-manager, .tier-image-manager, .size-chart-manager, .eds-upload"
+      );
+      if (manager) {
+        const input = manager.querySelector("input[type='file'][accept*='image'], input[type='file']");
+        if (input) return input;
+      }
+    }
+
+    const mainManager = document.querySelector(
+      "[data-product-edit-field-unique-id='images'], .image-manager-wrapper, .shopee-image-manager"
+    );
+    if (mainManager) {
+      const input = mainManager.querySelector("input[type='file'][accept*='image'], input[type='file']");
+      if (input) return input;
+    }
+
+    if (typeof findImageInput === "function") {
+      const input = findImageInput();
+      if (input) return input;
+    }
+
+    return document.querySelector("input.eds-upload__input[type='file'], input[type='file'][accept*='image']");
+  }
+
+  function uploadFilesToShopeeImageInput(input, files) {
+    if (!input || !files || files.length === 0) return;
+
+    const dt = new DataTransfer();
+    for (const f of files) {
+      dt.items.add(f);
+    }
+
+    try {
+      input.files = dt.files;
+      input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+    } catch (err) {
+      console.warn("Lỗi gán input.files:", err);
+    }
+
+    const dragger = input.closest(".eds-upload-wrapper") || input.closest(".eds-upload-dragger") || input.parentElement;
+    if (dragger) {
+      try {
+        const dropEvent = new DragEvent("drop", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          dataTransfer: dt
+        });
+        dragger.dispatchEvent(dropEvent);
+      } catch (de) {}
+    }
+
+    showTopNotification(`✅ Đã dán ${files.length} ảnh vào sản phẩm Shopee!`, false);
+  }
+
+  // Khởi tạo tính năng lắng nghe Ctrl + V để dán ảnh trực tiếp vào Shopee
+  function initShopeeProductImagePasteHandler() {
+    window.addEventListener("paste", async (e) => {
+      if (!window.location.href.includes("banhang.shopee.vn/portal/product/")) return;
+
+      const activeEl = document.activeElement;
+      const isTypingText = activeEl && (
+        (activeEl.tagName === "INPUT" && activeEl.type !== "file") ||
+        activeEl.tagName === "TEXTAREA" ||
+        activeEl.isContentEditable ||
+        activeEl.closest?.(".ProseMirror, .ql-editor, [contenteditable='true']")
+      );
+
+      const clipboardData = e.clipboardData;
+      if (!clipboardData) return;
+
+      const imageFiles = [];
+
+      // 1. Kiểm tra nếu trong clipboard có file ảnh thực sự (Copy image, chụp màn hình Win+Shift+S...)
+      if (clipboardData.files && clipboardData.files.length > 0) {
+        for (let i = 0; i < clipboardData.files.length; i++) {
+          const file = clipboardData.files[i];
+          if (file && file.type && file.type.startsWith("image/")) {
+            imageFiles.push(file);
+          }
+        }
+      }
+
+      if (imageFiles.length === 0 && clipboardData.items && clipboardData.items.length > 0) {
+        for (let i = 0; i < clipboardData.items.length; i++) {
+          const item = clipboardData.items[i];
+          if (item && item.type && item.type.startsWith("image/")) {
+            const file = item.getAsFile();
+            if (file) imageFiles.push(file);
+          }
+        }
+      }
+
+      // 2. Kiểm tra text URL nếu không có file ảnh
+      let isImageUrlText = false;
+      let pastedText = "";
+      if (imageFiles.length === 0) {
+        pastedText = (clipboardData.getData("text/plain") || "").trim();
+        if (pastedText && /^https?:\/\/.*(\.(png|jpg|jpeg|webp|gif|bmp)|susercontent\.com\/file\/|catbox\.moe\/|postimg\.cc\/)/i.test(pastedText)) {
+          isImageUrlText = true;
+        }
+      }
+
+      // Nếu đang gõ text vào ô nhập thông tin và không có ảnh trong clipboard -> để mặc định
+      if (isTypingText && imageFiles.length === 0 && !isImageUrlText) {
+        return;
+      }
+
+      // Nếu có file ảnh hoặc URL ảnh -> Xử lý dán vào Shopee
+      if (imageFiles.length > 0 || isImageUrlText) {
+        const targetInput = findShopeeProductImageInput(lastHoveredImageManager || activeEl);
+        if (!targetInput) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (imageFiles.length > 0) {
+          uploadFilesToShopeeImageInput(targetInput, imageFiles);
+        } else if (isImageUrlText) {
+          showTopNotification("⏳ Đang tải ảnh từ đường dẫn vừa dán...", false);
+          try {
+            const res = await fetch(pastedText);
+            const blob = await res.blob();
+            const ext = blob.type.includes("png") ? "png" : "jpg";
+            const file = new File([blob], `pasted_image_${Date.now()}.${ext}`, { type: blob.type || "image/jpeg" });
+            uploadFilesToShopeeImageInput(targetInput, [file]);
+          } catch (err) {
+            showTopNotification("❌ Không thể tải ảnh từ link vừa dán: " + err.message, true);
+          }
+        }
+      }
+    }, true);
+  }
+
+  // Tự động thêm nút "📋 Copy link" bên dưới mỗi ảnh sản phẩm trên Shopee
+  function injectShopeeImageCopyLinkButtons() {
+    if (!window.location.href.includes("banhang.shopee.vn/portal/product/")) return;
+
+    const itemboxes = document.querySelectorAll(
+      ".shopee-image-manager__itembox, .image-manager-wrapper .container > div, .shopee-image-manager .container > div"
+    );
+
+    itemboxes.forEach((itembox) => {
+      // Bỏ qua nếu đã gắn nút
+      if (itembox.querySelector(".shopee-ext-img-actions")) return;
+
+      // Bỏ qua ô upload trống
+      if (itembox.querySelector(".shopee-image-manager__upload, .eds-upload")) {
+        const hasRealImg = itembox.querySelector("img:not([src*='data:image/svg'])") || itembox.querySelector("[style*='background-image']");
+        if (!hasRealImg) return;
+      }
+
+      const imgUrl = getImageUrlFromItembox(itembox);
+      if (!imgUrl) return;
+
+      if (window.getComputedStyle(itembox).position === "static") {
+        itembox.style.position = "relative";
+      }
+
+      const actionsWrap = document.createElement("div");
+      actionsWrap.className = "shopee-ext-img-actions";
+      actionsWrap.style.cssText = [
+        "position: absolute",
+        "bottom: 0",
+        "left: 0",
+        "right: 0",
+        "height: 20px",
+        "background: rgba(15, 23, 42, 0.88)",
+        "backdrop-filter: blur(2px)",
+        "display: flex",
+        "align-items: center",
+        "justify-content: space-between",
+        "gap: 1px",
+        "padding: 1px 2px",
+        "z-index: 100",
+        "border-radius: 0 0 4px 4px",
+        "box-sizing: border-box"
+      ].join("; ");
+
+      const btnCopy = document.createElement("button");
+      btnCopy.type = "button";
+      btnCopy.className = "shopee-ext-copy-link-btn";
+      btnCopy.innerHTML = "📋 Copy link";
+      btnCopy.title = "Sao chép link ảnh này vào Clipboard";
+      btnCopy.style.cssText = [
+        "flex: 1",
+        "min-width: 0",
+        "height: 18px",
+        "border: none",
+        "border-radius: 2px",
+        "background: #2563eb",
+        "color: #ffffff",
+        "font-size: 8.5px",
+        "font-weight: 700",
+        "cursor: pointer",
+        "display: flex",
+        "align-items: center",
+        "justify-content: center",
+        "padding: 0 2px",
+        "white-space: nowrap",
+        "overflow: hidden",
+        "line-height: 18px"
+      ].join("; ");
+
+      const btnOpen = document.createElement("button");
+      btnOpen.type = "button";
+      btnOpen.className = "shopee-ext-open-link-btn";
+      btnOpen.innerHTML = "🔍";
+      btnOpen.title = "Mở ảnh gốc trong tab mới";
+      btnOpen.style.cssText = [
+        "width: 18px",
+        "height: 18px",
+        "flex-shrink: 0",
+        "border: none",
+        "border-radius: 2px",
+        "background: #475569",
+        "color: #ffffff",
+        "font-size: 8.5px",
+        "cursor: pointer",
+        "display: flex",
+        "align-items: center",
+        "justify-content: center",
+        "padding: 0",
+        "line-height: 18px"
+      ].join("; ");
+
+      btnCopy.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const latestUrl = getImageUrlFromItembox(itembox);
+        if (!latestUrl) {
+          showTopNotification("⚠️ Chưa tìm thấy link ảnh, vui lòng thử lại!", true);
+          return;
+        }
+
+        if (latestUrl.startsWith("blob:")) {
+          showTopNotification("⏳ Ảnh đang tải lên Shopee, vui lòng đợi 1 giây rồi bấm lại!", false);
+          return;
+        }
+
+        const success = await copyTextToClipboard(latestUrl);
+        if (success) {
+          btnCopy.innerHTML = "✓ Đã copy";
+          btnCopy.style.background = "#16a34a";
+          showTopNotification("✅ Đã copy link ảnh: " + latestUrl, false);
+          setTimeout(() => {
+            btnCopy.innerHTML = "📋 Copy link";
+            btnCopy.style.background = "#2563eb";
+          }, 1500);
+        } else {
+          showTopNotification("❌ Lỗi copy link ảnh vào clipboard!", true);
+        }
+      });
+
+      btnOpen.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const latestUrl = getImageUrlFromItembox(itembox);
+        if (latestUrl) {
+          window.open(latestUrl, "_blank");
+        }
+      });
+
+      actionsWrap.appendChild(btnCopy);
+      actionsWrap.appendChild(btnOpen);
+      itembox.appendChild(actionsWrap);
+    });
+  }
+
+  initShopeeProductImagePasteHandler();
+
   setInterval(() => {
     injectAiDescriptionButton();
     injectStockQuickButtons();
@@ -15695,6 +16045,7 @@ QUY TẮC BẮT BUỘC TRẢ LỜI:
     injectBuyerProductActionButtons();
     highlightZeroStockProducts();
     injectWebchatAiAssistantButton();
+    injectShopeeImageCopyLinkButtons();
     if (isOrderListPage()) {
       updateCopyAllButtonColors();
     }
