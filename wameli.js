@@ -185,235 +185,380 @@
         const style = document.createElement('style');
         style.id = 'wameli-order-helper-styles';
         style.textContent = `
-            .wameli-chips-wrap {
+            /* Split 2-Column Layout */
+            #wameli-split-layout-wrapper {
                 display: flex;
-                flex-wrap: wrap;
-                gap: 5px;
-                margin-top: 5px;
-                margin-bottom: 4px;
-                align-items: center;
+                gap: 16px;
+                width: 100%;
+                align-items: flex-start;
+                margin-top: 8px;
+                box-sizing: border-box;
             }
-            .wameli-chip-btn {
-                display: inline-flex;
-                align-items: center;
-                gap: 3px;
-                padding: 3px 8px;
-                font-size: 11px;
-                font-weight: 600;
-                line-height: 1.3;
-                border-radius: 4px;
-                cursor: pointer;
-                transition: all 0.15s ease;
-                border: 1px solid #cbd5e1;
-                background: #f8fafc;
-                color: #334155;
-                user-select: none;
+            #wameli-left-col {
+                flex: 1 1 56%;
+                min-width: 0;
             }
-            .wameli-chip-btn:hover {
-                background: #e2e8f0;
-                border-color: #94a3b8;
-                color: #0f172a;
-                transform: translateY(-1px);
+            #wameli-right-col {
+                flex: 0 0 44%;
+                min-width: 440px;
+                max-width: 46%;
+                position: sticky;
+                top: 10px;
             }
-            .wameli-chip-btn.active {
-                background: #2563eb !important;
-                border-color: #1d4ed8 !important;
-                color: #ffffff !important;
-                box-shadow: 0 1px 3px rgba(37,99,235,0.3);
-            }
-            .wameli-chip-btn.active-kho {
-                background: #059669 !important;
-                border-color: #047857 !important;
-                color: #ffffff !important;
-                box-shadow: 0 1px 3px rgba(5,150,105,0.3);
-            }
-            .wameli-chip-btn.active-shop {
-                background: #7c3aed !important;
-                border-color: #6d28d9 !important;
-                color: #ffffff !important;
-                box-shadow: 0 1px 3px rgba(124,58,237,0.3);
-            }
-            .wameli-chip-btn.active-date {
-                background: #ea580c !important;
-                border-color: #c2410c !important;
-                color: #ffffff !important;
-                box-shadow: 0 1px 3px rgba(234,88,12,0.3);
-            }
-            .wameli-chip-btn.active-hour {
-                background: #0284c7 !important;
-                border-color: #0369a1 !important;
-                color: #ffffff !important;
-                box-shadow: 0 1px 3px rgba(2,132,199,0.3);
+            @media (max-width: 1200px) {
+                #wameli-split-layout-wrapper {
+                    flex-direction: column;
+                }
+                #wameli-right-col {
+                    width: 100%;
+                    max-width: 100%;
+                    position: static;
+                }
             }
 
-            /* Folder Manager Box */
-            .wameli-folder-box {
-                margin: 10px 0 16px 0;
-                background: #ffffff;
-                border: 1.5px solid #3b82f6;
-                border-radius: 8px;
-                padding: 12px;
-                box-shadow: 0 2px 10px rgba(59,130,246,0.12);
-                font-family: inherit;
+            /* Narrow form controls */
+            .wameli-control-narrow {
+                width: 170px !important;
+                max-width: 170px !important;
+                display: inline-block !important;
+                vertical-align: middle !important;
             }
-            .wameli-folder-header {
-                display: flex;
-                justify-content: space-between;
+
+            /* Inline suggestion chips */
+            .wameli-inline-chips {
+                display: inline-flex;
+                flex-wrap: wrap;
                 align-items: center;
-                margin-bottom: 10px;
-                padding-bottom: 8px;
+                gap: 5px;
+                margin-left: 8px;
+                vertical-align: middle;
+            }
+            .wameli-chip {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 4px 9px;
+                font-size: 11.5px;
+                font-weight: 500;
+                line-height: 1.2;
+                border-radius: 4px;
+                border: 1px solid #cbd5e1;
+                background: #ffffff;
+                color: #334155;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                user-select: none;
+                white-space: nowrap;
+            }
+            .wameli-chip:hover {
+                background: #f1f5f9;
+                border-color: #94a3b8;
+                color: #0f172a;
+            }
+            .wameli-chip.active {
+                background: #0284c7 !important;
+                border-color: #0284c7 !important;
+                color: #ffffff !important;
+                font-weight: 600;
+                box-shadow: 0 1px 3px rgba(2, 132, 199, 0.3);
+            }
+
+            /* Right File Manager Panel */
+            .wameli-panel-card {
+                background: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+                overflow: hidden;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            }
+            .wameli-panel-header {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 12px;
+                background: #f8fafc;
                 border-bottom: 1px solid #e2e8f0;
             }
-            .wameli-folder-title {
+            .wameli-panel-title {
+                display: flex;
+                align-items: center;
+                gap: 6px;
                 font-size: 13px;
                 font-weight: 700;
-                color: #1e40af;
-                display: flex;
-                align-items: center;
-                gap: 6px;
+                color: #0284c7;
+                white-space: nowrap;
             }
-            .wameli-dropzone {
-                border: 2px dashed #60a5fa;
-                border-radius: 6px;
-                background: #f0f7ff;
-                padding: 14px 16px;
-                text-align: center;
-                cursor: pointer;
-                transition: all 0.2s ease;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 6px;
-            }
-            .wameli-dropzone.dragover {
-                border-color: #2563eb;
-                background: #dbeafe;
-                transform: scale(1.01);
-            }
-            .wameli-btn-action {
-                padding: 5px 12px;
-                font-size: 11px;
-                font-weight: 700;
+            .wameli-folder-name-input {
+                border: 1px solid #cbd5e1;
                 border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 12px;
+                color: #334155;
+                background: #ffffff;
+                width: 140px;
+                outline: none;
+                transition: border-color 0.15s;
+            }
+            .wameli-folder-name-input:focus {
+                border-color: #0284c7;
+            }
+            .wameli-header-actions {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                margin-left: auto;
+            }
+            .wameli-btn-blue {
+                background: #0284c7;
+                color: #ffffff;
                 border: none;
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 12px;
+                font-weight: 600;
                 cursor: pointer;
                 display: inline-flex;
                 align-items: center;
                 gap: 4px;
-                transition: all 0.15s ease;
+                transition: background 0.15s ease;
+                white-space: nowrap;
             }
-            .wameli-btn-primary {
-                background: #2563eb;
-                color: white;
+            .wameli-btn-blue:hover {
+                background: #0369a1;
             }
-            .wameli-btn-primary:hover {
-                background: #1d4ed8;
-            }
-            .wameli-btn-success {
-                background: #16a34a;
-                color: white;
-            }
-            .wameli-btn-success:hover {
-                background: #15803d;
-            }
-            .wameli-btn-danger {
-                background: #ef4444;
-                color: white;
-            }
-            .wameli-btn-danger:hover {
-                background: #dc2626;
-            }
-            .wameli-btn-ghost {
+            .wameli-btn-toggle {
                 background: #ffffff;
-                color: #475569;
                 border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 11px;
+                color: #475569;
+                cursor: pointer;
+                transition: all 0.15s;
             }
-            .wameli-btn-ghost:hover {
+            .wameli-btn-toggle:hover {
                 background: #f1f5f9;
             }
 
-            /* File Lists */
-            .wameli-files-container {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 10px;
-                margin-top: 10px;
-            }
-            @media (max-width: 768px) {
-                .wameli-files-container {
-                    grid-template-columns: 1fr;
-                }
-            }
-            .wameli-file-panel {
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background: #f8fafc;
-                padding: 8px;
-            }
-            .wameli-file-panel-header {
-                font-size: 11px;
-                font-weight: 700;
-                margin-bottom: 6px;
+            /* Status Bar */
+            .wameli-status-bar {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                padding-bottom: 4px;
-                border-bottom: 1px solid #e2e8f0;
+                background: #ecfdf5;
+                border-bottom: 1px solid #a7f3d0;
+                padding: 6px 12px;
+                font-size: 11.5px;
             }
-            .wameli-file-list {
-                max-height: 150px;
-                overflow-y: auto;
-                display: flex;
-                flex-direction: column;
-                gap: 3px;
+            .wameli-status-text {
+                color: #166534;
+                font-weight: 600;
             }
-            .wameli-file-item {
+            .wameli-status-actions {
                 display: flex;
                 align-items: center;
-                justify-content: space-between;
-                background: white;
-                border: 1px solid #e2e8f0;
+                gap: 6px;
+            }
+            .wameli-btn-sub-action {
+                background: #ffffff;
+                border: 1px solid #cbd5e1;
                 border-radius: 4px;
-                padding: 3px 6px;
+                padding: 3px 8px;
                 font-size: 11px;
+                font-weight: 600;
+                color: #334155;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.15s ease;
             }
-            .wameli-file-name {
+            .wameli-btn-sub-action:hover {
+                background: #f8fafc;
+                border-color: #94a3b8;
+                color: #0f172a;
+            }
+
+            /* Column Headers */
+            .wameli-col-headers {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 7px 12px;
+                border-bottom: 1px solid #e2e8f0;
+                background: #ffffff;
+                font-size: 12px;
+                font-weight: 700;
+                color: #334155;
+            }
+            .wameli-col-title-left {
+                padding-left: 24px;
+            }
+            .wameli-col-title-right {
+                margin-right: 105px;
+            }
+
+            /* Group Container & List */
+            .wameli-groups-container {
+                max-height: 480px;
+                overflow-y: auto;
+                background: #ffffff;
+            }
+            .wameli-group-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 6px 12px;
+                background: #f8fafc;
+                border-bottom: 1px solid #e2e8f0;
+                font-size: 12px;
+            }
+            .wameli-group-header-left {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .wameli-group-title {
+                font-weight: 700;
+                color: #0284c7;
+            }
+            .wameli-group-actions {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+            .wameli-btn-group-action {
+                background: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                padding: 2px 7px;
+                font-size: 11px;
+                font-weight: 600;
+                color: #0284c7;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.15s ease;
+            }
+            .wameli-btn-group-action:hover {
+                background: #f0f9ff;
+                border-color: #0284c7;
+            }
+
+            /* File Item Row */
+            .wameli-file-row {
+                display: flex;
+                align-items: center;
+                padding: 5px 12px;
+                border-bottom: 1px solid #f1f5f9;
+                font-size: 12px;
+                color: #1e293b;
+                transition: background 0.1s ease;
+            }
+            .wameli-file-row:hover {
+                background: #f8fafc;
+            }
+            .wameli-file-row.selected {
+                background: #f0fdf4;
+            }
+            .wameli-file-left {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                flex: 1;
+                min-width: 0;
+            }
+            .wameli-file-name-text {
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
-                max-width: 80%;
                 color: #1e293b;
+                font-weight: 500;
+                max-width: 190px;
             }
-            .wameli-file-size {
-                font-size: 10px;
-                color: #64748b;
-                white-space: nowrap;
-                margin-left: 4px;
-            }
-            .wameli-summary-banner {
-                background: #ecfdf5;
-                border: 1px solid #a7f3d0;
-                border-radius: 6px;
-                padding: 6px 10px;
-                margin-top: 8px;
+            .wameli-file-date-text {
                 font-size: 11px;
-                color: #065f46;
+                color: #64748b;
+                margin-left: auto;
+                margin-right: 8px;
+                white-space: nowrap;
+            }
+            .wameli-file-row-actions {
                 display: flex;
                 align-items: center;
-                justify-content: space-between;
-                flex-wrap: wrap;
-                gap: 6px;
+                gap: 4px;
+                margin-left: 4px;
+            }
+            .wameli-btn-row-action {
+                background: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 3px;
+                padding: 2px 5px;
+                font-size: 11px;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                color: #334155;
+                line-height: 1;
+                transition: all 0.15s ease;
+            }
+            .wameli-btn-row-action:hover {
+                background: #f1f5f9;
+                border-color: #94a3b8;
+            }
+            .wameli-btn-nap {
+                font-weight: 700;
+                color: #0284c7;
+                background: #f0f9ff;
+                border-color: #bae6fd;
+            }
+            .wameli-btn-nap:hover {
+                background: #e0f2fe;
+                border-color: #0284c7;
+            }
+
+            /* Toast */
+            .wameli-toast {
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                background: #0f172a;
+                color: #ffffff;
+                padding: 9px 16px;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 500;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                z-index: 999999;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                animation: wameliFadeIn 0.2s ease;
+            }
+            @keyframes wameliFadeIn {
+                from { opacity: 0; transform: translateY(6px); }
+                to { opacity: 1; transform: translateY(0); }
             }
         `;
         document.head.appendChild(style);
     }
 
-    function formatFileSize(bytes) {
-        if (!bytes || bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    function showWameliToast(message, isSuccess = true) {
+        const oldToast = document.querySelector('.wameli-toast');
+        if (oldToast) oldToast.remove();
+
+        const toast = document.createElement('div');
+        toast.className = 'wameli-toast';
+        toast.style.borderLeft = isSuccess ? '4px solid #10b981' : '4px solid #ef4444';
+        toast.innerHTML = `<span>${isSuccess ? '✅' : 'ℹ️'}</span> <span>${message}</span>`;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.style.transition = 'opacity 0.3s ease';
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, 2200);
     }
 
     function formatWameliDate(date) {
@@ -421,6 +566,34 @@
         const m = String(date.getMonth() + 1).padStart(2, '0');
         const y = date.getFullYear();
         return `${d}-${m}-${y}`;
+    }
+
+    function getDateKey(d) {
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+    }
+
+    function formatFileDateVi(d) {
+        const dateStr = getDateKey(d);
+        let hours = d.getHours();
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'CH' : 'SA';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        return `${dateStr} ${hours}:${minutes} ${ampm}`;
+    }
+
+    function dispatchChangeEvent(element) {
+        if (!element) return;
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+        if (window.$ && typeof window.$(element).trigger === 'function') {
+            try {
+                window.$(element).trigger('change');
+            } catch (e) { }
+        }
     }
 
     function findWameliOrderFormElements() {
@@ -432,9 +605,9 @@
         let fileNameInput = null;
         let pdfFileInput = null;
         let excelFileInput = null;
-        let formContainer = null;
+        let formTable = null;
 
-        // 1. Scan all Select elements
+        // 1. Scan Select elements
         const selects = Array.from(document.querySelectorAll('select'));
         for (const sel of selects) {
             const row = sel.closest('tr, .form-group, .row, div') || sel.parentElement;
@@ -454,14 +627,13 @@
                 }
             }
 
-            // Check by row text if not found
             if (!sanSelect && (nameOrId.includes('san') || (rowText.includes('sàn') && !rowText.includes('kho')))) sanSelect = sel;
             if (!khoSelect && (nameOrId.includes('kho') || rowText.includes('kho'))) khoSelect = sel;
             if (!shopSelect && (nameOrId.includes('shop') || rowText.includes('shop'))) shopSelect = sel;
             if (!gioSelect && (nameOrId.includes('gio') || nameOrId.includes('hour') || rowText.includes('giờ'))) gioSelect = sel;
         }
 
-        // 2. Scan all Input elements
+        // 2. Scan Input elements
         const inputs = Array.from(document.querySelectorAll('input'));
         for (const inp of inputs) {
             const type = (inp.type || 'text').toLowerCase();
@@ -486,9 +658,9 @@
             }
         }
 
-        // Fallback for file inputs if not directly tagged
+        // Fallback for file inputs
         if (!pdfFileInput || !excelFileInput) {
-            const fileInputs = Array.from(document.querySelectorAll('input[type="file"]'));
+            const fileInputs = Array.from(document.querySelectorAll('input[type="file"]:not(#wameli-native-folder-input):not(#wameli-native-files-input)'));
             if (fileInputs.length >= 2) {
                 if (!pdfFileInput) pdfFileInput = fileInputs[0];
                 if (!excelFileInput) excelFileInput = fileInputs[1];
@@ -497,10 +669,9 @@
             }
         }
 
-        // Find parent container
         const anyTarget = sanSelect || ngayInput || pdfFileInput;
         if (anyTarget) {
-            formContainer = anyTarget.closest('.shopee-image-manager, .panel, .box, .card, form, table, .container') || anyTarget.parentElement;
+            formTable = anyTarget.closest('table') || anyTarget.closest('form') || anyTarget.parentElement;
         }
 
         return {
@@ -512,604 +683,633 @@
             fileNameInput,
             pdfFileInput,
             excelFileInput,
-            formContainer
+            formTable
         };
     }
 
-    function dispatchChangeEvent(element) {
-        if (!element) return;
-        element.dispatchEvent(new Event('input', { bubbles: true }));
-        element.dispatchEvent(new Event('change', { bubbles: true }));
-        if (window.$ && typeof window.$(element).trigger === 'function') {
-            try {
-                window.$(element).trigger('change');
-            } catch (e) { }
+    // --- Split Layout Setup ---
+    function setupSplitLayout(formElements) {
+        const refEl = formElements.sanSelect || formElements.ngayInput || formElements.pdfFileInput;
+        if (!refEl) return null;
+
+        const existingWrapper = document.getElementById('wameli-split-layout-wrapper');
+        if (existingWrapper) {
+            if (existingWrapper.contains(refEl)) {
+                return {
+                    wrapper: existingWrapper,
+                    leftCol: document.getElementById('wameli-left-col'),
+                    rightCol: document.getElementById('wameli-right-col')
+                };
+            } else {
+                existingWrapper.remove();
+            }
         }
+
+        let mainTable = refEl.closest('table');
+        if (!mainTable) {
+            mainTable = refEl.closest('.form-horizontal, .card-body, .panel-body, form');
+        }
+        if (!mainTable) return null;
+
+        const wrapper = document.createElement('div');
+        wrapper.id = 'wameli-split-layout-wrapper';
+
+        const leftCol = document.createElement('div');
+        leftCol.id = 'wameli-left-col';
+
+        const rightCol = document.createElement('div');
+        rightCol.id = 'wameli-right-col';
+
+        // Insert wrapper before mainTable and move mainTable into leftCol
+        mainTable.parentNode.insertBefore(wrapper, mainTable);
+        leftCol.appendChild(mainTable);
+        wrapper.appendChild(leftCol);
+        wrapper.appendChild(rightCol);
+
+        // Add "Chương trình thêm mới" row at top of mainTable if not already present
+        if (!document.getElementById('wameli-program-row')) {
+            const programRow = document.createElement('tr');
+            programRow.id = 'wameli-program-row';
+            programRow.innerHTML = `
+                <td style="width: 140px; font-weight: 500; font-size: 13px; color: #1e293b; padding: 6px 10px; vertical-align: middle;">Chương trình thêm mới</td>
+                <td style="padding: 6px 10px; vertical-align: middle;">
+                    <div style="display: flex; width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden; background: #ffffff;">
+                        <input type="text" id="wameli-program-input" placeholder="Nhập tên chương trình..." style="flex: 1; border: none; padding: 6px 12px; font-size: 13px; outline: none; background: transparent; color: #1e293b;" />
+                        <button type="button" id="wameli-program-save-btn" style="border: none; border-left: 1px solid #cbd5e1; background: #f8fafc; color: #475569; padding: 6px 16px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">Lưu chương trình</button>
+                    </div>
+                </td>
+            `;
+
+            const firstTr = mainTable.querySelector('tr');
+            if (firstTr && firstTr.parentElement) {
+                firstTr.parentElement.insertBefore(programRow, firstTr);
+            } else {
+                mainTable.prepend(programRow);
+            }
+
+            // Restore saved program name
+            const savedProgram = localStorage.getItem('wameli_saved_program');
+            if (savedProgram) {
+                const pInput = programRow.querySelector('#wameli-program-input');
+                if (pInput) pInput.value = savedProgram;
+            }
+
+            programRow.querySelector('#wameli-program-save-btn').addEventListener('click', () => {
+                const pInput = programRow.querySelector('#wameli-program-input');
+                const val = pInput ? pInput.value.trim() : '';
+                localStorage.setItem('wameli_saved_program', val);
+                showWameliToast('Đã lưu chương trình: ' + (val || '(Để trống)'));
+            });
+        }
+
+        return { wrapper, leftCol, rightCol };
     }
 
-    // --- Suggestion Chips Helpers ---
-    function renderSanSuggestions(sanSelect) {
+    // --- Inline Chips Setup for Form Fields ---
+    function setupSanChips(sanSelect) {
         if (!sanSelect || sanSelect.dataset.wameliEnhanced === 'true') return;
         sanSelect.dataset.wameliEnhanced = 'true';
 
-        const wrapper = document.createElement('div');
-        wrapper.className = 'wameli-chips-wrap';
-        wrapper.id = 'wameli-san-chips';
+        sanSelect.classList.add('wameli-control-narrow');
+        const parentCell = sanSelect.parentElement;
+        if (parentCell) {
+            parentCell.style.display = 'flex';
+            parentCell.style.alignItems = 'center';
+            parentCell.style.flexWrap = 'wrap';
+        }
 
-        // Extract options or fallback
-        const options = Array.from(sanSelect.options)
-            .filter(opt => opt.value && !opt.text.toLowerCase().includes('--sàn--') && !opt.text.toLowerCase().includes('--san--'));
+        const chipsWrap = document.createElement('div');
+        chipsWrap.className = 'wameli-inline-chips';
+        chipsWrap.id = 'wameli-san-chips';
 
-        const fallbackList = ['Shopee', 'TikTok', 'Lazada', 'Tiki', 'Facebook'];
-        const listToRender = options.length > 0 ? options.map(o => ({ value: o.value, text: o.text })) : fallbackList.map(t => ({ value: t, text: t }));
+        const sanList = ['Shopee', 'Tiktok', 'Best', 'Đơn ngoài', 'Viettel', 'Lazada', 'Tiki'];
 
-        listToRender.forEach(item => {
+        sanList.forEach(name => {
             const chip = document.createElement('button');
             chip.type = 'button';
-            chip.className = 'wameli-chip-btn';
-            chip.textContent = item.text;
-            chip.dataset.val = item.value;
-
-            if (sanSelect.value === item.value || (sanSelect.selectedOptions[0] && sanSelect.selectedOptions[0].text.trim() === item.text)) {
-                chip.classList.add('active');
-            }
+            chip.className = 'wameli-chip';
+            chip.textContent = name;
+            chip.dataset.name = name;
 
             chip.addEventListener('click', (e) => {
                 e.preventDefault();
-                // Set select value
-                let matchedOpt = Array.from(sanSelect.options).find(o => o.value === item.value || o.text.trim().toLowerCase() === item.text.toLowerCase());
+                let matchedOpt = Array.from(sanSelect.options).find(o =>
+                    o.text.trim().toLowerCase().includes(name.toLowerCase()) ||
+                    (o.value && o.value.trim().toLowerCase().includes(name.toLowerCase()))
+                );
                 if (matchedOpt) {
                     sanSelect.value = matchedOpt.value;
                 } else {
-                    sanSelect.value = item.value;
+                    sanSelect.value = name;
                 }
                 dispatchChangeEvent(sanSelect);
-                localStorage.setItem('wameli_pref_san', sanSelect.value);
+                localStorage.setItem('wameli_pref_san', name);
 
-                wrapper.querySelectorAll('.wameli-chip-btn').forEach(b => b.classList.remove('active'));
+                chipsWrap.querySelectorAll('.wameli-chip').forEach(c => c.classList.remove('active'));
                 chip.classList.add('active');
             });
 
-            wrapper.appendChild(chip);
+            chipsWrap.appendChild(chip);
         });
 
         sanSelect.addEventListener('change', () => {
-            const currentVal = sanSelect.value;
-            wrapper.querySelectorAll('.wameli-chip-btn').forEach(b => {
-                if (b.dataset.val === currentVal || (sanSelect.selectedOptions[0] && b.textContent.trim() === sanSelect.selectedOptions[0].text.trim())) {
-                    b.classList.add('active');
+            const currentText = sanSelect.selectedOptions[0] ? sanSelect.selectedOptions[0].text.trim().toLowerCase() : '';
+            chipsWrap.querySelectorAll('.wameli-chip').forEach(c => {
+                if (currentText.includes(c.dataset.name.toLowerCase())) {
+                    c.classList.add('active');
                 } else {
-                    b.classList.remove('active');
+                    c.classList.remove('active');
                 }
             });
-            localStorage.setItem('wameli_pref_san', currentVal);
-
-            // Re-render shop suggestions after delay if shops depend on platform
-            setTimeout(() => {
-                const els = findWameliOrderFormElements();
-                if (els.shopSelect) renderShopSuggestions(els.shopSelect);
-            }, 300);
-            setTimeout(() => {
-                const els = findWameliOrderFormElements();
-                if (els.shopSelect) renderShopSuggestions(els.shopSelect);
-            }, 800);
         });
 
-        // Auto restore last preference
+        // Restore preference
         const savedSan = localStorage.getItem('wameli_pref_san');
-        if (savedSan && (!sanSelect.value || sanSelect.value === '0' || sanSelect.value === '')) {
-            const matchedOpt = Array.from(sanSelect.options).find(o => o.value === savedSan);
-            if (matchedOpt) {
-                sanSelect.value = savedSan;
-                dispatchChangeEvent(sanSelect);
-                const activeBtn = wrapper.querySelector(`[data-val="${savedSan}"]`);
-                if (activeBtn) activeBtn.classList.add('active');
+        if (savedSan) {
+            const targetChip = chipsWrap.querySelector(`[data-name="${savedSan}"]`);
+            if (targetChip && (!sanSelect.value || sanSelect.value === '0' || sanSelect.value === '')) {
+                targetChip.click();
             }
         }
 
-        sanSelect.parentNode.insertBefore(wrapper, sanSelect.nextSibling);
+        sanSelect.parentNode.insertBefore(chipsWrap, sanSelect.nextSibling);
     }
 
-    function renderKhoSuggestions(khoSelect) {
+    function setupKhoChips(khoSelect) {
         if (!khoSelect || khoSelect.dataset.wameliEnhanced === 'true') return;
         khoSelect.dataset.wameliEnhanced = 'true';
 
-        const wrapper = document.createElement('div');
-        wrapper.className = 'wameli-chips-wrap';
-        wrapper.id = 'wameli-kho-chips';
+        khoSelect.classList.add('wameli-control-narrow');
+        const parentCell = khoSelect.parentElement;
+        if (parentCell) {
+            parentCell.style.display = 'flex';
+            parentCell.style.alignItems = 'center';
+            parentCell.style.flexWrap = 'wrap';
+        }
 
-        const options = Array.from(khoSelect.options)
-            .filter(opt => opt.value && !opt.text.toLowerCase().includes('--kho--'));
+        const chipsWrap = document.createElement('div');
+        chipsWrap.className = 'wameli-inline-chips';
+        chipsWrap.id = 'wameli-kho-chips';
 
-        const fallbackList = ['Kho Hà Nội', 'Kho Hồ Chí Minh', 'Kho Tổng'];
-        const listToRender = options.length > 0 ? options.map(o => ({ value: o.value, text: o.text })) : fallbackList.map(t => ({ value: t, text: t }));
+        const khoList = ['Kho Hà Nội', 'Kho Hồ Chí Minh'];
 
-        listToRender.forEach(item => {
+        khoList.forEach(name => {
             const chip = document.createElement('button');
             chip.type = 'button';
-            chip.className = 'wameli-chip-btn';
-            chip.textContent = item.text;
-            chip.dataset.val = item.value;
-
-            if (khoSelect.value === item.value || (khoSelect.selectedOptions[0] && khoSelect.selectedOptions[0].text.trim() === item.text)) {
-                chip.classList.add('active-kho');
-            }
+            chip.className = 'wameli-chip';
+            chip.textContent = name;
+            chip.dataset.name = name;
 
             chip.addEventListener('click', (e) => {
                 e.preventDefault();
-                let matchedOpt = Array.from(khoSelect.options).find(o => o.value === item.value || o.text.trim().toLowerCase() === item.text.toLowerCase());
+                let matchedOpt = Array.from(khoSelect.options).find(o =>
+                    o.text.trim().toLowerCase().includes(name.toLowerCase()) ||
+                    (o.value && o.value.trim().toLowerCase().includes(name.toLowerCase()))
+                );
                 if (matchedOpt) {
                     khoSelect.value = matchedOpt.value;
                 } else {
-                    khoSelect.value = item.value;
+                    khoSelect.value = name;
                 }
                 dispatchChangeEvent(khoSelect);
-                localStorage.setItem('wameli_pref_kho', khoSelect.value);
+                localStorage.setItem('wameli_pref_kho', name);
 
-                wrapper.querySelectorAll('.wameli-chip-btn').forEach(b => b.classList.remove('active-kho'));
-                chip.classList.add('active-kho');
+                chipsWrap.querySelectorAll('.wameli-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
             });
 
-            wrapper.appendChild(chip);
+            chipsWrap.appendChild(chip);
         });
 
         khoSelect.addEventListener('change', () => {
-            const currentVal = khoSelect.value;
-            wrapper.querySelectorAll('.wameli-chip-btn').forEach(b => {
-                if (b.dataset.val === currentVal || (khoSelect.selectedOptions[0] && b.textContent.trim() === khoSelect.selectedOptions[0].text.trim())) {
-                    b.classList.add('active-kho');
+            const currentText = khoSelect.selectedOptions[0] ? khoSelect.selectedOptions[0].text.trim().toLowerCase() : '';
+            chipsWrap.querySelectorAll('.wameli-chip').forEach(c => {
+                if (currentText.includes(c.dataset.name.toLowerCase())) {
+                    c.classList.add('active');
                 } else {
-                    b.classList.remove('active-kho');
+                    c.classList.remove('active');
                 }
             });
-            localStorage.setItem('wameli_pref_kho', currentVal);
         });
 
-        // Auto restore last preference
+        // Restore preference
         const savedKho = localStorage.getItem('wameli_pref_kho');
-        if (savedKho && (!khoSelect.value || khoSelect.value === '0' || khoSelect.value === '')) {
-            const matchedOpt = Array.from(khoSelect.options).find(o => o.value === savedKho);
-            if (matchedOpt) {
-                khoSelect.value = savedKho;
-                dispatchChangeEvent(khoSelect);
-                const activeBtn = wrapper.querySelector(`[data-val="${savedKho}"]`);
-                if (activeBtn) activeBtn.classList.add('active-kho');
+        if (savedKho) {
+            const targetChip = chipsWrap.querySelector(`[data-name="${savedKho}"]`);
+            if (targetChip && (!khoSelect.value || khoSelect.value === '0' || khoSelect.value === '')) {
+                targetChip.click();
             }
         }
 
-        khoSelect.parentNode.insertBefore(wrapper, khoSelect.nextSibling);
+        khoSelect.parentNode.insertBefore(chipsWrap, khoSelect.nextSibling);
     }
 
-    function renderShopSuggestions(shopSelect) {
+    function setupShopField(shopSelect) {
         if (!shopSelect) return;
+        // User requested: "shop k cần gợi ý nữa". Shop dropdown spans 100% full width, no chips.
+        shopSelect.style.width = '100%';
+        shopSelect.style.maxWidth = '100%';
+        shopSelect.style.display = 'block';
 
-        let wrapper = document.getElementById('wameli-shop-chips');
-        if (!wrapper) {
-            wrapper = document.createElement('div');
-            wrapper.className = 'wameli-chips-wrap';
-            wrapper.id = 'wameli-shop-chips';
-            shopSelect.parentNode.insertBefore(wrapper, shopSelect.nextSibling);
-        }
-
-        const options = Array.from(shopSelect.options)
-            .filter(opt => opt.value && !opt.text.toLowerCase().includes('--shop--'));
-
-        if (options.length === 0) {
-            wrapper.innerHTML = '<span style="font-size: 10px; color: #94a3b8; font-style: italic;">(Chọn Sàn để hiện danh sách Shop)</span>';
-            return;
-        }
-
-        wrapper.innerHTML = '';
-        options.forEach(opt => {
-            const chip = document.createElement('button');
-            chip.type = 'button';
-            chip.className = 'wameli-chip-btn';
-            chip.textContent = opt.text;
-            chip.dataset.val = opt.value;
-
-            if (shopSelect.value === opt.value) {
-                chip.classList.add('active-shop');
-            }
-
-            chip.addEventListener('click', (e) => {
-                e.preventDefault();
-                shopSelect.value = opt.value;
-                dispatchChangeEvent(shopSelect);
-                localStorage.setItem('wameli_pref_shop', shopSelect.value);
-
-                wrapper.querySelectorAll('.wameli-chip-btn').forEach(b => b.classList.remove('active-shop'));
-                chip.classList.add('active-shop');
-            });
-
-            wrapper.appendChild(chip);
-        });
-
-        shopSelect.addEventListener('change', () => {
-            const currentVal = shopSelect.value;
-            wrapper.querySelectorAll('.wameli-chip-btn').forEach(b => {
-                if (b.dataset.val === currentVal) {
-                    b.classList.add('active-shop');
-                } else {
-                    b.classList.remove('active-shop');
-                }
-            });
-            localStorage.setItem('wameli_pref_shop', currentVal);
-        });
+        const oldChips = document.getElementById('wameli-shop-chips');
+        if (oldChips) oldChips.remove();
     }
 
-    function renderDateSuggestions(ngayInput) {
+    function setupDateChips(ngayInput) {
         if (!ngayInput || ngayInput.dataset.wameliEnhanced === 'true') return;
         ngayInput.dataset.wameliEnhanced = 'true';
 
-        const wrapper = document.createElement('div');
-        wrapper.className = 'wameli-chips-wrap';
-        wrapper.id = 'wameli-date-chips';
+        ngayInput.classList.add('wameli-control-narrow');
+        const parentCell = ngayInput.parentElement;
+        if (parentCell) {
+            parentCell.style.display = 'flex';
+            parentCell.style.alignItems = 'center';
+            parentCell.style.flexWrap = 'wrap';
+        }
+
+        const chipsWrap = document.createElement('div');
+        chipsWrap.className = 'wameli-inline-chips';
+        chipsWrap.id = 'wameli-date-chips';
 
         const now = new Date();
         const todayStr = formatWameliDate(now);
         const yesterdayStr = formatWameliDate(new Date(Date.now() - 86400000));
         const tomorrowStr = formatWameliDate(new Date(Date.now() + 86400000));
 
+        // Default value if empty
+        if (!ngayInput.value.trim()) {
+            ngayInput.value = todayStr;
+        }
+
         const dateConfigs = [
-            { label: `📅 Hôm nay (${todayStr})`, value: todayStr, title: 'Chọn ngày hôm nay' },
-            { label: `⏪ Hôm qua (${yesterdayStr})`, value: yesterdayStr, title: 'Chọn ngày hôm qua' },
-            { label: `⏩ Ngày mai (${tomorrowStr})`, value: tomorrowStr, title: 'Chọn ngày mai' }
+            { label: 'Hôm nay', val: todayStr },
+            { label: 'Hôm qua', val: yesterdayStr },
+            { label: 'Ngày mai', val: tomorrowStr }
         ];
 
         dateConfigs.forEach(cfg => {
             const chip = document.createElement('button');
             chip.type = 'button';
-            chip.className = 'wameli-chip-btn';
+            chip.className = 'wameli-chip';
             chip.textContent = cfg.label;
-            chip.dataset.val = cfg.value;
-            chip.title = cfg.title;
+            chip.dataset.val = cfg.val;
 
-            if (ngayInput.value.trim() === cfg.value) {
-                chip.classList.add('active-date');
+            if (ngayInput.value.trim() === cfg.val) {
+                chip.classList.add('active');
             }
 
             chip.addEventListener('click', (e) => {
                 e.preventDefault();
-                ngayInput.value = cfg.value;
+                ngayInput.value = cfg.val;
                 dispatchChangeEvent(ngayInput);
 
-                wrapper.querySelectorAll('.wameli-chip-btn').forEach(b => b.classList.remove('active-date'));
-                chip.classList.add('active-date');
+                chipsWrap.querySelectorAll('.wameli-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
             });
 
-            wrapper.appendChild(chip);
+            chipsWrap.appendChild(chip);
         });
 
         ngayInput.addEventListener('input', () => {
-            const val = ngayInput.value.trim();
-            wrapper.querySelectorAll('.wameli-chip-btn').forEach(b => {
-                if (b.dataset.val === val) {
-                    b.classList.add('active-date');
+            const curVal = ngayInput.value.trim();
+            chipsWrap.querySelectorAll('.wameli-chip').forEach(c => {
+                if (c.dataset.val === curVal) {
+                    c.classList.add('active');
                 } else {
-                    b.classList.remove('active-date');
+                    c.classList.remove('active');
                 }
             });
         });
 
-        ngayInput.parentNode.insertBefore(wrapper, ngayInput.nextSibling);
+        ngayInput.parentNode.insertBefore(chipsWrap, ngayInput.nextSibling);
     }
 
-    function renderHourSuggestions(gioSelect) {
+    function setupHourChips(gioSelect) {
         if (!gioSelect || gioSelect.dataset.wameliEnhanced === 'true') return;
         gioSelect.dataset.wameliEnhanced = 'true';
 
-        const wrapper = document.createElement('div');
-        wrapper.className = 'wameli-chips-wrap';
-        wrapper.id = 'wameli-hour-chips';
+        gioSelect.classList.add('wameli-control-narrow');
+        const parentCell = gioSelect.parentElement;
+        if (parentCell) {
+            parentCell.style.display = 'flex';
+            parentCell.style.alignItems = 'center';
+            parentCell.style.flexWrap = 'wrap';
+        }
 
-        const currentHour = new Date().getHours();
-        const currentHourStr = String(currentHour).padStart(2, '0');
+        const chipsWrap = document.createElement('div');
+        chipsWrap.className = 'wameli-inline-chips';
+        chipsWrap.id = 'wameli-hour-chips';
 
-        // Button: Giờ hiện tại
-        const nowChip = document.createElement('button');
-        nowChip.type = 'button';
-        nowChip.className = 'wameli-chip-btn';
-        nowChip.style.background = '#ffedd5';
-        nowChip.style.borderColor = '#fdba74';
-        nowChip.style.color = '#c2410c';
-        nowChip.innerHTML = `⏰ <b>Giờ hiện tại (${currentHour}h)</b>`;
-        nowChip.title = `Chọn giờ hiện tại (${currentHour}:00)`;
+        const hourList = ['0H', '8H', '9H', '10H', '11H', '13H', '14H', '15H', '16H', '23H'];
 
-        nowChip.addEventListener('click', (e) => {
-            e.preventDefault();
-            // Match in gioSelect options
-            let matched = Array.from(gioSelect.options).find(o => {
-                const txt = o.text.trim().toLowerCase();
-                const val = o.value.trim().toLowerCase();
-                return val === String(currentHour) ||
-                    txt.includes(`${currentHour}h`) ||
-                    txt.includes(`${currentHourStr}:`) ||
-                    val.includes(`${currentHourStr}:`);
-            });
-            if (matched) {
-                gioSelect.value = matched.value;
-                dispatchChangeEvent(gioSelect);
-                wrapper.querySelectorAll('.wameli-chip-btn').forEach(b => b.classList.remove('active-hour'));
-                nowChip.classList.add('active-hour');
-            } else if (gioSelect.options.length > 1) {
-                // If index matches approximately
-                gioSelect.selectedIndex = Math.min(currentHour + 1, gioSelect.options.length - 1);
-                dispatchChangeEvent(gioSelect);
-                nowChip.classList.add('active-hour');
+        hourList.forEach((hText, idx) => {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'wameli-chip';
+            chip.textContent = hText;
+            chip.dataset.hour = hText;
+
+            // In mockup, 0H is active by default
+            if (idx === 0) {
+                chip.classList.add('active');
             }
-        });
-        wrapper.appendChild(nowChip);
 
-        // Render chips for options in select if available, or common hour milestones
-        const validOptions = Array.from(gioSelect.options)
-            .filter(opt => opt.value && !opt.text.toLowerCase().includes('--giờ--') && !opt.text.toLowerCase().includes('--gio--'));
+            chip.addEventListener('click', (e) => {
+                e.preventDefault();
+                const num = parseInt(hText.replace('H', ''), 10);
+                const numPad = String(num).padStart(2, '0');
 
-        if (validOptions.length > 0) {
-            validOptions.forEach(opt => {
-                const chip = document.createElement('button');
-                chip.type = 'button';
-                chip.className = 'wameli-chip-btn';
-                chip.textContent = opt.text;
-                chip.dataset.val = opt.value;
+                let matchedOpt = Array.from(gioSelect.options).find(o => {
+                    const txt = o.text.trim().toLowerCase();
+                    const val = o.value.trim().toLowerCase();
+                    return val === String(num) ||
+                        txt.includes(`${num}h`) ||
+                        txt.includes(`${numPad}:`) ||
+                        val.includes(`${numPad}:`);
+                });
 
-                if (gioSelect.value === opt.value) {
-                    chip.classList.add('active-hour');
+                if (matchedOpt) {
+                    gioSelect.value = matchedOpt.value;
+                } else if (gioSelect.options.length > num + 1) {
+                    gioSelect.selectedIndex = num + 1;
+                } else {
+                    gioSelect.value = String(num);
                 }
 
-                chip.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    gioSelect.value = opt.value;
-                    dispatchChangeEvent(gioSelect);
+                dispatchChangeEvent(gioSelect);
 
-                    wrapper.querySelectorAll('.wameli-chip-btn').forEach(b => b.classList.remove('active-hour'));
-                    chip.classList.add('active-hour');
-                });
-
-                wrapper.appendChild(chip);
+                chipsWrap.querySelectorAll('.wameli-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
             });
-        } else {
-            // Milestone hours fallback: 8h, 9h, 10h, 11h, 12h, 14h, 16h, 18h, 20h, 22h
-            const milestones = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22];
-            milestones.forEach(h => {
-                const chip = document.createElement('button');
-                chip.type = 'button';
-                chip.className = 'wameli-chip-btn';
-                chip.textContent = `${h}h`;
-                chip.dataset.val = String(h);
 
-                chip.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    gioSelect.value = String(h);
-                    dispatchChangeEvent(gioSelect);
-
-                    wrapper.querySelectorAll('.wameli-chip-btn').forEach(b => b.classList.remove('active-hour'));
-                    chip.classList.add('active-hour');
-                });
-                wrapper.appendChild(chip);
-            });
-        }
+            chipsWrap.appendChild(chip);
+        });
 
         gioSelect.addEventListener('change', () => {
             const currentVal = gioSelect.value;
-            wrapper.querySelectorAll('.wameli-chip-btn').forEach(b => {
-                if (b.dataset.val === currentVal) {
-                    b.classList.add('active-hour');
+            const currentText = gioSelect.selectedOptions[0] ? gioSelect.selectedOptions[0].text.trim().toLowerCase() : '';
+
+            chipsWrap.querySelectorAll('.wameli-chip').forEach(c => {
+                const num = c.dataset.hour.replace('H', '');
+                if (currentVal === num || currentText.includes(`${num}h`) || currentText.startsWith(`${num}:`)) {
+                    c.classList.add('active');
                 } else {
-                    b.classList.remove('active-hour');
+                    c.classList.remove('active');
                 }
             });
         });
 
-        gioSelect.parentNode.insertBefore(wrapper, gioSelect.nextSibling);
+        gioSelect.parentNode.insertBefore(chipsWrap, gioSelect.nextSibling);
     }
 
-    // --- Folder Reader & File Manager Component ---
+    function setupFileNameField(fileNameInput) {
+        if (!fileNameInput) return;
+        fileNameInput.style.width = '100%';
+        fileNameInput.style.maxWidth = '100%';
+        fileNameInput.style.display = 'block';
+    }
+
+    // --- Right Column: File Manager Panel ---
     let scannedFolderState = {
-        folderName: '',
-        pdfFiles: [],
-        excelFiles: [],
-        selectedExcelIndex: 0
+        folderName: 'tải xuống 2',
+        files: [], // Array of { id, file, name, date, isPdf, isExcel, isMock }
+        selectedIds: new Set()
     };
 
-    function renderFolderManagerBox(container, formElements) {
-        if (!container || document.getElementById('wameli-folder-manager-box')) return;
+    function generateMockFiles() {
+        const today = new Date();
+        const yesterday = new Date(Date.now() - 86400000);
 
-        const box = document.createElement('div');
-        box.id = 'wameli-folder-manager-box';
-        box.className = 'wameli-folder-box';
+        function createTime(baseDate, h, m) {
+            const d = new Date(baseDate);
+            d.setHours(h, m, 0, 0);
+            return d;
+        }
 
-        box.innerHTML = `
-            <div class="wameli-folder-header">
-                <div class="wameli-folder-title">
-                    <span>📁</span> QUẢN LÝ THƯ MỤC ĐƠN HÀNG (Tự Động Nạp PDF & Excel)
-                    <span style="font-size: 10px; background: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 4px; font-weight: bold;">Mới ⚡</span>
+        const mockList = [
+            // Group Today (5 files)
+            { name: 'mass_update_sales_info_808.xlsx', date: createTime(today, 9, 37) },
+            { name: '0610-gdd-0931-1.xlsx', date: createTime(today, 9, 33) },
+            { name: '0610-gdd-0931-1.pdf', date: createTime(today, 9, 31) },
+            { name: '0610-bce-0809-1.xlsx', date: createTime(today, 8, 9) },
+            { name: '0610-bce-0809-1.pdf', date: createTime(today, 8, 9) },
+
+            // Group Yesterday (7 files)
+            { name: 'Mau_Nhap_San_Pham_SoSanh_2026.xlsx', date: createTime(yesterday, 23, 42) },
+            { name: '0510-gdd-0808-1.xlsx', date: createTime(yesterday, 8, 8) },
+            { name: '0510-gdd-0807-3.pdf', date: createTime(yesterday, 8, 8) },
+            { name: '0510-gdd-0807-2.pdf', date: createTime(yesterday, 8, 7) },
+            { name: '0510-gdd-0807-1.pdf', date: createTime(yesterday, 8, 7) },
+            { name: '0510-joy-0804-1.xlsx', date: createTime(yesterday, 8, 4) },
+            { name: '0510-joy-0804-1.pdf', date: createTime(yesterday, 8, 4) }
+        ];
+
+        return mockList.map((item, idx) => {
+            const isPdf = item.name.toLowerCase().endsWith('.pdf');
+            const isExcel = !isPdf;
+            const mime = isPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            const mockBlob = new Blob(['mock content ' + item.name], { type: mime });
+            const mockFile = new File([mockBlob], item.name, { type: mime, lastModified: item.date.getTime() });
+
+            return {
+                id: 'mock_' + idx,
+                file: mockFile,
+                name: item.name,
+                date: item.date,
+                isPdf,
+                isExcel,
+                isMock: true
+            };
+        });
+    }
+
+    function renderFileManagerPanel(rightCol) {
+        if (!rightCol) return;
+        if (document.getElementById('wameli-file-panel-root')) return;
+
+        // Init with default sample files from screenshot if none loaded
+        if (scannedFolderState.files.length === 0) {
+            scannedFolderState.files = generateMockFiles();
+        }
+
+        const panel = document.createElement('div');
+        panel.id = 'wameli-file-panel-root';
+        panel.className = 'wameli-panel-card';
+
+        panel.innerHTML = `
+            <!-- Panel Header -->
+            <div class="wameli-panel-header">
+                <div class="wameli-panel-title">
+                    <span style="font-size: 15px;">📁</span>
+                    <span>Thư mục file</span>
                 </div>
-                <div style="display: flex; gap: 6px; align-items: center;">
-                    <button type="button" id="wameli-btn-clear-folder" class="wameli-btn-action wameli-btn-ghost" style="display: none;" title="Xóa danh sách file hiện tại">🗑️ Xóa danh sách</button>
-                    <button type="button" id="wameli-btn-toggle-box" class="wameli-btn-action wameli-btn-ghost">Thu gọn ▲</button>
+                <input type="text" id="wameli-folder-name-input" value="${scannedFolderState.folderName}" class="wameli-folder-name-input" title="Tên thư mục" />
+                <div class="wameli-header-actions">
+                    <input type="file" id="wameli-native-folder-input" webkitdirectory directory multiple style="display: none;" />
+                    <input type="file" id="wameli-native-files-input" multiple style="display: none;" />
+                    <button type="button" id="wameli-btn-select-folder" class="wameli-btn-blue" title="Chọn thư mục từ máy">
+                        📁 Chọn
+                    </button>
+                    <button type="button" id="wameli-btn-reload-folder" class="wameli-btn-blue" title="Tải lại thư mục">
+                        🔄 Tải lại
+                    </button>
+                    <button type="button" id="wameli-btn-collapse-panel" class="wameli-btn-toggle" title="Thu gọn / Mở rộng">
+                        ▲
+                    </button>
                 </div>
             </div>
 
-            <div id="wameli-folder-body">
-                <!-- Dropzone Area -->
-                <div id="wameli-folder-dropzone" class="wameli-dropzone">
-                    <input type="file" id="wameli-folder-input" webkitdirectory directory multiple style="display: none;">
-                    <div style="font-size: 26px;">📂</div>
-                    <div style="font-size: 13px; font-weight: 700; color: #1e40af;">
-                        Kéo thả thư mục vào đây hoặc Click để chọn thư mục
+            <div id="wameli-panel-body-wrapper">
+                <!-- Status Bar -->
+                <div class="wameli-status-bar">
+                    <div id="wameli-selection-count-text" class="wameli-status-text">
+                        Đã chọn: 0 file (0 PDF, 0 Excel)
                     </div>
-                    <div style="font-size: 11px; color: #64748b;">
-                        Tự động quét & phân loại danh sách <b>Hóa đơn PDF (.pdf)</b> và <b>Đơn hàng Excel (.xlsx, .xls, .csv)</b>
-                    </div>
-                    <button type="button" id="wameli-btn-pick-folder" class="wameli-btn-action wameli-btn-primary" style="margin-top: 4px; padding: 6px 14px; font-size: 12px;">
-                        📁 Chọn Thư Mục Chứa Đơn Hàng
-                    </button>
-                </div>
-
-                <!-- Summary Status Banner (hidden by default) -->
-                <div id="wameli-summary-banner" class="wameli-summary-banner" style="display: none;">
-                    <div>
-                        <b>Thư mục:</b> <span id="wameli-summary-folder-name" style="font-weight: 700; color: #1e40af;">...</span>
-                        | <span style="color: #dc2626; font-weight: bold;">📄 <span id="wameli-summary-pdf-count">0</span> PDF</span>
-                        | <span style="color: #16a34a; font-weight: bold;">📊 <span id="wameli-summary-excel-count">0</span> Excel</span>
-                    </div>
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                        <button type="button" id="wameli-btn-reapply-form" class="wameli-btn-action wameli-btn-success" title="Nạp lại các file này vào ô Hóa đơn PDF và Đơn hàng Excel">
-                            ⚡ Nạp lại vào Form
+                    <div class="wameli-status-actions">
+                        <button type="button" id="wameli-btn-load-selected-pdf" class="wameli-btn-sub-action">
+                            ⚡ Nạp file PDF vào Form
+                        </button>
+                        <button type="button" id="wameli-btn-deselect-all" class="wameli-btn-sub-action">
+                            Bỏ chọn
                         </button>
                     </div>
                 </div>
 
-                <!-- Classified Files List (2 Columns) -->
-                <div id="wameli-files-container" class="wameli-files-container" style="display: none;">
-                    <!-- Column 1: PDF Files -->
-                    <div class="wameli-file-panel">
-                        <div class="wameli-file-panel-header" style="color: #b91c1c;">
-                            <span>📄 HÓA ĐƠN PDF (<span id="wameli-badge-pdf-count">0</span>)</span>
-                            <span style="font-size: 10px; color: #64748b;">Tự động nạp ô "Hóa đơn PDF"</span>
-                        </div>
-                        <div id="wameli-pdf-file-list" class="wameli-file-list">
-                            <div style="padding: 10px; text-align: center; color: #94a3b8; font-size: 11px;">Chưa có file PDF nào</div>
-                        </div>
-                    </div>
+                <!-- Column Headers -->
+                <div class="wameli-col-headers">
+                    <div class="wameli-col-title-left">Tên</div>
+                    <div class="wameli-col-title-right">Ngày sửa đổi</div>
+                </div>
 
-                    <!-- Column 2: Excel Files -->
-                    <div class="wameli-file-panel">
-                        <div class="wameli-file-panel-header" style="color: #15803d;">
-                            <span>📊 ĐƠN HÀNG EXCEL (<span id="wameli-badge-excel-count">0</span>)</span>
-                            <span style="font-size: 10px; color: #64748b;">Tự động nạp ô "Đơn hàng Excel"</span>
-                        </div>
-                        <div id="wameli-excel-file-list" class="wameli-file-list">
-                            <div style="padding: 10px; text-align: center; color: #94a3b8; font-size: 11px;">Chưa có file Excel nào</div>
-                        </div>
-                    </div>
+                <!-- Date Groups Container -->
+                <div id="wameli-groups-container" class="wameli-groups-container">
+                    <!-- Groups rendered dynamically -->
                 </div>
             </div>
         `;
 
-        // Insert before row "Hóa đơn PDF" or at top of form
-        if (formElements.pdfFileInput) {
-            const pdfRow = formElements.pdfFileInput.closest('tr, .form-group, .row');
-            if (pdfRow && pdfRow.tagName === 'TR' && pdfRow.parentElement) {
-                const tr = document.createElement('tr');
-                tr.id = 'wameli-folder-tr';
-                const td = document.createElement('td');
-                td.colSpan = 10;
-                td.style.padding = '8px 0';
-                td.appendChild(box);
-                tr.appendChild(td);
-                pdfRow.parentElement.insertBefore(tr, pdfRow);
-            } else if (pdfRow && pdfRow.parentElement) {
-                pdfRow.parentElement.insertBefore(box, pdfRow);
-            } else if (container) {
-                container.prepend(box);
-            }
-        } else if (container) {
-            container.prepend(box);
-        }
+        rightCol.appendChild(panel);
 
-        // --- Event Handlers ---
-        const dropzone = box.querySelector('#wameli-folder-dropzone');
-        const folderInput = box.querySelector('#wameli-folder-input');
-        const pickFolderBtn = box.querySelector('#wameli-btn-pick-folder');
-        const toggleBoxBtn = box.querySelector('#wameli-btn-toggle-box');
-        const clearFolderBtn = box.querySelector('#wameli-btn-clear-folder');
-        const reapplyBtn = box.querySelector('#wameli-btn-reapply-form');
-        const folderBody = box.querySelector('#wameli-folder-body');
+        // Bind panel controls
+        const folderNameInput = panel.querySelector('#wameli-folder-name-input');
+        const folderPicker = panel.querySelector('#wameli-native-folder-input');
+        const filePicker = panel.querySelector('#wameli-native-files-input');
+        const selectBtn = panel.querySelector('#wameli-btn-select-folder');
+        const reloadBtn = panel.querySelector('#wameli-btn-reload-folder');
+        const toggleBtn = panel.querySelector('#wameli-btn-collapse-panel');
+        const bodyWrapper = panel.querySelector('#wameli-panel-body-wrapper');
+        const deselectBtn = panel.querySelector('#wameli-btn-deselect-all');
+        const loadPdfBtn = panel.querySelector('#wameli-btn-load-selected-pdf');
 
-        // Toggle Box Collapse
-        toggleBoxBtn.addEventListener('click', () => {
-            if (folderBody.style.display === 'none') {
-                folderBody.style.display = 'block';
-                toggleBoxBtn.textContent = 'Thu gọn ▲';
+        // Toggle collapse
+        toggleBtn.addEventListener('click', () => {
+            if (bodyWrapper.style.display === 'none') {
+                bodyWrapper.style.display = 'block';
+                toggleBtn.textContent = '▲';
             } else {
-                folderBody.style.display = 'none';
-                toggleBoxBtn.textContent = 'Mở rộng ▼';
+                bodyWrapper.style.display = 'none';
+                toggleBtn.textContent = '▼';
             }
         });
 
-        // Trigger Picker
-        pickFolderBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            folderInput.click();
-        });
-        dropzone.addEventListener('click', () => {
-            folderInput.click();
+        // Trigger Folder Picker
+        selectBtn.addEventListener('click', () => {
+            folderPicker.click();
         });
 
-        // Folder input change
-        folderInput.addEventListener('change', async (e) => {
-            const files = Array.from(e.target.files || []);
-            if (files.length === 0) return;
-            const folderName = files[0]?.webkitRelativePath ? files[0].webkitRelativePath.split('/')[0] : 'Thư mục đã chọn';
-            await processUploadedFiles(files, folderName);
+        // Reload Folder
+        reloadBtn.addEventListener('click', () => {
+            folderPicker.click();
         });
 
-        // Drag & Drop
-        dropzone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropzone.classList.add('dragover');
+        // Folder selected
+        folderPicker.addEventListener('change', async (e) => {
+            const rawFiles = Array.from(e.target.files || []);
+            if (rawFiles.length === 0) return;
+            const dirName = rawFiles[0]?.webkitRelativePath ? rawFiles[0].webkitRelativePath.split('/')[0] : 'Thư mục';
+            scannedFolderState.folderName = dirName;
+            folderNameInput.value = dirName;
+            await processRawFiles(rawFiles);
         });
-        dropzone.addEventListener('dragleave', (e) => {
+
+        // Drag & Drop onto panel
+        panel.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            dropzone.classList.remove('dragover');
+            panel.style.boxShadow = '0 0 0 2px #0284c7';
         });
-        dropzone.addEventListener('drop', async (e) => {
+        panel.addEventListener('dragleave', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            dropzone.classList.remove('dragover');
+            panel.style.boxShadow = '';
+        });
+        panel.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            panel.style.boxShadow = '';
 
             const items = e.dataTransfer.items;
             if (items && items.length > 0) {
                 const files = await scanDataTransferItems(items);
-                let folderName = 'Thư mục kéo thả';
                 if (items[0].webkitGetAsEntry && items[0].webkitGetAsEntry()?.isDirectory) {
-                    folderName = items[0].webkitGetAsEntry().name;
+                    const name = items[0].webkitGetAsEntry().name;
+                    scannedFolderState.folderName = name;
+                    folderNameInput.value = name;
                 }
-                await processUploadedFiles(files, folderName);
+                await processRawFiles(files);
             } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                const files = Array.from(e.dataTransfer.files);
-                await processUploadedFiles(files, 'File kéo thả');
+                await processRawFiles(Array.from(e.dataTransfer.files));
             }
         });
 
-        // Reapply to form
-        reapplyBtn.addEventListener('click', () => {
-            applyFilesToWameliForm();
+        // Deselect all
+        deselectBtn.addEventListener('click', () => {
+            scannedFolderState.selectedIds.clear();
+            renderGroupsList();
+            updateStatusBar();
         });
 
-        // Clear folder
-        clearFolderBtn.addEventListener('click', () => {
-            scannedFolderState = {
-                folderName: '',
-                pdfFiles: [],
-                excelFiles: [],
-                selectedExcelIndex: 0
-            };
-            box.querySelector('#wameli-summary-banner').style.display = 'none';
-            box.querySelector('#wameli-files-container').style.display = 'none';
-            clearFolderBtn.style.display = 'none';
-            folderInput.value = '';
+        // Load selected PDF into form
+        loadPdfBtn.addEventListener('click', () => {
+            const selectedFiles = scannedFolderState.files.filter(f => scannedFolderState.selectedIds.has(f.id));
+            let pdfsToLoad = selectedFiles.filter(f => f.isPdf);
+            if (pdfsToLoad.length === 0) {
+                // If none selected, take all PDFs from top group or entire list
+                pdfsToLoad = scannedFolderState.files.filter(f => f.isPdf);
+            }
+
+            if (pdfsToLoad.length === 0) {
+                showWameliToast('Không có file PDF nào để nạp!', false);
+                return;
+            }
+
+            const formEls = findWameliOrderFormElements();
+            if (formEls.pdfFileInput) {
+                applyFilesToInput(formEls.pdfFileInput, pdfsToLoad.map(item => item.file));
+                showWameliToast(`Đã nạp ${pdfsToLoad.length} file PDF vào Hóa đơn PDF!`);
+            } else {
+                showWameliToast('Không tìm thấy ô upload Hóa đơn PDF trên form!', false);
+            }
         });
+
+        renderGroupsList();
+        updateStatusBar();
     }
 
     async function scanDataTransferItems(items) {
         const allFiles = [];
-
         async function readEntry(entry) {
             if (!entry) return;
             if (entry.isFile) {
                 return new Promise(resolve => {
-                    entry.file(file => {
-                        allFiles.push(file);
+                    entry.file(f => {
+                        allFiles.push(f);
                         resolve();
                     }, () => resolve());
                 });
             } else if (entry.isDirectory) {
                 const dirReader = entry.createReader();
-                const readAllEntries = async () => {
+                const readAll = async () => {
                     return new Promise(resolve => {
                         dirReader.readEntries(async (entries) => {
                             if (entries.length === 0) {
@@ -1118,13 +1318,13 @@
                                 for (const sub of entries) {
                                     await readEntry(sub);
                                 }
-                                await readAllEntries();
+                                await readAll();
                                 resolve();
                             }
                         }, () => resolve());
                     });
                 };
-                await readAllEntries();
+                await readAll();
             }
         }
 
@@ -1138,214 +1338,325 @@
                 if (f) allFiles.push(f);
             }
         }
-
         return allFiles;
     }
 
-    async function processUploadedFiles(files, folderName) {
-        const pdfFiles = [];
-        const excelFiles = [];
+    async function processRawFiles(files) {
+        const validItems = [];
+        files.forEach((f, idx) => {
+            const name = f.name;
+            const lower = name.toLowerCase();
+            const isPdf = lower.endsWith('.pdf');
+            const isExcel = lower.endsWith('.xlsx') || lower.endsWith('.xls') || lower.endsWith('.csv');
 
-        files.forEach(f => {
-            const name = f.name.toLowerCase();
-            if (name.endsWith('.pdf')) {
-                pdfFiles.push(f);
-            } else if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')) {
-                excelFiles.push(f);
+            if (isPdf || isExcel) {
+                validItems.push({
+                    id: 'real_' + Date.now() + '_' + idx,
+                    file: f,
+                    name: f.name,
+                    date: new Date(f.lastModified || Date.now()),
+                    isPdf,
+                    isExcel,
+                    isMock: false
+                });
             }
         });
 
-        // Natural sort by filename
-        pdfFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-        excelFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-
-        scannedFolderState.folderName = folderName;
-        scannedFolderState.pdfFiles = pdfFiles;
-        scannedFolderState.excelFiles = excelFiles;
-        scannedFolderState.selectedExcelIndex = 0;
-
-        renderScannedFilesUI();
-        applyFilesToWameliForm();
-    }
-
-    function renderScannedFilesUI() {
-        const box = document.getElementById('wameli-folder-manager-box');
-        if (!box) return;
-
-        const summaryBanner = box.querySelector('#wameli-summary-banner');
-        const filesContainer = box.querySelector('#wameli-files-container');
-        const clearFolderBtn = box.querySelector('#wameli-btn-clear-folder');
-
-        summaryBanner.style.display = 'flex';
-        filesContainer.style.display = 'grid';
-        clearFolderBtn.style.display = 'inline-flex';
-
-        box.querySelector('#wameli-summary-folder-name').textContent = scannedFolderState.folderName || 'Thư mục';
-        box.querySelector('#wameli-summary-pdf-count').textContent = scannedFolderState.pdfFiles.length;
-        box.querySelector('#wameli-summary-excel-count').textContent = scannedFolderState.excelFiles.length;
-        box.querySelector('#wameli-badge-pdf-count').textContent = scannedFolderState.pdfFiles.length;
-        box.querySelector('#wameli-badge-excel-count').textContent = scannedFolderState.excelFiles.length;
-
-        // Render PDF list
-        const pdfListEl = box.querySelector('#wameli-pdf-file-list');
-        pdfListEl.innerHTML = '';
-        if (scannedFolderState.pdfFiles.length === 0) {
-            pdfListEl.innerHTML = '<div style="padding: 10px; text-align: center; color: #94a3b8; font-size: 11px;">Không tìm thấy file .pdf nào trong thư mục</div>';
+        if (validItems.length > 0) {
+            scannedFolderState.files = validItems;
+            scannedFolderState.selectedIds.clear();
+            renderGroupsList();
+            updateStatusBar();
+            showWameliToast(`Đã nạp ${validItems.length} file từ thư mục!`);
         } else {
-            scannedFolderState.pdfFiles.forEach((file, idx) => {
-                const itemEl = document.createElement('div');
-                itemEl.className = 'wameli-file-item';
-                itemEl.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 4px; overflow: hidden; width: 85%;">
-                        <span style="color: #dc2626; font-size: 12px;">📄</span>
-                        <span class="wameli-file-name" title="${file.name}">${file.name}</span>
-                        <span class="wameli-file-size">(${formatFileSize(file.size)})</span>
-                    </div>
-                    <div style="display: flex; gap: 4px; align-items: center;">
-                        <button type="button" class="wameli-btn-action wameli-btn-ghost btn-preview-pdf" style="padding: 1px 5px; font-size: 10px;" title="Xem trước PDF">👁️</button>
-                        <button type="button" class="wameli-btn-action wameli-btn-ghost btn-remove-pdf" style="padding: 1px 5px; font-size: 10px; color: #dc2626;" title="Gỡ file này">✕</button>
-                    </div>
-                `;
-
-                // Preview PDF
-                itemEl.querySelector('.btn-preview-pdf').addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const url = URL.createObjectURL(file);
-                    window.open(url, '_blank');
-                });
-
-                // Remove PDF from list
-                itemEl.querySelector('.btn-remove-pdf').addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    scannedFolderState.pdfFiles.splice(idx, 1);
-                    renderScannedFilesUI();
-                    applyFilesToWameliForm();
-                });
-
-                pdfListEl.appendChild(itemEl);
-            });
-        }
-
-        // Render Excel list
-        const excelListEl = box.querySelector('#wameli-excel-file-list');
-        excelListEl.innerHTML = '';
-        if (scannedFolderState.excelFiles.length === 0) {
-            excelListEl.innerHTML = '<div style="padding: 10px; text-align: center; color: #94a3b8; font-size: 11px;">Không tìm thấy file .xlsx, .xls, .csv nào</div>';
-        } else {
-            scannedFolderState.excelFiles.forEach((file, idx) => {
-                const itemEl = document.createElement('div');
-                itemEl.className = 'wameli-file-item';
-                const isSelected = (idx === scannedFolderState.selectedExcelIndex);
-                if (isSelected) {
-                    itemEl.style.borderColor = '#16a34a';
-                    itemEl.style.background = '#f0fdf4';
-                }
-
-                itemEl.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; width: 85%;">
-                        <input type="radio" name="wameli-excel-radio" ${isSelected ? 'checked' : ''} style="cursor: pointer;">
-                        <span style="color: #16a34a; font-size: 12px;">📊</span>
-                        <span class="wameli-file-name" title="${file.name}"><b>${file.name}</b></span>
-                        <span class="wameli-file-size">(${formatFileSize(file.size)})</span>
-                    </div>
-                    <button type="button" class="wameli-btn-action wameli-btn-ghost btn-copy-excel-name" style="padding: 1px 6px; font-size: 10px;" title="Copy tên file">📋</button>
-                `;
-
-                // Change selected excel file
-                const radio = itemEl.querySelector('input[type="radio"]');
-                itemEl.addEventListener('click', () => {
-                    scannedFolderState.selectedExcelIndex = idx;
-                    renderScannedFilesUI();
-                    applyFilesToWameliForm();
-                });
-
-                // Copy excel name
-                itemEl.querySelector('.btn-copy-excel-name').addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const baseName = file.name.replace(/\.[^/.]+$/, '');
-                    navigator.clipboard.writeText(baseName);
-                });
-
-                excelListEl.appendChild(itemEl);
-            });
+            showWameliToast('Không tìm thấy file PDF hoặc Excel trong thư mục!', false);
         }
     }
 
-    function applyFilesToWameliForm() {
-        const formElements = findWameliOrderFormElements();
-        const { pdfFileInput, excelFileInput, fileNameInput } = formElements;
+    function renderGroupsList() {
+        const container = document.getElementById('wameli-groups-container');
+        if (!container) return;
 
-        // 1. Assign PDF files
-        if (pdfFileInput && scannedFolderState.pdfFiles.length > 0) {
-            try {
-                const dtPdf = new DataTransfer();
-                scannedFolderState.pdfFiles.forEach(f => dtPdf.items.add(f));
-                pdfFileInput.files = dtPdf.files;
-                dispatchChangeEvent(pdfFileInput);
+        container.innerHTML = '';
 
-                // Update sibling / text label if any
-                const parentRow = pdfFileInput.closest('tr, .form-group, .row, div') || pdfFileInput.parentElement;
-                const statusSpan = parentRow.querySelector('.file-name, .custom-file-label, span');
-                if (statusSpan && statusSpan.textContent.includes('Không có tệp')) {
-                    statusSpan.textContent = `Đã chọn ${scannedFolderState.pdfFiles.length} file PDF`;
-                }
-            } catch (err) {
-                console.warn('[Wameli Helper] Error assigning PDF files:', err);
+        if (scannedFolderState.files.length === 0) {
+            container.innerHTML = '<div style="padding: 20px; text-align: center; color: #94a3b8; font-size: 12px;">Chưa có file nào trong thư mục</div>';
+            return;
+        }
+
+        // Group files by date
+        const todayKey = getDateKey(new Date());
+        const yesterdayKey = getDateKey(new Date(Date.now() - 86400000));
+
+        const groupsMap = new Map(); // dateKey -> array of files
+        scannedFolderState.files.forEach(item => {
+            const key = getDateKey(item.date);
+            if (!groupsMap.has(key)) {
+                groupsMap.set(key, []);
             }
-        }
+            groupsMap.get(key).push(item);
+        });
 
-        // 2. Assign Excel file
-        if (excelFileInput && scannedFolderState.excelFiles.length > 0) {
-            try {
-                const selectedExcel = scannedFolderState.excelFiles[scannedFolderState.selectedExcelIndex] || scannedFolderState.excelFiles[0];
-                if (selectedExcel) {
-                    const dtExcel = new DataTransfer();
-                    dtExcel.items.add(selectedExcel);
-                    excelFileInput.files = dtExcel.files;
-                    dispatchChangeEvent(excelFileInput);
+        // Sort groups (newest date first)
+        const sortedDateKeys = Array.from(groupsMap.keys()).sort((a, b) => {
+            const [da, ma, ya] = a.split('/').map(Number);
+            const [db, mb, yb] = b.split('/').map(Number);
+            return new Date(yb, mb - 1, db) - new Date(ya, ma - 1, da);
+        });
 
-                    const parentRow = excelFileInput.closest('tr, .form-group, .row, div') || excelFileInput.parentElement;
-                    const statusSpan = parentRow.querySelector('.file-name, .custom-file-label, span');
-                    if (statusSpan && statusSpan.textContent.includes('Không có tệp')) {
-                        statusSpan.textContent = selectedExcel.name;
+        sortedDateKeys.forEach(dateKey => {
+            const groupFiles = groupsMap.get(dateKey);
+            // Sort files in group by date descending (newest first)
+            groupFiles.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+            // Build Title
+            let dateLabel = `Ngày (${dateKey})`;
+            if (dateKey === todayKey) {
+                dateLabel = `Hôm nay (${dateKey})`;
+            } else if (dateKey === yesterdayKey) {
+                dateLabel = `Hôm qua (${dateKey})`;
+            }
+
+            const pdfCount = groupFiles.filter(f => f.isPdf).length;
+            const allChecked = groupFiles.every(f => scannedFolderState.selectedIds.has(f.id));
+
+            const groupEl = document.createElement('div');
+            groupEl.className = 'wameli-date-group-block';
+
+            // Group Header HTML
+            const headerEl = document.createElement('div');
+            headerEl.className = 'wameli-group-header';
+            headerEl.innerHTML = `
+                <div class="wameli-group-header-left">
+                    <input type="checkbox" class="wameli-group-checkbox" ${allChecked ? 'checked' : ''} style="cursor: pointer;" />
+                    <span class="wameli-group-title">${dateLabel} (${groupFiles.length})</span>
+                </div>
+                <div class="wameli-group-actions">
+                    <button type="button" class="wameli-btn-group-action btn-group-load-pair" title="Nạp file Excel và PDF mới nhất">
+                        ⚡ Nạp cặp mới nhất
+                    </button>
+                    ${pdfCount > 0 ? `
+                        <button type="button" class="wameli-btn-group-action btn-group-load-pdfs" title="Nạp toàn bộ ${pdfCount} file PDF trong nhóm này">
+                            ⚡ Nạp ${pdfCount} PDF
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+
+            // Group Checkbox toggle
+            const groupCheckbox = headerEl.querySelector('.wameli-group-checkbox');
+            groupCheckbox.addEventListener('change', () => {
+                const checked = groupCheckbox.checked;
+                groupFiles.forEach(f => {
+                    if (checked) {
+                        scannedFolderState.selectedIds.add(f.id);
+                    } else {
+                        scannedFolderState.selectedIds.delete(f.id);
                     }
+                });
+                renderGroupsList();
+                updateStatusBar();
+            });
+
+            // Action: Nạp cặp mới nhất
+            headerEl.querySelector('.btn-group-load-pair').addEventListener('click', () => {
+                const newestExcel = groupFiles.find(f => f.isExcel);
+                const newestPdf = groupFiles.find(f => f.isPdf);
+
+                const formEls = findWameliOrderFormElements();
+                let loadedCount = 0;
+
+                if (newestExcel && formEls.excelFileInput) {
+                    applyFilesToInput(formEls.excelFileInput, [newestExcel.file]);
+                    loadedCount++;
                 }
-            } catch (err) {
-                console.warn('[Wameli Helper] Error assigning Excel file:', err);
-            }
-        }
+                if (newestPdf && formEls.pdfFileInput) {
+                    applyFilesToInput(formEls.pdfFileInput, [newestPdf.file]);
+                    loadedCount++;
+                }
 
-        // 3. Auto-fill File name
-        if (fileNameInput) {
-            let suggestedName = '';
-            if (scannedFolderState.excelFiles.length > 0) {
-                const selectedExcel = scannedFolderState.excelFiles[scannedFolderState.selectedExcelIndex] || scannedFolderState.excelFiles[0];
-                suggestedName = selectedExcel.name.replace(/\.[^/.]+$/, '');
-            } else if (scannedFolderState.folderName && scannedFolderState.folderName !== 'Thư mục đã chọn') {
-                suggestedName = scannedFolderState.folderName;
+                // Set file name
+                if (newestExcel && formEls.fileNameInput) {
+                    const baseName = newestExcel.name.replace(/\.[^/.]+$/, '');
+                    formEls.fileNameInput.value = baseName;
+                    dispatchChangeEvent(formEls.fileNameInput);
+                } else if (newestPdf && formEls.fileNameInput) {
+                    const baseName = newestPdf.name.replace(/\.[^/.]+$/, '');
+                    formEls.fileNameInput.value = baseName;
+                    dispatchChangeEvent(formEls.fileNameInput);
+                }
+
+                if (loadedCount > 0) {
+                    showWameliToast(`Đã nạp cặp file mới nhất (${newestExcel?.name || newestPdf?.name})!`);
+                } else {
+                    showWameliToast('Không tìm thấy cặp file Excel & PDF trong nhóm này!', false);
+                }
+            });
+
+            // Action: Nạp X PDF
+            const loadPdfsBtn = headerEl.querySelector('.btn-group-load-pdfs');
+            if (loadPdfsBtn) {
+                loadPdfsBtn.addEventListener('click', () => {
+                    const groupPdfs = groupFiles.filter(f => f.isPdf);
+                    const formEls = findWameliOrderFormElements();
+                    if (formEls.pdfFileInput && groupPdfs.length > 0) {
+                        applyFilesToInput(formEls.pdfFileInput, groupPdfs.map(item => item.file));
+                        showWameliToast(`Đã nạp ${groupPdfs.length} file PDF vào Hóa đơn PDF!`);
+                    }
+                });
             }
 
-            if (suggestedName) {
-                fileNameInput.value = suggestedName;
-                dispatchChangeEvent(fileNameInput);
+            groupEl.appendChild(headerEl);
+
+            // Group File Items
+            const itemsListEl = document.createElement('div');
+            itemsListEl.className = 'wameli-group-items-list';
+
+            groupFiles.forEach(item => {
+                const isSelected = scannedFolderState.selectedIds.has(item.id);
+                const rowEl = document.createElement('div');
+                rowEl.className = 'wameli-file-row' + (isSelected ? ' selected' : '');
+
+                const icon = item.isExcel ?
+                    '<span style="color: #16a34a; font-size: 13px;">📊</span>' :
+                    '<span style="color: #dc2626; font-size: 13px;">📄</span>';
+
+                rowEl.innerHTML = `
+                    <div class="wameli-file-left">
+                        <input type="checkbox" class="wameli-file-item-checkbox" ${isSelected ? 'checked' : ''} style="cursor: pointer;" />
+                        ${icon}
+                        <span class="wameli-file-name-text" title="${item.name}">${item.name}</span>
+                    </div>
+                    <div class="wameli-file-date-text">
+                        ${formatFileDateVi(item.date)}
+                    </div>
+                    <div class="wameli-file-row-actions">
+                        <button type="button" class="wameli-btn-row-action wameli-btn-nap btn-row-nap" title="Nạp file này vào Form">
+                            ⚡ Nạp
+                        </button>
+                        <button type="button" class="wameli-btn-row-action btn-row-copy" title="Copy tên file">
+                            📋
+                        </button>
+                        <button type="button" class="wameli-btn-row-action btn-row-preview" title="Xem trước file">
+                            👁️
+                        </button>
+                    </div>
+                `;
+
+                // Checkbox toggle
+                const itemCheckbox = rowEl.querySelector('.wameli-file-item-checkbox');
+                itemCheckbox.addEventListener('change', () => {
+                    if (itemCheckbox.checked) {
+                        scannedFolderState.selectedIds.add(item.id);
+                        rowEl.classList.add('selected');
+                    } else {
+                        scannedFolderState.selectedIds.delete(item.id);
+                        rowEl.classList.remove('selected');
+                    }
+                    updateStatusBar();
+                });
+
+                // Row Action: Nạp
+                rowEl.querySelector('.btn-row-nap').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const formEls = findWameliOrderFormElements();
+                    const baseName = item.name.replace(/\.[^/.]+$/, '');
+
+                    if (item.isExcel && formEls.excelFileInput) {
+                        applyFilesToInput(formEls.excelFileInput, [item.file]);
+                        if (formEls.fileNameInput) {
+                            formEls.fileNameInput.value = baseName;
+                            dispatchChangeEvent(formEls.fileNameInput);
+                        }
+                        showWameliToast(`Đã nạp file Excel: ${item.name}`);
+                    } else if (item.isPdf && formEls.pdfFileInput) {
+                        applyFilesToInput(formEls.pdfFileInput, [item.file]);
+                        showWameliToast(`Đã nạp file PDF: ${item.name}`);
+                    }
+                });
+
+                // Row Action: Copy
+                rowEl.querySelector('.btn-row-copy').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const baseName = item.name.replace(/\.[^/.]+$/, '');
+                    navigator.clipboard.writeText(baseName).then(() => {
+                        showWameliToast(`Đã copy: ${baseName}`);
+                    });
+                });
+
+                // Row Action: Preview
+                rowEl.querySelector('.btn-row-preview').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    try {
+                        const url = URL.createObjectURL(item.file);
+                        window.open(url, '_blank');
+                    } catch (err) {
+                        showWameliToast('Không thể mở xem trước file này', false);
+                    }
+                });
+
+                itemsListEl.appendChild(rowEl);
+            });
+
+            groupEl.appendChild(itemsListEl);
+            container.appendChild(groupEl);
+        });
+    }
+
+    function updateStatusBar() {
+        const statusText = document.getElementById('wameli-selection-count-text');
+        if (!statusText) return;
+
+        const selectedFiles = scannedFolderState.files.filter(f => scannedFolderState.selectedIds.has(f.id));
+        const total = selectedFiles.length;
+        const pdfCount = selectedFiles.filter(f => f.isPdf).length;
+        const excelCount = selectedFiles.filter(f => f.isExcel).length;
+
+        statusText.textContent = `Đã chọn: ${total} file (${pdfCount} PDF, ${excelCount} Excel)`;
+    }
+
+    function applyFilesToInput(inputEl, files) {
+        if (!inputEl || !files || files.length === 0) return;
+        try {
+            const dt = new DataTransfer();
+            files.forEach(f => dt.items.add(f));
+            inputEl.files = dt.files;
+            dispatchChangeEvent(inputEl);
+
+            const parentRow = inputEl.closest('tr, .form-group, .row, div') || inputEl.parentElement;
+            if (parentRow) {
+                const label = parentRow.querySelector('.custom-file-label, .file-name, span');
+                if (label && label.textContent.includes('Không')) {
+                    label.textContent = files.length === 1 ? files[0].name : `Đã chọn ${files.length} tệp`;
+                }
             }
+        } catch (err) {
+            console.warn('[Wameli Helper] Error applying files to input:', err);
         }
     }
 
+    // --- Main Initializer for Order Upload Page ---
     function initWameliOrderUploadPage() {
         injectOrderUploadStyles();
 
         const formElements = findWameliOrderFormElements();
-        const { sanSelect, khoSelect, shopSelect, gioSelect, ngayInput, formContainer } = formElements;
+        const { sanSelect, khoSelect, shopSelect, gioSelect, ngayInput, fileNameInput } = formElements;
 
-        if (sanSelect) renderSanSuggestions(sanSelect);
-        if (khoSelect) renderKhoSuggestions(khoSelect);
-        if (shopSelect) renderShopSuggestions(shopSelect);
-        if (ngayInput) renderDateSuggestions(ngayInput);
-        if (gioSelect) renderHourSuggestions(gioSelect);
+        // 1. Setup 2-Column Split Layout
+        const layout = setupSplitLayout(formElements);
+        const rightCol = layout ? layout.rightCol : document.getElementById('wameli-right-col');
 
-        if (formContainer) {
-            renderFolderManagerBox(formContainer, formElements);
+        // 2. Setup Inline Form Chips
+        if (sanSelect) setupSanChips(sanSelect);
+        if (khoSelect) setupKhoChips(khoSelect);
+        if (shopSelect) setupShopField(shopSelect);
+        if (ngayInput) setupDateChips(ngayInput);
+        if (gioSelect) setupHourChips(gioSelect);
+        if (fileNameInput) setupFileNameField(fileNameInput);
+
+        // 3. Setup Right File Manager Panel
+        if (rightCol) {
+            renderFileManagerPanel(rightCol);
         }
     }
 
