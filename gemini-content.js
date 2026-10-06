@@ -125,7 +125,7 @@ function handleGeminiFill(message, sendResponse) {
 
     // 2. Dán TẤT CẢ ảnh cùng lúc trong 1 DataTransfer (paste 1 lần duy nhất)
     const images = message.images || [];
-    const autoSend = message.autoSend !== false;
+    const autoSend = message.autoSend === true;
 
     if (images.length > 0) {
       setTimeout(async () => {

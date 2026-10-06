@@ -2865,10 +2865,12 @@ async function removeImage(index) {
 }
 
 
-async function openAiInNewTab(aiType, file, text, btnEl) {
-  const oldHtml = btnEl.innerHTML;
-  btnEl.innerHTML = '...';
-  btnEl.disabled = true;
+async function openAiInNewTab(aiType, file, text, btnEl, autoSend = false) {
+  const oldHtml = btnEl ? btnEl.innerHTML : '';
+  if (btnEl) {
+    btnEl.innerHTML = '...';
+    btnEl.disabled = true;
+  }
   
   try {
     const images = [];
@@ -2898,7 +2900,7 @@ async function openAiInNewTab(aiType, file, text, btnEl) {
         if (tabId !== tab.id || info.status !== 'complete') return;
         chrome.tabs.onUpdated.removeListener(onUpdated);
         setTimeout(() => {
-          chrome.tabs.sendMessage(tab.id, { type: 'GEMINI_FILL', text: text, images });
+          chrome.tabs.sendMessage(tab.id, { type: 'GEMINI_FILL', text: text, images, autoSend });
         }, 2500);
       };
       chrome.tabs.onUpdated.addListener(onUpdated);
@@ -2908,7 +2910,7 @@ async function openAiInNewTab(aiType, file, text, btnEl) {
         if (tabId !== tab.id || info.status !== 'complete') return;
         chrome.tabs.onUpdated.removeListener(onUpdated);
         setTimeout(() => {
-          chrome.tabs.sendMessage(tab.id, { type: 'CHATGPT_FILL', text: text, images });
+          chrome.tabs.sendMessage(tab.id, { type: 'CHATGPT_FILL', text: text, images, autoSend });
         }, 2500);
       };
       chrome.tabs.onUpdated.addListener(onUpdated);
@@ -2916,7 +2918,9 @@ async function openAiInNewTab(aiType, file, text, btnEl) {
   } catch(err) {
     console.error(`Mo ${aiType} error:`, err);
   } finally {
-    setTimeout(() => { btnEl.innerHTML = oldHtml; btnEl.disabled = false; }, 3500);
+    if (btnEl) {
+      setTimeout(() => { btnEl.innerHTML = oldHtml; btnEl.disabled = false; }, 3500);
+    }
   }
 }
 
@@ -8811,19 +8815,75 @@ document.addEventListener("DOMContentLoaded", () => {
         const imgId = `ai-template-img-${idx + 1}`;
         return `
           <div style="position: relative; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; flex-shrink: 0; background: #f8fafc; width: 62px; height: 62px; display: flex; align-items: center; justify-content: center;">
-            <img id="${imgId}" src="${url}" draggable="true" style="width: 100%; height: 100%; object-fit: contain; display: block; cursor: grab;" title="Ảnh mẫu ${idx + 1} (Kéo thả hoặc bấm 📋 để copy)">
-            <div style="position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.5); padding: 1px 2px; border-radius: 3px; backdrop-filter: blur(2px);">
+            <img id="${imgId}" src="${url}" draggable="true" style="width: 100%; height: 100%; object-fit: contain; display: block; cursor: grab;" title="Ảnh mẫu ${idx + 1} (Kéo thả, mở ChatGPT/Gemini hoặc copy)">
+            <div style="position: absolute; top: 2px; right: 2px; display: flex; gap: 2px; background: rgba(0,0,0,0.5); padding: 1px 2px; border-radius: 3px; backdrop-filter: blur(2px);">
+              <button type="button" class="ai-tab-open-gpt" data-target="${imgId}" style="width: 16px !important; height: 16px !important; min-height: unset !important; padding: 0 !important; font-size: 9px; background: #10a37f; color: white; border: none; border-radius: 2px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="Mở ảnh này trên ChatGPT (không tự gửi)">🤖</button>
+              <button type="button" class="ai-tab-open-gemini" data-target="${imgId}" style="width: 16px !important; height: 16px !important; min-height: unset !important; padding: 0 !important; font-size: 9px; background: #1a73e8; color: white; border: none; border-radius: 2px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="Mở ảnh này trên Gemini (không tự gửi)">✨</button>
               <button type="button" class="ai-tab-copy-img" data-target="${imgId}" style="width: 16px !important; height: 16px !important; min-height: unset !important; padding: 0 !important; font-size: 9px; background: #334155; color: white; border: none; border-radius: 2px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="Copy ảnh mẫu">📋</button>
             </div>
           </div>
         `;
       }).join("");
 
-      // Gán sự kiện click cho nút Copy ảnh mẫu
+      // Gán sự kiện click cho nút Mở ChatGPT (không tự gửi)
+      containerImages.querySelectorAll(".ai-tab-open-gpt").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const imgEl = document.getElementById(btn.getAttribute("data-target"));
+          if (!imgEl) return;
+          const imgUrl = imgEl.getAttribute("src");
+          const oldText = btn.innerHTML;
+          btn.innerHTML = "...";
+          btn.disabled = true;
+          try {
+            const res = await fetch(imgUrl);
+            const blob = await res.blob();
+            const filename = imgUrl.split("/").pop().split("?")[0] || "template_image.png";
+            const file = new File([blob], filename, { type: blob.type || "image/png" });
+            const promptText = finalPromptArea ? finalPromptArea.value.trim() : "";
+            await openAiInNewTab("chatgpt", file, promptText, btn, false);
+          } catch (err) {
+            console.error("Open ChatGPT error:", err);
+          } finally {
+            btn.innerHTML = oldText;
+            btn.disabled = false;
+          }
+        });
+      });
 
+      // Gán sự kiện click cho nút Mở Gemini (không tự gửi)
+      containerImages.querySelectorAll(".ai-tab-open-gemini").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const imgEl = document.getElementById(btn.getAttribute("data-target"));
+          if (!imgEl) return;
+          const imgUrl = imgEl.getAttribute("src");
+          const oldText = btn.innerHTML;
+          btn.innerHTML = "...";
+          btn.disabled = true;
+          try {
+            const res = await fetch(imgUrl);
+            const blob = await res.blob();
+            const filename = imgUrl.split("/").pop().split("?")[0] || "template_image.png";
+            const file = new File([blob], filename, { type: blob.type || "image/png" });
+            const promptText = finalPromptArea ? finalPromptArea.value.trim() : "";
+            await openAiInNewTab("gemini", file, promptText, btn, false);
+          } catch (err) {
+            console.error("Open Gemini error:", err);
+          } finally {
+            btn.innerHTML = oldText;
+            btn.disabled = false;
+          }
+        });
+      });
+
+      // Gán sự kiện click cho nút Copy ảnh mẫu
       containerImages.querySelectorAll(".ai-tab-copy-img").forEach(btn => {
         btn.addEventListener("click", async (e) => {
           e.preventDefault();
+          e.stopPropagation();
           const imgEl = document.getElementById(btn.getAttribute("data-target"));
           if (!imgEl) return;
           const imgUrl = imgEl.getAttribute("src");
@@ -8831,7 +8891,7 @@ document.addEventListener("DOMContentLoaded", () => {
           btn.innerHTML = "...";
           btn.disabled = true;
           const success = await copyImageToClipboard(imgUrl);
-          btn.innerHTML = success ? "✔ Đã copy" : "❌ Lỗi";
+          btn.innerHTML = success ? "✔" : "❌";
           setTimeout(() => {
             btn.innerHTML = oldText;
             btn.disabled = false;
