@@ -219,6 +219,102 @@
                 }
             }
 
+            /* Preset Toolbar (Lưu & Điền nhanh cấu hình) */
+            .wqf-preset-bar {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 12px;
+                background: #f0fdf4;
+                border: 1px solid #bbf7d0;
+                border-radius: 6px;
+                margin-bottom: 14px;
+                flex-wrap: wrap;
+                font-family: inherit;
+            }
+            .wqf-preset-title {
+                font-size: 12.5px;
+                font-weight: 700;
+                color: #166534;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                white-space: nowrap;
+            }
+            .wqf-preset-list {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                flex-wrap: wrap;
+                flex: 1;
+            }
+            .wqf-preset-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 4px 10px;
+                background: #ffffff;
+                border: 1px solid #86efac;
+                border-radius: 20px;
+                font-size: 11.5px;
+                font-weight: 600;
+                color: #15803d;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                user-select: none;
+            }
+            .wqf-preset-chip:hover {
+                background: #dcfce7;
+                border-color: #22c55e;
+                color: #14532d;
+                transform: translateY(-1px);
+            }
+            .wqf-preset-chip.active {
+                background: #16a34a !important;
+                border-color: #16a34a !important;
+                color: #ffffff !important;
+                box-shadow: 0 2px 4px rgba(22, 163, 74, 0.3);
+            }
+            .wqf-preset-del-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 15px;
+                height: 15px;
+                border-radius: 50%;
+                background: rgba(0,0,0,0.08);
+                color: inherit;
+                font-size: 10px;
+                line-height: 1;
+                cursor: pointer;
+                border: none;
+                padding: 0;
+                margin-left: 2px;
+                transition: background 0.1s;
+            }
+            .wqf-preset-del-btn:hover {
+                background: #ef4444;
+                color: #ffffff;
+            }
+            .wqf-btn-save-preset {
+                background: #16a34a;
+                color: #ffffff;
+                border: none;
+                border-radius: 4px;
+                padding: 5px 12px;
+                font-size: 11.5px;
+                font-weight: 600;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                transition: background 0.15s ease;
+                white-space: nowrap;
+            }
+            .wqf-btn-save-preset:hover {
+                background: #15803d;
+            }
+
             /* Inline Field Group & Buttons */
             .wqf-inline-field-group {
                 display: flex !important;
@@ -284,11 +380,115 @@
                 max-width: 100% !important;
             }
 
-            /* Drop zones */
+            /* Enhanced Multi-PDF Upload & Drop Box */
+            .wqf-pdf-upload-container {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                width: 100%;
+            }
+            .wqf-pdf-action-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+            .wqf-btn-multi-pdf {
+                background: #0284c7;
+                color: #ffffff;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 14px;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                transition: background 0.15s;
+            }
+            .wqf-btn-multi-pdf:hover {
+                background: #0369a1;
+            }
+            .wqf-btn-attach-checked-pdf {
+                background: #10b981;
+                color: #ffffff;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 14px;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                transition: background 0.15s;
+            }
+            .wqf-btn-attach-checked-pdf:hover {
+                background: #059669;
+            }
+            .wqf-btn-attach-checked-pdf:disabled {
+                background: #94a3b8;
+                cursor: not-allowed;
+                opacity: 0.7;
+            }
+            .wqf-drop-zone {
+                border: 2px dashed #cbd5e1;
+                border-radius: 6px;
+                padding: 10px 14px;
+                background: #f8fafc;
+                transition: all 0.2s ease;
+            }
             .wqf-drop-zone.wqf-dragover {
-                background: #f0f9ff !important;
-                border: 2px dashed #0284c7 !important;
-                border-radius: 6px !important;
+                background: #eff6ff !important;
+                border-color: #0284c7 !important;
+                box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+            }
+            .wqf-pdf-attached-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                margin-top: 6px;
+            }
+            .wqf-pdf-file-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 3px 8px;
+                background: #fef2f2;
+                border: 1px solid #fecaca;
+                border-radius: 4px;
+                font-size: 11.5px;
+                color: #991b1b;
+                max-width: 280px;
+            }
+            .wqf-pdf-chip-name {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                font-weight: 500;
+            }
+            .wqf-pdf-chip-del {
+                cursor: pointer;
+                font-weight: bold;
+                color: #ef4444;
+                padding: 0 2px;
+                border: none;
+                background: none;
+                line-height: 1;
+                font-size: 13px;
+            }
+            .wqf-pdf-chip-del:hover {
+                color: #b91c1c;
+            }
+            .wqf-pdf-clear-all {
+                font-size: 11px;
+                color: #dc2626;
+                background: none;
+                border: none;
+                cursor: pointer;
+                text-decoration: underline;
+                margin-left: 4px;
             }
 
             /* Right Directory Manager */
@@ -440,6 +640,7 @@
                 font-weight: 700;
                 color: #0284c7;
                 white-space: nowrap;
+                cursor: pointer;
             }
             .wqf-explorer-group-line {
                 flex: 1;
@@ -724,6 +925,187 @@
         return { wrapper: twoCols, leftCol, rightCol };
     }
 
+    // ==========================================
+    // PRESET TOOLBAR: LƯU & ĐIỀN NHANH CẤU HÌNH
+    // ==========================================
+    function setupPresetToolbar(panelBody) {
+        if (!panelBody) return;
+        if (document.getElementById('wqf-preset-bar')) return;
+
+        const presetBar = document.createElement('div');
+        presetBar.id = 'wqf-preset-bar';
+        presetBar.className = 'wqf-preset-bar';
+
+        presetBar.innerHTML = `
+            <div class="wqf-preset-title">
+                <span>⚡ Mẫu điền nhanh:</span>
+            </div>
+            <div id="wqf-preset-list" class="wqf-preset-list"></div>
+            <button type="button" id="wqf-btn-save-preset" class="wqf-btn-save-preset" title="Lưu cấu hình Sàn, Kho, Giờ, Ngày hiện tại thành mẫu điền nhanh">
+                💾 Lưu mẫu hiện tại
+            </button>
+        `;
+
+        panelBody.insertBefore(presetBar, panelBody.firstChild);
+
+        function getStoredPresets() {
+            try {
+                const raw = localStorage.getItem('wqf_saved_presets');
+                if (raw) return JSON.parse(raw);
+            } catch (e) { }
+
+            // Default starter presets
+            return [
+                { id: 'p_shopee_8h', name: 'Shopee - Kho HN - 8H', platform_id: '2', warehouse_id: '1', house_id: '3', is_seeding: '0' },
+                { id: 'p_tiktok_9h', name: 'Ticktok - Kho HN - 9H', platform_id: '9', warehouse_id: '1', house_id: '9', is_seeding: '0' }
+            ];
+        }
+
+        function saveStoredPresets(presets) {
+            localStorage.setItem('wqf_saved_presets', JSON.stringify(presets));
+        }
+
+        function applyPreset(preset, chipEl) {
+            const formEls = findWameliOrderFormElements();
+
+            // 1. Sàn
+            if (preset.platform_id && formEls.sanSelect) {
+                setSelect2Value(formEls.sanSelect, preset.platform_id);
+                document.querySelectorAll('.wqf-add-select-buttons[data-key="platform"] .wqf-add-select-btn').forEach(b => {
+                    if (b.getAttribute('data-value') === preset.platform_id) {
+                        b.classList.add('wqf-active');
+                    } else {
+                        b.classList.remove('wqf-active');
+                    }
+                });
+            }
+
+            // 2. Kho
+            if (preset.warehouse_id && formEls.khoSelect) {
+                setSelect2Value(formEls.khoSelect, preset.warehouse_id);
+                document.querySelectorAll('.wqf-add-select-buttons[data-key="warehouse"] .wqf-add-select-btn').forEach(b => {
+                    if (b.getAttribute('data-value') === preset.warehouse_id) {
+                        b.classList.add('wqf-active');
+                    } else {
+                        b.classList.remove('wqf-active');
+                    }
+                });
+            }
+
+            // 3. Giờ
+            if (preset.house_id && formEls.gioSelect) {
+                setSelect2Value(formEls.gioSelect, preset.house_id);
+                document.querySelectorAll('.wqf-add-select-buttons[data-key="hour"] .wqf-add-select-btn').forEach(b => {
+                    if (b.getAttribute('data-value') === preset.house_id) {
+                        b.classList.add('wqf-active');
+                    } else {
+                        b.classList.remove('wqf-active');
+                    }
+                });
+            }
+
+            // 4. Ngày: Always apply today
+            if (formEls.ngayInput) {
+                const todayStr = formatWameliDate(new Date());
+                formEls.ngayInput.value = todayStr;
+                dispatchChangeEvent(formEls.ngayInput);
+                document.querySelectorAll('.wqf-add-date-buttons .wqf-add-select-btn').forEach(b => {
+                    if (b.textContent.trim().toLowerCase().includes('nay')) {
+                        b.classList.add('wqf-active');
+                    } else {
+                        b.classList.remove('wqf-active');
+                    }
+                });
+            }
+
+            // 5. Seeding radio
+            if (preset.is_seeding !== undefined) {
+                const seedingRadio = document.getElementById('is_seeding_' + preset.is_seeding);
+                if (seedingRadio) {
+                    seedingRadio.checked = true;
+                    dispatchChangeEvent(seedingRadio);
+                }
+            }
+
+            // 6. Shop
+            if (preset.shop_id && preset.shop_id !== '0' && formEls.shopSelect) {
+                setSelect2Value(formEls.shopSelect, preset.shop_id);
+            }
+
+            // Active visual chip
+            presetBar.querySelectorAll('.wqf-preset-chip').forEach(c => c.classList.remove('active'));
+            if (chipEl) chipEl.classList.add('active');
+
+            showWameliToast(`⚡ Đã áp dụng mẫu: ${preset.name}!`);
+        }
+
+        function renderPresets() {
+            const listEl = presetBar.querySelector('#wqf-preset-list');
+            if (!listEl) return;
+            listEl.innerHTML = '';
+
+            const presets = getStoredPresets();
+            presets.forEach(p => {
+                const chip = document.createElement('div');
+                chip.className = 'wqf-preset-chip';
+                chip.innerHTML = `
+                    <span>⭐ ${escapeHtml(p.name)}</span>
+                    <button type="button" class="wqf-preset-del-btn" title="Xóa mẫu này">×</button>
+                `;
+
+                chip.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('wqf-preset-del-btn')) return;
+                    applyPreset(p, chip);
+                });
+
+                chip.querySelector('.wqf-preset-del-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Bạn có chắc muốn xóa mẫu "${p.name}"?`)) {
+                        const updated = getStoredPresets().filter(item => item.id !== p.id);
+                        saveStoredPresets(updated);
+                        renderPresets();
+                        showWameliToast(`Đã xóa mẫu: ${p.name}`);
+                    }
+                });
+
+                listEl.appendChild(chip);
+            });
+        }
+
+        renderPresets();
+
+        // Save current form values as new preset
+        presetBar.querySelector('#wqf-btn-save-preset').addEventListener('click', () => {
+            const formEls = findWameliOrderFormElements();
+
+            const sanText = formEls.sanSelect?.selectedOptions[0]?.text?.replace(/--/g, '').trim() || 'Shopee';
+            const khoText = formEls.khoSelect?.selectedOptions[0]?.text?.replace(/--/g, '').trim() || 'Kho HN';
+            const gioText = formEls.gioSelect?.selectedOptions[0]?.text?.replace(/--/g, '').trim() || '8H';
+
+            const defaultName = `${sanText} - ${khoText} - ${gioText}`;
+            const name = prompt('Nhập tên mẫu điền nhanh để lưu:', defaultName);
+            if (!name || !name.trim()) return;
+
+            const seedingEl = document.querySelector('input[name="is_seeding"]:checked');
+
+            const newPreset = {
+                id: 'p_' + Date.now(),
+                name: name.trim(),
+                platform_id: formEls.sanSelect ? formEls.sanSelect.value : '2',
+                warehouse_id: formEls.khoSelect ? formEls.khoSelect.value : '1',
+                house_id: formEls.gioSelect ? formEls.gioSelect.value : '3',
+                shop_id: formEls.shopSelect ? formEls.shopSelect.value : '0',
+                is_seeding: seedingEl ? seedingEl.value : '0'
+            };
+
+            const presets = getStoredPresets();
+            presets.push(newPreset);
+            saveStoredPresets(presets);
+            renderPresets();
+            showWameliToast(`Đã lưu mẫu điền nhanh: ${newPreset.name}!`);
+        });
+    }
+
     // --- Sàn Suggestion Buttons ---
     function setupPlatformInlineButtons(platformSelect) {
         if (!platformSelect) return;
@@ -800,7 +1182,6 @@
             });
         });
 
-        // Watch for Select2 rendering
         const observer = new MutationObserver(() => {
             const s2 = col10.querySelector(':scope > .select2-container');
             if (s2 && !inlineGroup.contains(s2)) {
@@ -1077,66 +1458,275 @@
         nameInput.style.cssText = 'width: 100% !important; max-width: 100% !important; display: block !important;';
     }
 
-    // --- Drop Zones for Hóa đơn PDF & Đơn hàng Excel ---
-    function setupDropZones(pdfInput, excelInput, nameInput) {
-        [pdfInput, excelInput].forEach(inp => {
-            if (!inp) return;
-            const formGroup = inp.closest('.form-group');
-            if (!formGroup || formGroup.dataset.wqfBoundDrop === '1') return;
-            formGroup.dataset.wqfBoundDrop = '1';
-            formGroup.classList.add('wqf-drop-zone');
+    // ==========================================
+    // MULTI-PDF UPLOAD & DROP MANAGER
+    // ==========================================
+    let attachedPdfFiles = []; // Array of File objects currently attached to Hóa đơn PDF
 
-            formGroup.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                formGroup.classList.add('wqf-dragover');
+    function setupPdfMultiFileManager(pdfFileInput) {
+        if (!pdfFileInput) return;
+        const formGroup = pdfFileInput.closest('.form-group');
+        if (!formGroup || formGroup.dataset.wqfPdfManagerReady === '1') return;
+        formGroup.dataset.wqfPdfManagerReady = '1';
+
+        const col10 = formGroup.querySelector('.col-md-10') || pdfFileInput.parentElement;
+        if (!col10) return;
+
+        // Container
+        const container = document.createElement('div');
+        container.className = 'wqf-pdf-upload-container';
+
+        // Action row with Quick Buttons
+        const actionRow = document.createElement('div');
+        actionRow.className = 'wqf-pdf-action-row';
+
+        const hiddenPicker = document.createElement('input');
+        hiddenPicker.type = 'file';
+        hiddenPicker.multiple = true;
+        hiddenPicker.accept = '.pdf,application/pdf';
+        hiddenPicker.style.display = 'none';
+
+        actionRow.innerHTML = `
+            <button type="button" class="wqf-btn-multi-pdf wqf-pick-pdf-btn" title="Bấm để chọn 1 hoặc nhiều file PDF từ máy tính">
+                📂 Chọn nhiều file PDF
+            </button>
+            <button type="button" class="wqf-btn-attach-checked-pdf wqf-attach-checked-btn" title="Nạp toàn bộ các file PDF đang được tích chọn ở danh sách bên phải vào ô này">
+                ⚡ Nạp file PDF đã chọn từ thư mục (<span class="wqf-count-badge">0</span>)
+            </button>
+            <span style="font-size: 11.5px; color: #64748b;">
+                (Hoặc kéo thả nhiều file PDF vào đây)
+            </span>
+        `;
+        actionRow.appendChild(hiddenPicker);
+
+        // Attached list container
+        const listContainer = document.createElement('div');
+        listContainer.className = 'wqf-pdf-attached-list';
+        listContainer.id = 'wqf-pdf-attached-list';
+
+        // Drop zone wrapper
+        const dropBox = document.createElement('div');
+        dropBox.className = 'wqf-drop-zone';
+
+        // Move existing upload button inside dropBox
+        const existingUpload = col10.querySelector('.fileUpload');
+        if (existingUpload) {
+            dropBox.appendChild(existingUpload);
+        }
+        dropBox.appendChild(actionRow);
+        dropBox.appendChild(listContainer);
+
+        col10.appendChild(dropBox);
+
+        function updateAttachedPdfUI() {
+            listContainer.innerHTML = '';
+            const badge = actionRow.querySelector('.wqf-count-badge');
+            const checkedPdfs = scannedFolderState.files.filter(f => scannedFolderState.selectedIds.has(f.id) && f.isPdf);
+            if (badge) badge.textContent = checkedPdfs.length;
+
+            if (attachedPdfFiles.length === 0) return;
+
+            const headerInfo = document.createElement('div');
+            headerInfo.style.cssText = 'width: 100%; font-size: 11.5px; font-weight: 700; color: #166534; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;';
+            headerInfo.innerHTML = `
+                <span>📄 Đã nạp ${attachedPdfFiles.length} file PDF:</span>
+                <button type="button" class="wqf-pdf-clear-all" title="Xóa tất cả file PDF đã nạp">Xóa tất cả</button>
+            `;
+            headerInfo.querySelector('.wqf-pdf-clear-all').addEventListener('click', () => {
+                attachedPdfFiles = [];
+                syncAttachedPdfsToNativeInput(pdfFileInput);
+                updateAttachedPdfUI();
+                showWameliToast('Đã xóa tất cả file PDF đã nạp!');
             });
+            listContainer.appendChild(headerInfo);
 
-            formGroup.addEventListener('dragleave', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                formGroup.classList.remove('wqf-dragover');
+            attachedPdfFiles.forEach((f, idx) => {
+                const chip = document.createElement('div');
+                chip.className = 'wqf-pdf-file-chip';
+                chip.innerHTML = `
+                    <span>📄</span>
+                    <span class="wqf-pdf-chip-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+                    <span style="font-size: 10.5px; color: #64748b;">(${formatFileSize(f.size)})</span>
+                    <button type="button" class="wqf-pdf-chip-del" title="Xóa file này">×</button>
+                `;
+
+                chip.querySelector('.wqf-pdf-chip-del').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    attachedPdfFiles.splice(idx, 1);
+                    syncAttachedPdfsToNativeInput(pdfFileInput);
+                    updateAttachedPdfUI();
+                    showWameliToast(`Đã gỡ file: ${f.name}`);
+                });
+
+                listContainer.appendChild(chip);
             });
+        }
 
-            formGroup.addEventListener('drop', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                formGroup.classList.remove('wqf-dragover');
+        // Hidden input picker
+        const pickBtn = actionRow.querySelector('.wqf-pick-pdf-btn');
+        pickBtn.addEventListener('click', () => hiddenPicker.click());
 
-                let files = [];
-                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                    files = Array.from(e.dataTransfer.files);
-                } else if (window._wqf_dragged_file) {
-                    files = [window._wqf_dragged_file];
+        hiddenPicker.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files || []);
+            if (files.length === 0) return;
+            addPdfFiles(files);
+            hiddenPicker.value = '';
+        });
+
+        // Quick attach checked button
+        const attachCheckedBtn = actionRow.querySelector('.wqf-attach-checked-btn');
+        attachCheckedBtn.addEventListener('click', () => {
+            const checkedPdfs = scannedFolderState.files.filter(f => scannedFolderState.selectedIds.has(f.id) && f.isPdf);
+            if (checkedPdfs.length === 0) {
+                // If none checked, take all PDFs from active list
+                const allPdfs = scannedFolderState.files.filter(f => f.isPdf);
+                if (allPdfs.length > 0) {
+                    addPdfFiles(allPdfs.map(item => item.file));
+                    showWameliToast(`Đã nạp ${allPdfs.length} file PDF vào Hóa đơn PDF!`);
+                } else {
+                    showWameliToast('Không có file PDF nào trong thư mục!', false);
                 }
+                return;
+            }
 
-                if (files.length === 0) return;
+            addPdfFiles(checkedPdfs.map(item => item.file));
+            showWameliToast(`Đã nạp ${checkedPdfs.length} file PDF đã chọn vào Hóa đơn PDF!`);
+        });
 
-                if (inp === pdfInput) {
-                    const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
-                    if (pdfs.length > 0) {
-                        applyFilesToInput(pdfInput, pdfs);
-                        showWameliToast(`Đã tải ${pdfs.length} file PDF vào form!`);
-                    } else {
-                        showWameliToast('Vui lòng chỉ thả file .pdf vào ô Hóa đơn PDF!', false);
-                    }
-                } else if (inp === excelInput) {
-                    const excels = files.filter(f => {
-                        const l = f.name.toLowerCase();
-                        return l.endsWith('.xlsx') || l.endsWith('.xls') || l.endsWith('.csv');
-                    });
-                    if (excels.length > 0) {
-                        applyFilesToInput(excelInput, [excels[0]]);
-                        if (nameInput) {
-                            nameInput.value = excels[0].name.replace(/\.[^/.]+$/, '');
-                            dispatchChangeEvent(nameInput);
-                        }
-                        showWameliToast(`Đã tải file Excel: ${excels[0].name}!`);
-                    } else {
-                        showWameliToast('Vui lòng chỉ thả file Excel (.xlsx, .xls) vào ô Đơn hàng Excel!', false);
-                    }
+        function addPdfFiles(files) {
+            let addedCount = 0;
+            files.forEach(f => {
+                if (!f.name.toLowerCase().endsWith('.pdf')) return;
+                // Avoid exact duplicate
+                if (!attachedPdfFiles.some(existing => existing.name === f.name && existing.size === f.size)) {
+                    attachedPdfFiles.push(f);
+                    addedCount++;
                 }
             });
+
+            syncAttachedPdfsToNativeInput(pdfFileInput);
+            updateAttachedPdfUI();
+            if (addedCount > 0) {
+                showWameliToast(`Đã thêm ${addedCount} file PDF vào form!`);
+            }
+        }
+
+        window._wqf_add_pdf_files = addPdfFiles;
+        window._wqf_update_attached_pdf_ui = updateAttachedPdfUI;
+
+        // Native PDF input listener
+        pdfFileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files || []);
+            if (files.length > 0) {
+                addPdfFiles(files);
+            }
+        });
+
+        // Drop zone listeners
+        dropBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropBox.classList.add('wqf-dragover');
+        });
+        dropBox.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropBox.classList.remove('wqf-dragover');
+        });
+        dropBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropBox.classList.remove('wqf-dragover');
+
+            let files = [];
+            if (window._wqf_dragged_files && window._wqf_dragged_files.length > 0) {
+                files = window._wqf_dragged_files;
+            } else if (window._wqf_dragged_file) {
+                files = [window._wqf_dragged_file];
+            } else if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                files = Array.from(e.dataTransfer.files);
+            }
+
+            const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+            if (pdfs.length > 0) {
+                addPdfFiles(pdfs);
+            } else {
+                showWameliToast('Vui lòng chỉ thả file .pdf vào ô Hóa đơn PDF!', false);
+            }
+        });
+
+        updateAttachedPdfUI();
+    }
+
+    function syncAttachedPdfsToNativeInput(inputEl) {
+        if (!inputEl) return;
+        try {
+            const dt = new DataTransfer();
+            attachedPdfFiles.forEach(f => dt.items.add(f));
+            inputEl.files = dt.files;
+            dispatchChangeEvent(inputEl);
+
+            const container = inputEl.closest('.form-group, .fileUpload, div');
+            if (container) {
+                const helpBlock = container.querySelector('.help-block, .file-name');
+                if (helpBlock) {
+                    helpBlock.textContent = attachedPdfFiles.length === 0 ?
+                        'Không có tệp nào được chọn' :
+                        (attachedPdfFiles.length === 1 ? attachedPdfFiles[0].name : `Đã chọn ${attachedPdfFiles.length} tệp`);
+                }
+            }
+        } catch (err) {
+            console.warn('[Wameli] Error syncing attached PDFs:', err);
+        }
+    }
+
+    // --- Drop Zones for Đơn hàng Excel ---
+    function setupExcelDropZone(excelFileInput, nameInput) {
+        if (!excelFileInput) return;
+        const formGroup = excelFileInput.closest('.form-group');
+        if (!formGroup || formGroup.dataset.wqfExcelBound === '1') return;
+        formGroup.dataset.wqfExcelBound = '1';
+        formGroup.classList.add('wqf-drop-zone');
+
+        formGroup.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            formGroup.classList.add('wqf-dragover');
+        });
+
+        formGroup.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            formGroup.classList.remove('wqf-dragover');
+        });
+
+        formGroup.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            formGroup.classList.remove('wqf-dragover');
+
+            let files = [];
+            if (window._wqf_dragged_file) {
+                files = [window._wqf_dragged_file];
+            } else if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                files = Array.from(e.dataTransfer.files);
+            }
+
+            const excels = files.filter(f => {
+                const l = f.name.toLowerCase();
+                return l.endsWith('.xlsx') || l.endsWith('.xls') || l.endsWith('.csv');
+            });
+
+            if (excels.length > 0) {
+                applyFilesToInput(excelFileInput, [excels[0]]);
+                if (nameInput) {
+                    nameInput.value = excels[0].name.replace(/\.[^/.]+$/, '');
+                    dispatchChangeEvent(nameInput);
+                }
+                showWameliToast(`Đã tải file Excel: ${excels[0].name}!`);
+            } else {
+                showWameliToast('Vui lòng chỉ thả file Excel (.xlsx, .xls) vào ô Đơn hàng Excel!', false);
+            }
         });
     }
 
@@ -1453,12 +2043,15 @@
                 return;
             }
 
-            const formEls = findWameliOrderFormElements();
-            if (formEls.pdfFileInput) {
-                applyFilesToInput(formEls.pdfFileInput, pdfsToLoad.map(item => item.file));
+            if (typeof window._wqf_add_pdf_files === 'function') {
+                window._wqf_add_pdf_files(pdfsToLoad.map(item => item.file));
                 showWameliToast(`Đã nạp ${pdfsToLoad.length} file PDF vào Hóa đơn PDF!`);
             } else {
-                showWameliToast('Không tìm thấy ô upload Hóa đơn PDF!', false);
+                const formEls = findWameliOrderFormElements();
+                if (formEls.pdfFileInput) {
+                    applyFilesToInput(formEls.pdfFileInput, pdfsToLoad.map(item => item.file));
+                    showWameliToast(`Đã nạp ${pdfsToLoad.length} file PDF vào Hóa đơn PDF!`);
+                }
             }
         });
 
@@ -1525,6 +2118,7 @@
             }
 
             const pdfCount = groupFiles.filter(f => f.isPdf).length;
+            const allChecked = groupFiles.every(f => scannedFolderState.selectedIds.has(f.id));
 
             const groupEl = document.createElement('div');
             groupEl.className = 'wqf-explorer-group';
@@ -1532,6 +2126,7 @@
             const headerEl = document.createElement('div');
             headerEl.className = 'wqf-explorer-group-header';
             headerEl.innerHTML = `
+                <input type="checkbox" class="wqf-group-checkbox" ${allChecked ? 'checked' : ''} title="Chọn tất cả file trong ngày này" style="cursor: pointer;" />
                 <span class="wqf-explorer-group-title">${dateLabel} (${groupFiles.length})</span>
                 <div class="wqf-explorer-group-line"></div>
                 <div class="wqf-explorer-group-actions">
@@ -1541,6 +2136,20 @@
                   ` : ''}
                 </div>
             `;
+
+            // Group checkbox toggles all files in this group
+            headerEl.querySelector('.wqf-group-checkbox')?.addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                groupFiles.forEach(f => {
+                    if (isChecked) {
+                        scannedFolderState.selectedIds.add(f.id);
+                    } else {
+                        scannedFolderState.selectedIds.delete(f.id);
+                    }
+                });
+                renderExplorerList();
+                updateExplorerStatusBar();
+            });
 
             headerEl.querySelector('.wqf-pair-btn')?.addEventListener('click', () => {
                 const newestExcel = groupFiles.find(f => f.isExcel);
@@ -1553,8 +2162,12 @@
                     applyFilesToInput(formEls.excelFileInput, [newestExcel.file]);
                     loadedCount++;
                 }
-                if (newestPdf && formEls.pdfFileInput) {
-                    applyFilesToInput(formEls.pdfFileInput, [newestPdf.file]);
+                if (newestPdf) {
+                    if (typeof window._wqf_add_pdf_files === 'function') {
+                        window._wqf_add_pdf_files([newestPdf.file]);
+                    } else if (formEls.pdfFileInput) {
+                        applyFilesToInput(formEls.pdfFileInput, [newestPdf.file]);
+                    }
                     loadedCount++;
                 }
 
@@ -1579,9 +2192,15 @@
             if (loadPdfsBtn) {
                 loadPdfsBtn.addEventListener('click', () => {
                     const groupPdfs = groupFiles.filter(f => f.isPdf);
-                    const formEls = findWameliOrderFormElements();
-                    if (formEls.pdfFileInput && groupPdfs.length > 0) {
-                        applyFilesToInput(formEls.pdfFileInput, groupPdfs.map(item => item.file));
+                    if (groupPdfs.length > 0) {
+                        if (typeof window._wqf_add_pdf_files === 'function') {
+                            window._wqf_add_pdf_files(groupPdfs.map(item => item.file));
+                        } else {
+                            const formEls = findWameliOrderFormElements();
+                            if (formEls.pdfFileInput) {
+                                applyFilesToInput(formEls.pdfFileInput, groupPdfs.map(item => item.file));
+                            }
+                        }
                         showWameliToast(`Đã nạp ${groupPdfs.length} file PDF vào Hóa đơn PDF!`);
                     }
                 });
@@ -1626,13 +2245,23 @@
                     updateExplorerStatusBar();
                 });
 
+                // Drag support: If this row or multiple rows are selected, drag all selected
                 rowEl.addEventListener('dragstart', (e) => {
-                    window._wqf_dragged_file = item.file;
+                    const selectedFiles = scannedFolderState.files.filter(f => scannedFolderState.selectedIds.has(f.id));
+                    if (selectedFiles.length > 1 && scannedFolderState.selectedIds.has(item.id)) {
+                        window._wqf_dragged_files = selectedFiles.map(x => x.file);
+                        window._wqf_dragged_file = item.file;
+                    } else {
+                        window._wqf_dragged_files = [item.file];
+                        window._wqf_dragged_file = item.file;
+                    }
+
                     e.dataTransfer.setData('text/plain', item.name);
                     e.dataTransfer.effectAllowed = 'copyMove';
                 });
                 rowEl.addEventListener('dragend', () => {
                     window._wqf_dragged_file = null;
+                    window._wqf_dragged_files = null;
                 });
 
                 rowEl.querySelector('.wqf-btn-row-attach').addEventListener('click', (e) => {
@@ -1647,8 +2276,12 @@
                             dispatchChangeEvent(formEls.fileNameInput);
                         }
                         showWameliToast(`Đã nạp file Excel: ${item.name}`);
-                    } else if (item.isPdf && formEls.pdfFileInput) {
-                        applyFilesToInput(formEls.pdfFileInput, [item.file]);
+                    } else if (item.isPdf) {
+                        if (typeof window._wqf_add_pdf_files === 'function') {
+                            window._wqf_add_pdf_files([item.file]);
+                        } else if (formEls.pdfFileInput) {
+                            applyFilesToInput(formEls.pdfFileInput, [item.file]);
+                        }
                         showWameliToast(`Đã nạp file PDF: ${item.name}`);
                     }
                 });
@@ -1690,6 +2323,12 @@
 
         if (statusText) {
             statusText.textContent = `Đã chọn: ${total} file (${pdfCount} PDF, ${excelCount} Excel)`;
+        }
+
+        // Also update badge on form button
+        const formPdfBadge = document.querySelector('.wqf-btn-attach-checked-pdf .wqf-count-badge');
+        if (formPdfBadge) {
+            formPdfBadge.textContent = pdfCount;
         }
 
         if (batchPdfBtn) {
@@ -1750,16 +2389,22 @@
         const layout = setupOrderUploadLayout(panelBody);
         const rightCol = layout ? layout.rightCol : document.querySelector('.wqf-add-order-right-col');
 
-        // 2. Setup Inline Form Suggestions
+        // 2. Setup Preset Toolbar (Lưu & Điền nhanh cấu hình)
+        setupPresetToolbar(panelBody);
+
+        // 3. Setup Inline Form Suggestions
         if (sanSelect) setupPlatformInlineButtons(sanSelect);
         if (khoSelect) setupWarehouseInlineButtons(khoSelect);
         if (shopSelect) setupShopField(shopSelect);
         if (ngayInput) setupDateInlineButtons(ngayInput);
         if (gioSelect) setupHourInlineButtons(gioSelect);
         if (fileNameInput) setupFileNameField(fileNameInput);
-        setupDropZones(pdfFileInput, excelFileInput, fileNameInput);
 
-        // 3. Setup Right Directory Manager
+        // 4. Setup Multi-PDF Upload & Excel Drop Zone
+        if (pdfFileInput) setupPdfMultiFileManager(pdfFileInput);
+        if (excelFileInput) setupExcelDropZone(excelFileInput, fileNameInput);
+
+        // 5. Setup Right Directory Manager
         if (rightCol) {
             renderDirectoryManager(rightCol);
         }
