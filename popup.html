@@ -489,10 +489,13 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 
 <div id="tab-nhieu-don-hang" class="tab-content" hidden>
   <section class="tool-section" style="border-left: 4px solid #10b981; padding: 10px;">
-    <div class="section-head" style="margin-bottom: 8px;">
+    <div class="section-head" style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
       <h2 style="color: #047857; display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0;">
         <span>📦</span> Danh Sách Đơn Hàng (Sheet DH)
       </h2>
+      <button id="btn-open-wameli-upload-nhieu-don" type="button" style="padding: 3px 8px; font-size: 10px; background: #0284c7; color: white; border: 1px solid #0369a1; border-radius: 4px; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;" title="Mở trang Thêm mới Đơn hàng trên phần mềm Wameli (phanmem.wameli.vn/admin/order/upload)">
+        🌐 Wameli Upload
+      </button>
     </div>
 
     <!-- THANH CÔNG CỤ XỬ LÝ HÀNG LOẠT (2 DÒNG GỌN GÀNG, ĐẸP MẮT) -->
@@ -769,6 +772,11 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 <button id="btn-toggle-view-mode-order" type="button" class="secondary" style="font-size: 11px; padding: 3px 8px; background: #f0fdf4; color: #047857; border: 1px solid #86efac; border-radius: 4px; font-weight: bold; cursor: pointer;" title="Chuyển đổi kiểu xem dạng dòng hoặc dạng thẻ">
   🔄 Xem dạng thẻ dọc
 </button>
+</div>
+<div style="margin-bottom: 8px;">
+  <button id="btn-open-wameli-upload" type="button" class="secondary" style="width: 100%; padding: 6px 12px; font-size: 11px; font-weight: bold; background: linear-gradient(135deg, #0284c7, #0369a1); color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 1px 3px rgba(2,132,199,0.25);" title="Mở trang Thêm mới Đơn hàng trên phần mềm Wameli (phanmem.wameli.vn/admin/order/upload)">
+    🌐 Mở Wameli Upload Đơn Hàng
+  </button>
 </div>
 <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px;">
 <button id="btn-read-current-order" type="button" class="primary-action">Đọc đơn</button>

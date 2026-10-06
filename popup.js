@@ -10068,6 +10068,20 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // Nút mở nhanh trang Wameli Upload Đơn Hàng
+  const btnOpenWameliUpload = document.getElementById("btn-open-wameli-upload");
+  if (btnOpenWameliUpload) {
+    btnOpenWameliUpload.addEventListener("click", () => {
+      chrome.tabs.create({ url: "https://phanmem.wameli.vn/admin/order/upload" });
+    });
+  }
+  const btnOpenWameliUploadNhieuDon = document.getElementById("btn-open-wameli-upload-nhieu-don");
+  if (btnOpenWameliUploadNhieuDon) {
+    btnOpenWameliUploadNhieuDon.addEventListener("click", () => {
+      chrome.tabs.create({ url: "https://phanmem.wameli.vn/admin/order/upload" });
+    });
+  }
+
   // Ngăn chặn hành vi mặc định của Chrome khi kéo file vào cửa sổ popup
   window.addEventListener("dragover", (e) => {
     e.preventDefault();
