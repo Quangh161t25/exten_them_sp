@@ -219,29 +219,125 @@
                 }
             }
 
-            /* Preset Toolbar (Lưu & Điền nhanh chương trình) */
+            /* Preset Toolbar (Lưu & Điền nhanh chương trình theo nhóm) */
             .wqf-preset-bar {
                 display: flex;
-                align-items: center;
+                flex-direction: column;
                 gap: 8px;
-                padding: 8px 12px;
+                padding: 10px 14px;
                 background: #f0fdf4;
                 border: 1px solid #bbf7d0;
                 border-radius: 6px;
                 margin-bottom: 14px;
-                flex-wrap: wrap;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
                 font-family: inherit;
             }
+            .wqf-preset-header-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
             .wqf-preset-title {
-                font-size: 12.5px;
+                font-size: 13px;
                 font-weight: 700;
                 color: #166534;
                 display: flex;
                 align-items: center;
-                gap: 4px;
+                gap: 6px;
                 white-space: nowrap;
             }
+            .wqf-preset-controls {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+            .wqf-preset-group-toggle {
+                display: inline-flex;
+                align-items: center;
+                background: #dcfce7;
+                border: 1px solid #86efac;
+                border-radius: 5px;
+                padding: 2px 4px;
+                gap: 3px;
+            }
+            .wqf-preset-toggle-label {
+                font-size: 11px;
+                font-weight: 700;
+                color: #166534;
+                margin-right: 2px;
+            }
+            .wqf-preset-toggle-btn {
+                background: transparent;
+                border: none;
+                border-radius: 3px;
+                padding: 2px 8px;
+                font-size: 11.5px;
+                font-weight: 600;
+                color: #166534;
+                cursor: pointer;
+                transition: all 0.15s ease;
+            }
+            .wqf-preset-toggle-btn:hover {
+                background: rgba(255, 255, 255, 0.6);
+            }
+            .wqf-preset-toggle-btn.active {
+                background: #16a34a !important;
+                color: #ffffff !important;
+                box-shadow: 0 1px 2px rgba(22, 163, 74, 0.3);
+            }
+            .wqf-btn-save-preset {
+                background: #16a34a;
+                color: #ffffff;
+                border: none;
+                border-radius: 4px;
+                padding: 4px 11px;
+                font-size: 11.5px;
+                font-weight: 600;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                transition: background 0.15s ease;
+                white-space: nowrap;
+            }
+            .wqf-btn-save-preset:hover {
+                background: #15803d;
+            }
+
+            /* Preset Groups List */
             .wqf-preset-list {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                width: 100%;
+            }
+            .wqf-preset-group-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+                background: rgba(255, 255, 255, 0.75);
+                border: 1px solid #dcfce7;
+                border-radius: 5px;
+                padding: 4px 8px;
+            }
+            .wqf-preset-group-badge {
+                font-size: 11.5px;
+                font-weight: 700;
+                color: #166534;
+                background: #dcfce7;
+                padding: 3px 8px;
+                border-radius: 4px;
+                white-space: nowrap;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                border: 1px solid #bbf7d0;
+            }
+            .wqf-preset-group-chips {
                 display: flex;
                 align-items: center;
                 gap: 6px;
@@ -252,16 +348,17 @@
                 display: inline-flex;
                 align-items: center;
                 gap: 6px;
-                padding: 4px 10px;
+                padding: 3px 9px;
                 background: #ffffff;
                 border: 1px solid #86efac;
-                border-radius: 20px;
+                border-radius: 4px;
                 font-size: 11.5px;
                 font-weight: 600;
                 color: #15803d;
                 cursor: pointer;
                 transition: all 0.15s ease;
                 user-select: none;
+                white-space: nowrap;
             }
             .wqf-preset-chip:hover {
                 background: #dcfce7;
@@ -275,16 +372,16 @@
                 color: #ffffff !important;
                 box-shadow: 0 2px 4px rgba(22, 163, 74, 0.3);
             }
-            .wqf-preset-shop-tag {
+            .wqf-preset-sub-tag {
                 font-size: 10px;
                 opacity: 0.9;
-                background: rgba(0, 0, 0, 0.07);
-                padding: 1px 6px;
-                border-radius: 10px;
+                background: rgba(0, 0, 0, 0.06);
+                padding: 1px 5px;
+                border-radius: 3px;
                 color: inherit;
                 font-weight: 500;
             }
-            .wqf-preset-chip.active .wqf-preset-shop-tag {
+            .wqf-preset-chip.active .wqf-preset-sub-tag {
                 background: rgba(255, 255, 255, 0.25);
                 color: #ffffff;
             }
@@ -292,12 +389,12 @@
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                width: 15px;
-                height: 15px;
+                width: 14px;
+                height: 14px;
                 border-radius: 50%;
                 background: rgba(0,0,0,0.08);
                 color: inherit;
-                font-size: 10px;
+                font-size: 11px;
                 line-height: 1;
                 cursor: pointer;
                 border: none;
@@ -309,23 +406,56 @@
                 background: #ef4444;
                 color: #ffffff;
             }
-            .wqf-btn-save-preset {
-                background: #16a34a;
-                color: #ffffff;
-                border: none;
-                border-radius: 4px;
-                padding: 5px 12px;
+
+            /* Shop Suggestions from Presets */
+            .wqf-shop-suggestions-container {
+                margin-top: 5px;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                width: 100%;
+            }
+            .wqf-shop-suggestions-bar {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+            .wqf-shop-sug-title {
                 font-size: 11.5px;
                 font-weight: 600;
-                cursor: pointer;
-                display: inline-flex;
-                align-items: center;
-                gap: 4px;
-                transition: background 0.15s ease;
+                color: #0369a1;
                 white-space: nowrap;
             }
-            .wqf-btn-save-preset:hover {
-                background: #15803d;
+            .wqf-shop-sug-chips {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                flex-wrap: wrap;
+            }
+            .wqf-shop-sug-btn {
+                background: #ffffff;
+                border: 1px solid #bae6fd;
+                border-radius: 4px;
+                padding: 3px 9px;
+                font-size: 11.5px;
+                font-weight: 500;
+                color: #0369a1;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                white-space: nowrap;
+            }
+            .wqf-shop-sug-btn:hover {
+                background: #e0f2fe;
+                border-color: #0284c7;
+                color: #075985;
+            }
+            .wqf-shop-sug-btn.wqf-active {
+                background: #0284c7 !important;
+                border-color: #0284c7 !important;
+                color: #ffffff !important;
+                font-weight: 600;
+                box-shadow: 0 1px 3px rgba(2, 132, 199, 0.3);
             }
 
             /* Inline Field Group & Buttons */
@@ -842,65 +972,113 @@
     }
 
     // ==========================================
-    // PRESET TOOLBAR: LƯU & ĐIỀN NHANH CHƯƠNG TRÌNH
+    // PRESET TOOLBAR: LƯU & ĐIỀN NHANH CHƯƠNG TRÌNH (NHÓM THEO SHOP / GIỜ)
     // ==========================================
+    function getStoredPresets() {
+        try {
+            const raw = localStorage.getItem('wqf_saved_presets');
+            if (raw) return JSON.parse(raw);
+        } catch (e) { }
+
+        // Default starter presets
+        return [
+            { id: 'p_shopee_8h', name: 'Shopee - Kho HN - 8H', platform_id: '2', warehouse_id: '1', house_id: '3', shop_id: '0', shop_name: '', is_seeding: '0' },
+            { id: 'p_tiktok_9h', name: 'Ticktok - Kho HN - 9H', platform_id: '9', warehouse_id: '1', house_id: '9', shop_id: '0', shop_name: '', is_seeding: '0' }
+        ];
+    }
+
+    function saveStoredPresets(presets) {
+        localStorage.setItem('wqf_saved_presets', JSON.stringify(presets));
+    }
+
+    function getHourLabel(houseId) {
+        if (!houseId && houseId !== '0') return 'Chưa chọn';
+        const map = {
+            '0': '0H',
+            '3': '8H',
+            '9': '9H',
+            '5': '10H',
+            '6': '11H',
+            '7': '13H',
+            '10': '14H',
+            '11': '15H',
+            '12': '16H',
+            '18': '23H'
+        };
+        const idStr = String(houseId).trim();
+        if (map[idStr]) return map[idStr];
+        const formEls = findWameliOrderFormElements();
+        if (formEls && formEls.gioSelect) {
+            const opt = Array.from(formEls.gioSelect.options).find(o => o.value == idStr);
+            if (opt && opt.text && !opt.text.includes('--')) return opt.text.trim();
+        }
+        return idStr ? (idStr + 'H') : 'Khác';
+    }
+
+    function applyShopValue(shopSelect, shopId, shopName) {
+        if (!shopSelect) return;
+        let targetVal = shopId;
+        if ((!targetVal || targetVal === '0') && shopName) {
+            const opt = Array.from(shopSelect.options).find(o => 
+                o.text.trim().toLowerCase() === shopName.trim().toLowerCase() ||
+                o.text.trim().toLowerCase().includes(shopName.trim().toLowerCase())
+            );
+            if (opt) targetVal = opt.value;
+        }
+        if (targetVal && targetVal !== '0') {
+            setSelect2Value(shopSelect, targetVal);
+        } else if (shopName) {
+            const opt = Array.from(shopSelect.options).find(o => 
+                o.text.trim().toLowerCase() === shopName.trim().toLowerCase() ||
+                o.text.trim().toLowerCase().includes(shopName.trim().toLowerCase())
+            );
+            if (opt) setSelect2Value(shopSelect, opt.value);
+        }
+    }
+
     function setupPresetToolbar(panelBody) {
         if (!panelBody) return;
         if (document.getElementById('wqf-preset-bar')) return;
+
+        let currentGroupBy = localStorage.getItem('wqf_preset_group_by') || 'shop';
 
         const presetBar = document.createElement('div');
         presetBar.id = 'wqf-preset-bar';
         presetBar.className = 'wqf-preset-bar';
 
         presetBar.innerHTML = `
-            <div class="wqf-preset-title">
-                <span>⚡ Chương trình điền nhanh:</span>
+            <div class="wqf-preset-header-row">
+                <div class="wqf-preset-title">
+                    <span>⭐ Chương trình điền nhanh:</span>
+                </div>
+                <div class="wqf-preset-controls">
+                    <div class="wqf-preset-group-toggle">
+                        <span class="wqf-preset-toggle-label">Nhóm theo:</span>
+                        <button type="button" class="wqf-preset-toggle-btn ${currentGroupBy === 'shop' ? 'active' : ''}" data-group-by="shop">
+                            🏬 Shop
+                        </button>
+                        <button type="button" class="wqf-preset-toggle-btn ${currentGroupBy === 'hour' ? 'active' : ''}" data-group-by="hour">
+                            ⏰ Giờ
+                        </button>
+                    </div>
+                    <button type="button" id="wqf-btn-save-preset" class="wqf-btn-save-preset" title="Lưu cấu hình Sàn, Shop, Kho, Giờ, Ngày hiện tại thành chương trình mẫu để dùng lại">
+                        💾 Lưu chương trình
+                    </button>
+                </div>
             </div>
             <div id="wqf-preset-list" class="wqf-preset-list"></div>
-            <button type="button" id="wqf-btn-save-preset" class="wqf-btn-save-preset" title="Lưu cấu hình Sàn, Shop, Kho, Giờ, Ngày hiện tại thành chương trình mẫu để dùng lại">
-                💾 Lưu chương trình
-            </button>
         `;
 
         panelBody.insertBefore(presetBar, panelBody.firstChild);
 
-        function getStoredPresets() {
-            try {
-                const raw = localStorage.getItem('wqf_saved_presets');
-                if (raw) return JSON.parse(raw);
-            } catch (e) { }
-
-            // Default starter presets
-            return [
-                { id: 'p_shopee_8h', name: 'Shopee - Kho HN - 8H', platform_id: '2', warehouse_id: '1', house_id: '3', shop_id: '0', shop_name: '', is_seeding: '0' },
-                { id: 'p_tiktok_9h', name: 'Ticktok - Kho HN - 9H', platform_id: '9', warehouse_id: '1', house_id: '9', shop_id: '0', shop_name: '', is_seeding: '0' }
-            ];
-        }
-
-        function saveStoredPresets(presets) {
-            localStorage.setItem('wqf_saved_presets', JSON.stringify(presets));
-        }
-
-        function applyShopValue(shopSelect, shopId, shopName) {
-            if (!shopSelect) return;
-            let targetVal = shopId;
-            if ((!targetVal || targetVal === '0') && shopName) {
-                const opt = Array.from(shopSelect.options).find(o => 
-                    o.text.trim().toLowerCase() === shopName.trim().toLowerCase() ||
-                    o.text.trim().toLowerCase().includes(shopName.trim().toLowerCase())
-                );
-                if (opt) targetVal = opt.value;
-            }
-            if (targetVal && targetVal !== '0') {
-                setSelect2Value(shopSelect, targetVal);
-            } else if (shopName) {
-                const opt = Array.from(shopSelect.options).find(o => 
-                    o.text.trim().toLowerCase() === shopName.trim().toLowerCase() ||
-                    o.text.trim().toLowerCase().includes(shopName.trim().toLowerCase())
-                );
-                if (opt) setSelect2Value(shopSelect, opt.value);
-            }
-        }
+        // Switch group mode (Shop vs Giờ)
+        presetBar.querySelectorAll('.wqf-preset-toggle-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentGroupBy = btn.getAttribute('data-group-by') || 'shop';
+                localStorage.setItem('wqf_preset_group_by', currentGroupBy);
+                renderPresets();
+            });
+        });
 
         function applyPreset(preset, chipEl) {
             const formEls = findWameliOrderFormElements();
@@ -975,6 +1153,11 @@
             presetBar.querySelectorAll('.wqf-preset-chip').forEach(c => c.classList.remove('active'));
             if (chipEl) chipEl.classList.add('active');
 
+            // Sync with Shop suggestion buttons
+            if (preset.shop_id && typeof window._wqf_update_shop_suggestions_active === 'function') {
+                window._wqf_update_shop_suggestions_active(preset.shop_id);
+            }
+
             const shopInfo = preset.shop_name ? ` (Shop: ${preset.shop_name})` : '';
             showWameliToast(`⚡ Đã áp dụng chương trình: ${preset.name}${shopInfo}!`);
         }
@@ -985,38 +1168,127 @@
             listEl.innerHTML = '';
 
             const presets = getStoredPresets();
-            presets.forEach(p => {
-                const chip = document.createElement('div');
-                chip.className = 'wqf-preset-chip';
-                const shopTag = p.shop_name ? `<span class="wqf-preset-shop-tag" title="Shop: ${escapeHtml(p.shop_name)}">${escapeHtml(p.shop_name)}</span>` : '';
+            if (presets.length === 0) {
+                listEl.innerHTML = '<div style="font-size: 11.5px; color: #166534; padding: 4px;">Chưa có chương trình nào được lưu. Bấm "💾 Lưu chương trình" để tạo mẫu mới.</div>';
+                return;
+            }
 
-                chip.innerHTML = `
-                    <span>⭐ ${escapeHtml(p.name)}</span>
-                    ${shopTag}
-                    <button type="button" class="wqf-preset-del-btn" title="Xóa chương trình này">×</button>
-                `;
-                chip.title = `Sàn: ${p.platform_id} | Kho: ${p.warehouse_id} | Giờ: ${p.house_id} | Shop: ${p.shop_name || 'Mặc định'}`;
+            // Update toggle active buttons
+            presetBar.querySelectorAll('.wqf-preset-toggle-btn').forEach(btn => {
+                if (btn.getAttribute('data-group-by') === currentGroupBy) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
 
-                chip.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('wqf-preset-del-btn')) return;
-                    applyPreset(p, chip);
-                });
-
-                chip.querySelector('.wqf-preset-del-btn').addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (confirm(`Bạn có chắc muốn xóa chương trình "${p.name}"?`)) {
-                        const updated = getStoredPresets().filter(item => item.id !== p.id);
-                        saveStoredPresets(updated);
-                        renderPresets();
-                        showWameliToast(`Đã xóa chương trình: ${p.name}`);
+            // Auto-resolve missing shop_names for older presets
+            const formEls = findWameliOrderFormElements();
+            if (formEls && formEls.shopSelect) {
+                let modified = false;
+                presets.forEach(p => {
+                    if (p.shop_id && p.shop_id !== '0' && (!p.shop_name || !p.shop_name.trim())) {
+                        const opt = Array.from(formEls.shopSelect.options).find(o => o.value == p.shop_id);
+                        if (opt && !opt.text.includes('--')) {
+                            p.shop_name = opt.text.trim();
+                            modified = true;
+                        }
                     }
                 });
+                if (modified) saveStoredPresets(presets);
+            }
 
-                listEl.appendChild(chip);
+            const groupsMap = new Map();
+
+            if (currentGroupBy === 'shop') {
+                presets.forEach(p => {
+                    const shopKey = (p.shop_name && p.shop_name.trim()) ? p.shop_name.trim() : 'Mặc định / Chưa gán Shop';
+                    if (!groupsMap.has(shopKey)) groupsMap.set(shopKey, []);
+                    groupsMap.get(shopKey).push(p);
+                });
+            } else { // hour
+                presets.forEach(p => {
+                    const hourKey = getHourLabel(p.house_id);
+                    if (!groupsMap.has(hourKey)) groupsMap.set(hourKey, []);
+                    groupsMap.get(hourKey).push(p);
+                });
+            }
+
+            // Sort groups: if hour, sort by hour number; if shop, sort alphabetically with default last
+            const sortedGroupKeys = Array.from(groupsMap.keys()).sort((a, b) => {
+                if (currentGroupBy === 'hour') {
+                    const numA = parseInt(a, 10) || 999;
+                    const numB = parseInt(b, 10) || 999;
+                    return numA - numB;
+                } else {
+                    if (a.includes('Mặc định')) return 1;
+                    if (b.includes('Mặc định')) return -1;
+                    return a.localeCompare(b, 'vi');
+                }
+            });
+
+            sortedGroupKeys.forEach(groupKey => {
+                const groupPresets = groupsMap.get(groupKey);
+                const groupRow = document.createElement('div');
+                groupRow.className = 'wqf-preset-group-row';
+
+                const icon = currentGroupBy === 'shop' ? '🏬' : '⏰';
+                const groupBadge = document.createElement('div');
+                groupBadge.className = 'wqf-preset-group-badge';
+                groupBadge.innerHTML = `<span>${icon}</span> <span>${escapeHtml(groupKey)}</span> <span style="font-weight: 500; opacity: 0.75;">(${groupPresets.length})</span>`;
+
+                const chipsWrap = document.createElement('div');
+                chipsWrap.className = 'wqf-preset-group-chips';
+
+                groupPresets.forEach(p => {
+                    const chip = document.createElement('div');
+                    chip.className = 'wqf-preset-chip';
+                    chip.setAttribute('data-preset-id', p.id);
+
+                    let subBadge = '';
+                    if (currentGroupBy === 'shop') {
+                        const hLabel = getHourLabel(p.house_id);
+                        if (hLabel) subBadge = `<span class="wqf-preset-sub-tag" title="Giờ: ${hLabel}">⏰ ${hLabel}</span>`;
+                    } else {
+                        if (p.shop_name) subBadge = `<span class="wqf-preset-sub-tag" title="Shop: ${escapeHtml(p.shop_name)}">🏬 ${escapeHtml(p.shop_name)}</span>`;
+                    }
+
+                    chip.innerHTML = `
+                        <span>⭐ ${escapeHtml(p.name)}</span>
+                        ${subBadge}
+                        <button type="button" class="wqf-preset-del-btn" title="Xóa chương trình này">×</button>
+                    `;
+                    chip.title = `Sàn: ${p.platform_id} | Kho: ${p.warehouse_id} | Giờ: ${getHourLabel(p.house_id)} | Shop: ${p.shop_name || 'Mặc định'}`;
+
+                    chip.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('wqf-preset-del-btn')) return;
+                        applyPreset(p, chip);
+                    });
+
+                    chip.querySelector('.wqf-preset-del-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (confirm(`Bạn có chắc muốn xóa chương trình "${p.name}"?`)) {
+                            const updated = getStoredPresets().filter(item => item.id !== p.id);
+                            saveStoredPresets(updated);
+                            renderPresets();
+                            if (typeof window._wqf_render_shop_suggestions === 'function') {
+                                window._wqf_render_shop_suggestions();
+                            }
+                            showWameliToast(`Đã xóa chương trình: ${p.name}`);
+                        }
+                    });
+
+                    chipsWrap.appendChild(chip);
+                });
+
+                groupRow.appendChild(groupBadge);
+                groupRow.appendChild(chipsWrap);
+                listEl.appendChild(groupRow);
             });
         }
 
         renderPresets();
+        window._wqf_render_presets = renderPresets;
 
         // Save current form values as new preset
         presetBar.querySelector('#wqf-btn-save-preset').addEventListener('click', () => {
@@ -1063,12 +1335,16 @@
             saveStoredPresets(presets);
             renderPresets();
 
+            // Refresh shop suggestions immediately
+            if (typeof window._wqf_render_shop_suggestions === 'function') {
+                window._wqf_render_shop_suggestions();
+            }
+
             // Auto-activate the newly created preset
-            const allChips = presetBar.querySelectorAll('.wqf-preset-chip');
-            const lastChip = allChips[allChips.length - 1];
-            if (lastChip) {
+            const chip = presetBar.querySelector(`.wqf-preset-chip[data-preset-id="${newPreset.id}"]`);
+            if (chip) {
                 presetBar.querySelectorAll('.wqf-preset-chip').forEach(c => c.classList.remove('active'));
-                lastChip.classList.add('active');
+                chip.classList.add('active');
             }
 
             const msgShop = shopText ? ` (bao gồm Shop: ${shopText})` : '';
@@ -1243,7 +1519,7 @@
         observer.observe(col10, { childList: true });
     }
 
-    // --- Shop Field: 100% full width, no buttons ---
+    // --- Shop Field: 100% full width & Gợi ý Shop lấy từ chương trình đã lưu ---
     function setupShopField(shopSelect) {
         if (!shopSelect) return;
         const formGroup = shopSelect.closest('.form-group');
@@ -1259,6 +1535,96 @@
 
         const legacy = col10.querySelector('.wqf-add-select-buttons, .wameli-inline-chips');
         if (legacy) legacy.remove();
+
+        // Setup container for Shop suggestions extracted from saved presets
+        let sugContainer = col10.querySelector('.wqf-shop-suggestions-container');
+        if (!sugContainer) {
+            sugContainer = document.createElement('div');
+            sugContainer.className = 'wqf-shop-suggestions-container';
+            sugContainer.id = 'wqf-shop-suggestions-container';
+            col10.appendChild(sugContainer);
+        }
+
+        function updateActiveShopButton(currentShopId) {
+            if (!sugContainer) return;
+            sugContainer.querySelectorAll('.wqf-shop-sug-btn').forEach(btn => {
+                if (btn.getAttribute('data-shop-id') === currentShopId) {
+                    btn.classList.add('wqf-active');
+                } else {
+                    btn.classList.remove('wqf-active');
+                }
+            });
+        }
+
+        function renderShopSuggestions() {
+            if (!sugContainer) return;
+            sugContainer.innerHTML = '';
+
+            const presets = getStoredPresets();
+            const shopMap = new Map();
+
+            // Extract unique shops from saved presets
+            presets.forEach(p => {
+                let sId = p.shop_id;
+                let sName = p.shop_name ? p.shop_name.trim() : '';
+
+                if (sId && sId !== '0' && !sName && shopSelect) {
+                    const opt = Array.from(shopSelect.options).find(o => o.value == sId);
+                    if (opt && !opt.text.includes('--')) sName = opt.text.trim();
+                }
+
+                if (sId && sId !== '0' && sName) {
+                    if (!shopMap.has(sId)) {
+                        shopMap.set(sId, { id: sId, name: sName });
+                    }
+                }
+            });
+
+            const uniqueShops = Array.from(shopMap.values());
+            if (uniqueShops.length === 0) return;
+
+            const bar = document.createElement('div');
+            bar.className = 'wqf-shop-suggestions-bar';
+            bar.innerHTML = `<span class="wqf-shop-sug-title">Gợi ý Shop từ chương trình:</span>`;
+
+            const chipsWrap = document.createElement('div');
+            chipsWrap.className = 'wqf-shop-sug-chips';
+            chipsWrap.id = 'wqf-shop-sug-chips';
+
+            uniqueShops.forEach(shop => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'wqf-shop-sug-btn';
+                btn.setAttribute('data-shop-id', shop.id);
+                btn.textContent = shop.name;
+                btn.title = `Chọn nhanh Shop: ${shop.name}`;
+
+                if (shopSelect.value === shop.id) {
+                    btn.classList.add('wqf-active');
+                }
+
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    applyShopValue(shopSelect, shop.id, shop.name);
+                    chipsWrap.querySelectorAll('.wqf-shop-sug-btn').forEach(b => b.classList.remove('wqf-active'));
+                    btn.classList.add('wqf-active');
+                    showWameliToast(`Đã chọn Shop: ${shop.name}`);
+                });
+
+                chipsWrap.appendChild(btn);
+            });
+
+            bar.appendChild(chipsWrap);
+            sugContainer.appendChild(bar);
+        }
+
+        renderShopSuggestions();
+        window._wqf_render_shop_suggestions = renderShopSuggestions;
+        window._wqf_update_shop_suggestions_active = updateActiveShopButton;
+
+        shopSelect.addEventListener('change', () => {
+            updateActiveShopButton(shopSelect.value);
+        });
     }
 
     // --- Ngày Suggestion Buttons ---
