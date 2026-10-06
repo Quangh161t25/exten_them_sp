@@ -219,7 +219,7 @@
                 }
             }
 
-            /* Preset Toolbar (Lưu & Điền nhanh cấu hình) */
+            /* Preset Toolbar (Lưu & Điền nhanh chương trình) */
             .wqf-preset-bar {
                 display: flex;
                 align-items: center;
@@ -274,6 +274,19 @@
                 border-color: #16a34a !important;
                 color: #ffffff !important;
                 box-shadow: 0 2px 4px rgba(22, 163, 74, 0.3);
+            }
+            .wqf-preset-shop-tag {
+                font-size: 10px;
+                opacity: 0.9;
+                background: rgba(0, 0, 0, 0.07);
+                padding: 1px 6px;
+                border-radius: 10px;
+                color: inherit;
+                font-weight: 500;
+            }
+            .wqf-preset-chip.active .wqf-preset-shop-tag {
+                background: rgba(255, 255, 255, 0.25);
+                color: #ffffff;
             }
             .wqf-preset-del-btn {
                 display: inline-flex;
@@ -926,7 +939,7 @@
     }
 
     // ==========================================
-    // PRESET TOOLBAR: LƯU & ĐIỀN NHANH CẤU HÌNH
+    // PRESET TOOLBAR: LƯU & ĐIỀN NHANH CHƯƠNG TRÌNH
     // ==========================================
     function setupPresetToolbar(panelBody) {
         if (!panelBody) return;
@@ -938,11 +951,11 @@
 
         presetBar.innerHTML = `
             <div class="wqf-preset-title">
-                <span>⚡ Mẫu điền nhanh:</span>
+                <span>⚡ Chương trình điền nhanh:</span>
             </div>
             <div id="wqf-preset-list" class="wqf-preset-list"></div>
-            <button type="button" id="wqf-btn-save-preset" class="wqf-btn-save-preset" title="Lưu cấu hình Sàn, Kho, Giờ, Ngày hiện tại thành mẫu điền nhanh">
-                💾 Lưu mẫu hiện tại
+            <button type="button" id="wqf-btn-save-preset" class="wqf-btn-save-preset" title="Lưu cấu hình Sàn, Shop, Kho, Giờ, Ngày hiện tại thành chương trình mẫu để dùng lại">
+                💾 Lưu chương trình
             </button>
         `;
 
@@ -956,13 +969,34 @@
 
             // Default starter presets
             return [
-                { id: 'p_shopee_8h', name: 'Shopee - Kho HN - 8H', platform_id: '2', warehouse_id: '1', house_id: '3', is_seeding: '0' },
-                { id: 'p_tiktok_9h', name: 'Ticktok - Kho HN - 9H', platform_id: '9', warehouse_id: '1', house_id: '9', is_seeding: '0' }
+                { id: 'p_shopee_8h', name: 'Shopee - Kho HN - 8H', platform_id: '2', warehouse_id: '1', house_id: '3', shop_id: '0', shop_name: '', is_seeding: '0' },
+                { id: 'p_tiktok_9h', name: 'Ticktok - Kho HN - 9H', platform_id: '9', warehouse_id: '1', house_id: '9', shop_id: '0', shop_name: '', is_seeding: '0' }
             ];
         }
 
         function saveStoredPresets(presets) {
             localStorage.setItem('wqf_saved_presets', JSON.stringify(presets));
+        }
+
+        function applyShopValue(shopSelect, shopId, shopName) {
+            if (!shopSelect) return;
+            let targetVal = shopId;
+            if ((!targetVal || targetVal === '0') && shopName) {
+                const opt = Array.from(shopSelect.options).find(o => 
+                    o.text.trim().toLowerCase() === shopName.trim().toLowerCase() ||
+                    o.text.trim().toLowerCase().includes(shopName.trim().toLowerCase())
+                );
+                if (opt) targetVal = opt.value;
+            }
+            if (targetVal && targetVal !== '0') {
+                setSelect2Value(shopSelect, targetVal);
+            } else if (shopName) {
+                const opt = Array.from(shopSelect.options).find(o => 
+                    o.text.trim().toLowerCase() === shopName.trim().toLowerCase() ||
+                    o.text.trim().toLowerCase().includes(shopName.trim().toLowerCase())
+                );
+                if (opt) setSelect2Value(shopSelect, opt.value);
+            }
         }
 
         function applyPreset(preset, chipEl) {
@@ -1004,7 +1038,14 @@
                 });
             }
 
-            // 4. Ngày: Always apply today
+            // 4. Shop: set immediately and verify with delayed retries in case platform changed shop dropdown
+            if ((preset.shop_id && preset.shop_id !== '0') || preset.shop_name) {
+                applyShopValue(formEls.shopSelect, preset.shop_id, preset.shop_name);
+                setTimeout(() => applyShopValue(formEls.shopSelect, preset.shop_id, preset.shop_name), 300);
+                setTimeout(() => applyShopValue(formEls.shopSelect, preset.shop_id, preset.shop_name), 750);
+            }
+
+            // 5. Ngày: Always apply today
             if (formEls.ngayInput) {
                 const todayStr = formatWameliDate(new Date());
                 formEls.ngayInput.value = todayStr;
@@ -1018,7 +1059,7 @@
                 });
             }
 
-            // 5. Seeding radio
+            // 6. Seeding radio
             if (preset.is_seeding !== undefined) {
                 const seedingRadio = document.getElementById('is_seeding_' + preset.is_seeding);
                 if (seedingRadio) {
@@ -1027,16 +1068,12 @@
                 }
             }
 
-            // 6. Shop
-            if (preset.shop_id && preset.shop_id !== '0' && formEls.shopSelect) {
-                setSelect2Value(formEls.shopSelect, preset.shop_id);
-            }
-
             // Active visual chip
             presetBar.querySelectorAll('.wqf-preset-chip').forEach(c => c.classList.remove('active'));
             if (chipEl) chipEl.classList.add('active');
 
-            showWameliToast(`⚡ Đã áp dụng mẫu: ${preset.name}!`);
+            const shopInfo = preset.shop_name ? ` (Shop: ${preset.shop_name})` : '';
+            showWameliToast(`⚡ Đã áp dụng chương trình: ${preset.name}${shopInfo}!`);
         }
 
         function renderPresets() {
@@ -1048,10 +1085,14 @@
             presets.forEach(p => {
                 const chip = document.createElement('div');
                 chip.className = 'wqf-preset-chip';
+                const shopTag = p.shop_name ? `<span class="wqf-preset-shop-tag" title="Shop: ${escapeHtml(p.shop_name)}">${escapeHtml(p.shop_name)}</span>` : '';
+
                 chip.innerHTML = `
                     <span>⭐ ${escapeHtml(p.name)}</span>
-                    <button type="button" class="wqf-preset-del-btn" title="Xóa mẫu này">×</button>
+                    ${shopTag}
+                    <button type="button" class="wqf-preset-del-btn" title="Xóa chương trình này">×</button>
                 `;
+                chip.title = `Sàn: ${p.platform_id} | Kho: ${p.warehouse_id} | Giờ: ${p.house_id} | Shop: ${p.shop_name || 'Mặc định'}`;
 
                 chip.addEventListener('click', (e) => {
                     if (e.target.classList.contains('wqf-preset-del-btn')) return;
@@ -1060,11 +1101,11 @@
 
                 chip.querySelector('.wqf-preset-del-btn').addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (confirm(`Bạn có chắc muốn xóa mẫu "${p.name}"?`)) {
+                    if (confirm(`Bạn có chắc muốn xóa chương trình "${p.name}"?`)) {
                         const updated = getStoredPresets().filter(item => item.id !== p.id);
                         saveStoredPresets(updated);
                         renderPresets();
-                        showWameliToast(`Đã xóa mẫu: ${p.name}`);
+                        showWameliToast(`Đã xóa chương trình: ${p.name}`);
                     }
                 });
 
@@ -1082,8 +1123,23 @@
             const khoText = formEls.khoSelect?.selectedOptions[0]?.text?.replace(/--/g, '').trim() || 'Kho HN';
             const gioText = formEls.gioSelect?.selectedOptions[0]?.text?.replace(/--/g, '').trim() || '8H';
 
-            const defaultName = `${sanText} - ${khoText} - ${gioText}`;
-            const name = prompt('Nhập tên mẫu điền nhanh để lưu:', defaultName);
+            // Extract selected Shop name & id
+            const shopOpt = formEls.shopSelect?.selectedOptions[0];
+            let shopText = '';
+            let shopId = formEls.shopSelect ? formEls.shopSelect.value : '0';
+            if (shopOpt && shopId !== '0') {
+                shopText = shopOpt.text.replace(/--/g, '').trim();
+            }
+
+            // Construct default program name (includes Shop name if selected)
+            let defaultName = '';
+            if (shopText) {
+                defaultName = `${sanText} - ${shopText} - ${gioText}`;
+            } else {
+                defaultName = `${sanText} - ${khoText} - ${gioText}`;
+            }
+
+            const name = prompt('Nhập tên chương trình điền nhanh để lưu:', defaultName);
             if (!name || !name.trim()) return;
 
             const seedingEl = document.querySelector('input[name="is_seeding"]:checked');
@@ -1094,7 +1150,8 @@
                 platform_id: formEls.sanSelect ? formEls.sanSelect.value : '2',
                 warehouse_id: formEls.khoSelect ? formEls.khoSelect.value : '1',
                 house_id: formEls.gioSelect ? formEls.gioSelect.value : '3',
-                shop_id: formEls.shopSelect ? formEls.shopSelect.value : '0',
+                shop_id: shopId,
+                shop_name: shopText,
                 is_seeding: seedingEl ? seedingEl.value : '0'
             };
 
@@ -1102,7 +1159,17 @@
             presets.push(newPreset);
             saveStoredPresets(presets);
             renderPresets();
-            showWameliToast(`Đã lưu mẫu điền nhanh: ${newPreset.name}!`);
+
+            // Auto-activate the newly created preset
+            const allChips = presetBar.querySelectorAll('.wqf-preset-chip');
+            const lastChip = allChips[allChips.length - 1];
+            if (lastChip) {
+                presetBar.querySelectorAll('.wqf-preset-chip').forEach(c => c.classList.remove('active'));
+                lastChip.classList.add('active');
+            }
+
+            const msgShop = shopText ? ` (bao gồm Shop: ${shopText})` : '';
+            showWameliToast(`Đã lưu chương trình: ${newPreset.name}${msgShop}!`);
         });
     }
 
@@ -1461,7 +1528,7 @@
     // ==========================================
     // MULTI-PDF UPLOAD & DROP MANAGER
     // ==========================================
-    let attachedPdfFiles = []; // Array of File objects currently attached to Hóa đơn PDF
+    let attachedPdfFiles = [];
 
     function setupPdfMultiFileManager(pdfFileInput) {
         if (!pdfFileInput) return;
@@ -1472,11 +1539,9 @@
         const col10 = formGroup.querySelector('.col-md-10') || pdfFileInput.parentElement;
         if (!col10) return;
 
-        // Container
         const container = document.createElement('div');
         container.className = 'wqf-pdf-upload-container';
 
-        // Action row with Quick Buttons
         const actionRow = document.createElement('div');
         actionRow.className = 'wqf-pdf-action-row';
 
@@ -1499,16 +1564,13 @@
         `;
         actionRow.appendChild(hiddenPicker);
 
-        // Attached list container
         const listContainer = document.createElement('div');
         listContainer.className = 'wqf-pdf-attached-list';
         listContainer.id = 'wqf-pdf-attached-list';
 
-        // Drop zone wrapper
         const dropBox = document.createElement('div');
         dropBox.className = 'wqf-drop-zone';
 
-        // Move existing upload button inside dropBox
         const existingUpload = col10.querySelector('.fileUpload');
         if (existingUpload) {
             dropBox.appendChild(existingUpload);
@@ -1562,7 +1624,6 @@
             });
         }
 
-        // Hidden input picker
         const pickBtn = actionRow.querySelector('.wqf-pick-pdf-btn');
         pickBtn.addEventListener('click', () => hiddenPicker.click());
 
@@ -1573,12 +1634,10 @@
             hiddenPicker.value = '';
         });
 
-        // Quick attach checked button
         const attachCheckedBtn = actionRow.querySelector('.wqf-attach-checked-btn');
         attachCheckedBtn.addEventListener('click', () => {
             const checkedPdfs = scannedFolderState.files.filter(f => scannedFolderState.selectedIds.has(f.id) && f.isPdf);
             if (checkedPdfs.length === 0) {
-                // If none checked, take all PDFs from active list
                 const allPdfs = scannedFolderState.files.filter(f => f.isPdf);
                 if (allPdfs.length > 0) {
                     addPdfFiles(allPdfs.map(item => item.file));
@@ -1597,7 +1656,6 @@
             let addedCount = 0;
             files.forEach(f => {
                 if (!f.name.toLowerCase().endsWith('.pdf')) return;
-                // Avoid exact duplicate
                 if (!attachedPdfFiles.some(existing => existing.name === f.name && existing.size === f.size)) {
                     attachedPdfFiles.push(f);
                     addedCount++;
@@ -1614,7 +1672,6 @@
         window._wqf_add_pdf_files = addPdfFiles;
         window._wqf_update_attached_pdf_ui = updateAttachedPdfUI;
 
-        // Native PDF input listener
         pdfFileInput.addEventListener('change', (e) => {
             const files = Array.from(e.target.files || []);
             if (files.length > 0) {
@@ -1622,7 +1679,6 @@
             }
         });
 
-        // Drop zone listeners
         dropBox.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -2137,7 +2193,6 @@
                 </div>
             `;
 
-            // Group checkbox toggles all files in this group
             headerEl.querySelector('.wqf-group-checkbox')?.addEventListener('change', (e) => {
                 const isChecked = e.target.checked;
                 groupFiles.forEach(f => {
@@ -2245,7 +2300,6 @@
                     updateExplorerStatusBar();
                 });
 
-                // Drag support: If this row or multiple rows are selected, drag all selected
                 rowEl.addEventListener('dragstart', (e) => {
                     const selectedFiles = scannedFolderState.files.filter(f => scannedFolderState.selectedIds.has(f.id));
                     if (selectedFiles.length > 1 && scannedFolderState.selectedIds.has(item.id)) {
@@ -2325,7 +2379,6 @@
             statusText.textContent = `Đã chọn: ${total} file (${pdfCount} PDF, ${excelCount} Excel)`;
         }
 
-        // Also update badge on form button
         const formPdfBadge = document.querySelector('.wqf-btn-attach-checked-pdf .wqf-count-badge');
         if (formPdfBadge) {
             formPdfBadge.textContent = pdfCount;
@@ -2389,7 +2442,7 @@
         const layout = setupOrderUploadLayout(panelBody);
         const rightCol = layout ? layout.rightCol : document.querySelector('.wqf-add-order-right-col');
 
-        // 2. Setup Preset Toolbar (Lưu & Điền nhanh cấu hình)
+        // 2. Setup Preset Toolbar (Lưu & Điền nhanh chương trình)
         setupPresetToolbar(panelBody);
 
         // 3. Setup Inline Form Suggestions
