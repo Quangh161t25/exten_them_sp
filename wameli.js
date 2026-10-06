@@ -216,7 +216,27 @@
                 }
             }
 
-            /* Narrow form controls */
+            /* Narrow form controls & 2-column inline field wrapper */
+            .wameli-field-row-wrapper {
+                display: flex !important;
+                align-items: center !important;
+                width: 100% !important;
+                min-height: 34px !important;
+            }
+            .wameli-input-col {
+                width: 170px !important;
+                min-width: 170px !important;
+                max-width: 170px !important;
+                flex-shrink: 0 !important;
+            }
+            .wameli-chips-col {
+                margin-left: 14px !important;
+                display: flex !important;
+                flex-wrap: wrap !important;
+                align-items: center !important;
+                gap: 5px !important;
+                flex: 1 !important;
+            }
             .wameli-control-narrow {
                 width: 170px !important;
                 max-width: 170px !important;
@@ -226,12 +246,10 @@
 
             /* Inline suggestion chips */
             .wameli-inline-chips {
-                display: inline-flex;
-                flex-wrap: wrap;
-                align-items: center;
-                gap: 5px;
-                margin-left: 8px;
-                vertical-align: middle;
+                display: flex !important;
+                flex-wrap: wrap !important;
+                align-items: center !important;
+                gap: 5px !important;
             }
             .wameli-chip {
                 display: inline-flex;
@@ -765,18 +783,46 @@
         return { wrapper, leftCol, rightCol };
     }
 
+    // --- Helper to wrap field into a 2-column inline row: [ 170px Input ] [ Suggestions Chips ] ---
+    function wrapControlAndChips(controlEl, chipsWrap) {
+        if (!controlEl || !chipsWrap) return;
+        const parentCell = controlEl.parentElement;
+        if (!parentCell) return;
+
+        // If already wrapped in wameli-field-row-wrapper, don't duplicate
+        const existingWrapper = controlEl.closest('.wameli-field-row-wrapper');
+        if (existingWrapper) {
+            const existingChipsCol = existingWrapper.querySelector('.wameli-chips-col');
+            if (existingChipsCol && !existingChipsCol.contains(chipsWrap)) {
+                existingChipsCol.innerHTML = '';
+                existingChipsCol.appendChild(chipsWrap);
+            }
+            return;
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'wameli-field-row-wrapper';
+
+        const inputCol = document.createElement('div');
+        inputCol.className = 'wameli-input-col';
+
+        const chipsCol = document.createElement('div');
+        chipsCol.className = 'wameli-chips-col';
+
+        controlEl.style.cssText = 'width: 100% !important; max-width: 100% !important; display: block !important; box-sizing: border-box !important;';
+
+        parentCell.insertBefore(wrapper, controlEl);
+        inputCol.appendChild(controlEl);
+        chipsCol.appendChild(chipsWrap);
+        wrapper.appendChild(inputCol);
+        wrapper.appendChild(chipsCol);
+    }
+
     // --- Inline Chips Setup for Form Fields ---
     function setupSanChips(sanSelect) {
-        if (!sanSelect || sanSelect.dataset.wameliEnhanced === 'true') return;
+        if (!sanSelect) return;
+        if (sanSelect.dataset.wameliEnhanced === 'true' && document.getElementById('wameli-san-chips')) return;
         sanSelect.dataset.wameliEnhanced = 'true';
-
-        sanSelect.classList.add('wameli-control-narrow');
-        const parentCell = sanSelect.parentElement;
-        if (parentCell) {
-            parentCell.style.display = 'flex';
-            parentCell.style.alignItems = 'center';
-            parentCell.style.flexWrap = 'wrap';
-        }
 
         const chipsWrap = document.createElement('div');
         chipsWrap.className = 'wameli-inline-chips';
@@ -832,20 +878,13 @@
             }
         }
 
-        sanSelect.parentNode.insertBefore(chipsWrap, sanSelect.nextSibling);
+        wrapControlAndChips(sanSelect, chipsWrap);
     }
 
     function setupKhoChips(khoSelect) {
-        if (!khoSelect || khoSelect.dataset.wameliEnhanced === 'true') return;
+        if (!khoSelect) return;
+        if (khoSelect.dataset.wameliEnhanced === 'true' && document.getElementById('wameli-kho-chips')) return;
         khoSelect.dataset.wameliEnhanced = 'true';
-
-        khoSelect.classList.add('wameli-control-narrow');
-        const parentCell = khoSelect.parentElement;
-        if (parentCell) {
-            parentCell.style.display = 'flex';
-            parentCell.style.alignItems = 'center';
-            parentCell.style.flexWrap = 'wrap';
-        }
 
         const chipsWrap = document.createElement('div');
         chipsWrap.className = 'wameli-inline-chips';
@@ -901,31 +940,22 @@
             }
         }
 
-        khoSelect.parentNode.insertBefore(chipsWrap, khoSelect.nextSibling);
+        wrapControlAndChips(khoSelect, chipsWrap);
     }
 
     function setupShopField(shopSelect) {
         if (!shopSelect) return;
         // User requested: "shop k cần gợi ý nữa". Shop dropdown spans 100% full width, no chips.
-        shopSelect.style.width = '100%';
-        shopSelect.style.maxWidth = '100%';
-        shopSelect.style.display = 'block';
+        shopSelect.style.cssText = 'width: 100% !important; max-width: 100% !important; display: block !important; box-sizing: border-box !important;';
 
         const oldChips = document.getElementById('wameli-shop-chips');
         if (oldChips) oldChips.remove();
     }
 
     function setupDateChips(ngayInput) {
-        if (!ngayInput || ngayInput.dataset.wameliEnhanced === 'true') return;
+        if (!ngayInput) return;
+        if (ngayInput.dataset.wameliEnhanced === 'true' && document.getElementById('wameli-date-chips')) return;
         ngayInput.dataset.wameliEnhanced = 'true';
-
-        ngayInput.classList.add('wameli-control-narrow');
-        const parentCell = ngayInput.parentElement;
-        if (parentCell) {
-            parentCell.style.display = 'flex';
-            parentCell.style.alignItems = 'center';
-            parentCell.style.flexWrap = 'wrap';
-        }
 
         const chipsWrap = document.createElement('div');
         chipsWrap.className = 'wameli-inline-chips';
@@ -981,20 +1011,13 @@
             });
         });
 
-        ngayInput.parentNode.insertBefore(chipsWrap, ngayInput.nextSibling);
+        wrapControlAndChips(ngayInput, chipsWrap);
     }
 
     function setupHourChips(gioSelect) {
-        if (!gioSelect || gioSelect.dataset.wameliEnhanced === 'true') return;
+        if (!gioSelect) return;
+        if (gioSelect.dataset.wameliEnhanced === 'true' && document.getElementById('wameli-hour-chips')) return;
         gioSelect.dataset.wameliEnhanced = 'true';
-
-        gioSelect.classList.add('wameli-control-narrow');
-        const parentCell = gioSelect.parentElement;
-        if (parentCell) {
-            parentCell.style.display = 'flex';
-            parentCell.style.alignItems = 'center';
-            parentCell.style.flexWrap = 'wrap';
-        }
 
         const chipsWrap = document.createElement('div');
         chipsWrap.className = 'wameli-inline-chips';
@@ -1059,22 +1082,32 @@
             });
         });
 
-        gioSelect.parentNode.insertBefore(chipsWrap, gioSelect.nextSibling);
+        wrapControlAndChips(gioSelect, chipsWrap);
     }
 
     function setupFileNameField(fileNameInput) {
         if (!fileNameInput) return;
-        fileNameInput.style.width = '100%';
-        fileNameInput.style.maxWidth = '100%';
-        fileNameInput.style.display = 'block';
+        fileNameInput.style.cssText = 'width: 100% !important; max-width: 100% !important; display: block !important; box-sizing: border-box !important;';
     }
 
     // --- Right Column: File Manager Panel ---
     let scannedFolderState = {
-        folderName: 'tải xuống 2',
+        folderName: localStorage.getItem('wameli_last_folder') || 'tải xuống 2',
         files: [], // Array of { id, file, name, date, isPdf, isExcel, isMock }
         selectedIds: new Set()
     };
+
+    function isValidOrderFile(file) {
+        if (!file || !file.name) return false;
+        const name = file.name;
+        // Ignore temporary/lock files like ~$sample.xlsx or hidden files like .DS_Store
+        if (name.startsWith('~$') || name.startsWith('._') || name.startsWith('.')) return false;
+
+        const lower = name.toLowerCase();
+        const isPdf = lower.endsWith('.pdf');
+        const isExcel = lower.endsWith('.xlsx') || lower.endsWith('.xls') || lower.endsWith('.csv');
+        return isPdf || isExcel;
+    }
 
     function generateMockFiles() {
         const today = new Date();
@@ -1123,14 +1156,57 @@
         });
     }
 
+    async function selectFolderFromDisk() {
+        // 1. Try modern File System Access API first (showDirectoryPicker)
+        if (typeof window.showDirectoryPicker === 'function') {
+            try {
+                const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+                if (!dirHandle) return;
+
+                const folderName = dirHandle.name;
+                scannedFolderState.folderName = folderName;
+                localStorage.setItem('wameli_last_folder', folderName);
+                const folderNameInput = document.getElementById('wameli-folder-name-input');
+                if (folderNameInput) folderNameInput.value = folderName;
+
+                const foundFiles = [];
+                async function scanDir(dir, depth = 0) {
+                    if (depth > 2) return;
+                    for await (const entry of dir.values()) {
+                        if (entry.kind === 'file') {
+                            try {
+                                const file = await entry.getFile();
+                                if (isValidOrderFile(file)) {
+                                    foundFiles.push(file);
+                                }
+                            } catch (e) { }
+                        } else if (entry.kind === 'directory') {
+                            try {
+                                await scanDir(entry, depth + 1);
+                            } catch (e) { }
+                        }
+                    }
+                }
+
+                await scanDir(dirHandle, 0);
+                await processRawFiles(foundFiles);
+                return;
+            } catch (err) {
+                if (err.name === 'AbortError') return; // User cancelled
+                console.warn('[Wameli Folder Picker] showDirectoryPicker error, using input fallback:', err);
+            }
+        }
+
+        // 2. Fallback to native folder input
+        const folderPicker = document.getElementById('wameli-native-folder-input');
+        if (folderPicker) {
+            folderPicker.click();
+        }
+    }
+
     function renderFileManagerPanel(rightCol) {
         if (!rightCol) return;
         if (document.getElementById('wameli-file-panel-root')) return;
-
-        // Init with default sample files from screenshot if none loaded
-        if (scannedFolderState.files.length === 0) {
-            scannedFolderState.files = generateMockFiles();
-        }
 
         const panel = document.createElement('div');
         panel.id = 'wameli-file-panel-root';
@@ -1139,18 +1215,18 @@
         panel.innerHTML = `
             <!-- Panel Header -->
             <div class="wameli-panel-header">
-                <div class="wameli-panel-title">
+                <div class="wameli-panel-title" style="cursor: pointer;" title="Bấm để chọn thư mục">
                     <span style="font-size: 15px;">📁</span>
                     <span>Thư mục file</span>
                 </div>
-                <input type="text" id="wameli-folder-name-input" value="${scannedFolderState.folderName}" class="wameli-folder-name-input" title="Tên thư mục" />
+                <input type="text" id="wameli-folder-name-input" value="${scannedFolderState.folderName}" class="wameli-folder-name-input" title="Bấm để chọn thư mục từ máy" />
                 <div class="wameli-header-actions">
                     <input type="file" id="wameli-native-folder-input" webkitdirectory directory multiple style="display: none;" />
                     <input type="file" id="wameli-native-files-input" multiple style="display: none;" />
-                    <button type="button" id="wameli-btn-select-folder" class="wameli-btn-blue" title="Chọn thư mục từ máy">
+                    <button type="button" id="wameli-btn-select-folder" class="wameli-btn-blue" title="Chọn thư mục chứa file đơn hàng từ máy tính">
                         📁 Chọn
                     </button>
-                    <button type="button" id="wameli-btn-reload-folder" class="wameli-btn-blue" title="Tải lại thư mục">
+                    <button type="button" id="wameli-btn-reload-folder" class="wameli-btn-blue" title="Quét lại thư mục">
                         🔄 Tải lại
                     </button>
                     <button type="button" id="wameli-btn-collapse-panel" class="wameli-btn-toggle" title="Thu gọn / Mở rộng">
@@ -1192,8 +1268,8 @@
 
         // Bind panel controls
         const folderNameInput = panel.querySelector('#wameli-folder-name-input');
+        const folderTitle = panel.querySelector('.wameli-panel-title');
         const folderPicker = panel.querySelector('#wameli-native-folder-input');
-        const filePicker = panel.querySelector('#wameli-native-files-input');
         const selectBtn = panel.querySelector('#wameli-btn-select-folder');
         const reloadBtn = panel.querySelector('#wameli-btn-reload-folder');
         const toggleBtn = panel.querySelector('#wameli-btn-collapse-panel');
@@ -1212,22 +1288,19 @@
             }
         });
 
-        // Trigger Folder Picker
-        selectBtn.addEventListener('click', () => {
-            folderPicker.click();
-        });
+        // Trigger Folder Picker via Dialog
+        selectBtn.addEventListener('click', () => selectFolderFromDisk());
+        reloadBtn.addEventListener('click', () => selectFolderFromDisk());
+        folderTitle.addEventListener('click', () => selectFolderFromDisk());
+        folderNameInput.addEventListener('click', () => selectFolderFromDisk());
 
-        // Reload Folder
-        reloadBtn.addEventListener('click', () => {
-            folderPicker.click();
-        });
-
-        // Folder selected
+        // Folder selected via native input fallback
         folderPicker.addEventListener('change', async (e) => {
             const rawFiles = Array.from(e.target.files || []);
             if (rawFiles.length === 0) return;
             const dirName = rawFiles[0]?.webkitRelativePath ? rawFiles[0].webkitRelativePath.split('/')[0] : 'Thư mục';
             scannedFolderState.folderName = dirName;
+            localStorage.setItem('wameli_last_folder', dirName);
             folderNameInput.value = dirName;
             await processRawFiles(rawFiles);
         });
@@ -1254,6 +1327,7 @@
                 if (items[0].webkitGetAsEntry && items[0].webkitGetAsEntry()?.isDirectory) {
                     const name = items[0].webkitGetAsEntry().name;
                     scannedFolderState.folderName = name;
+                    localStorage.setItem('wameli_last_folder', name);
                     folderNameInput.value = name;
                 }
                 await processRawFiles(files);
@@ -1344,22 +1418,17 @@
     async function processRawFiles(files) {
         const validItems = [];
         files.forEach((f, idx) => {
-            const name = f.name;
-            const lower = name.toLowerCase();
-            const isPdf = lower.endsWith('.pdf');
-            const isExcel = lower.endsWith('.xlsx') || lower.endsWith('.xls') || lower.endsWith('.csv');
+            if (!isValidOrderFile(f)) return; // Strictly only Excel (.xlsx, .xls, .csv) & PDF (.pdf)
 
-            if (isPdf || isExcel) {
-                validItems.push({
-                    id: 'real_' + Date.now() + '_' + idx,
-                    file: f,
-                    name: f.name,
-                    date: new Date(f.lastModified || Date.now()),
-                    isPdf,
-                    isExcel,
-                    isMock: false
-                });
-            }
+            validItems.push({
+                id: 'real_' + Date.now() + '_' + idx,
+                file: f,
+                name: f.name,
+                date: new Date(f.lastModified || Date.now()),
+                isPdf: f.name.toLowerCase().endsWith('.pdf'),
+                isExcel: !f.name.toLowerCase().endsWith('.pdf'),
+                isMock: false
+            });
         });
 
         if (validItems.length > 0) {
@@ -1367,9 +1436,12 @@
             scannedFolderState.selectedIds.clear();
             renderGroupsList();
             updateStatusBar();
-            showWameliToast(`Đã nạp ${validItems.length} file từ thư mục!`);
+            showWameliToast(`Đã nạp ${validItems.length} file (PDF & Excel) nhóm theo ngày!`);
         } else {
-            showWameliToast('Không tìm thấy file PDF hoặc Excel trong thư mục!', false);
+            scannedFolderState.files = [];
+            renderGroupsList();
+            updateStatusBar();
+            showWameliToast('Không tìm thấy file Excel hoặc PDF nào trong thư mục!', false);
         }
     }
 
@@ -1380,7 +1452,36 @@
         container.innerHTML = '';
 
         if (scannedFolderState.files.length === 0) {
-            container.innerHTML = '<div style="padding: 20px; text-align: center; color: #94a3b8; font-size: 12px;">Chưa có file nào trong thư mục</div>';
+            container.innerHTML = `
+                <div style="padding: 28px 16px; text-align: center; color: #64748b; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 6px; margin: 10px;">
+                    <div style="font-size: 32px; margin-bottom: 6px;">📂</div>
+                    <div style="font-size: 13px; font-weight: 700; color: #0284c7; margin-bottom: 4px;">
+                        Chưa chọn thư mục file
+                    </div>
+                    <div style="font-size: 11.5px; color: #64748b; margin-bottom: 12px; line-height: 1.5;">
+                        Bấm nút <b>[ 📁 Chọn ]</b> ở trên để chọn thư mục từ máy tính (ví dụ <i>${scannedFolderState.folderName || 'tải xuống 2'}</i>)<br/>
+                        hoặc kéo thả thư mục vào đây.<br/>
+                        <span style="color: #059669; font-weight: 600;">(Hệ thống sẽ chỉ lấy file Excel & PDF rồi tự động nhóm theo ngày)</span>
+                    </div>
+                    <div style="display: flex; justify-content: center; gap: 8px;">
+                        <button type="button" class="wameli-btn-blue btn-empty-pick-folder" style="font-size: 11.5px; padding: 5px 12px;">
+                            📁 Chọn Thư Mục
+                        </button>
+                        <button type="button" class="wameli-btn-sub-action btn-empty-load-sample" style="font-size: 11.5px; padding: 5px 12px;">
+                            ✨ Xem file mẫu
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            container.querySelector('.btn-empty-pick-folder')?.addEventListener('click', () => selectFolderFromDisk());
+            container.querySelector('.btn-empty-load-sample')?.addEventListener('click', () => {
+                scannedFolderState.files = generateMockFiles();
+                scannedFolderState.selectedIds.clear();
+                renderGroupsList();
+                updateStatusBar();
+                showWameliToast('Đã nạp danh sách file mẫu!');
+            });
             return;
         }
 
