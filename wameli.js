@@ -177,16 +177,20 @@
         observer.observe(document.body, { childList: true, subtree: true });
     }
 
+
     // ==========================================
     // MODULE 2: ORDER UPLOAD PAGE HELPER
     // ==========================================
+    const SVG_XLS = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><path d="M4 2C4 1.45 4.45 1 5 1H13L18 6V18C18 18.55 17.55 19 17 19H5C4.45 19 4 18.55 4 18V2Z" fill="#fff" stroke="#188038" stroke-width="1.4"></path><path d="M13 1V6H18" fill="#e6f4ea" stroke="#188038" stroke-width="1.4"></path><rect x="3.5" y="9.5" width="13" height="6.5" rx="1" fill="#188038"></rect><text x="4.5" y="14.3" font-size="4.2" font-weight="bold" fill="#fff" font-family="Arial, sans-serif">XLS</text></svg>`;
+    const SVG_PDF = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><path d="M4 2C4 1.45 4.45 1 5 1H13L18 6V18C18 18.55 17.55 19 17 19H5C4.45 19 4 18.55 4 18V2Z" fill="#fff" stroke="#d93025" stroke-width="1.4"></path><path d="M13 1V6H18" fill="#fce8e6" stroke="#d93025" stroke-width="1.4"></path><rect x="3.5" y="9.5" width="13" height="6.5" rx="1" fill="#d93025"></rect><text x="4.5" y="14.3" font-size="4.2" font-weight="bold" fill="#fff" font-family="Arial, sans-serif">PDF</text></svg>`;
+
     function injectOrderUploadStyles() {
         if (document.getElementById('wameli-order-helper-styles')) return;
         const style = document.createElement('style');
         style.id = 'wameli-order-helper-styles';
         style.textContent = `
-            /* Split 2-Column Layout */
-            #wameli-split-layout-wrapper {
+            /* Split 2-Column Layout matching exact user spec */
+            #wqf-add-order-two-cols {
                 display: flex;
                 gap: 16px;
                 width: 100%;
@@ -194,95 +198,101 @@
                 margin-top: 8px;
                 box-sizing: border-box;
             }
-            #wameli-left-col {
-                flex: 1 1 56%;
+            .wqf-add-order-left-col {
+                flex: 1 1 54%;
                 min-width: 0;
             }
-            #wameli-right-col {
-                flex: 0 0 44%;
+            .wqf-add-order-right-col {
+                flex: 0 0 46%;
                 min-width: 440px;
-                max-width: 46%;
                 position: sticky;
                 top: 10px;
             }
             @media (max-width: 1200px) {
-                #wameli-split-layout-wrapper {
+                #wqf-add-order-two-cols {
                     flex-direction: column;
                 }
-                #wameli-right-col {
+                .wqf-add-order-right-col {
                     width: 100%;
                     max-width: 100%;
                     position: static;
                 }
             }
 
-            /* Narrow form controls & 2-column inline field wrapper */
-            .wameli-field-row-wrapper {
+            /* Inline Field Group & Buttons */
+            .wqf-inline-field-group {
                 display: flex !important;
                 align-items: center !important;
+                gap: 6px !important;
+                flex-wrap: wrap !important;
                 width: 100% !important;
                 min-height: 34px !important;
             }
-            .wameli-input-col {
-                width: 170px !important;
-                min-width: 170px !important;
-                max-width: 170px !important;
-                flex-shrink: 0 !important;
-            }
-            .wameli-chips-col {
-                margin-left: 14px !important;
-                display: flex !important;
-                flex-wrap: wrap !important;
-                align-items: center !important;
-                gap: 5px !important;
-                flex: 1 !important;
-            }
-            .wameli-control-narrow {
-                width: 170px !important;
-                max-width: 170px !important;
+            .wqf-inline-field-group > .select2-container,
+            .wqf-inline-field-group > input.form-control {
+                width: 220px !important;
+                min-width: 220px !important;
+                max-width: 220px !important;
+                flex: 0 0 220px !important;
                 display: inline-block !important;
-                vertical-align: middle !important;
+                box-sizing: border-box !important;
             }
-
-            /* Inline suggestion chips */
-            .wameli-inline-chips {
-                display: flex !important;
-                flex-wrap: wrap !important;
+            .wqf-add-select-buttons,
+            .wqf-add-date-buttons {
+                display: inline-flex !important;
                 align-items: center !important;
-                gap: 5px !important;
+                gap: 4px !important;
+                flex-wrap: wrap !important;
             }
-            .wameli-chip {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                padding: 4px 9px;
-                font-size: 11.5px;
-                font-weight: 500;
-                line-height: 1.2;
-                border-radius: 4px;
-                border: 1px solid #cbd5e1;
-                background: #ffffff;
-                color: #334155;
-                cursor: pointer;
-                transition: all 0.15s ease;
-                user-select: none;
-                white-space: nowrap;
+            .wqf-add-select-btn {
+                background: #ffffff !important;
+                border: 1px solid #cbd5e1 !important;
+                border-radius: 4px !important;
+                padding: 4px 8px !important;
+                font-size: 11.5px !important;
+                font-weight: 500 !important;
+                color: #334155 !important;
+                cursor: pointer !important;
+                transition: all 0.15s ease !important;
+                white-space: nowrap !important;
+                line-height: 1.2 !important;
+                user-select: none !important;
             }
-            .wameli-chip:hover {
-                background: #f1f5f9;
-                border-color: #94a3b8;
-                color: #0f172a;
+            .wqf-add-select-btn:hover {
+                background: #f1f5f9 !important;
+                border-color: #94a3b8 !important;
+                color: #0f172a !important;
             }
-            .wameli-chip.active {
+            .wqf-add-select-btn.wqf-active {
                 background: #0284c7 !important;
                 border-color: #0284c7 !important;
                 color: #ffffff !important;
-                font-weight: 600;
-                box-shadow: 0 1px 3px rgba(2, 132, 199, 0.3);
+                font-weight: 600 !important;
+                box-shadow: 0 1px 3px rgba(2, 132, 199, 0.3) !important;
             }
 
-            /* Right File Manager Panel */
-            .wameli-panel-card {
+            /* Full width controls: Shop & File name */
+            #shop_id + .select2-container,
+            .select2-container[data-select2-id*="shop_id"] {
+                width: 100% !important;
+                min-width: 100% !important;
+                max-width: 100% !important;
+                display: block !important;
+            }
+            #name.form-control {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+
+            /* Drop zones */
+            .wqf-drop-zone.wqf-dragover {
+                background: #f0f9ff !important;
+                border: 2px dashed #0284c7 !important;
+                border-radius: 6px !important;
+            }
+
+            /* Right Directory Manager */
+            #wameli-directory-manager {
                 background: #ffffff;
                 border: 1px solid #cbd5e1;
                 border-radius: 6px;
@@ -290,7 +300,7 @@
                 overflow: hidden;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             }
-            .wameli-panel-header {
+            .wqf-dir-head {
                 display: flex;
                 align-items: center;
                 gap: 8px;
@@ -298,36 +308,32 @@
                 background: #f8fafc;
                 border-bottom: 1px solid #e2e8f0;
             }
-            .wameli-panel-title {
-                display: flex;
-                align-items: center;
-                gap: 6px;
+            .wqf-dir-title {
                 font-size: 13px;
                 font-weight: 700;
                 color: #0284c7;
                 white-space: nowrap;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 4px;
             }
-            .wameli-folder-name-input {
+            .wqf-dir-input {
                 border: 1px solid #cbd5e1;
                 border-radius: 4px;
                 padding: 4px 8px;
                 font-size: 12px;
                 color: #334155;
                 background: #ffffff;
-                width: 140px;
+                flex: 1;
+                min-width: 100px;
                 outline: none;
                 transition: border-color 0.15s;
             }
-            .wameli-folder-name-input:focus {
+            .wqf-dir-input:focus {
                 border-color: #0284c7;
             }
-            .wameli-header-actions {
-                display: flex;
-                align-items: center;
-                gap: 5px;
-                margin-left: auto;
-            }
-            .wameli-btn-blue {
+            .wqf-dir-btn {
                 background: #0284c7;
                 color: #ffffff;
                 border: none;
@@ -342,25 +348,24 @@
                 transition: background 0.15s ease;
                 white-space: nowrap;
             }
-            .wameli-btn-blue:hover {
+            .wqf-dir-btn:hover {
                 background: #0369a1;
             }
-            .wameli-btn-toggle {
+            .wqf-btn-secondary {
                 background: #ffffff;
                 border: 1px solid #cbd5e1;
-                border-radius: 4px;
-                padding: 4px 8px;
-                font-size: 11px;
                 color: #475569;
-                cursor: pointer;
-                transition: all 0.15s;
             }
-            .wameli-btn-toggle:hover {
+            .wqf-btn-secondary:hover {
                 background: #f1f5f9;
+                color: #0f172a;
+            }
+            .wqf-dir-body {
+                display: block;
             }
 
-            /* Status Bar */
-            .wameli-status-bar {
+            /* Explorer Top Bar */
+            .wqf-explorer-top-bar {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
@@ -369,16 +374,11 @@
                 padding: 6px 12px;
                 font-size: 11.5px;
             }
-            .wameli-status-text {
+            .wqf-selected-count {
                 color: #166534;
                 font-weight: 600;
             }
-            .wameli-status-actions {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-            }
-            .wameli-btn-sub-action {
+            .wqf-dir-act-btn {
                 background: #ffffff;
                 border: 1px solid #cbd5e1;
                 border-radius: 4px;
@@ -390,151 +390,161 @@
                 white-space: nowrap;
                 transition: all 0.15s ease;
             }
-            .wameli-btn-sub-action:hover {
+            .wqf-dir-act-btn:hover {
                 background: #f8fafc;
                 border-color: #94a3b8;
                 color: #0f172a;
             }
+            .wqf-btn-attach {
+                color: #0284c7;
+                border-color: #bae6fd;
+                background: #f0f9ff;
+            }
+            .wqf-btn-attach:hover {
+                background: #e0f2fe;
+                border-color: #0284c7;
+            }
 
-            /* Column Headers */
-            .wameli-col-headers {
-                display: flex;
-                justify-content: space-between;
+            /* Explorer Column Head */
+            .wqf-explorer-head {
+                display: grid;
+                grid-template-columns: 24px 1fr 140px 96px;
                 align-items: center;
-                padding: 7px 12px;
+                padding: 6px 12px;
                 border-bottom: 1px solid #e2e8f0;
                 background: #ffffff;
                 font-size: 12px;
                 font-weight: 700;
                 color: #334155;
             }
-            .wameli-col-title-left {
-                padding-left: 24px;
-            }
-            .wameli-col-title-right {
-                margin-right: 105px;
-            }
 
-            /* Group Container & List */
-            .wameli-groups-container {
+            /* Explorer List & Groups */
+            .wqf-explorer-list {
                 max-height: 480px;
                 overflow-y: auto;
                 background: #ffffff;
             }
-            .wameli-group-header {
+            .wqf-explorer-group {
+                border-bottom: 1px solid #e2e8f0;
+            }
+            .wqf-explorer-group-header {
                 display: flex;
                 align-items: center;
-                justify-content: space-between;
+                gap: 8px;
                 padding: 6px 12px;
                 background: #f8fafc;
-                border-bottom: 1px solid #e2e8f0;
+                border-bottom: 1px solid #f1f5f9;
                 font-size: 12px;
             }
-            .wameli-group-header-left {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-            }
-            .wameli-group-title {
+            .wqf-explorer-group-title {
                 font-weight: 700;
                 color: #0284c7;
+                white-space: nowrap;
             }
-            .wameli-group-actions {
+            .wqf-explorer-group-line {
+                flex: 1;
+                height: 1px;
+                background: #e2e8f0;
+                margin: 0 4px;
+            }
+            .wqf-explorer-group-actions {
                 display: flex;
                 align-items: center;
-                gap: 5px;
+                gap: 4px;
             }
-            .wameli-btn-group-action {
+            .wqf-explorer-btn {
                 background: #ffffff;
                 border: 1px solid #cbd5e1;
                 border-radius: 4px;
                 padding: 2px 7px;
                 font-size: 11px;
                 font-weight: 600;
-                color: #0284c7;
                 cursor: pointer;
                 white-space: nowrap;
                 transition: all 0.15s ease;
             }
-            .wameli-btn-group-action:hover {
+            .wqf-pair-btn, .wqf-all-pdf-btn {
+                color: #0284c7;
+                border-color: #cbd5e1;
+            }
+            .wqf-pair-btn:hover, .wqf-all-pdf-btn:hover {
                 background: #f0f9ff;
                 border-color: #0284c7;
             }
 
-            /* File Item Row */
-            .wameli-file-row {
-                display: flex;
+            /* Explorer Row */
+            .wqf-explorer-row {
+                display: grid;
+                grid-template-columns: 24px 1fr 140px 96px;
                 align-items: center;
                 padding: 5px 12px;
-                border-bottom: 1px solid #f1f5f9;
+                border-bottom: 1px solid #f8fafc;
                 font-size: 12px;
                 color: #1e293b;
                 transition: background 0.1s ease;
             }
-            .wameli-file-row:hover {
+            .wqf-explorer-row:hover {
                 background: #f8fafc;
             }
-            .wameli-file-row.selected {
+            .wqf-explorer-row.selected {
                 background: #f0fdf4;
             }
-            .wameli-file-left {
+            .wqf-explorer-checkbox {
+                cursor: pointer;
+            }
+            .wqf-explorer-file-info {
                 display: flex;
                 align-items: center;
                 gap: 6px;
-                flex: 1;
                 min-width: 0;
+                overflow: hidden;
+                cursor: grab;
             }
-            .wameli-file-name-text {
+            .wqf-explorer-icon {
+                display: inline-flex;
+                align-items: center;
+                flex-shrink: 0;
+            }
+            .wqf-explorer-name {
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
-                color: #1e293b;
                 font-weight: 500;
-                max-width: 190px;
             }
-            .wameli-file-date-text {
+            .wqf-explorer-date {
                 font-size: 11px;
                 color: #64748b;
-                margin-left: auto;
-                margin-right: 8px;
+                text-align: right;
+                padding-right: 4px;
                 white-space: nowrap;
             }
-            .wameli-file-row-actions {
+            .wqf-explorer-actions {
                 display: flex;
                 align-items: center;
+                justify-content: flex-end;
                 gap: 4px;
-                margin-left: 4px;
             }
-            .wameli-btn-row-action {
-                background: #ffffff;
-                border: 1px solid #cbd5e1;
-                border-radius: 3px;
-                padding: 2px 5px;
-                font-size: 11px;
-                cursor: pointer;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                color: #334155;
-                line-height: 1;
-                transition: all 0.15s ease;
-            }
-            .wameli-btn-row-action:hover {
-                background: #f1f5f9;
-                border-color: #94a3b8;
-            }
-            .wameli-btn-nap {
-                font-weight: 700;
+            .wqf-btn-row-attach {
                 color: #0284c7;
+                font-weight: 700;
                 background: #f0f9ff;
                 border-color: #bae6fd;
+                padding: 2px 6px;
             }
-            .wameli-btn-nap:hover {
+            .wqf-btn-row-attach:hover {
                 background: #e0f2fe;
                 border-color: #0284c7;
             }
+            .wqf-btn-row-copy, .wqf-btn-row-view {
+                padding: 2px 5px;
+                color: #475569;
+            }
+            .wqf-btn-row-copy:hover, .wqf-btn-row-view:hover {
+                background: #f1f5f9;
+                border-color: #94a3b8;
+            }
 
-            /* Toast */
+            /* Toast Notification */
             .wameli-toast {
                 position: fixed;
                 bottom: 24px;
@@ -567,7 +577,7 @@
         const toast = document.createElement('div');
         toast.className = 'wameli-toast';
         toast.style.borderLeft = isSuccess ? '4px solid #10b981' : '4px solid #ef4444';
-        toast.innerHTML = `<span>${isSuccess ? '✅' : 'ℹ️'}</span> <span>${message}</span>`;
+        toast.innerHTML = `<span>${isSuccess ? '✅' : 'ℹ️'}</span> <span>${escapeHtml(message)}</span>`;
         document.body.appendChild(toast);
 
         setTimeout(() => {
@@ -577,6 +587,16 @@
                 setTimeout(() => toast.remove(), 300);
             }
         }, 2200);
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     function formatWameliDate(date) {
@@ -603,6 +623,13 @@
         return `${dateStr} ${hours}:${minutes} ${ampm}`;
     }
 
+    function formatFileSize(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
     function dispatchChangeEvent(element) {
         if (!element) return;
         element.dispatchEvent(new Event('input', { bubbles: true }));
@@ -614,82 +641,38 @@
         }
     }
 
+    function setSelect2Value(selectEl, value) {
+        if (!selectEl) return;
+        selectEl.value = value;
+        if (window.$ && typeof window.$(selectEl).val === 'function') {
+            try {
+                window.$(selectEl).val(value).trigger('change');
+            } catch (e) { }
+        }
+        dispatchChangeEvent(selectEl);
+
+        const rendered = document.getElementById('select2-' + selectEl.id + '-container');
+        const selectedOpt = selectEl.selectedOptions[0];
+        if (rendered && selectedOpt) {
+            rendered.textContent = selectedOpt.text;
+            rendered.title = selectedOpt.text;
+        }
+    }
+
     function findWameliOrderFormElements() {
-        let sanSelect = null;
-        let khoSelect = null;
-        let shopSelect = null;
-        let gioSelect = null;
-        let ngayInput = null;
-        let fileNameInput = null;
-        let pdfFileInput = null;
-        let excelFileInput = null;
-        let formTable = null;
+        const sanSelect = document.getElementById('platform_id') || document.querySelector('select[name="platform_id"]');
+        const khoSelect = document.getElementById('warehouse_id') || document.querySelector('select[name="warehouse_id"]');
+        const shopSelect = document.getElementById('shop_id') || document.querySelector('select[name="shop_id"]');
+        const gioSelect = document.getElementById('house_id') || document.querySelector('select[name="house_id"]');
+        const ngayInput = document.getElementById('date') || document.querySelector('input[name="date"]');
+        const fileNameInput = document.getElementById('name') || document.querySelector('input[name="name"]');
+        const pdfFileInput = document.getElementById('file_pdf') || document.querySelector('input[name="file_pdf[]"]');
+        const excelFileInput = document.getElementById('file_xlsx') || document.querySelector('input[name="file_xlsx"]');
 
-        // 1. Scan Select elements
-        const selects = Array.from(document.querySelectorAll('select'));
-        for (const sel of selects) {
-            const row = sel.closest('tr, .form-group, .row, div') || sel.parentElement;
-            const rowText = (row ? row.textContent : '').toLowerCase();
-            const nameOrId = ((sel.name || '') + ' ' + (sel.id || '')).toLowerCase();
-
-            for (const opt of sel.options) {
-                const optText = (opt.text || '').toLowerCase().trim();
-                if (optText.includes('--sàn--') || optText.includes('--san--') || optText === 'sàn') {
-                    sanSelect = sel;
-                } else if (optText.includes('--kho--') || optText === 'kho') {
-                    khoSelect = sel;
-                } else if (optText.includes('--shop--') || optText === 'shop') {
-                    shopSelect = sel;
-                } else if (optText.includes('--giờ--') || optText.includes('--gio--') || optText === 'giờ') {
-                    gioSelect = sel;
-                }
-            }
-
-            if (!sanSelect && (nameOrId.includes('san') || (rowText.includes('sàn') && !rowText.includes('kho')))) sanSelect = sel;
-            if (!khoSelect && (nameOrId.includes('kho') || rowText.includes('kho'))) khoSelect = sel;
-            if (!shopSelect && (nameOrId.includes('shop') || rowText.includes('shop'))) shopSelect = sel;
-            if (!gioSelect && (nameOrId.includes('gio') || nameOrId.includes('hour') || rowText.includes('giờ'))) gioSelect = sel;
-        }
-
-        // 2. Scan Input elements
-        const inputs = Array.from(document.querySelectorAll('input'));
-        for (const inp of inputs) {
-            const type = (inp.type || 'text').toLowerCase();
-            const row = inp.closest('tr, .form-group, .row, div') || inp.parentElement;
-            const rowText = (row ? row.textContent : '').toLowerCase();
-            const nameOrId = ((inp.name || '') + ' ' + (inp.id || '') + ' ' + (inp.placeholder || '')).toLowerCase();
-
-            if (type === 'file') {
-                const accept = (inp.accept || '').toLowerCase();
-                if (inp.multiple || accept.includes('pdf') || rowText.includes('pdf') || rowText.includes('hóa đơn')) {
-                    pdfFileInput = inp;
-                } else if (accept.includes('xls') || accept.includes('csv') || rowText.includes('excel') || rowText.includes('đơn hàng excel')) {
-                    excelFileInput = inp;
-                }
-            } else if (type === 'text' || type === 'date') {
-                const val = (inp.value || '').trim();
-                if (/^\d{2}-\d{2}-\d{4}$/.test(val) || nameOrId.includes('ngay') || nameOrId.includes('date') || (rowText.includes('ngày') && !rowText.includes('hạn'))) {
-                    ngayInput = inp;
-                } else if (nameOrId.includes('file') || nameOrId.includes('name') || rowText.includes('file name') || rowText.includes('tên file')) {
-                    fileNameInput = inp;
-                }
-            }
-        }
-
-        // Fallback for file inputs
-        if (!pdfFileInput || !excelFileInput) {
-            const fileInputs = Array.from(document.querySelectorAll('input[type="file"]:not(#wameli-native-folder-input):not(#wameli-native-files-input)'));
-            if (fileInputs.length >= 2) {
-                if (!pdfFileInput) pdfFileInput = fileInputs[0];
-                if (!excelFileInput) excelFileInput = fileInputs[1];
-            } else if (fileInputs.length === 1) {
-                if (!pdfFileInput) pdfFileInput = fileInputs[0];
-            }
-        }
-
-        const anyTarget = sanSelect || ngayInput || pdfFileInput;
-        if (anyTarget) {
-            formTable = anyTarget.closest('table') || anyTarget.closest('form') || anyTarget.parentElement;
+        let panelBody = null;
+        const refEl = sanSelect || khoSelect || ngayInput || pdfFileInput;
+        if (refEl) {
+            panelBody = refEl.closest('.panel-body') || refEl.closest('form') || refEl.parentElement;
         }
 
         return {
@@ -701,406 +684,472 @@
             fileNameInput,
             pdfFileInput,
             excelFileInput,
-            formTable
+            panelBody
         };
     }
 
-    // --- Split Layout Setup ---
-    function setupSplitLayout(formElements) {
-        const refEl = formElements.sanSelect || formElements.ngayInput || formElements.pdfFileInput;
-        if (!refEl) return null;
+    // --- Split 2-Column Layout Setup ---
+    function setupOrderUploadLayout(panelBody) {
+        if (!panelBody) return null;
 
-        const existingWrapper = document.getElementById('wameli-split-layout-wrapper');
-        if (existingWrapper) {
-            if (existingWrapper.contains(refEl)) {
+        const existingTwoCols = document.getElementById('wqf-add-order-two-cols');
+        if (existingTwoCols) {
+            if (existingTwoCols.contains(panelBody)) {
                 return {
-                    wrapper: existingWrapper,
-                    leftCol: document.getElementById('wameli-left-col'),
-                    rightCol: document.getElementById('wameli-right-col')
+                    wrapper: existingTwoCols,
+                    leftCol: existingTwoCols.querySelector('.wqf-add-order-left-col'),
+                    rightCol: existingTwoCols.querySelector('.wqf-add-order-right-col')
                 };
             } else {
-                existingWrapper.remove();
+                existingTwoCols.remove();
             }
         }
 
-        let mainTable = refEl.closest('table');
-        if (!mainTable) {
-            mainTable = refEl.closest('.form-horizontal, .card-body, .panel-body, form');
-        }
-        if (!mainTable) return null;
-
-        const wrapper = document.createElement('div');
-        wrapper.id = 'wameli-split-layout-wrapper';
+        const twoCols = document.createElement('div');
+        twoCols.id = 'wqf-add-order-two-cols';
+        twoCols.className = 'wqf-add-order-two-cols';
 
         const leftCol = document.createElement('div');
-        leftCol.id = 'wameli-left-col';
+        leftCol.className = 'wqf-add-order-left-col';
 
         const rightCol = document.createElement('div');
-        rightCol.id = 'wameli-right-col';
+        rightCol.className = 'wqf-add-order-right-col';
 
-        // Insert wrapper before mainTable and move mainTable into leftCol
-        mainTable.parentNode.insertBefore(wrapper, mainTable);
-        leftCol.appendChild(mainTable);
-        wrapper.appendChild(leftCol);
-        wrapper.appendChild(rightCol);
+        twoCols.appendChild(leftCol);
+        twoCols.appendChild(rightCol);
 
-        // Add "Chương trình thêm mới" row at top of mainTable if not already present
-        if (!document.getElementById('wameli-program-row')) {
-            const programRow = document.createElement('tr');
-            programRow.id = 'wameli-program-row';
-            programRow.innerHTML = `
-                <td style="width: 140px; font-weight: 500; font-size: 13px; color: #1e293b; padding: 6px 10px; vertical-align: middle;">Chương trình thêm mới</td>
-                <td style="padding: 6px 10px; vertical-align: middle;">
-                    <div style="display: flex; width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden; background: #ffffff;">
-                        <input type="text" id="wameli-program-input" placeholder="Nhập tên chương trình..." style="flex: 1; border: none; padding: 6px 12px; font-size: 13px; outline: none; background: transparent; color: #1e293b;" />
-                        <button type="button" id="wameli-program-save-btn" style="border: none; border-left: 1px solid #cbd5e1; background: #f8fafc; color: #475569; padding: 6px 16px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">Lưu chương trình</button>
-                    </div>
-                </td>
-            `;
+        panelBody.parentNode.insertBefore(twoCols, panelBody);
+        leftCol.appendChild(panelBody);
 
-            const firstTr = mainTable.querySelector('tr');
-            if (firstTr && firstTr.parentElement) {
-                firstTr.parentElement.insertBefore(programRow, firstTr);
-            } else {
-                mainTable.prepend(programRow);
-            }
-
-            // Restore saved program name
-            const savedProgram = localStorage.getItem('wameli_saved_program');
-            if (savedProgram) {
-                const pInput = programRow.querySelector('#wameli-program-input');
-                if (pInput) pInput.value = savedProgram;
-            }
-
-            programRow.querySelector('#wameli-program-save-btn').addEventListener('click', () => {
-                const pInput = programRow.querySelector('#wameli-program-input');
-                const val = pInput ? pInput.value.trim() : '';
-                localStorage.setItem('wameli_saved_program', val);
-                showWameliToast('Đã lưu chương trình: ' + (val || '(Để trống)'));
-            });
-        }
-
-        return { wrapper, leftCol, rightCol };
+        return { wrapper: twoCols, leftCol, rightCol };
     }
 
-    // --- Helper to wrap field into a 2-column inline row: [ 170px Input ] [ Suggestions Chips ] ---
-    function wrapControlAndChips(controlEl, chipsWrap) {
-        if (!controlEl || !chipsWrap) return;
-        const parentCell = controlEl.parentElement;
-        if (!parentCell) return;
+    // --- Sàn Suggestion Buttons ---
+    function setupPlatformInlineButtons(platformSelect) {
+        if (!platformSelect) return;
+        const formGroup = platformSelect.closest('.form-group');
+        if (!formGroup) return;
+        const col10 = formGroup.querySelector('.col-md-10') || platformSelect.parentElement;
+        if (!col10) return;
 
-        // If already wrapped in wameli-field-row-wrapper, don't duplicate
-        const existingWrapper = controlEl.closest('.wameli-field-row-wrapper');
-        if (existingWrapper) {
-            const existingChipsCol = existingWrapper.querySelector('.wameli-chips-col');
-            if (existingChipsCol && !existingChipsCol.contains(chipsWrap)) {
-                existingChipsCol.innerHTML = '';
-                existingChipsCol.appendChild(chipsWrap);
-            }
-            return;
+        if (col10.querySelector('.wqf-inline-field-group')) return;
+
+        let select2Container = col10.querySelector('.select2-container');
+
+        const inlineGroup = document.createElement('div');
+        inlineGroup.className = 'wqf-inline-field-group';
+
+        if (select2Container) {
+            select2Container.style.cssText = 'width: 220px !important; min-width: 220px !important; max-width: 220px !important; flex: 0 0 220px !important; display: inline-block !important; box-sizing: border-box !important;';
+            inlineGroup.appendChild(select2Container);
+        } else {
+            platformSelect.style.cssText = 'width: 220px !important; min-width: 220px !important; max-width: 220px !important; flex: 0 0 220px !important; display: inline-block !important; box-sizing: border-box !important;';
+            inlineGroup.appendChild(platformSelect);
         }
 
-        const wrapper = document.createElement('div');
-        wrapper.className = 'wameli-field-row-wrapper';
+        const buttonsWrap = document.createElement('span');
+        buttonsWrap.className = 'wqf-add-select-buttons';
+        buttonsWrap.setAttribute('data-key', 'platform');
 
-        const inputCol = document.createElement('div');
-        inputCol.className = 'wameli-input-col';
+        const platformItems = [
+            { label: 'Shopee', value: '2' },
+            { label: 'Ticktok', value: '9' },
+            { label: 'Best', value: '8' },
+            { label: 'Đơn ngoài', value: '6' },
+            { label: 'Viettel', value: '10' },
+            { label: 'Lazada', value: '1' },
+            { label: 'Tiki', value: '3' }
+        ];
 
-        const chipsCol = document.createElement('div');
-        chipsCol.className = 'wameli-chips-col';
+        platformItems.forEach(item => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'wqf-add-select-btn';
+            btn.setAttribute('data-value', item.value);
+            btn.title = item.label;
+            btn.textContent = item.label;
 
-        controlEl.style.cssText = 'width: 100% !important; max-width: 100% !important; display: block !important; box-sizing: border-box !important;';
+            if (platformSelect.value === item.value) {
+                btn.classList.add('wqf-active');
+            }
 
-        parentCell.insertBefore(wrapper, controlEl);
-        inputCol.appendChild(controlEl);
-        chipsCol.appendChild(chipsWrap);
-        wrapper.appendChild(inputCol);
-        wrapper.appendChild(chipsCol);
-    }
-
-    // --- Inline Chips Setup for Form Fields ---
-    function setupSanChips(sanSelect) {
-        if (!sanSelect) return;
-        if (sanSelect.dataset.wameliEnhanced === 'true' && document.getElementById('wameli-san-chips')) return;
-        sanSelect.dataset.wameliEnhanced = 'true';
-
-        const chipsWrap = document.createElement('div');
-        chipsWrap.className = 'wameli-inline-chips';
-        chipsWrap.id = 'wameli-san-chips';
-
-        const sanList = ['Shopee', 'Tiktok', 'Best', 'Đơn ngoài', 'Viettel', 'Lazada', 'Tiki'];
-
-        sanList.forEach(name => {
-            const chip = document.createElement('button');
-            chip.type = 'button';
-            chip.className = 'wameli-chip';
-            chip.textContent = name;
-            chip.dataset.name = name;
-
-            chip.addEventListener('click', (e) => {
+            btn.addEventListener('click', (e) => {
                 e.preventDefault();
-                let matchedOpt = Array.from(sanSelect.options).find(o =>
-                    o.text.trim().toLowerCase().includes(name.toLowerCase()) ||
-                    (o.value && o.value.trim().toLowerCase().includes(name.toLowerCase()))
-                );
-                if (matchedOpt) {
-                    sanSelect.value = matchedOpt.value;
-                } else {
-                    sanSelect.value = name;
-                }
-                dispatchChangeEvent(sanSelect);
-                localStorage.setItem('wameli_pref_san', name);
-
-                chipsWrap.querySelectorAll('.wameli-chip').forEach(c => c.classList.remove('active'));
-                chip.classList.add('active');
+                setSelect2Value(platformSelect, item.value);
+                buttonsWrap.querySelectorAll('.wqf-add-select-btn').forEach(b => b.classList.remove('wqf-active'));
+                btn.classList.add('wqf-active');
+                localStorage.setItem('wqf_pref_platform', item.value);
             });
 
-            chipsWrap.appendChild(chip);
+            buttonsWrap.appendChild(btn);
         });
 
-        sanSelect.addEventListener('change', () => {
-            const currentText = sanSelect.selectedOptions[0] ? sanSelect.selectedOptions[0].text.trim().toLowerCase() : '';
-            chipsWrap.querySelectorAll('.wameli-chip').forEach(c => {
-                if (currentText.includes(c.dataset.name.toLowerCase())) {
-                    c.classList.add('active');
+        inlineGroup.appendChild(buttonsWrap);
+        col10.appendChild(inlineGroup);
+
+        platformSelect.setAttribute('data-wqf-add-buttons-ready', '1');
+
+        platformSelect.addEventListener('change', () => {
+            const curVal = platformSelect.value;
+            buttonsWrap.querySelectorAll('.wqf-add-select-btn').forEach(b => {
+                if (b.getAttribute('data-value') === curVal) {
+                    b.classList.add('wqf-active');
                 } else {
-                    c.classList.remove('active');
+                    b.classList.remove('wqf-active');
                 }
             });
         });
 
-        // Restore preference
-        const savedSan = localStorage.getItem('wameli_pref_san');
-        if (savedSan) {
-            const targetChip = chipsWrap.querySelector(`[data-name="${savedSan}"]`);
-            if (targetChip && (!sanSelect.value || sanSelect.value === '0' || sanSelect.value === '')) {
-                targetChip.click();
+        // Watch for Select2 rendering
+        const observer = new MutationObserver(() => {
+            const s2 = col10.querySelector(':scope > .select2-container');
+            if (s2 && !inlineGroup.contains(s2)) {
+                s2.style.cssText = 'width: 220px !important; min-width: 220px !important; max-width: 220px !important; flex: 0 0 220px !important; display: inline-block !important; box-sizing: border-box !important;';
+                inlineGroup.insertBefore(s2, inlineGroup.firstChild);
             }
-        }
-
-        wrapControlAndChips(sanSelect, chipsWrap);
+        });
+        observer.observe(col10, { childList: true });
     }
 
-    function setupKhoChips(khoSelect) {
-        if (!khoSelect) return;
-        if (khoSelect.dataset.wameliEnhanced === 'true' && document.getElementById('wameli-kho-chips')) return;
-        khoSelect.dataset.wameliEnhanced = 'true';
+    // --- Kho Suggestion Buttons ---
+    function setupWarehouseInlineButtons(warehouseSelect) {
+        if (!warehouseSelect) return;
+        const formGroup = warehouseSelect.closest('.form-group');
+        if (!formGroup) return;
+        const col10 = formGroup.querySelector('.col-md-10') || warehouseSelect.parentElement;
+        if (!col10) return;
 
-        const chipsWrap = document.createElement('div');
-        chipsWrap.className = 'wameli-inline-chips';
-        chipsWrap.id = 'wameli-kho-chips';
+        if (col10.querySelector('.wqf-inline-field-group')) return;
 
-        const khoList = ['Kho Hà Nội', 'Kho Hồ Chí Minh'];
+        let select2Container = col10.querySelector('.select2-container');
 
-        khoList.forEach(name => {
-            const chip = document.createElement('button');
-            chip.type = 'button';
-            chip.className = 'wameli-chip';
-            chip.textContent = name;
-            chip.dataset.name = name;
+        const inlineGroup = document.createElement('div');
+        inlineGroup.className = 'wqf-inline-field-group';
 
-            chip.addEventListener('click', (e) => {
+        if (select2Container) {
+            select2Container.style.cssText = 'width: 220px !important; min-width: 220px !important; max-width: 220px !important; flex: 0 0 220px !important; display: inline-block !important; box-sizing: border-box !important;';
+            inlineGroup.appendChild(select2Container);
+        } else {
+            warehouseSelect.style.cssText = 'width: 220px !important; min-width: 220px !important; max-width: 220px !important; flex: 0 0 220px !important; display: inline-block !important; box-sizing: border-box !important;';
+            inlineGroup.appendChild(warehouseSelect);
+        }
+
+        const buttonsWrap = document.createElement('span');
+        buttonsWrap.className = 'wqf-add-select-buttons';
+        buttonsWrap.setAttribute('data-key', 'warehouse');
+
+        const warehouseItems = [
+            { label: 'Kho Hà Nội', value: '1' },
+            { label: 'Kho Hồ Chí Minh', value: '2' }
+        ];
+
+        warehouseItems.forEach(item => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'wqf-add-select-btn';
+            btn.setAttribute('data-value', item.value);
+            btn.title = item.label;
+            btn.textContent = item.label;
+
+            if (warehouseSelect.value === item.value) {
+                btn.classList.add('wqf-active');
+            }
+
+            btn.addEventListener('click', (e) => {
                 e.preventDefault();
-                let matchedOpt = Array.from(khoSelect.options).find(o =>
-                    o.text.trim().toLowerCase().includes(name.toLowerCase()) ||
-                    (o.value && o.value.trim().toLowerCase().includes(name.toLowerCase()))
-                );
-                if (matchedOpt) {
-                    khoSelect.value = matchedOpt.value;
-                } else {
-                    khoSelect.value = name;
-                }
-                dispatchChangeEvent(khoSelect);
-                localStorage.setItem('wameli_pref_kho', name);
-
-                chipsWrap.querySelectorAll('.wameli-chip').forEach(c => c.classList.remove('active'));
-                chip.classList.add('active');
+                setSelect2Value(warehouseSelect, item.value);
+                buttonsWrap.querySelectorAll('.wqf-add-select-btn').forEach(b => b.classList.remove('wqf-active'));
+                btn.classList.add('wqf-active');
+                localStorage.setItem('wqf_pref_warehouse', item.value);
             });
 
-            chipsWrap.appendChild(chip);
+            buttonsWrap.appendChild(btn);
         });
 
-        khoSelect.addEventListener('change', () => {
-            const currentText = khoSelect.selectedOptions[0] ? khoSelect.selectedOptions[0].text.trim().toLowerCase() : '';
-            chipsWrap.querySelectorAll('.wameli-chip').forEach(c => {
-                if (currentText.includes(c.dataset.name.toLowerCase())) {
-                    c.classList.add('active');
+        inlineGroup.appendChild(buttonsWrap);
+        col10.appendChild(inlineGroup);
+
+        warehouseSelect.setAttribute('data-wqf-add-buttons-ready', '1');
+
+        warehouseSelect.addEventListener('change', () => {
+            const curVal = warehouseSelect.value;
+            buttonsWrap.querySelectorAll('.wqf-add-select-btn').forEach(b => {
+                if (b.getAttribute('data-value') === curVal) {
+                    b.classList.add('wqf-active');
                 } else {
-                    c.classList.remove('active');
+                    b.classList.remove('wqf-active');
                 }
             });
         });
 
-        // Restore preference
-        const savedKho = localStorage.getItem('wameli_pref_kho');
-        if (savedKho) {
-            const targetChip = chipsWrap.querySelector(`[data-name="${savedKho}"]`);
-            if (targetChip && (!khoSelect.value || khoSelect.value === '0' || khoSelect.value === '')) {
-                targetChip.click();
+        const observer = new MutationObserver(() => {
+            const s2 = col10.querySelector(':scope > .select2-container');
+            if (s2 && !inlineGroup.contains(s2)) {
+                s2.style.cssText = 'width: 220px !important; min-width: 220px !important; max-width: 220px !important; flex: 0 0 220px !important; display: inline-block !important; box-sizing: border-box !important;';
+                inlineGroup.insertBefore(s2, inlineGroup.firstChild);
             }
-        }
-
-        wrapControlAndChips(khoSelect, chipsWrap);
+        });
+        observer.observe(col10, { childList: true });
     }
 
+    // --- Shop Field: 100% full width, no buttons ---
     function setupShopField(shopSelect) {
         if (!shopSelect) return;
-        // User requested: "shop k cần gợi ý nữa". Shop dropdown spans 100% full width, no chips.
-        shopSelect.style.cssText = 'width: 100% !important; max-width: 100% !important; display: block !important; box-sizing: border-box !important;';
+        const formGroup = shopSelect.closest('.form-group');
+        if (!formGroup) return;
+        const col10 = formGroup.querySelector('.col-md-10') || shopSelect.parentElement;
+        if (!col10) return;
 
-        const oldChips = document.getElementById('wameli-shop-chips');
-        if (oldChips) oldChips.remove();
+        const s2 = col10.querySelector('.select2-container');
+        if (s2) {
+            s2.style.cssText = 'width: 100% !important; min-width: 100% !important; max-width: 100% !important; display: block !important;';
+        }
+        shopSelect.style.cssText = 'width: 100% !important; max-width: 100% !important;';
+
+        const legacy = col10.querySelector('.wqf-add-select-buttons, .wameli-inline-chips');
+        if (legacy) legacy.remove();
     }
 
-    function setupDateChips(ngayInput) {
-        if (!ngayInput) return;
-        if (ngayInput.dataset.wameliEnhanced === 'true' && document.getElementById('wameli-date-chips')) return;
-        ngayInput.dataset.wameliEnhanced = 'true';
+    // --- Ngày Suggestion Buttons ---
+    function setupDateInlineButtons(dateInput) {
+        if (!dateInput) return;
+        const formGroup = dateInput.closest('.form-group');
+        if (!formGroup) return;
+        const col10 = formGroup.querySelector('.col-md-10') || dateInput.parentElement;
+        if (!col10) return;
 
-        const chipsWrap = document.createElement('div');
-        chipsWrap.className = 'wameli-inline-chips';
-        chipsWrap.id = 'wameli-date-chips';
+        if (col10.querySelector('.wqf-inline-field-group')) return;
+
+        const inlineGroup = document.createElement('div');
+        inlineGroup.className = 'wqf-inline-field-group';
+
+        dateInput.style.cssText = 'width: 220px !important; min-width: 220px !important; max-width: 220px !important; flex: 0 0 220px !important; display: inline-block !important; box-sizing: border-box !important;';
+        dateInput.setAttribute('data-wqf-add-date-ready', '1');
 
         const now = new Date();
         const todayStr = formatWameliDate(now);
         const yesterdayStr = formatWameliDate(new Date(Date.now() - 86400000));
         const tomorrowStr = formatWameliDate(new Date(Date.now() + 86400000));
 
-        // Default value if empty
-        if (!ngayInput.value.trim()) {
-            ngayInput.value = todayStr;
+        if (!dateInput.value.trim()) {
+            dateInput.value = todayStr;
         }
 
-        const dateConfigs = [
-            { label: 'Hôm nay', val: todayStr },
-            { label: 'Hôm qua', val: yesterdayStr },
-            { label: 'Ngày mai', val: tomorrowStr }
+        const buttonsWrap = document.createElement('span');
+        buttonsWrap.className = 'wqf-add-date-buttons';
+
+        const dateOptions = [
+            { label: 'Hom nay', val: todayStr },
+            { label: 'Hom qua', val: yesterdayStr },
+            { label: 'Ngay mai', val: tomorrowStr }
         ];
 
-        dateConfigs.forEach(cfg => {
-            const chip = document.createElement('button');
-            chip.type = 'button';
-            chip.className = 'wameli-chip';
-            chip.textContent = cfg.label;
-            chip.dataset.val = cfg.val;
+        dateOptions.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'wqf-add-select-btn';
+            btn.textContent = opt.label;
+            btn.dataset.val = opt.val;
 
-            if (ngayInput.value.trim() === cfg.val) {
-                chip.classList.add('active');
+            if (dateInput.value.trim() === opt.val) {
+                btn.classList.add('wqf-active');
             }
 
-            chip.addEventListener('click', (e) => {
+            btn.addEventListener('click', (e) => {
                 e.preventDefault();
-                ngayInput.value = cfg.val;
-                dispatchChangeEvent(ngayInput);
-
-                chipsWrap.querySelectorAll('.wameli-chip').forEach(c => c.classList.remove('active'));
-                chip.classList.add('active');
+                dateInput.value = opt.val;
+                dispatchChangeEvent(dateInput);
+                buttonsWrap.querySelectorAll('.wqf-add-select-btn').forEach(b => b.classList.remove('wqf-active'));
+                btn.classList.add('wqf-active');
             });
 
-            chipsWrap.appendChild(chip);
+            buttonsWrap.appendChild(btn);
         });
 
-        ngayInput.addEventListener('input', () => {
-            const curVal = ngayInput.value.trim();
-            chipsWrap.querySelectorAll('.wameli-chip').forEach(c => {
-                if (c.dataset.val === curVal) {
-                    c.classList.add('active');
+        dateInput.parentNode.insertBefore(inlineGroup, dateInput);
+        inlineGroup.appendChild(dateInput);
+        inlineGroup.appendChild(buttonsWrap);
+
+        dateInput.addEventListener('input', () => {
+            const cur = dateInput.value.trim();
+            buttonsWrap.querySelectorAll('.wqf-add-select-btn').forEach(b => {
+                if (b.dataset.val === cur) {
+                    b.classList.add('wqf-active');
                 } else {
-                    c.classList.remove('active');
+                    b.classList.remove('wqf-active');
                 }
             });
         });
-
-        wrapControlAndChips(ngayInput, chipsWrap);
     }
 
-    function setupHourChips(gioSelect) {
-        if (!gioSelect) return;
-        if (gioSelect.dataset.wameliEnhanced === 'true' && document.getElementById('wameli-hour-chips')) return;
-        gioSelect.dataset.wameliEnhanced = 'true';
+    // --- Giờ Suggestion Buttons ---
+    function setupHourInlineButtons(hourSelect) {
+        if (!hourSelect) return;
+        const formGroup = hourSelect.closest('.form-group');
+        if (!formGroup) return;
+        const col10 = formGroup.querySelector('.col-md-10') || hourSelect.parentElement;
+        if (!col10) return;
 
-        const chipsWrap = document.createElement('div');
-        chipsWrap.className = 'wameli-inline-chips';
-        chipsWrap.id = 'wameli-hour-chips';
+        if (col10.querySelector('.wqf-inline-field-group')) return;
 
-        const hourList = ['0H', '8H', '9H', '10H', '11H', '13H', '14H', '15H', '16H', '23H'];
+        let select2Container = col10.querySelector('.select2-container');
 
-        hourList.forEach((hText, idx) => {
-            const chip = document.createElement('button');
-            chip.type = 'button';
-            chip.className = 'wameli-chip';
-            chip.textContent = hText;
-            chip.dataset.hour = hText;
+        const inlineGroup = document.createElement('div');
+        inlineGroup.className = 'wqf-inline-field-group';
 
-            // In mockup, 0H is active by default
-            if (idx === 0) {
-                chip.classList.add('active');
+        if (select2Container) {
+            select2Container.style.cssText = 'width: 220px !important; min-width: 220px !important; max-width: 220px !important; flex: 0 0 220px !important; display: inline-block !important; box-sizing: border-box !important;';
+            inlineGroup.appendChild(select2Container);
+        } else {
+            hourSelect.style.cssText = 'width: 220px !important; min-width: 220px !important; max-width: 220px !important; flex: 0 0 220px !important; display: inline-block !important; box-sizing: border-box !important;';
+            inlineGroup.appendChild(hourSelect);
+        }
+
+        const buttonsWrap = document.createElement('span');
+        buttonsWrap.className = 'wqf-add-select-buttons';
+        buttonsWrap.setAttribute('data-key', 'hour');
+
+        const hourOptions = [
+            { label: '0H', value: '0' },
+            { label: '8H', value: '3' },
+            { label: '9H', value: '9' },
+            { label: '10H', value: '5' },
+            { label: '11H', value: '6' },
+            { label: '13H', value: '7' },
+            { label: '14H', value: '10' },
+            { label: '15H', value: '11' },
+            { label: '16H', value: '12' },
+            { label: '23H', value: '18' }
+        ];
+
+        hourOptions.forEach((opt, idx) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'wqf-add-select-btn';
+            btn.setAttribute('data-value', opt.value);
+            btn.title = opt.label;
+            btn.textContent = opt.label;
+
+            if (hourSelect.value === opt.value || (!hourSelect.value && idx === 0)) {
+                btn.classList.add('wqf-active');
             }
 
-            chip.addEventListener('click', (e) => {
+            btn.addEventListener('click', (e) => {
                 e.preventDefault();
-                const num = parseInt(hText.replace('H', ''), 10);
-                const numPad = String(num).padStart(2, '0');
-
-                let matchedOpt = Array.from(gioSelect.options).find(o => {
-                    const txt = o.text.trim().toLowerCase();
-                    const val = o.value.trim().toLowerCase();
-                    return val === String(num) ||
-                        txt.includes(`${num}h`) ||
-                        txt.includes(`${numPad}:`) ||
-                        val.includes(`${numPad}:`);
-                });
-
-                if (matchedOpt) {
-                    gioSelect.value = matchedOpt.value;
-                } else if (gioSelect.options.length > num + 1) {
-                    gioSelect.selectedIndex = num + 1;
-                } else {
-                    gioSelect.value = String(num);
-                }
-
-                dispatchChangeEvent(gioSelect);
-
-                chipsWrap.querySelectorAll('.wameli-chip').forEach(c => c.classList.remove('active'));
-                chip.classList.add('active');
+                setSelect2Value(hourSelect, opt.value);
+                buttonsWrap.querySelectorAll('.wqf-add-select-btn').forEach(b => b.classList.remove('wqf-active'));
+                btn.classList.add('wqf-active');
+                localStorage.setItem('wqf_pref_hour', opt.value);
             });
 
-            chipsWrap.appendChild(chip);
+            buttonsWrap.appendChild(btn);
         });
 
-        gioSelect.addEventListener('change', () => {
-            const currentVal = gioSelect.value;
-            const currentText = gioSelect.selectedOptions[0] ? gioSelect.selectedOptions[0].text.trim().toLowerCase() : '';
+        inlineGroup.appendChild(buttonsWrap);
+        col10.appendChild(inlineGroup);
 
-            chipsWrap.querySelectorAll('.wameli-chip').forEach(c => {
-                const num = c.dataset.hour.replace('H', '');
-                if (currentVal === num || currentText.includes(`${num}h`) || currentText.startsWith(`${num}:`)) {
-                    c.classList.add('active');
+        hourSelect.setAttribute('data-wqf-add-buttons-ready', '1');
+
+        hourSelect.addEventListener('change', () => {
+            const curVal = hourSelect.value;
+            buttonsWrap.querySelectorAll('.wqf-add-select-btn').forEach(b => {
+                if (b.getAttribute('data-value') === curVal) {
+                    b.classList.add('wqf-active');
                 } else {
-                    c.classList.remove('active');
+                    b.classList.remove('wqf-active');
                 }
             });
         });
 
-        wrapControlAndChips(gioSelect, chipsWrap);
+        const observer = new MutationObserver(() => {
+            const s2 = col10.querySelector(':scope > .select2-container');
+            if (s2 && !inlineGroup.contains(s2)) {
+                s2.style.cssText = 'width: 220px !important; min-width: 220px !important; max-width: 220px !important; flex: 0 0 220px !important; display: inline-block !important; box-sizing: border-box !important;';
+                inlineGroup.insertBefore(s2, inlineGroup.firstChild);
+            }
+        });
+        observer.observe(col10, { childList: true });
     }
 
-    function setupFileNameField(fileNameInput) {
-        if (!fileNameInput) return;
-        fileNameInput.style.cssText = 'width: 100% !important; max-width: 100% !important; display: block !important; box-sizing: border-box !important;';
+    // --- File Name: Full width ---
+    function setupFileNameField(nameInput) {
+        if (!nameInput) return;
+        nameInput.style.cssText = 'width: 100% !important; max-width: 100% !important; display: block !important;';
     }
 
-    // --- Right Column: File Manager Panel ---
+    // --- Drop Zones for Hóa đơn PDF & Đơn hàng Excel ---
+    function setupDropZones(pdfInput, excelInput, nameInput) {
+        [pdfInput, excelInput].forEach(inp => {
+            if (!inp) return;
+            const formGroup = inp.closest('.form-group');
+            if (!formGroup || formGroup.dataset.wqfBoundDrop === '1') return;
+            formGroup.dataset.wqfBoundDrop = '1';
+            formGroup.classList.add('wqf-drop-zone');
+
+            formGroup.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                formGroup.classList.add('wqf-dragover');
+            });
+
+            formGroup.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                formGroup.classList.remove('wqf-dragover');
+            });
+
+            formGroup.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                formGroup.classList.remove('wqf-dragover');
+
+                let files = [];
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    files = Array.from(e.dataTransfer.files);
+                } else if (window._wqf_dragged_file) {
+                    files = [window._wqf_dragged_file];
+                }
+
+                if (files.length === 0) return;
+
+                if (inp === pdfInput) {
+                    const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+                    if (pdfs.length > 0) {
+                        applyFilesToInput(pdfInput, pdfs);
+                        showWameliToast(`Đã tải ${pdfs.length} file PDF vào form!`);
+                    } else {
+                        showWameliToast('Vui lòng chỉ thả file .pdf vào ô Hóa đơn PDF!', false);
+                    }
+                } else if (inp === excelInput) {
+                    const excels = files.filter(f => {
+                        const l = f.name.toLowerCase();
+                        return l.endsWith('.xlsx') || l.endsWith('.xls') || l.endsWith('.csv');
+                    });
+                    if (excels.length > 0) {
+                        applyFilesToInput(excelInput, [excels[0]]);
+                        if (nameInput) {
+                            nameInput.value = excels[0].name.replace(/\.[^/.]+$/, '');
+                            dispatchChangeEvent(nameInput);
+                        }
+                        showWameliToast(`Đã tải file Excel: ${excels[0].name}!`);
+                    } else {
+                        showWameliToast('Vui lòng chỉ thả file Excel (.xlsx, .xls) vào ô Đơn hàng Excel!', false);
+                    }
+                }
+            });
+        });
+    }
+
+    // --- Right Directory Manager State & Handlers ---
     let scannedFolderState = {
-        folderName: localStorage.getItem('wameli_last_folder') || 'tải xuống 2',
-        files: [], // Array of { id, file, name, date, isPdf, isExcel, isMock }
+        folderName: localStorage.getItem('wqf_last_folder') || 'tải xuống 2',
+        files: [],
         selectedIds: new Set()
     };
 
     function isValidOrderFile(file) {
         if (!file || !file.name) return false;
         const name = file.name;
-        // Ignore temporary/lock files like ~$sample.xlsx or hidden files like .DS_Store
         if (name.startsWith('~$') || name.startsWith('._') || name.startsWith('.')) return false;
 
         const lower = name.toLowerCase();
@@ -1112,6 +1161,7 @@
     function generateMockFiles() {
         const today = new Date();
         const yesterday = new Date(Date.now() - 86400000);
+        const dayBeforeYesterday = new Date(Date.now() - 3 * 86400000);
 
         function createTime(baseDate, h, m) {
             const d = new Date(baseDate);
@@ -1120,28 +1170,40 @@
         }
 
         const mockList = [
-            // Group Today (5 files)
-            { name: 'mass_update_sales_info_808.xlsx', date: createTime(today, 9, 37) },
-            { name: '0610-gdd-0931-1.xlsx', date: createTime(today, 9, 33) },
-            { name: '0610-gdd-0931-1.pdf', date: createTime(today, 9, 31) },
-            { name: '0610-bce-0809-1.xlsx', date: createTime(today, 8, 9) },
-            { name: '0610-bce-0809-1.pdf', date: createTime(today, 8, 9) },
+            // Group Hôm nay (06/10/2026) (5)
+            { name: 'mass_update_sales_info_80369669_20261006103708.xlsx', size: 74.7 * 1024, date: createTime(today, 9, 37) },
+            { name: '0610-gdd-0931-1.xlsx', size: 9.7 * 1024, date: createTime(today, 9, 33) },
+            { name: '0610-gdd-0931-1.pdf', size: 186.0 * 1024, date: createTime(today, 9, 31) },
+            { name: '0610-bce-0809-1.xlsx', size: 17.8 * 1024, date: createTime(today, 8, 9) },
+            { name: '0610-bce-0809-1.pdf', size: 186.8 * 1024, date: createTime(today, 8, 9) },
 
-            // Group Yesterday (7 files)
-            { name: 'Mau_Nhap_San_Pham_SoSanh_2026.xlsx', date: createTime(yesterday, 23, 42) },
-            { name: '0510-gdd-0808-1.xlsx', date: createTime(yesterday, 8, 8) },
-            { name: '0510-gdd-0807-3.pdf', date: createTime(yesterday, 8, 8) },
-            { name: '0510-gdd-0807-2.pdf', date: createTime(yesterday, 8, 7) },
-            { name: '0510-gdd-0807-1.pdf', date: createTime(yesterday, 8, 7) },
-            { name: '0510-joy-0804-1.xlsx', date: createTime(yesterday, 8, 4) },
-            { name: '0510-joy-0804-1.pdf', date: createTime(yesterday, 8, 4) }
+            // Group Hôm qua (05/10/2026) (7)
+            { name: 'Mau_Nhap_San_Pham_SoSanhGia.xlsx', size: 19.3 * 1024, date: createTime(yesterday, 23, 42) },
+            { name: '0510-gdd-0808-1.xlsx', size: 19.5 * 1024, date: createTime(yesterday, 8, 8) },
+            { name: '0510-gdd-0807-3.pdf', size: 186.5 * 1024, date: createTime(yesterday, 8, 8) },
+            { name: '0510-gdd-0807-2.pdf', size: 218.7 * 1024, date: createTime(yesterday, 8, 7) },
+            { name: '0510-gdd-0807-1.pdf', size: 185.9 * 1024, date: createTime(yesterday, 8, 7) },
+            { name: '0510-joy-0804-1.xlsx', size: 17.8 * 1024, date: createTime(yesterday, 8, 4) },
+            { name: '0510-joy-0804-1.pdf', size: 186.0 * 1024, date: createTime(yesterday, 8, 4) },
+
+            // Group Ngày 03/10/2026 (9)
+            { name: '0310-gdd-1005-4.xlsx', size: 17.7 * 1024, date: createTime(dayBeforeYesterday, 10, 5) },
+            { name: '0310-gdd-1005-2.pdf', size: 234.2 * 1024, date: createTime(dayBeforeYesterday, 10, 5) },
+            { name: '0310-bce-0921-2.xlsx', size: 17.8 * 1024, date: createTime(dayBeforeYesterday, 9, 21) },
+            { name: '0310-bce-0921-2.pdf', size: 188.4 * 1024, date: createTime(dayBeforeYesterday, 9, 21) },
+            { name: '0310-gdd-0901-2.xlsx', size: 9.9 * 1024, date: createTime(dayBeforeYesterday, 9, 2) },
+            { name: '0310-bce-0759-1.xlsx', size: 17.8 * 1024, date: createTime(dayBeforeYesterday, 7, 59) },
+            { name: '0310-bce-0759-1.pdf', size: 187.1 * 1024, date: createTime(dayBeforeYesterday, 7, 59) },
+            { name: '0310-gdd-0759-1.xlsx', size: 17.7 * 1024, date: createTime(dayBeforeYesterday, 7, 59) },
+            { name: '0310-gdd-0759-1.pdf', size: 218.4 * 1024, date: createTime(dayBeforeYesterday, 7, 59) }
         ];
 
         return mockList.map((item, idx) => {
             const isPdf = item.name.toLowerCase().endsWith('.pdf');
             const isExcel = !isPdf;
             const mime = isPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-            const mockBlob = new Blob(['mock content ' + item.name], { type: mime });
+            const dummyBytes = new Uint8Array(Math.round(item.size || 1024));
+            const mockBlob = new Blob([dummyBytes], { type: mime });
             const mockFile = new File([mockBlob], item.name, { type: mime, lastModified: item.date.getTime() });
 
             return {
@@ -1157,7 +1219,6 @@
     }
 
     async function selectFolderFromDisk() {
-        // 1. Try modern File System Access API first (showDirectoryPicker)
         if (typeof window.showDirectoryPicker === 'function') {
             try {
                 const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
@@ -1165,9 +1226,9 @@
 
                 const folderName = dirHandle.name;
                 scannedFolderState.folderName = folderName;
-                localStorage.setItem('wameli_last_folder', folderName);
-                const folderNameInput = document.getElementById('wameli-folder-name-input');
-                if (folderNameInput) folderNameInput.value = folderName;
+                localStorage.setItem('wqf_last_folder', folderName);
+                const folderInput = document.querySelector('.wqf-dir-input');
+                if (folderInput) folderInput.value = folderName;
 
                 const foundFiles = [];
                 async function scanDir(dir, depth = 0) {
@@ -1192,182 +1253,15 @@
                 await processRawFiles(foundFiles);
                 return;
             } catch (err) {
-                if (err.name === 'AbortError') return; // User cancelled
+                if (err.name === 'AbortError') return;
                 console.warn('[Wameli Folder Picker] showDirectoryPicker error, using input fallback:', err);
             }
         }
 
-        // 2. Fallback to native folder input
-        const folderPicker = document.getElementById('wameli-native-folder-input');
+        const folderPicker = document.getElementById('wqf-hidden-dir-picker');
         if (folderPicker) {
             folderPicker.click();
         }
-    }
-
-    function renderFileManagerPanel(rightCol) {
-        if (!rightCol) return;
-        if (document.getElementById('wameli-file-panel-root')) return;
-
-        const panel = document.createElement('div');
-        panel.id = 'wameli-file-panel-root';
-        panel.className = 'wameli-panel-card';
-
-        panel.innerHTML = `
-            <!-- Panel Header -->
-            <div class="wameli-panel-header">
-                <div class="wameli-panel-title" style="cursor: pointer;" title="Bấm để chọn thư mục">
-                    <span style="font-size: 15px;">📁</span>
-                    <span>Thư mục file</span>
-                </div>
-                <input type="text" id="wameli-folder-name-input" value="${scannedFolderState.folderName}" class="wameli-folder-name-input" title="Bấm để chọn thư mục từ máy" />
-                <div class="wameli-header-actions">
-                    <input type="file" id="wameli-native-folder-input" webkitdirectory directory multiple style="display: none;" />
-                    <input type="file" id="wameli-native-files-input" multiple style="display: none;" />
-                    <button type="button" id="wameli-btn-select-folder" class="wameli-btn-blue" title="Chọn thư mục chứa file đơn hàng từ máy tính">
-                        📁 Chọn
-                    </button>
-                    <button type="button" id="wameli-btn-reload-folder" class="wameli-btn-blue" title="Quét lại thư mục">
-                        🔄 Tải lại
-                    </button>
-                    <button type="button" id="wameli-btn-collapse-panel" class="wameli-btn-toggle" title="Thu gọn / Mở rộng">
-                        ▲
-                    </button>
-                </div>
-            </div>
-
-            <div id="wameli-panel-body-wrapper">
-                <!-- Status Bar -->
-                <div class="wameli-status-bar">
-                    <div id="wameli-selection-count-text" class="wameli-status-text">
-                        Đã chọn: 0 file (0 PDF, 0 Excel)
-                    </div>
-                    <div class="wameli-status-actions">
-                        <button type="button" id="wameli-btn-load-selected-pdf" class="wameli-btn-sub-action">
-                            ⚡ Nạp file PDF vào Form
-                        </button>
-                        <button type="button" id="wameli-btn-deselect-all" class="wameli-btn-sub-action">
-                            Bỏ chọn
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Column Headers -->
-                <div class="wameli-col-headers">
-                    <div class="wameli-col-title-left">Tên</div>
-                    <div class="wameli-col-title-right">Ngày sửa đổi</div>
-                </div>
-
-                <!-- Date Groups Container -->
-                <div id="wameli-groups-container" class="wameli-groups-container">
-                    <!-- Groups rendered dynamically -->
-                </div>
-            </div>
-        `;
-
-        rightCol.appendChild(panel);
-
-        // Bind panel controls
-        const folderNameInput = panel.querySelector('#wameli-folder-name-input');
-        const folderTitle = panel.querySelector('.wameli-panel-title');
-        const folderPicker = panel.querySelector('#wameli-native-folder-input');
-        const selectBtn = panel.querySelector('#wameli-btn-select-folder');
-        const reloadBtn = panel.querySelector('#wameli-btn-reload-folder');
-        const toggleBtn = panel.querySelector('#wameli-btn-collapse-panel');
-        const bodyWrapper = panel.querySelector('#wameli-panel-body-wrapper');
-        const deselectBtn = panel.querySelector('#wameli-btn-deselect-all');
-        const loadPdfBtn = panel.querySelector('#wameli-btn-load-selected-pdf');
-
-        // Toggle collapse
-        toggleBtn.addEventListener('click', () => {
-            if (bodyWrapper.style.display === 'none') {
-                bodyWrapper.style.display = 'block';
-                toggleBtn.textContent = '▲';
-            } else {
-                bodyWrapper.style.display = 'none';
-                toggleBtn.textContent = '▼';
-            }
-        });
-
-        // Trigger Folder Picker via Dialog
-        selectBtn.addEventListener('click', () => selectFolderFromDisk());
-        reloadBtn.addEventListener('click', () => selectFolderFromDisk());
-        folderTitle.addEventListener('click', () => selectFolderFromDisk());
-        folderNameInput.addEventListener('click', () => selectFolderFromDisk());
-
-        // Folder selected via native input fallback
-        folderPicker.addEventListener('change', async (e) => {
-            const rawFiles = Array.from(e.target.files || []);
-            if (rawFiles.length === 0) return;
-            const dirName = rawFiles[0]?.webkitRelativePath ? rawFiles[0].webkitRelativePath.split('/')[0] : 'Thư mục';
-            scannedFolderState.folderName = dirName;
-            localStorage.setItem('wameli_last_folder', dirName);
-            folderNameInput.value = dirName;
-            await processRawFiles(rawFiles);
-        });
-
-        // Drag & Drop onto panel
-        panel.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            panel.style.boxShadow = '0 0 0 2px #0284c7';
-        });
-        panel.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            panel.style.boxShadow = '';
-        });
-        panel.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            panel.style.boxShadow = '';
-
-            const items = e.dataTransfer.items;
-            if (items && items.length > 0) {
-                const files = await scanDataTransferItems(items);
-                if (items[0].webkitGetAsEntry && items[0].webkitGetAsEntry()?.isDirectory) {
-                    const name = items[0].webkitGetAsEntry().name;
-                    scannedFolderState.folderName = name;
-                    localStorage.setItem('wameli_last_folder', name);
-                    folderNameInput.value = name;
-                }
-                await processRawFiles(files);
-            } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                await processRawFiles(Array.from(e.dataTransfer.files));
-            }
-        });
-
-        // Deselect all
-        deselectBtn.addEventListener('click', () => {
-            scannedFolderState.selectedIds.clear();
-            renderGroupsList();
-            updateStatusBar();
-        });
-
-        // Load selected PDF into form
-        loadPdfBtn.addEventListener('click', () => {
-            const selectedFiles = scannedFolderState.files.filter(f => scannedFolderState.selectedIds.has(f.id));
-            let pdfsToLoad = selectedFiles.filter(f => f.isPdf);
-            if (pdfsToLoad.length === 0) {
-                // If none selected, take all PDFs from top group or entire list
-                pdfsToLoad = scannedFolderState.files.filter(f => f.isPdf);
-            }
-
-            if (pdfsToLoad.length === 0) {
-                showWameliToast('Không có file PDF nào để nạp!', false);
-                return;
-            }
-
-            const formEls = findWameliOrderFormElements();
-            if (formEls.pdfFileInput) {
-                applyFilesToInput(formEls.pdfFileInput, pdfsToLoad.map(item => item.file));
-                showWameliToast(`Đã nạp ${pdfsToLoad.length} file PDF vào Hóa đơn PDF!`);
-            } else {
-                showWameliToast('Không tìm thấy ô upload Hóa đơn PDF trên form!', false);
-            }
-        });
-
-        renderGroupsList();
-        updateStatusBar();
     }
 
     async function scanDataTransferItems(items) {
@@ -1434,62 +1328,177 @@
         if (validItems.length > 0) {
             scannedFolderState.files = validItems;
             scannedFolderState.selectedIds.clear();
-            renderGroupsList();
-            updateStatusBar();
+            renderExplorerList();
+            updateExplorerStatusBar();
             showWameliToast(`Đã nạp ${validItems.length} file (PDF & Excel) nhóm theo ngày!`);
         } else {
             scannedFolderState.files = [];
-            renderGroupsList();
-            updateStatusBar();
+            renderExplorerList();
+            updateExplorerStatusBar();
             showWameliToast('Không tìm thấy file Excel hoặc PDF nào trong thư mục!', false);
         }
     }
 
-    function renderGroupsList() {
-        const container = document.getElementById('wameli-groups-container');
-        if (!container) return;
+    function renderDirectoryManager(rightCol) {
+        if (!rightCol) return;
+        if (document.getElementById('wameli-directory-manager')) return;
 
-        container.innerHTML = '';
+        const manager = document.createElement('div');
+        manager.id = 'wameli-directory-manager';
+        manager.innerHTML = `
+          <div class="wqf-dir-head">
+            <div class="wqf-dir-title">📁 Thư mục file</div>
+            <input type="text" class="wqf-dir-input" placeholder="Dán link / đường dẫn..." value="${escapeHtml(scannedFolderState.folderName)}">
+            <button type="button" class="wqf-dir-btn wqf-dir-pick-btn" title="Chọn thư mục trên máy tính">📂 Chọn</button>
+            <button type="button" class="wqf-dir-btn wqf-btn-secondary wqf-dir-refresh-btn" title="Quét tải lại các file mới nhất từ thư mục đã chọn mà không cần chọn lại">🔄 Tải lại</button>
+            <button type="button" class="wqf-dir-btn wqf-btn-secondary wqf-dir-toggle-btn" title="Thu gọn / Mở rộng">▲</button>
+            <input type="file" id="wqf-hidden-dir-picker" webkitdirectory="" directory="" multiple="" style="display: none;">
+          </div>
+          <div class="wqf-dir-body">
+            <div class="wqf-explorer-top-bar">
+              <span class="wqf-selected-count">Đã chọn: 0 file (0 PDF, 0 Excel)</span>
+              <div style="display: flex; gap: 4px;">
+                <button type="button" class="wqf-dir-act-btn wqf-btn-attach wqf-batch-attach-pdf-btn" disabled="" style="opacity: 0.55; pointer-events: none;">⚡ Nạp file PDF vào Form</button>
+                <button type="button" class="wqf-dir-act-btn wqf-unselect-all-btn" disabled="" style="opacity: 0.55;">Bỏ chọn</button>
+              </div>
+            </div>
+            <div class="wqf-explorer-head">
+              <div></div>
+              <div>Tên</div>
+              <div style="text-align: right; padding-right: 4px;">Ngày sửa đổi</div>
+              <div></div>
+            </div>
+            <div class="wqf-explorer-list" id="wqf-explorer-list"></div>
+          </div>
+        `;
+
+        rightCol.appendChild(manager);
+
+        const dirInput = manager.querySelector('.wqf-dir-input');
+        const pickBtn = manager.querySelector('.wqf-dir-pick-btn');
+        const refreshBtn = manager.querySelector('.wqf-dir-refresh-btn');
+        const toggleBtn = manager.querySelector('.wqf-dir-toggle-btn');
+        const hiddenPicker = manager.querySelector('#wqf-hidden-dir-picker');
+        const dirBody = manager.querySelector('.wqf-dir-body');
+        const batchPdfBtn = manager.querySelector('.wqf-batch-attach-pdf-btn');
+        const unselectAllBtn = manager.querySelector('.wqf-unselect-all-btn');
+
+        toggleBtn.addEventListener('click', () => {
+            if (dirBody.style.display === 'none') {
+                dirBody.style.display = 'block';
+                toggleBtn.textContent = '▲';
+            } else {
+                dirBody.style.display = 'none';
+                toggleBtn.textContent = '▼';
+            }
+        });
+
+        pickBtn.addEventListener('click', () => selectFolderFromDisk());
+        refreshBtn.addEventListener('click', () => selectFolderFromDisk());
+
+        hiddenPicker.addEventListener('change', async (e) => {
+            const rawFiles = Array.from(e.target.files || []);
+            if (rawFiles.length === 0) return;
+            const dirName = rawFiles[0]?.webkitRelativePath ? rawFiles[0].webkitRelativePath.split('/')[0] : 'tải xuống 2';
+            scannedFolderState.folderName = dirName;
+            localStorage.setItem('wqf_last_folder', dirName);
+            if (dirInput) dirInput.value = dirName;
+            await processRawFiles(rawFiles);
+        });
+
+        manager.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            manager.style.boxShadow = '0 0 0 2px #0284c7';
+        });
+        manager.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            manager.style.boxShadow = '';
+        });
+        manager.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            manager.style.boxShadow = '';
+
+            const items = e.dataTransfer.items;
+            if (items && items.length > 0) {
+                const files = await scanDataTransferItems(items);
+                if (items[0].webkitGetAsEntry && items[0].webkitGetAsEntry()?.isDirectory) {
+                    const name = items[0].webkitGetAsEntry().name;
+                    scannedFolderState.folderName = name;
+                    localStorage.setItem('wqf_last_folder', name);
+                    if (dirInput) dirInput.value = name;
+                }
+                await processRawFiles(files);
+            } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                await processRawFiles(Array.from(e.dataTransfer.files));
+            }
+        });
+
+        unselectAllBtn.addEventListener('click', () => {
+            scannedFolderState.selectedIds.clear();
+            renderExplorerList();
+            updateExplorerStatusBar();
+        });
+
+        batchPdfBtn.addEventListener('click', () => {
+            const selectedFiles = scannedFolderState.files.filter(f => scannedFolderState.selectedIds.has(f.id));
+            let pdfsToLoad = selectedFiles.filter(f => f.isPdf);
+            if (pdfsToLoad.length === 0) {
+                pdfsToLoad = scannedFolderState.files.filter(f => f.isPdf);
+            }
+            if (pdfsToLoad.length === 0) {
+                showWameliToast('Không có file PDF nào để nạp!', false);
+                return;
+            }
+
+            const formEls = findWameliOrderFormElements();
+            if (formEls.pdfFileInput) {
+                applyFilesToInput(formEls.pdfFileInput, pdfsToLoad.map(item => item.file));
+                showWameliToast(`Đã nạp ${pdfsToLoad.length} file PDF vào Hóa đơn PDF!`);
+            } else {
+                showWameliToast('Không tìm thấy ô upload Hóa đơn PDF!', false);
+            }
+        });
 
         if (scannedFolderState.files.length === 0) {
-            container.innerHTML = `
+            scannedFolderState.files = generateMockFiles();
+        }
+
+        renderExplorerList();
+        updateExplorerStatusBar();
+    }
+
+    function renderExplorerList() {
+        const listContainer = document.getElementById('wqf-explorer-list');
+        if (!listContainer) return;
+        listContainer.innerHTML = '';
+
+        if (scannedFolderState.files.length === 0) {
+            listContainer.innerHTML = `
                 <div style="padding: 28px 16px; text-align: center; color: #64748b; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 6px; margin: 10px;">
                     <div style="font-size: 32px; margin-bottom: 6px;">📂</div>
                     <div style="font-size: 13px; font-weight: 700; color: #0284c7; margin-bottom: 4px;">
-                        Chưa chọn thư mục file
+                        Chưa có file trong thư mục
                     </div>
                     <div style="font-size: 11.5px; color: #64748b; margin-bottom: 12px; line-height: 1.5;">
-                        Bấm nút <b>[ 📁 Chọn ]</b> ở trên để chọn thư mục từ máy tính (ví dụ <i>${scannedFolderState.folderName || 'tải xuống 2'}</i>)<br/>
-                        hoặc kéo thả thư mục vào đây.<br/>
-                        <span style="color: #059669; font-weight: 600;">(Hệ thống sẽ chỉ lấy file Excel & PDF rồi tự động nhóm theo ngày)</span>
+                        Bấm nút <b>[ 📂 Chọn ]</b> ở trên để chọn thư mục từ máy tính (ví dụ <i>${escapeHtml(scannedFolderState.folderName || 'tải xuống 2')}</i>)<br/>
+                        <span style="color: #059669; font-weight: 600;">(Hệ thống tự động lọc chỉ lấy file Excel & PDF nhóm theo ngày)</span>
                     </div>
-                    <div style="display: flex; justify-content: center; gap: 8px;">
-                        <button type="button" class="wameli-btn-blue btn-empty-pick-folder" style="font-size: 11.5px; padding: 5px 12px;">
-                            📁 Chọn Thư Mục
-                        </button>
-                        <button type="button" class="wameli-btn-sub-action btn-empty-load-sample" style="font-size: 11.5px; padding: 5px 12px;">
-                            ✨ Xem file mẫu
-                        </button>
-                    </div>
+                    <button type="button" class="wqf-dir-btn btn-empty-pick-folder" style="font-size: 11.5px; padding: 5px 12px; margin: 0 auto;">
+                        📂 Chọn Thư Mục
+                    </button>
                 </div>
             `;
-
-            container.querySelector('.btn-empty-pick-folder')?.addEventListener('click', () => selectFolderFromDisk());
-            container.querySelector('.btn-empty-load-sample')?.addEventListener('click', () => {
-                scannedFolderState.files = generateMockFiles();
-                scannedFolderState.selectedIds.clear();
-                renderGroupsList();
-                updateStatusBar();
-                showWameliToast('Đã nạp danh sách file mẫu!');
-            });
+            listContainer.querySelector('.btn-empty-pick-folder')?.addEventListener('click', () => selectFolderFromDisk());
             return;
         }
 
-        // Group files by date
         const todayKey = getDateKey(new Date());
         const yesterdayKey = getDateKey(new Date(Date.now() - 86400000));
 
-        const groupsMap = new Map(); // dateKey -> array of files
+        const groupsMap = new Map();
         scannedFolderState.files.forEach(item => {
             const key = getDateKey(item.date);
             if (!groupsMap.has(key)) {
@@ -1498,7 +1507,6 @@
             groupsMap.get(key).push(item);
         });
 
-        // Sort groups (newest date first)
         const sortedDateKeys = Array.from(groupsMap.keys()).sort((a, b) => {
             const [da, ma, ya] = a.split('/').map(Number);
             const [db, mb, yb] = b.split('/').map(Number);
@@ -1507,11 +1515,9 @@
 
         sortedDateKeys.forEach(dateKey => {
             const groupFiles = groupsMap.get(dateKey);
-            // Sort files in group by date descending (newest first)
             groupFiles.sort((a, b) => b.date.getTime() - a.date.getTime());
 
-            // Build Title
-            let dateLabel = `Ngày (${dateKey})`;
+            let dateLabel = `Ngày ${dateKey}`;
             if (dateKey === todayKey) {
                 dateLabel = `Hôm nay (${dateKey})`;
             } else if (dateKey === yesterdayKey) {
@@ -1519,48 +1525,24 @@
             }
 
             const pdfCount = groupFiles.filter(f => f.isPdf).length;
-            const allChecked = groupFiles.every(f => scannedFolderState.selectedIds.has(f.id));
 
             const groupEl = document.createElement('div');
-            groupEl.className = 'wameli-date-group-block';
+            groupEl.className = 'wqf-explorer-group';
 
-            // Group Header HTML
             const headerEl = document.createElement('div');
-            headerEl.className = 'wameli-group-header';
+            headerEl.className = 'wqf-explorer-group-header';
             headerEl.innerHTML = `
-                <div class="wameli-group-header-left">
-                    <input type="checkbox" class="wameli-group-checkbox" ${allChecked ? 'checked' : ''} style="cursor: pointer;" />
-                    <span class="wameli-group-title">${dateLabel} (${groupFiles.length})</span>
-                </div>
-                <div class="wameli-group-actions">
-                    <button type="button" class="wameli-btn-group-action btn-group-load-pair" title="Nạp file Excel và PDF mới nhất">
-                        ⚡ Nạp cặp mới nhất
-                    </button>
-                    ${pdfCount > 0 ? `
-                        <button type="button" class="wameli-btn-group-action btn-group-load-pdfs" title="Nạp toàn bộ ${pdfCount} file PDF trong nhóm này">
-                            ⚡ Nạp ${pdfCount} PDF
-                        </button>
-                    ` : ''}
+                <span class="wqf-explorer-group-title">${dateLabel} (${groupFiles.length})</span>
+                <div class="wqf-explorer-group-line"></div>
+                <div class="wqf-explorer-group-actions">
+                  <button type="button" class="wqf-explorer-btn wqf-pair-btn" title="Nạp 1 cặp PDF &amp; Excel mới nhất của ngày này">⚡ Nạp cặp mới nhất</button>
+                  ${pdfCount > 0 ? `
+                    <button type="button" class="wqf-explorer-btn wqf-all-pdf-btn" title="Nạp tất cả ${pdfCount} file PDF của ngày này vào form">⚡ Nạp ${pdfCount} PDF</button>
+                  ` : ''}
                 </div>
             `;
 
-            // Group Checkbox toggle
-            const groupCheckbox = headerEl.querySelector('.wameli-group-checkbox');
-            groupCheckbox.addEventListener('change', () => {
-                const checked = groupCheckbox.checked;
-                groupFiles.forEach(f => {
-                    if (checked) {
-                        scannedFolderState.selectedIds.add(f.id);
-                    } else {
-                        scannedFolderState.selectedIds.delete(f.id);
-                    }
-                });
-                renderGroupsList();
-                updateStatusBar();
-            });
-
-            // Action: Nạp cặp mới nhất
-            headerEl.querySelector('.btn-group-load-pair').addEventListener('click', () => {
+            headerEl.querySelector('.wqf-pair-btn')?.addEventListener('click', () => {
                 const newestExcel = groupFiles.find(f => f.isExcel);
                 const newestPdf = groupFiles.find(f => f.isPdf);
 
@@ -1576,7 +1558,6 @@
                     loadedCount++;
                 }
 
-                // Set file name
                 if (newestExcel && formEls.fileNameInput) {
                     const baseName = newestExcel.name.replace(/\.[^/.]+$/, '');
                     formEls.fileNameInput.value = baseName;
@@ -1590,12 +1571,11 @@
                 if (loadedCount > 0) {
                     showWameliToast(`Đã nạp cặp file mới nhất (${newestExcel?.name || newestPdf?.name})!`);
                 } else {
-                    showWameliToast('Không tìm thấy cặp file Excel & PDF trong nhóm này!', false);
+                    showWameliToast('Không tìm thấy file Excel hoặc PDF trong nhóm này!', false);
                 }
             });
 
-            // Action: Nạp X PDF
-            const loadPdfsBtn = headerEl.querySelector('.btn-group-load-pdfs');
+            const loadPdfsBtn = headerEl.querySelector('.wqf-all-pdf-btn');
             if (loadPdfsBtn) {
                 loadPdfsBtn.addEventListener('click', () => {
                     const groupPdfs = groupFiles.filter(f => f.isPdf);
@@ -1609,56 +1589,53 @@
 
             groupEl.appendChild(headerEl);
 
-            // Group File Items
-            const itemsListEl = document.createElement('div');
-            itemsListEl.className = 'wameli-group-items-list';
-
             groupFiles.forEach(item => {
                 const isSelected = scannedFolderState.selectedIds.has(item.id);
                 const rowEl = document.createElement('div');
-                rowEl.className = 'wameli-file-row' + (isSelected ? ' selected' : '');
+                rowEl.className = 'wqf-explorer-row' + (isSelected ? ' selected' : '');
+                rowEl.draggable = true;
+                rowEl.setAttribute('data-file-id', item.id);
 
-                const icon = item.isExcel ?
-                    '<span style="color: #16a34a; font-size: 13px;">📊</span>' :
-                    '<span style="color: #dc2626; font-size: 13px;">📄</span>';
+                const iconSvg = item.isExcel ? SVG_XLS : SVG_PDF;
+                const fileSizeStr = item.file?.size ? formatFileSize(item.file.size) : '';
+                const tooltipTitle = `${item.name}${fileSizeStr ? ` (${fileSizeStr})` : ''} - Kéo thả vào ô upload`;
 
                 rowEl.innerHTML = `
-                    <div class="wameli-file-left">
-                        <input type="checkbox" class="wameli-file-item-checkbox" ${isSelected ? 'checked' : ''} style="cursor: pointer;" />
-                        ${icon}
-                        <span class="wameli-file-name-text" title="${item.name}">${item.name}</span>
-                    </div>
-                    <div class="wameli-file-date-text">
-                        ${formatFileDateVi(item.date)}
-                    </div>
-                    <div class="wameli-file-row-actions">
-                        <button type="button" class="wameli-btn-row-action wameli-btn-nap btn-row-nap" title="Nạp file này vào Form">
-                            ⚡ Nạp
-                        </button>
-                        <button type="button" class="wameli-btn-row-action btn-row-copy" title="Copy tên file">
-                            📋
-                        </button>
-                        <button type="button" class="wameli-btn-row-action btn-row-preview" title="Xem trước file">
-                            👁️
-                        </button>
-                    </div>
+                  <input type="checkbox" class="wqf-explorer-checkbox" title="Chọn file" ${isSelected ? 'checked' : ''}>
+                  <div class="wqf-explorer-file-info" title="${escapeHtml(tooltipTitle)}">
+                    <span class="wqf-explorer-icon">${iconSvg}</span>
+                    <span class="wqf-explorer-name">${escapeHtml(item.name)}</span>
+                  </div>
+                  <div class="wqf-explorer-date">${formatFileDateVi(item.date)}</div>
+                  <div class="wqf-explorer-actions">
+                    <button type="button" class="wqf-explorer-btn wqf-btn-row-attach" title="Nạp file ${item.isExcel ? 'Excel' : 'PDF'} này vào form">⚡ Nạp</button>
+                    <button type="button" class="wqf-explorer-btn wqf-btn-row-copy" title="Sao chép tên file">📋</button>
+                    <button type="button" class="wqf-explorer-btn wqf-btn-row-view" title="Xem trước file">👁</button>
+                  </div>
                 `;
 
-                // Checkbox toggle
-                const itemCheckbox = rowEl.querySelector('.wameli-file-item-checkbox');
-                itemCheckbox.addEventListener('change', () => {
-                    if (itemCheckbox.checked) {
+                const checkbox = rowEl.querySelector('.wqf-explorer-checkbox');
+                checkbox.addEventListener('change', () => {
+                    if (checkbox.checked) {
                         scannedFolderState.selectedIds.add(item.id);
                         rowEl.classList.add('selected');
                     } else {
                         scannedFolderState.selectedIds.delete(item.id);
                         rowEl.classList.remove('selected');
                     }
-                    updateStatusBar();
+                    updateExplorerStatusBar();
                 });
 
-                // Row Action: Nạp
-                rowEl.querySelector('.btn-row-nap').addEventListener('click', (e) => {
+                rowEl.addEventListener('dragstart', (e) => {
+                    window._wqf_dragged_file = item.file;
+                    e.dataTransfer.setData('text/plain', item.name);
+                    e.dataTransfer.effectAllowed = 'copyMove';
+                });
+                rowEl.addEventListener('dragend', () => {
+                    window._wqf_dragged_file = null;
+                });
+
+                rowEl.querySelector('.wqf-btn-row-attach').addEventListener('click', (e) => {
                     e.stopPropagation();
                     const formEls = findWameliOrderFormElements();
                     const baseName = item.name.replace(/\.[^/.]+$/, '');
@@ -1676,17 +1653,15 @@
                     }
                 });
 
-                // Row Action: Copy
-                rowEl.querySelector('.btn-row-copy').addEventListener('click', (e) => {
+                rowEl.querySelector('.wqf-btn-row-copy').addEventListener('click', (e) => {
                     e.stopPropagation();
                     const baseName = item.name.replace(/\.[^/.]+$/, '');
                     navigator.clipboard.writeText(baseName).then(() => {
-                        showWameliToast(`Đã copy: ${baseName}`);
+                        showWameliToast(`Đã sao chép: ${baseName}`);
                     });
                 });
 
-                // Row Action: Preview
-                rowEl.querySelector('.btn-row-preview').addEventListener('click', (e) => {
+                rowEl.querySelector('.wqf-btn-row-view').addEventListener('click', (e) => {
                     e.stopPropagation();
                     try {
                         const url = URL.createObjectURL(item.file);
@@ -1696,24 +1671,50 @@
                     }
                 });
 
-                itemsListEl.appendChild(rowEl);
+                groupEl.appendChild(rowEl);
             });
 
-            groupEl.appendChild(itemsListEl);
-            container.appendChild(groupEl);
+            listContainer.appendChild(groupEl);
         });
     }
 
-    function updateStatusBar() {
-        const statusText = document.getElementById('wameli-selection-count-text');
-        if (!statusText) return;
+    function updateExplorerStatusBar() {
+        const statusText = document.querySelector('.wqf-selected-count');
+        const batchPdfBtn = document.querySelector('.wqf-batch-attach-pdf-btn');
+        const unselectAllBtn = document.querySelector('.wqf-unselect-all-btn');
 
         const selectedFiles = scannedFolderState.files.filter(f => scannedFolderState.selectedIds.has(f.id));
         const total = selectedFiles.length;
         const pdfCount = selectedFiles.filter(f => f.isPdf).length;
         const excelCount = selectedFiles.filter(f => f.isExcel).length;
 
-        statusText.textContent = `Đã chọn: ${total} file (${pdfCount} PDF, ${excelCount} Excel)`;
+        if (statusText) {
+            statusText.textContent = `Đã chọn: ${total} file (${pdfCount} PDF, ${excelCount} Excel)`;
+        }
+
+        if (batchPdfBtn) {
+            if (pdfCount > 0) {
+                batchPdfBtn.disabled = false;
+                batchPdfBtn.style.opacity = '1';
+                batchPdfBtn.style.pointerEvents = 'auto';
+                batchPdfBtn.textContent = `⚡ Nạp ${pdfCount} file PDF vào Form`;
+            } else {
+                batchPdfBtn.disabled = true;
+                batchPdfBtn.style.opacity = '0.55';
+                batchPdfBtn.style.pointerEvents = 'none';
+                batchPdfBtn.textContent = '⚡ Nạp file PDF vào Form';
+            }
+        }
+
+        if (unselectAllBtn) {
+            if (total > 0) {
+                unselectAllBtn.disabled = false;
+                unselectAllBtn.style.opacity = '1';
+            } else {
+                unselectAllBtn.disabled = true;
+                unselectAllBtn.style.opacity = '0.55';
+            }
+        }
     }
 
     function applyFilesToInput(inputEl, files) {
@@ -1724,11 +1725,11 @@
             inputEl.files = dt.files;
             dispatchChangeEvent(inputEl);
 
-            const parentRow = inputEl.closest('tr, .form-group, .row, div') || inputEl.parentElement;
-            if (parentRow) {
-                const label = parentRow.querySelector('.custom-file-label, .file-name, span');
-                if (label && label.textContent.includes('Không')) {
-                    label.textContent = files.length === 1 ? files[0].name : `Đã chọn ${files.length} tệp`;
+            const container = inputEl.closest('.form-group, .fileUpload, div');
+            if (container) {
+                const helpBlock = container.querySelector('.help-block, .file-name');
+                if (helpBlock) {
+                    helpBlock.textContent = files.length === 1 ? files[0].name : `Đã nạp ${files.length} tệp`;
                 }
             }
         } catch (err) {
@@ -1741,23 +1742,26 @@
         injectOrderUploadStyles();
 
         const formElements = findWameliOrderFormElements();
-        const { sanSelect, khoSelect, shopSelect, gioSelect, ngayInput, fileNameInput } = formElements;
+        const { sanSelect, khoSelect, shopSelect, gioSelect, ngayInput, fileNameInput, pdfFileInput, excelFileInput, panelBody } = formElements;
+
+        if (!panelBody) return;
 
         // 1. Setup 2-Column Split Layout
-        const layout = setupSplitLayout(formElements);
-        const rightCol = layout ? layout.rightCol : document.getElementById('wameli-right-col');
+        const layout = setupOrderUploadLayout(panelBody);
+        const rightCol = layout ? layout.rightCol : document.querySelector('.wqf-add-order-right-col');
 
-        // 2. Setup Inline Form Chips
-        if (sanSelect) setupSanChips(sanSelect);
-        if (khoSelect) setupKhoChips(khoSelect);
+        // 2. Setup Inline Form Suggestions
+        if (sanSelect) setupPlatformInlineButtons(sanSelect);
+        if (khoSelect) setupWarehouseInlineButtons(khoSelect);
         if (shopSelect) setupShopField(shopSelect);
-        if (ngayInput) setupDateChips(ngayInput);
-        if (gioSelect) setupHourChips(gioSelect);
+        if (ngayInput) setupDateInlineButtons(ngayInput);
+        if (gioSelect) setupHourInlineButtons(gioSelect);
         if (fileNameInput) setupFileNameField(fileNameInput);
+        setupDropZones(pdfFileInput, excelFileInput, fileNameInput);
 
-        // 3. Setup Right File Manager Panel
+        // 3. Setup Right Directory Manager
         if (rightCol) {
-            renderFileManagerPanel(rightCol);
+            renderDirectoryManager(rightCol);
         }
     }
 
@@ -1771,7 +1775,6 @@
             initWameliOrderUploadPage();
         }
 
-        // Periodic check & mutation observer for SPA navigation and dynamically rendered forms
         setInterval(() => {
             if (isOrderUploadPage()) {
                 initWameliOrderUploadPage();
