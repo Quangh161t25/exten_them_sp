@@ -407,56 +407,7 @@
                 color: #ffffff;
             }
 
-            /* Shop Suggestions from Presets */
-            .wqf-shop-suggestions-container {
-                margin-top: 5px;
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-                width: 100%;
-            }
-            .wqf-shop-suggestions-bar {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                flex-wrap: wrap;
-            }
-            .wqf-shop-sug-title {
-                font-size: 11.5px;
-                font-weight: 600;
-                color: #0369a1;
-                white-space: nowrap;
-            }
-            .wqf-shop-sug-chips {
-                display: flex;
-                align-items: center;
-                gap: 5px;
-                flex-wrap: wrap;
-            }
-            .wqf-shop-sug-btn {
-                background: #ffffff;
-                border: 1px solid #bae6fd;
-                border-radius: 4px;
-                padding: 3px 9px;
-                font-size: 11.5px;
-                font-weight: 500;
-                color: #0369a1;
-                cursor: pointer;
-                transition: all 0.15s ease;
-                white-space: nowrap;
-            }
-            .wqf-shop-sug-btn:hover {
-                background: #e0f2fe;
-                border-color: #0284c7;
-                color: #075985;
-            }
-            .wqf-shop-sug-btn.wqf-active {
-                background: #0284c7 !important;
-                border-color: #0284c7 !important;
-                color: #ffffff !important;
-                font-weight: 600;
-                box-shadow: 0 1px 3px rgba(2, 132, 199, 0.3);
-            }
+
 
             /* Inline Field Group & Buttons */
             .wqf-inline-field-group {
@@ -1519,7 +1470,7 @@
         observer.observe(col10, { childList: true });
     }
 
-    // --- Shop Field: 100% full width & Gợi ý Shop lấy từ chương trình đã lưu ---
+    // --- Shop Field: Inline 220px & Gợi ý Shop nằm cạnh ô điền Shop (lấy từ chương trình đã lưu) ---
     function setupShopField(shopSelect) {
         if (!shopSelect) return;
         const formGroup = shopSelect.closest('.form-group');
@@ -1527,43 +1478,56 @@
         const col10 = formGroup.querySelector('.col-md-10') || shopSelect.parentElement;
         if (!col10) return;
 
-        const s2 = col10.querySelector('.select2-container');
-        if (s2) {
-            s2.style.cssText = 'width: 100% !important; min-width: 100% !important; max-width: 100% !important; display: block !important;';
+        // Xóa hộp gợi ý cũ bên dưới (nếu có)
+        const oldBelow = col10.querySelector('.wqf-shop-suggestions-container');
+        if (oldBelow) oldBelow.remove();
+
+        let inlineGroup = col10.querySelector('.wqf-inline-field-group');
+        let select2Container = col10.querySelector('.select2-container');
+
+        if (!inlineGroup) {
+            inlineGroup = document.createElement('div');
+            inlineGroup.className = 'wqf-inline-field-group';
+
+            if (select2Container) {
+                select2Container.style.cssText = 'width: 220px !important; min-width: 220px !important; max-width: 220px !important; flex: 0 0 220px !important; display: inline-block !important; box-sizing: border-box !important;';
+                inlineGroup.appendChild(select2Container);
+            } else {
+                shopSelect.style.cssText = 'width: 220px !important; min-width: 220px !important; max-width: 220px !important; flex: 0 0 220px !important; display: inline-block !important; box-sizing: border-box !important;';
+                inlineGroup.appendChild(shopSelect);
+            }
+
+            col10.appendChild(inlineGroup);
+        } else if (select2Container && select2Container.parentElement !== inlineGroup) {
+            select2Container.style.cssText = 'width: 220px !important; min-width: 220px !important; max-width: 220px !important; flex: 0 0 220px !important; display: inline-block !important; box-sizing: border-box !important;';
+            inlineGroup.insertBefore(select2Container, inlineGroup.firstChild);
         }
-        shopSelect.style.cssText = 'width: 100% !important; max-width: 100% !important;';
 
-        const legacy = col10.querySelector('.wqf-add-select-buttons, .wameli-inline-chips');
-        if (legacy) legacy.remove();
-
-        // Setup container for Shop suggestions extracted from saved presets
-        let sugContainer = col10.querySelector('.wqf-shop-suggestions-container');
-        if (!sugContainer) {
-            sugContainer = document.createElement('div');
-            sugContainer.className = 'wqf-shop-suggestions-container';
-            sugContainer.id = 'wqf-shop-suggestions-container';
-            col10.appendChild(sugContainer);
+        let buttonsWrap = inlineGroup.querySelector('.wqf-add-select-buttons[data-key="shop"]');
+        if (!buttonsWrap) {
+            buttonsWrap = document.createElement('span');
+            buttonsWrap.className = 'wqf-add-select-buttons wqf-shop-inline-buttons';
+            buttonsWrap.setAttribute('data-key', 'shop');
+            inlineGroup.appendChild(buttonsWrap);
         }
 
-        function updateActiveShopButton(currentShopId) {
-            if (!sugContainer) return;
-            sugContainer.querySelectorAll('.wqf-shop-sug-btn').forEach(btn => {
-                if (btn.getAttribute('data-shop-id') === currentShopId) {
-                    btn.classList.add('wqf-active');
+        function updateActiveShopButtons(currentShopId) {
+            buttonsWrap.querySelectorAll('.wqf-add-select-btn').forEach(b => {
+                if (b.getAttribute('data-value') === String(currentShopId)) {
+                    b.classList.add('wqf-active');
                 } else {
-                    btn.classList.remove('wqf-active');
+                    b.classList.remove('wqf-active');
                 }
             });
         }
 
         function renderShopSuggestions() {
-            if (!sugContainer) return;
-            sugContainer.innerHTML = '';
+            buttonsWrap.innerHTML = '';
 
             const presets = getStoredPresets();
             const shopMap = new Map();
 
-            // Extract unique shops from saved presets
+            // Trích xuất các shop duy nhất từ các chương trình đã lưu
             presets.forEach(p => {
                 let sId = p.shop_id;
                 let sName = p.shop_name ? p.shop_name.trim() : '';
@@ -1583,19 +1547,11 @@
             const uniqueShops = Array.from(shopMap.values());
             if (uniqueShops.length === 0) return;
 
-            const bar = document.createElement('div');
-            bar.className = 'wqf-shop-suggestions-bar';
-            bar.innerHTML = `<span class="wqf-shop-sug-title">Gợi ý Shop từ chương trình:</span>`;
-
-            const chipsWrap = document.createElement('div');
-            chipsWrap.className = 'wqf-shop-sug-chips';
-            chipsWrap.id = 'wqf-shop-sug-chips';
-
             uniqueShops.forEach(shop => {
                 const btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = 'wqf-shop-sug-btn';
-                btn.setAttribute('data-shop-id', shop.id);
+                btn.className = 'wqf-add-select-btn wqf-shop-btn';
+                btn.setAttribute('data-value', shop.id);
                 btn.textContent = shop.name;
                 btn.title = `Chọn nhanh Shop: ${shop.name}`;
 
@@ -1605,26 +1561,33 @@
 
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
+                    setSelect2Value(shopSelect, shop.id);
                     applyShopValue(shopSelect, shop.id, shop.name);
-                    chipsWrap.querySelectorAll('.wqf-shop-sug-btn').forEach(b => b.classList.remove('wqf-active'));
+                    buttonsWrap.querySelectorAll('.wqf-add-select-btn').forEach(b => b.classList.remove('wqf-active'));
                     btn.classList.add('wqf-active');
                     showWameliToast(`Đã chọn Shop: ${shop.name}`);
                 });
 
-                chipsWrap.appendChild(btn);
+                buttonsWrap.appendChild(btn);
             });
-
-            bar.appendChild(chipsWrap);
-            sugContainer.appendChild(bar);
         }
 
         renderShopSuggestions();
         window._wqf_render_shop_suggestions = renderShopSuggestions;
-        window._wqf_update_shop_suggestions_active = updateActiveShopButton;
+        window._wqf_update_shop_suggestions_active = updateActiveShopButtons;
 
         shopSelect.addEventListener('change', () => {
-            updateActiveShopButton(shopSelect.value);
+            updateActiveShopButtons(shopSelect.value);
         });
+
+        const observer = new MutationObserver(() => {
+            const s2 = col10.querySelector(':scope > .select2-container');
+            if (s2 && !inlineGroup.contains(s2)) {
+                s2.style.cssText = 'width: 220px !important; min-width: 220px !important; max-width: 220px !important; flex: 0 0 220px !important; display: inline-block !important; box-sizing: border-box !important;';
+                inlineGroup.insertBefore(s2, inlineGroup.firstChild);
+            }
+        });
+        observer.observe(col10, { childList: true });
     }
 
     // --- Ngày Suggestion Buttons ---
