@@ -500,10 +500,57 @@
             .wqf-dir-head {
                 display: flex;
                 align-items: center;
-                gap: 8px;
+                gap: 6px;
                 padding: 8px 12px;
                 background: #f8fafc;
                 border-bottom: 1px solid #e2e8f0;
+                flex-wrap: wrap;
+            }
+            .wqf-realtime-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #15803d;
+                background: #dcfce7;
+                border: 1px solid #86efac;
+                padding: 2px 7px;
+                border-radius: 12px;
+                user-select: none;
+                white-space: nowrap;
+            }
+            .wqf-pulse-dot {
+                width: 7px;
+                height: 7px;
+                background: #22c55e;
+                border-radius: 50%;
+                display: inline-block;
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+                animation: wqf-pulse 1.8s infinite;
+            }
+            @keyframes wqf-pulse {
+                0% {
+                    transform: scale(0.95);
+                    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+                }
+                70% {
+                    transform: scale(1);
+                    box-shadow: 0 0 0 5px rgba(34, 197, 94, 0);
+                }
+                100% {
+                    transform: scale(0.95);
+                    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+                }
+            }
+            .wqf-btn-resume {
+                background: #16a34a !important;
+                color: #ffffff !important;
+                border: none !important;
+                font-weight: 700 !important;
+            }
+            .wqf-btn-resume:hover {
+                background: #15803d !important;
             }
             .wqf-dir-title {
                 font-size: 13px;
@@ -1866,9 +1913,50 @@
     // --- Right Directory Manager State & Handlers ---
     let scannedFolderState = {
         folderName: localStorage.getItem('wqf_last_folder') || 'tải xuống 2',
+        dirHandle: null,
+        pendingHandle: null,
         files: [],
-        selectedIds: new Set()
+        selectedIds: new Set(),
+        isRealtime: false
     };
+
+    // ==========================================
+    // INDEXEDDB HELPER FOR PERSISTENT DIRECTORY HANDLE
+    // ==========================================
+    function openFolderDB() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open('WameliFolderDB', 1);
+            req.onupgradeneeded = () => {
+                req.result.createObjectStore('handles');
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async function saveDirHandle(handle) {
+        try {
+            const db = await openFolderDB();
+            const tx = db.transaction('handles', 'readwrite');
+            tx.objectStore('handles').put(handle, 'activeDir');
+        } catch (e) {
+            console.warn('[Wameli IDB] Cannot save dir handle:', e);
+        }
+    }
+
+    async function getSavedDirHandle() {
+        try {
+            const db = await openFolderDB();
+            return new Promise((resolve) => {
+                const tx = db.transaction('handles', 'readonly');
+                const req = tx.objectStore('handles').get('activeDir');
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => resolve(null);
+            });
+        } catch (e) {
+            return null;
+        }
+    }
 
     function isValidOrderFile(file) {
         if (!file || !file.name) return false;
@@ -1941,6 +2029,89 @@
         });
     }
 
+    // --- REALTIME SCANNING ENGINE ---
+    let realtimeTimer = null;
+    let lastFilesSignature = '';
+
+    function computeFilesSignature(files) {
+        if (!files || files.length === 0) return '';
+        return files
+            .map(f => `${f.name}:${f.size}:${f.lastModified || 0}`)
+            .sort()
+            .join('|');
+    }
+
+    async function scanDirectoryHandle(dirHandle, maxDepth = 1) {
+        const foundFiles = [];
+        const ignoredDirs = new Set(['node_modules', '.git', '.vscode', 'appdata', 'temp', 'tmp', '$recycle.bin']);
+
+        async function scanDir(dir, depth) {
+            if (depth > maxDepth) return;
+            try {
+                for await (const entry of dir.values()) {
+                    if (entry.kind === 'file') {
+                        try {
+                            const file = await entry.getFile();
+                            if (isValidOrderFile(file)) {
+                                foundFiles.push(file);
+                            }
+                        } catch (e) { }
+                    } else if (entry.kind === 'directory') {
+                        if (ignoredDirs.has(entry.name.toLowerCase())) continue;
+                        try {
+                            await scanDir(entry, depth + 1);
+                        } catch (e) { }
+                    }
+                }
+            } catch (e) {
+                console.warn('[Wameli Realtime scanDir] Error:', e);
+            }
+        }
+
+        await scanDir(dirHandle, 0);
+        return foundFiles;
+    }
+
+    function startRealtimePolling(dirHandle) {
+        if (realtimeTimer) clearInterval(realtimeTimer);
+        scannedFolderState.dirHandle = dirHandle;
+        scannedFolderState.isRealtime = true;
+
+        const badge = document.querySelector('.wqf-realtime-badge');
+        if (badge) badge.style.display = 'inline-flex';
+
+        const resumeBtn = document.querySelector('.wqf-btn-resume');
+        if (resumeBtn) resumeBtn.style.display = 'none';
+
+        const checkDirChanges = async () => {
+            if (!scannedFolderState.dirHandle) return;
+            if (document.hidden) return; // Pause when tab is hidden to save CPU/battery
+            try {
+                const files = await scanDirectoryHandle(scannedFolderState.dirHandle);
+                const sig = computeFilesSignature(files);
+                if (sig !== lastFilesSignature) {
+                    const isFirst = lastFilesSignature === '';
+                    lastFilesSignature = sig;
+                    await processRawFiles(files, isFirst);
+                }
+            } catch (err) {
+                console.warn('[Wameli Realtime poll] Error:', err);
+            }
+        };
+
+        // Poll every 2.5s
+        realtimeTimer = setInterval(checkDirChanges, 2500);
+
+        // Immediate check on window focus or visibility return
+        window.removeEventListener('focus', checkDirChanges);
+        window.addEventListener('focus', checkDirChanges);
+        document.removeEventListener('visibilitychange', checkDirChanges);
+        document.addEventListener('visibilitychange', checkDirChanges);
+
+        // Run immediate check
+        checkDirChanges();
+    }
+
     async function selectFolderFromDisk() {
         if (typeof window.showDirectoryPicker === 'function') {
             try {
@@ -1949,31 +2120,17 @@
 
                 const folderName = dirHandle.name;
                 scannedFolderState.folderName = folderName;
+                scannedFolderState.dirHandle = dirHandle;
                 localStorage.setItem('wqf_last_folder', folderName);
+                await saveDirHandle(dirHandle);
+
                 const folderInput = document.querySelector('.wqf-dir-input');
                 if (folderInput) folderInput.value = folderName;
 
-                const foundFiles = [];
-                async function scanDir(dir, depth = 0) {
-                    if (depth > 2) return;
-                    for await (const entry of dir.values()) {
-                        if (entry.kind === 'file') {
-                            try {
-                                const file = await entry.getFile();
-                                if (isValidOrderFile(file)) {
-                                    foundFiles.push(file);
-                                }
-                            } catch (e) { }
-                        } else if (entry.kind === 'directory') {
-                            try {
-                                await scanDir(entry, depth + 1);
-                            } catch (e) { }
-                        }
-                    }
-                }
-
-                await scanDir(dirHandle, 0);
-                await processRawFiles(foundFiles);
+                // Start realtime watching immediately
+                lastFilesSignature = '';
+                startRealtimePolling(dirHandle);
+                showWameliToast(`🟢 Đã kích hoạt Realtime theo dõi thư mục: ${folderName}!`);
                 return;
             } catch (err) {
                 if (err.name === 'AbortError') return;
@@ -2032,13 +2189,16 @@
         return allFiles;
     }
 
-    async function processRawFiles(files) {
+    async function processRawFiles(files, isFirstScan = false) {
         const validItems = [];
-        files.forEach((f, idx) => {
+        files.forEach((f) => {
             if (!isValidOrderFile(f)) return; // Strictly only Excel (.xlsx, .xls, .csv) & PDF (.pdf)
 
+            // Stable ID based on filename to preserve checked checkboxes across polling updates
+            const stableId = 'file_' + encodeURIComponent(f.name);
+
             validItems.push({
-                id: 'real_' + Date.now() + '_' + idx,
+                id: stableId,
                 file: f,
                 name: f.name,
                 date: new Date(f.lastModified || Date.now()),
@@ -2048,17 +2208,24 @@
             });
         });
 
-        if (validItems.length > 0) {
-            scannedFolderState.files = validItems;
-            scannedFolderState.selectedIds.clear();
-            renderExplorerList();
-            updateExplorerStatusBar();
+        // Clean up selectedIds for files that no longer exist
+        const validIds = new Set(validItems.map(item => item.id));
+        for (const selId of scannedFolderState.selectedIds) {
+            if (!validIds.has(selId)) {
+                scannedFolderState.selectedIds.delete(selId);
+            }
+        }
+
+        const prevCount = scannedFolderState.files.length;
+        scannedFolderState.files = validItems;
+        renderExplorerList();
+        updateExplorerStatusBar();
+
+        if (isFirstScan) {
             showWameliToast(`Đã nạp ${validItems.length} file (PDF & Excel) nhóm theo ngày!`);
-        } else {
-            scannedFolderState.files = [];
-            renderExplorerList();
-            updateExplorerStatusBar();
-            showWameliToast('Không tìm thấy file Excel hoặc PDF nào trong thư mục!', false);
+        } else if (validItems.length > prevCount && prevCount > 0) {
+            const addedCount = validItems.length - prevCount;
+            showWameliToast(`🟢 Thư mục vừa cập nhật thêm ${addedCount} file mới!`);
         }
     }
 
@@ -2070,8 +2237,14 @@
         manager.id = 'wameli-directory-manager';
         manager.innerHTML = `
           <div class="wqf-dir-head">
-            <div class="wqf-dir-title">📁 Thư mục file</div>
+            <div class="wqf-dir-title">
+              <span>📁 Thư mục file</span>
+              <span class="wqf-realtime-badge" style="${scannedFolderState.isRealtime ? 'display: inline-flex;' : 'display: none;'}" title="Đang tự động đồng bộ thời gian thực mỗi 2.5 giây">
+                <span class="wqf-pulse-dot"></span> Realtime
+              </span>
+            </div>
             <input type="text" class="wqf-dir-input" placeholder="Dán link / đường dẫn..." value="${escapeHtml(scannedFolderState.folderName)}">
+            <button type="button" class="wqf-dir-btn wqf-btn-resume" style="display: none;" title="Bấm để kích hoạt lại đồng bộ realtime thư mục này">🟢 Bật Realtime</button>
             <button type="button" class="wqf-dir-btn wqf-dir-pick-btn" title="Chọn thư mục trên máy tính">📂 Chọn</button>
             <button type="button" class="wqf-dir-btn wqf-btn-secondary wqf-dir-refresh-btn" title="Quét tải lại các file mới nhất từ thư mục đã chọn mà không cần chọn lại">🔄 Tải lại</button>
             <button type="button" class="wqf-dir-btn wqf-btn-secondary wqf-dir-toggle-btn" title="Thu gọn / Mở rộng">▲</button>
@@ -2100,6 +2273,7 @@
         const dirInput = manager.querySelector('.wqf-dir-input');
         const pickBtn = manager.querySelector('.wqf-dir-pick-btn');
         const refreshBtn = manager.querySelector('.wqf-dir-refresh-btn');
+        const resumeBtn = manager.querySelector('.wqf-btn-resume');
         const toggleBtn = manager.querySelector('.wqf-dir-toggle-btn');
         const hiddenPicker = manager.querySelector('#wqf-hidden-dir-picker');
         const dirBody = manager.querySelector('.wqf-dir-body');
@@ -2117,7 +2291,38 @@
         });
 
         pickBtn.addEventListener('click', () => selectFolderFromDisk());
-        refreshBtn.addEventListener('click', () => selectFolderFromDisk());
+
+        // Refresh button: re-scans current handle immediately without opening picker dialog!
+        refreshBtn.addEventListener('click', async () => {
+            if (scannedFolderState.dirHandle) {
+                refreshBtn.style.transform = 'rotate(180deg)';
+                refreshBtn.style.transition = 'transform 0.35s ease';
+                setTimeout(() => refreshBtn.style.transform = '', 350);
+
+                try {
+                    const files = await scanDirectoryHandle(scannedFolderState.dirHandle);
+                    lastFilesSignature = computeFilesSignature(files);
+                    await processRawFiles(files, true);
+                    showWameliToast(`Đã làm mới danh sách (${scannedFolderState.files.length} file)!`);
+                } catch (err) {
+                    console.warn('[Wameli Refresh] Error:', err);
+                    selectFolderFromDisk();
+                }
+            } else if (scannedFolderState.pendingHandle) {
+                try {
+                    const perm = await scannedFolderState.pendingHandle.requestPermission({ mode: 'read' });
+                    if (perm === 'granted') {
+                        startRealtimePolling(scannedFolderState.pendingHandle);
+                    } else {
+                        selectFolderFromDisk();
+                    }
+                } catch (e) {
+                    selectFolderFromDisk();
+                }
+            } else {
+                selectFolderFromDisk();
+            }
+        });
 
         hiddenPicker.addEventListener('change', async (e) => {
             const rawFiles = Array.from(e.target.files || []);
@@ -2189,6 +2394,39 @@
 
         renderExplorerList();
         updateExplorerStatusBar();
+
+        // Check for previously saved directory handle in IndexedDB to automatically resume realtime monitoring
+        (async () => {
+            try {
+                const savedHandle = await getSavedDirHandle();
+                if (savedHandle) {
+                    const perm = await savedHandle.queryPermission({ mode: 'read' });
+                    if (perm === 'granted') {
+                        scannedFolderState.dirHandle = savedHandle;
+                        scannedFolderState.folderName = savedHandle.name;
+                        if (dirInput) dirInput.value = savedHandle.name;
+                        startRealtimePolling(savedHandle);
+                    } else {
+                        scannedFolderState.pendingHandle = savedHandle;
+                        scannedFolderState.folderName = savedHandle.name;
+                        if (dirInput) dirInput.value = savedHandle.name;
+                        if (resumeBtn) {
+                            resumeBtn.style.display = 'inline-flex';
+                            resumeBtn.textContent = `🟢 Bật Realtime (${savedHandle.name})`;
+                            resumeBtn.addEventListener('click', async () => {
+                                const requestPerm = await savedHandle.requestPermission({ mode: 'read' });
+                                if (requestPerm === 'granted') {
+                                    startRealtimePolling(savedHandle);
+                                    showWameliToast(`🟢 Đã kích hoạt Realtime thư mục: ${savedHandle.name}!`);
+                                }
+                            });
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('[Wameli IDB check] Error:', err);
+            }
+        })();
     }
 
     function renderExplorerList() {
