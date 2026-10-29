@@ -112,37 +112,8 @@
     return false;
   }
 
-  // Web (tab AUTO CHAT) gửi tin tay cho khách. Chỉ gửi được khi phiên Shopee trên máy này đúng shop của hội thoại.
-  async function sendManual(msg) {
-    const text = String(msg.text || '').trim();
-    if (!text || !msg.convId || !msg.buyerId) return { ok: false, error: 'Thiếu nội dung hoặc khách nhận.' };
-    if (text.length > 1000) return { ok: false, error: 'Tin nhắn quá dài (tối đa 1000 ký tự).' };
-    const s = (await AUTOCHAT_ENGINE.syncSessionFromTab()) || (await AUTOCHAT.getSession());
-    if (!s || !s.token) return { ok: false, error: 'Chưa có phiên chat Shopee: mở Kênh Người Bán trên máy này rồi bấm Lấy lại phiên trong Auto Chat.' };
-    if (String(s.shopId) !== String(msg.shopId)) return { ok: false, error: `Máy này đang đăng nhập shop ${s.shopName || s.shopId}, không phải shop của khách này. Hãy gửi từ máy đang chạy gian đó.` };
-    const res = await AUTOCHAT_ENGINE.sendManual(s, String(msg.convId), String(msg.buyerId), text);
-    if (!res || !res.id) return { ok: false, error: 'Shopee không trả về id tin nhắn.' };
-    await AUTOCHAT.addLog({ at: Date.now(), convId: msg.convId, shopId: s.shopId, name: msg.name || '', kind: 'manual', text, ok: true });
-    return { ok: true, id: String(res.id), at: Date.now() };
-  }
-  const replyManual = (msg, sendResponse) => {
-    sendManual(msg).then(sendResponse, (err) => sendResponse({ ok: false, error: err.message }));
-    return true;
-  };
-  // Web deploy chỉ được gửi tin từ các trang của mình (không mở cho mọi tên miền trong externally_connectable).
-  const SEND_ORIGINS = [/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, /^https:\/\/quangh161t25\.github\.io$/i];
-  chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
-    if (msg?.type !== 'autochat-send-text') return false;
-    if (!SEND_ORIGINS.some((re) => re.test(sender?.origin || ''))) {
-      sendResponse({ ok: false, error: `Trang ${sender?.origin || ''} không được phép gửi tin. Mở web trong extension để chat.` });
-      return false;
-    }
-    return replyManual(msg, sendResponse);
-  });
-
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (!msg) return false;
-    if (msg.type === 'autochat-send-text' && sender?.id === chrome.runtime.id && /^chrome-extension:/.test(sender?.url || '')) return replyManual(msg, sendResponse);
     if (msg.type === 'autochat-tick-now') {
       AUTOCHAT_ENGINE.tick().then(() => sendResponse({ ok: true }));
       return true;

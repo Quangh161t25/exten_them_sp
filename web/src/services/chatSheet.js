@@ -1,13 +1,6 @@
 import '../../../shared/chat-sheet.js';
 import { CONFIG } from '../config/sheetsConfig.js';
 import { getAccessToken } from './googleAuth.js';
-import { callExtension } from './shopeeLiveOrders.js';
-// Gửi tin tay cho khách qua extension (máy phải đang đăng nhập Shopee đúng shop của khách).
-export async function sendChatText(row, text) {
-    const res=await callExtension({type:'autochat-send-text',shopId:row.shopId,convId:row.convId,buyerId:row.buyerId,name:row.name,text});
-    if(!res?.ok)throw new Error(res?.error || 'Không gửi được tin');
-    return res;
-}
 export async function fetchChatSheet() {
     const S=globalThis.AutoChatSheet, token=await getAccessToken();
     const qs=new URLSearchParams();qs.append('ranges',`'${S.CUSTOMER_TITLE}'!A:M`);qs.append('ranges',`'${S.MESSAGE_TITLE}'!A:J`);
