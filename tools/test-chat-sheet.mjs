@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import '../shared/chat-sheet.js';
 const S=globalThis.AutoChatSheet, session={shopId:123,userId:9,token:'TEST'};
 const state={conversations:{},messages:{},pending:[]};
-const conv={id:1,to_id:2,to_name:'Khách A',latest_message_id:3,last_message_time:'2026-10-28T10:00:00Z',latest_message_content:{text:'Khách hỏi'},latest_message_type:'text',latest_message_from_id:2};
+const conv={id:1,to_id:2,to_name:'Khách A',latest_message_id:3,last_message_time:new Date(Date.now()-3600000).toISOString(),latest_message_content:{text:'Khách hỏi'},latest_message_type:'text',latest_message_from_id:2};
 S.applyPage(state,[conv],session,{}, {},1);assert.equal(state.conversations['1'].autoAt,0);
 S.addMessages(state,'1',[{id:3,from_id:2,type:'text',content:{text:'<script>nội dung</script>'},created_timestamp:1700000000},{id:4,from_id:9,type:'text',content:{text:'Trả lời tay'},created_timestamp:1700000001}],session,{},1);
 assert.equal(state.messages['1']['4'].auto,false);
@@ -38,3 +38,11 @@ console.log('PASS: Shopee lặp trang không báo đủ khách; một khách l�
 
 S.addMessages(state,'1',[{id:4,from_id:9,type:'text',content:{text:'Trả lời'},created_timestamp:1700000001}],session,{'1':{messageId:999}},3);assert.equal(state.messages['1']['4'].auto,true);
 console.log('PASS: giữ nhãn Auto Chat của tin cũ sau khi có lần tự gửi mới.');
+
+// Chỉ giữ khách có tin trong 7 ngày: khách cũ không vào sheet, khách quá hạn bị xoá khỏi bản lưu.
+const fresh={conversations:{},messages:{},pending:[]}, now=Date.now();
+S.applyPage(fresh,[{...conv,id:70,last_message_time:new Date(now-8*86400000).toISOString()},{...conv,id:71}],session,{},{},now);
+assert.deepEqual(Object.keys(fresh.conversations),['71']);
+fresh.conversations['71'].lastAt=now-8*86400000;fresh.messages['71']={x:{}};
+S.prune(fresh,now);assert.equal(Object.keys(fresh.conversations).length,0);assert.equal(fresh.pending.length,0);assert.ok(!fresh.messages['71']);
+console.log('PASS: chỉ đồng bộ khách nhắn tin trong 7 ngày, khách quá 7 ngày bị xoá.');

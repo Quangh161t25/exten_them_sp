@@ -206,6 +206,13 @@ export async function pingExtension() {
     }
 }
 
+// Gọi background extension với một message bất kỳ (dò ID extension nếu cần).
+export async function callExtension(message) {
+    if (!hasExtensionBridge()) throw new Error('Trình duyệt này chưa có extension. Mở web trong extension hoặc cài extension.');
+    await resolveExtensionId();
+    return sendMessage(message);
+}
+
 /**
  * Lấy danh sách đơn "Chờ lấy hàng" từ Shopee.
  * @param {{ status?: 0|1|2, limit?: number }} options

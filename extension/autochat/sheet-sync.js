@@ -45,7 +45,9 @@ var AUTOCHAT_SHEET_SYNC = (() => {
         S.applyPage(state,list,session,sent,queue,Date.now());
         state.pageFingerprint=fingerprint;
         state.offset+=list.length;
-        if(list.length<50) {state.indexDone=true;state.indexAt=Date.now();}
+        // Danh sách xếp theo tin mới nhất: gặp khách cũ hơn 7 ngày thì không cần quét tiếp.
+        const oldest=list.length?S.millis(list[list.length-1].last_message_time):0;
+        if(list.length<50 || oldest<Date.now()-S.KEEP_MS) {state.indexDone=true;state.indexAt=Date.now();}
       }
     }
     for(let i=0;i<5 && state.pending.length;i++) {
@@ -65,6 +67,7 @@ var AUTOCHAT_SHEET_SYNC = (() => {
       }
     }
     for(const c of Object.values(state.conversations)) c.autoAt=sent[c.id]?.at || queue[c.id]?.greet?.sentAt || c.autoAt || 0;
+    S.prune(state,Date.now());
     state.warning=warning;
     await chrome.storage.local.set({[stateKey]:state});
     await saveTables(session,code,state);

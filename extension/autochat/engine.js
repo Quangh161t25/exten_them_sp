@@ -467,6 +467,7 @@ var AUTOCHAT_ENGINE = (function () {
   }
 
   return { tick, applyMessages, pickTargets, sendTo, syncSessionFromTab,
+    sendManual: (s, convId, buyerId, text) => sendText(s, { convId, buyerId }, text),
     readConversationsPage: (s, offset) => api(s, '/conversations', {direction:'older',limit:50,offset,type:'all',biz_id:0,on_message_received:true}),
     readMessagesPage: (s, convId, offset) => api(s, '/conversations/' + encodeURIComponent(convId) + '/messages', {shop_id:s.shopId,offset,limit:20,direction:'older',biz_id:0,on_message_received:true})
   };
