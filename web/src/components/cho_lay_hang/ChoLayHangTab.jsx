@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {fetchWaitingSheet} from '../../services/waitingOrdersSheet.js';
 import {formatMoneyVND} from '../../utils/formatters.js';
+import ChipGroup from '../common/ChipGroup.jsx';
 
 const stamp = (at) => at ? new Date(at).toLocaleString('vi-VN') : 'Chưa đồng bộ';
 export default function ChoLayHangTab() {
@@ -29,12 +30,14 @@ export default function ChoLayHangTab() {
     return <div style={{display:'flex',flexDirection:'column',gap:12,width:'100%'}}>
         <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',padding:12,background:'#fff',border:'1px solid #e2e8f0',borderRadius:8}}>
             <b>CHỜ LẤY HÀNG</b>
-            <select aria-label="Trạng thái" style={control} value={status} onChange={e=>setStatus(Number(e.target.value))}><option value={0}>Tất cả trạng thái</option><option value={1}>Chưa xử lý</option><option value={2}>Đã xử lý / Chờ bưu tá</option></select>
-            <select aria-label="Mã gian" style={control} value={gian} onChange={e=>setGian(e.target.value)}><option value="">Tất cả gian</option>{shops.map(s=><option key={s}>{s}</option>)}</select>
             <input aria-label="Tìm đơn" style={{...control,flex:1,minWidth:180}} placeholder="Tìm mã đơn, sản phẩm, SKU, người mua..." value={search} onChange={e=>setSearch(e.target.value)}/>
             <button style={control} disabled={loading} onClick={refresh}>{loading?'Đang tải…':'Làm mới'}</button>
             <select aria-label="Tự động làm mới" style={control} value={seconds} onChange={e=>setSeconds(Number(e.target.value))}><option value={0}>Tắt tự làm mới</option>{[30,60,120,300].map(n=><option key={n} value={n}>Làm mới mỗi {n} giây</option>)}</select>
-            <select aria-label="Sắp xếp" style={control} value={sort} onChange={e=>setSort(e.target.value)}><option value="shipByTs">Hạn giao gần nhất</option><option value="orderTime">Đơn mới nhất</option><option value="total">Tổng tiền giảm dần</option></select>
+        </div>
+        <div style={{display:'flex',gap:16,flexWrap:'wrap',padding:'10px 12px',background:'#fff',border:'1px solid #e2e8f0',borderRadius:8}}>
+            <ChipGroup label="Trạng thái" value={status} onChange={setStatus} options={[[0,'Tất cả'],[1,'Chưa xử lý'],[2,'Đã xử lý / Chờ bưu tá']]}/>
+            <ChipGroup label="Gian" value={gian} onChange={setGian} options={[['','Tất cả'],...shops.map(s=>[s,s])]}/>
+            <ChipGroup label="Sắp xếp" value={sort} onChange={setSort} options={[['shipByTs','Hạn giao gần nhất'],['orderTime','Đơn mới nhất'],['total','Tổng tiền giảm dần']]}/>
         </div>
         <div style={{fontSize:12,color:old?'#b45309':'#64748b'}}>Nguồn: Google Sheets · ĐƠN CHƯA XLY · Đồng bộ Auto In: {stamp(at)}{old?' · Dữ liệu đã cũ, kiểm tra máy đang chạy Auto In.':''}</div>
         {error&&<div role="alert" style={{padding:12,background:'#fef2f2',color:'#b91c1c'}}>Không tải được dữ liệu: {error}. Dữ liệu đang hiển thị được giữ lại.</div>}

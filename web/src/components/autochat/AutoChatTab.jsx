@@ -1,5 +1,6 @@
 import React,{useState,useEffect,useRef,useCallback,useMemo} from 'react';
 import {fetchChatSheet} from '../../services/chatSheet.js';
+import ChipGroup from '../common/ChipGroup.jsx';
 const date=v=>v?new Date(v).toLocaleString('vi-VN'):'';
 const input={padding:'8px 10px',border:'1px solid #cbd5e1',borderRadius:7,background:'#fff',fontSize:12};
 const cell={padding:'10px',borderBottom:'1px solid #e2e8f0',fontSize:12,verticalAlign:'top',textAlign:'left'};
@@ -19,10 +20,12 @@ export default function AutoChatTab(){
  return <div style={{width:'100%',display:'flex',flexDirection:'column',gap:12}}>
   <div style={{padding:12,background:'#fff',border:'1px solid #e2e8f0',borderRadius:8,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><b>AUTO CHAT</b>
    <input style={{...input,flex:1,minWidth:180}} placeholder="Tìm khách hoặc nội dung hội thoại..." aria-label="Tìm khách" value={query} onChange={e=>setQuery(e.target.value)}/>
-   <select style={input} aria-label="Mã gian" value={code} onChange={e=>setCode(e.target.value)}><option value="">Tất cả gian</option>{[...new Set(data.rows.map(r=>r.code))].sort().map(c=><option key={c}>{c}</option>)}</select>
-   <select style={input} aria-label="Người chat cuối" value={who} onChange={e=>setWho(e.target.value)}><option value="">Người chat cuối: tất cả</option>{['Khách','Shop','Shop (Auto Chat)'].map(v=><option key={v} value={v}>{v} nhắn cuối</option>)}</select>
    <button style={input} disabled={loading} onClick={refresh}>{loading?'Đang tải…':'Làm mới'}</button>
    <select style={input} aria-label="Tự động làm mới" value={seconds} onChange={e=>setSeconds(Number(e.target.value))}><option value={0}>Tắt tự làm mới</option>{[30,60,120,300].map(n=><option key={n} value={n}>Làm mới mỗi {n} giây</option>)}</select>
+  </div>
+  <div style={{display:'flex',gap:16,flexWrap:'wrap',padding:'10px 12px',background:'#fff',border:'1px solid #e2e8f0',borderRadius:8}}>
+   <ChipGroup label="Gian" value={code} onChange={setCode} options={[['','Tất cả'],...[...new Set(data.rows.map(r=>r.code))].sort().map(c=>[c,c])]}/>
+   <ChipGroup label="Người chat cuối" value={who} onChange={setWho} options={[['','Tất cả'],['Khách','Khách'],['Shop','Shop'],['Shop (Auto Chat)','Shop (Auto Chat)']]}/>
   </div>
   <div style={{fontSize:12,color:'#64748b'}}>Google Sheets · AUTO_CHAT / NOI_DUNG_CHAT · Khách có tin nhắn trong 7 ngày · Đồng bộ: {date(data.at)||'Chưa có dữ liệu'}{seconds?` · Làm mới mỗi ${seconds} giây`:' · Đã tắt tự làm mới'}</div>
   {data.progress.filter(p=>!code||p.code===code).map(p=><div key={p.code} style={{fontSize:12,color:'#475569'}}>{p.code}: {p.text}</div>)}
