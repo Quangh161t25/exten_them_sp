@@ -62,6 +62,7 @@ export const TAB_TITLES = {
     'DH': 'ĐH',
     'CHO_LAY_HANG': 'CHỜ LẤY HÀNG',
     'AUTO_CHAT': 'AUTO CHAT',
+    'THI_TRUONG': 'THỊ TRƯỜNG',
     'QUET_SP': 'QUÉT SP'
 };
 

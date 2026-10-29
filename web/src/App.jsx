@@ -40,6 +40,7 @@ import Sidebar from './components/layout/Sidebar.jsx';
 import HeaderActions from './components/layout/HeaderActions.jsx';
 import ChoLayHangTab from './components/cho_lay_hang/ChoLayHangTab.jsx';
 import AutoChatTab from './components/autochat/AutoChatTab.jsx';
+import ThiTruongTab from './components/thi_truong/ThiTruongTab.jsx';
 import Pagination from './components/layout/Pagination.jsx';
 import LoadingMask from './components/layout/LoadingMask.jsx';
 import DropOverlay from './components/layout/DropOverlay.jsx';
@@ -70,7 +71,7 @@ export default function App() {
     const [currentTab, setCurrentTab] = useState(() => {
         try {
             const fromUrl = new URLSearchParams(window.location.search).get('tab');
-            const allowed = ['DS_SP', 'TINH_GIA', 'SP_GIAM_GIA', 'WEB_SP', 'DH', 'CHO_LAY_HANG', 'AUTO_CHAT'];
+            const allowed = ['DS_SP', 'TINH_GIA', 'SP_GIAM_GIA', 'WEB_SP', 'DH', 'CHO_LAY_HANG', 'AUTO_CHAT', 'THI_TRUONG'];
             if (fromUrl && allowed.includes(fromUrl)) return fromUrl;
             return localStorage.getItem(STORAGE_TAB_KEY) || 'DS_SP';
         } catch (_) {
@@ -233,7 +234,7 @@ export default function App() {
     // -------------------------------------------------------------------------
     const loadData = useCallback(async (tabToLoad = currentTab) => {
         // Các module đồng bộ có bộ đọc Google Sheets riêng.
-        if (['CHO_LAY_HANG', 'AUTO_CHAT'].includes(tabToLoad)) {
+        if (['CHO_LAY_HANG', 'AUTO_CHAT', 'THI_TRUONG'].includes(tabToLoad)) {
             setAllData([]);
             setCurrentPage(1);
             setSelectedIds(new Set());
@@ -1478,7 +1479,7 @@ export default function App() {
     // Excel Upload Handler (Drag & Drop or File Input)
     // -------------------------------------------------------------------------
     const handleProcessFiles = async (files) => {
-        if (['CHO_LAY_HANG', 'AUTO_CHAT'].includes(currentTab)) {
+        if (['CHO_LAY_HANG', 'AUTO_CHAT', 'THI_TRUONG'].includes(currentTab)) {
             alert('Tab này đọc dữ liệu đồng bộ từ Google Sheets, không nhập từ file Excel.');
             return;
         }
@@ -1668,7 +1669,7 @@ export default function App() {
 
             {/* Main Application Area */}
             <main className="main-content">
-                {currentTab === 'AUTO_CHAT' ? (<AutoChatTab />) : currentTab === 'CHO_LAY_HANG' ? (
+                {currentTab === 'THI_TRUONG' ? (<ThiTruongTab />) : currentTab === 'AUTO_CHAT' ? (<AutoChatTab />) : currentTab === 'CHO_LAY_HANG' ? (
                     <ChoLayHangTab />
                 ) : (
                     <>

@@ -5,7 +5,7 @@ import {formatMoneyVND} from '../../utils/formatters.js';
 const stamp = (at) => at ? new Date(at).toLocaleString('vi-VN') : 'Chưa đồng bộ';
 export default function ChoLayHangTab() {
     const [rows,setRows]=useState([]), [at,setAt]=useState(0), [error,setError]=useState(''), [loading,setLoading]=useState(false);
-    const [status,setStatus]=useState(0), [gian,setGian]=useState(''), [search,setSearch]=useState(''), [seconds,setSeconds]=useState(60);
+    const [status,setStatus]=useState(0), [gian,setGian]=useState(''), [search,setSearch]=useState(''), [seconds,setSeconds]=useState(300);
     const [sort,setSort]=useState('shipByTs');
     const busy=useRef(false), mounted=useRef(false);
     const refresh=useCallback(async()=>{

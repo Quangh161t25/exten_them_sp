@@ -5,10 +5,11 @@ const input={padding:'8px 10px',border:'1px solid #cbd5e1',borderRadius:7,backgr
 const cell={padding:'10px',borderBottom:'1px solid #e2e8f0',fontSize:12,verticalAlign:'top',textAlign:'left'};
 export default function AutoChatTab(){
  const [data,setData]=useState({rows:[],history:new Map(),progress:[],at:0}),[error,setError]=useState(''),[loading,setLoading]=useState(false);
- const [query,setQuery]=useState(''),[code,setCode]=useState(''),[status,setStatus]=useState('all'),[selected,setSelected]=useState('');
+ const [query,setQuery]=useState(''),[code,setCode]=useState(''),[status,setStatus]=useState('all'),[selected,setSelected]=useState(''),[seconds,setSeconds]=useState(300);
  const alive=useRef(false),busy=useRef(false);
  const refresh=useCallback(async()=>{if(busy.current)return;busy.current=true;setLoading(true);try{const result=await fetchChatSheet();if(alive.current){setData(result);setError('');}}catch(e){if(alive.current)setError(e.message);}finally{busy.current=false;if(alive.current)setLoading(false);}},[]);
- useEffect(()=>{alive.current=true;refresh();const t=setInterval(()=>{if(!document.hidden)refresh();},60000);return()=>{alive.current=false;clearInterval(t);};},[refresh]);
+ useEffect(()=>{alive.current=true;refresh();return()=>{alive.current=false;};},[refresh]);
+ useEffect(()=>{if(!seconds)return;const t=setInterval(()=>{if(!document.hidden)refresh();},seconds*1000);return()=>clearInterval(t);},[seconds,refresh]);
  const filtered=useMemo(()=>{const q=query.trim().toLocaleLowerCase('vi-VN');return data.rows.filter(r=>(!code||r.code===code)&&(status==='all'||r.sent===(status==='sent'))&&(!q||[r.name,r.buyerId,r.convId,r.lastText,...(data.history.get(r.key)||[]).map(m=>m.text)].join(' ').toLocaleLowerCase('vi-VN').includes(q))).sort((a,b)=>b.lastAt-a.lastAt);},[data,query,code,status]);
  const active=filtered.find(r=>r.key===selected)||filtered[0],history=active?(data.history.get(active.key)||[]):[];
  return <div style={{width:'100%',display:'flex',flexDirection:'column',gap:12}}>
@@ -17,8 +18,9 @@ export default function AutoChatTab(){
    <select style={input} aria-label="Mã gian" value={code} onChange={e=>setCode(e.target.value)}><option value="">Tất cả gian</option>{[...new Set(data.rows.map(r=>r.code))].sort().map(c=><option key={c}>{c}</option>)}</select>
    <select style={input} aria-label="Trạng thái tự chat" value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Tất cả khách</option><option value="pending">Chưa tự chat</option><option value="sent">Đã tự chat</option></select>
    <button style={input} disabled={loading} onClick={refresh}>{loading?'Đang tải…':'Làm mới'}</button>
+   <select style={input} aria-label="Tự động làm mới" value={seconds} onChange={e=>setSeconds(Number(e.target.value))}><option value={0}>Tắt tự làm mới</option>{[30,60,120,300].map(n=><option key={n} value={n}>Làm mới mỗi {n} giây</option>)}</select>
   </div>
-  <div style={{fontSize:12,color:'#64748b'}}>Google Sheets · AUTO_CHAT / NOI_DUNG_CHAT · Đồng bộ: {date(data.at)||'Chưa có dữ liệu'} · Làm mới mỗi phút</div>
+  <div style={{fontSize:12,color:'#64748b'}}>Google Sheets · AUTO_CHAT / NOI_DUNG_CHAT · Đồng bộ: {date(data.at)||'Chưa có dữ liệu'}{seconds?` · Làm mới mỗi ${seconds} giây`:' · Đã tắt tự làm mới'}</div>
   {data.progress.filter(p=>!code||p.code===code).map(p=><div key={p.code} style={{fontSize:12,color:'#475569'}}>{p.code}: {p.text}</div>)}
   {error&&<div role="alert" style={{padding:10,color:'#b91c1c',background:'#fef2f2'}}>Không đọc được dữ liệu: {error}. Giữ lại dữ liệu đang xem.</div>}
   <div style={{display:'flex',gap:18,flexWrap:'wrap',padding:12,background:'#fff',borderRadius:8}}><span><b>{filtered.length}</b> khách</span><span>Chưa tự chat: <b>{filtered.filter(r=>!r.sent).length}</b></span><span>Đã tự chat: <b>{filtered.filter(r=>r.sent).length}</b></span></div>

@@ -57,7 +57,7 @@ Trong extension, web mở tại `chrome-extension://<id>/dist/index.html`.
 - Sheet tự tạo 23 cột; một sản phẩm/phân loại là một dòng. Đơn có nhiều sản phẩm chỉ tính tổng tiền một lần trên web.
 - Mỗi mã gian có snapshot riêng. Chỉ thay snapshot sau khi tải đủ cả hai nhóm trạng thái và đủ thẻ đơn. Đơn không còn chờ lấy hàng (đang giao/hủy) bị loại khỏi snapshot của gian đó; dữ liệu gian khác được giữ lại.
 - Nhập **Mã gian** trong Auto In, mở tab Shopee đã đăng nhập, bấm **Đọc ngay**. Đồng bộ nền tiếp tục theo chu kỳ Tự đọc (mặc định 2 phút), độc lập nút tự xác nhận/in đơn.
-- Web `?tab=CHO_LAY_HANG` đọc trực tiếp sheet, không cần extension trên thiết bị xem. Có lọc gian, trạng thái, tìm tên/SKU và thời điểm đồng bộ. Mặc định làm mới 60 giây; lỗi đọc giữ dữ liệu đang hiển thị.
+- Web `?tab=CHO_LAY_HANG` đọc trực tiếp sheet, không cần extension trên thiết bị xem. Có lọc gian, trạng thái, tìm tên/SKU và thời điểm đồng bộ. Mặc định làm mới 300 giây; lỗi đọc giữ dữ liệu đang hiển thị.
 - Sau khi cập nhật extension cần Reload ở `chrome://extensions`. Deploy web: `npm run build`, đưa `dist/` lên hosting.
 - Không sửa thứ tự/tên 23 cột của sheet đồng bộ. Nếu header sai hoặc danh sách Shopee bị thiếu, đồng bộ dừng và ghi lỗi trong Nhật ký hoạt động để tránh xóa nhầm.
 
