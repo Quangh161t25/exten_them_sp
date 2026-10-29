@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node --max-old-space-size=4096 ./node_modules/vite/bin/vite.js build && node tools/build-flash-sale.mjs",
+    "build": "node --max-old-space-size=4096 ./node_modules/vite/bin/vite.js build && node tools/build-flash-sale.mjs && node tools/build-dh-sync.mjs",
     "build:standalone": "node -e \"process.env.SINGLE_FILE='true'; require('child_process').execSync('npx vite build', {stdio:'inherit', env: process.env})\"",
     "preview": "vite preview",
     "serve": "python tools/server.py",
-    "build:fs": "node tools/build-flash-sale.mjs"
+    "build:fs": "node tools/build-flash-sale.mjs",
+    "build:dh": "node tools/build-dh-sync.mjs"
   },
   "dependencies": {
     "jsrsasign": "^11.1.0",

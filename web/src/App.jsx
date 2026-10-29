@@ -40,6 +40,7 @@ import Sidebar from './components/layout/Sidebar.jsx';
 import HeaderActions from './components/layout/HeaderActions.jsx';
 import ChoLayHangTab from './components/cho_lay_hang/ChoLayHangTab.jsx';
 import AutoChatTab from './components/autochat/AutoChatTab.jsx';
+import OrdersTab from './components/dh/OrdersTab.jsx';
 import ThiTruongTab from './components/thi_truong/ThiTruongTab.jsx';
 import Pagination from './components/layout/Pagination.jsx';
 import LoadingMask from './components/layout/LoadingMask.jsx';
@@ -234,7 +235,7 @@ export default function App() {
     // -------------------------------------------------------------------------
     const loadData = useCallback(async (tabToLoad = currentTab) => {
         // Các module đồng bộ có bộ đọc Google Sheets riêng.
-        if (['CHO_LAY_HANG', 'AUTO_CHAT', 'THI_TRUONG'].includes(tabToLoad)) {
+        if (['DH', 'CHO_LAY_HANG', 'AUTO_CHAT', 'THI_TRUONG'].includes(tabToLoad)) {
             setAllData([]);
             setCurrentPage(1);
             setSelectedIds(new Set());
@@ -1479,7 +1480,7 @@ export default function App() {
     // Excel Upload Handler (Drag & Drop or File Input)
     // -------------------------------------------------------------------------
     const handleProcessFiles = async (files) => {
-        if (['CHO_LAY_HANG', 'AUTO_CHAT', 'THI_TRUONG'].includes(currentTab)) {
+        if (['DH', 'CHO_LAY_HANG', 'AUTO_CHAT', 'THI_TRUONG'].includes(currentTab)) {
             alert('Tab này đọc dữ liệu đồng bộ từ Google Sheets, không nhập từ file Excel.');
             return;
         }
@@ -1669,7 +1670,7 @@ export default function App() {
 
             {/* Main Application Area */}
             <main className="main-content">
-                {currentTab === 'THI_TRUONG' ? (<ThiTruongTab />) : currentTab === 'AUTO_CHAT' ? (<AutoChatTab />) : currentTab === 'CHO_LAY_HANG' ? (
+                {currentTab === 'DH' ? (<OrdersTab />) : currentTab === 'THI_TRUONG' ? (<ThiTruongTab />) : currentTab === 'AUTO_CHAT' ? (<AutoChatTab />) : currentTab === 'CHO_LAY_HANG' ? (
                     <ChoLayHangTab />
                 ) : (
                     <>

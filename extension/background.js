@@ -9,6 +9,7 @@ importScripts("clone-tool/background.js");
 importScripts("autoin/background.js");
 // Auto Chat: chạy ngầm qua API chat, khách là người nhắn cuối thì tự nhắn lại + lập danh sách khách chờ (extension/autochat/)
 importScripts("autochat/shared.js", "autochat/engine.js", "autochat/background.js", "autochat/sheet-sync.js");
+importScripts("order-tool/dh-sync.bundle.js");
 
 let GOOGLE_SHEET_CONFIG = {
   spreadsheetId: self.SHARED_GOOGLE_CONFIG.extensionSpreadsheetId,

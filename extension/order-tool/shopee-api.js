@@ -68,6 +68,7 @@ function pageFetch(url, method, body) {
   return fetch(url, {
     method,
     credentials: 'include',
+    signal: AbortSignal.timeout(25000),
     headers: {
       accept: 'application/json, text/plain, */*',
       'content-type': 'application/json'

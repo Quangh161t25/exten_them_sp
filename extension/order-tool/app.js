@@ -7,6 +7,22 @@ import { getTableConfig, saveTableConfig, applyTableStyles, attachColumnResizers
 
 const PAGE_SIZE = 50; // số đơn mỗi trang hiển thị
 
+async function showDhSync() {
+  const saved=await chrome.storage.local.get(['dh_sheet_enabled','dh_sheet_meta','dh_sheet_error']);
+  document.querySelector('#dhSheetOn').checked=saved.dh_sheet_enabled!==false;
+  const m=saved.dh_sheet_meta;
+  document.querySelector('#dhSheetInfo').textContent=saved.dh_sheet_error || (m?`Gian ${m.code} · Đã quét ${m.seen}/${m.total} đơn · ${m.complete?'Đã quét hết danh sách Shopee':'Đang tải lịch sử'} · ${new Date(m.at).toLocaleString('vi-VN')} ${m.warning||''}`:'Mỗi phút tải một đợt đơn, không giới hạn theo ô Tối đa phía trên. Mã gian lấy từ Auto In.');
+}
+document.querySelector('#dhSheetOn').onchange=async e=>{await chrome.storage.local.set({dh_sheet_enabled:e.target.checked});};
+document.querySelector('#dhSheetNow').onclick=async e=>{
+  const b=e.currentTarget;b.disabled=true;
+  document.querySelector('#dhSheetInfo').textContent='Đang tải đơn và ghi Sheet DH…';
+  try{await chrome.storage.local.set({dh_sheet_enabled:true});await chrome.runtime.sendMessage({type:'dh-sync-sheet'});await showDhSync();}
+  catch(err){document.querySelector('#dhSheetInfo').textContent=err.message;}finally{b.disabled=false;}
+};
+chrome.storage.onChanged.addListener(changes=>{if(changes.dh_sheet_meta||changes.dh_sheet_error)showDhSync();});
+showDhSync();
+
 // ---------- Tiện ích ----------
 const $ = (sel, el = document) => el.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
