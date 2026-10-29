@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     ArrowUpDown,
     ArrowUp,
@@ -48,7 +48,8 @@ export default function DataTable({
     onSaveInline,
     onQuickLoiNhuan,
     onQuickGiaDang,
-    onQuickFees
+    onQuickFees,
+    columnsRequest = 0
 }) {
     const isDhTab = currentTab === 'DH';
     const isTinhGiaTab = currentTab === 'TINH_GIA';
@@ -98,6 +99,12 @@ export default function DataTable({
     // Column Customizer State & Persistence
     // -------------------------------------------------------------------------
     const [showColConfigModal, setShowColConfigModal] = useState(false);
+    // Nút "Tùy chỉnh cột" ở thanh công cụ mở cùng hộp cấu hình cột.
+    const lastColumnsRequest = useRef(columnsRequest);
+    useEffect(() => {
+        if (columnsRequest !== lastColumnsRequest.current) setShowColConfigModal(true);
+        lastColumnsRequest.current = columnsRequest;
+    }, [columnsRequest]);
     const storageKey = `web_dataTable_cols_${currentTab}`;
 
     const [tableColsConfig, setTableColsConfig] = useState(() => {

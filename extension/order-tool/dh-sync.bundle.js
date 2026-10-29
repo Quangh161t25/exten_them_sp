@@ -502,10 +502,23 @@ var DHSheetSync = (function (exports) {
     return { byField, rows, escrow: byField.ESCROW_AMOUNT ?? null };
   }
 
-  // Schema chung cho extension và web. Giữ 27 cột DH cũ, chỉ nối thêm cột.
-  const LEGACY_HEADERS = ['gian','ngay','ngay_gio','mdh','mvd','tong_tien','ma_giam_gia','phi_vc','phu_phi','thue','doanh_thu','phi_khac','tien_sp','loi_nhuan','tinh_trang','trang_thai','sku','id_sp','slg','don_gia','thanh_tien','ten_khach','ng_nhan','dia_chi','link_don','mvd_huy','mdh_huy'];
+  // Schema chung cho extension và web. Thứ tự cột theo nhóm; mdh luôn ở cột D, mvd ở cột E
+  // (một số chức năng cũ vẫn đọc DH!D:D). Các cột cũ bỏ hẳn: xem REMOVED_HEADERS.
   const RAW_HEADERS = Array.from({length:12},(_,i)=>`du_lieu_goc_${i+1}`);
-  const HEADERS = [...LEGACY_HEADERS,'shop_id','order_id','item_id','model_id','ten_sp','phan_loai','anh','sku_san_pham','nguoi_mua_id','sdt','don_vi_vc','hinh_thuc_vc','thanh_toan','han_giao','ghi_chu','mo_ta_trang_thai','ma_trang_thai','ly_do_huy','ly_do_tra_hoan','ngay_hoan_thanh','ngay_huy','phi_co_dinh','phi_dich_vu','phi_giao_dich','thue_gtgt','thue_tncn','vc_nguoi_mua','vc_tro_gia','chi_tiet_phi','chi_tiet_dong_bo','dong_bo_luc',...RAW_HEADERS];
+  const HEADERS = [
+    // Đơn
+    'gian','shop_id','ngay_gio','mdh','mvd','order_id','trang_thai','mo_ta_trang_thai','ma_trang_thai',
+    // Khách
+    'ten_khach','nguoi_mua_id','ng_nhan','sdt','dia_chi',
+    // Sản phẩm (mỗi dòng một sản phẩm)
+    'item_id','model_id','ten_sp','phan_loai','anh','sku','sku_san_pham','slg','don_gia','thanh_tien',
+    // Tiền
+    'tong_tien','doanh_thu','phi_vc','vc_nguoi_mua','vc_tro_gia','phu_phi','phi_co_dinh','phi_dich_vu','phi_giao_dich','thue','thue_gtgt','thue_tncn','chi_tiet_phi',
+    // Vận chuyển & thời gian
+    'don_vi_vc','hinh_thuc_vc','thanh_toan','han_giao','ghi_chu','ly_do_huy','ly_do_tra_hoan','ngay_hoan_thanh','ngay_huy',
+    // Đồng bộ
+    'chi_tiet_dong_bo','dong_bo_luc',...RAW_HEADERS
+  ];
   const norm = s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().trim();
   function statusOf(text) {
     const t=norm(text);
@@ -529,11 +542,10 @@ var DHSheetSync = (function (exports) {
     const d=o.detail||{}, text=keys=>findDeep(d,keys,v=>typeof v==='string'&&v.trim())||'';
     const date=keys=>timestamp(findDeep(d,keys,v=>Number(v)>0));
     const f=o.income?.byField||{}, hasIncome=!!o.income, detailOK=!!o.detail;
-    const base={gian:code,mdh:o.orderSn,shop_id:String(shop.shopId),order_id:o.orderId,ngay:o.orderDate,
+    const base={gian:code,mdh:o.orderSn,shop_id:String(shop.shopId),order_id:o.orderId,
       ngay_gio:date(['create_time','order_create_time','ctime'])||timestamp(o.createTime),
       mvd:o.tracking,tong_tien:o.total,trang_thai:statusOf(o.status),mo_ta_trang_thai:[o.status,o.statusNote].filter(Boolean).join(' · '),ma_trang_thai:o.statusCode,
       ten_khach:o.buyer,nguoi_mua_id:o.buyerId,don_vi_vc:o.shipping,hinh_thuc_vc:o.shippingType,thanh_toan:o.payment,han_giao:timestamp(o.shipBy),ghi_chu:o.note,
-      link_don:`https://banhang.shopee.vn/portal/sale/order/${encodeURIComponent(o.orderId)}`,
       chi_tiet_dong_bo:[detailOK?'Chi tiết: đã tải':`Chi tiết: ${o.detailError||'chưa tải'}`,hasIncome?'Doanh thu: đã tải':`Doanh thu: ${o.incomeError||'chưa có'}`].join(' · '),dong_bo_luc:new Date(at).toISOString()};
     if(detailOK)Object.assign(base,{ng_nhan:text(['recipient_name','name_of_recipient','receiver_name','buyer_address_name']),sdt:text(['recipient_phone','phone_number','buyer_address_phone','phone']),dia_chi:o.address,
       ly_do_huy:text(['cancel_reason','cancellation_reason','cancel_reason_description']),ly_do_tra_hoan:text(['return_reason','refund_reason','return_reason_description']),ngay_hoan_thanh:date(['complete_time','completed_time']),ngay_huy:date(['cancel_time','cancelled_time'])});
@@ -567,7 +579,7 @@ var DHSheetSync = (function (exports) {
           ||candidates.find(x=>!used.has(x.row)&&r.sku&&x.data.sku===r.sku)
           ||candidates.find(x=>!used.has(x.row));
         const row=match?match.row:next++;used.add(row);
-        // Chỉ cập nhật các cột lấy từ Shopee, giữ giá vốn/lợi nhuận/ghi chú thủ công và cột lạ.
+        // Chỉ cập nhật các cột lấy từ Shopee, giữ cột người dùng tự thêm.
         const data={...r};
         if(match){
           for(const h of ['sku','ten_sp','phan_loai','anh','mvd','item_id','model_id','sku_san_pham'])if(data[h]===''&&match.data[h])delete data[h];

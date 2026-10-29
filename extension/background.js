@@ -40,7 +40,24 @@ chrome.runtime.onInstalled.addListener(() => {
 
 let saveDhOrderQueue = Promise.resolve();
 
+// Sheet DH giờ do "Đồng bộ DH" tự động ghi theo tên cột (order-tool/dh-sync.js).
+// Các lệnh ghi DH kiểu cũ (ghi theo vị trí cột A:Y) đã tắt để không ghi lệch cột.
+const LEGACY_DH_WRITES = new Set([
+  "SAVE_DH_ORDER", "APPEND_DON_HANG", "INSERT_NEW_DH_ORDERS_IF_NOT_EXISTS", "BATCH_SAVE_DH_ORDERS",
+  "UPDATE_DH_INCOME_FINANCIALS", "UPDATE_DH_RETURN_STATUS", "APPEND_DH_HOAN", "UPDATE_DH_HOAN", "UPDATE_BATCH_DH_RETURN_STATUS"
+]);
+const LEGACY_DH_MESSAGE = "Đã tắt ghi sheet DH kiểu cũ: DH được Đồng bộ DH tự động cập nhật (cả trạng thái hoàn/hủy và doanh thu).";
+function isLegacyDhWrite(message) {
+  if (LEGACY_DH_WRITES.has(message?.type)) return true;
+  if (message?.type !== "UPDATE_DON_HANG_ROWS" && message?.type !== "UPDATE_DON_HANG_VALUES") return false;
+  return (message.updateData || message.data || []).some(r => /^'?DH'?!/i.test(String(r?.range || "")));
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (isLegacyDhWrite(message)) {
+    sendResponse({ ok: true, skipped: true, disabled: true, message: LEGACY_DH_MESSAGE });
+    return false;
+  }
   if (message?.type === "FORCE_DOWNLOAD") {
     chrome.downloads.download({
         url: message.url,
@@ -1067,12 +1084,15 @@ async function uploadImageToFreeImageHost(imageUrl) {
           const processed = [];
           const statusMap = {};
 
+          const dhHeaders = (values[0] || []).map(h => String(h || "").trim());
+          const cell = (r, name) => { const i = dhHeaders.indexOf(name); return i < 0 ? "" : String(r[i] || "").trim(); };
           for (let i = 1; i < values.length; i++) {
             const r = values[i];
-            const mdh = String(r[3] || "").trim();
-            const tinhTrang = String(r[14] || "").trim();
-            const trangThai = String(r[15] || "").trim();
-            const returnId = String(r[25] || "").trim();
+            const mdh = cell(r, "mdh");
+            const tinhTrang = cell(r, "tinh_trang");
+            // Trạng thái chỉ tính các đơn hủy / trả / hoàn (đồng bộ mới ghi mọi trạng thái).
+            const trangThai = /hủy|hoàn|trả/i.test(cell(r, "trang_thai")) ? cell(r, "trang_thai") : "";
+            const returnId = cell(r, "ma_yc_tra_hang");
 
             if (mdh) {
               processed.push([mdh]);
@@ -1453,31 +1473,34 @@ async function uploadImageToFreeImageHost(imageUrl) {
           return;
         }
 
-        let gianIdx = 0;
-        let ngayIdx = 1;
-        let ngayGioIdx = 2;
-        let mdhIdx = 3;
-        let mvdIdx = 4;
-        let tongTienIdx = 5;
-        let maGiamGiaIdx = 6;
-        let phiVcIdx = 7;
-        let phuPhiIdx = 8;
-        let thueIdx = 9;
-        let doanhThuIdx = 10;
-        let phiKhacIdx = 11;
-        let tienSpIdx = 12;
-        let loiNhuanIdx = 13;
-        let tinhTrangIdx = 14;
-        let trangThaiIdx = 15;
-        let skuIdx = 16;
-        let idSpIdx = 17;
-        let slgIdx = 18;
-        let donGiaIdx = 19;
-        let thanhTienIdx = 20;
-        let tenKhachIdx = 21;
-        let ngNhanIdx = 22;
-        let diaChiIdx = 23;
-        let linkDonIdx = 24;
+        // Tìm cột theo tên tiêu đề (sheet DH đã đổi thứ tự cột).
+        const dhHeaders = (values[0] || []).map(h => String(h || "").trim());
+        const dhCol = (name) => dhHeaders.indexOf(name);
+        const gianIdx = dhCol("gian");
+        const ngayIdx = dhCol("ngay");
+        const ngayGioIdx = dhCol("ngay_gio");
+        const mdhIdx = dhCol("mdh");
+        const mvdIdx = dhCol("mvd");
+        const tongTienIdx = dhCol("tong_tien");
+        const maGiamGiaIdx = dhCol("ma_giam_gia");
+        const phiVcIdx = dhCol("phi_vc");
+        const phuPhiIdx = dhCol("phu_phi");
+        const thueIdx = dhCol("thue");
+        const doanhThuIdx = dhCol("doanh_thu");
+        const phiKhacIdx = dhCol("phi_khac");
+        const tienSpIdx = dhCol("tien_sp");
+        const loiNhuanIdx = dhCol("loi_nhuan");
+        const tinhTrangIdx = dhCol("tinh_trang");
+        const trangThaiIdx = dhCol("trang_thai");
+        const skuIdx = dhCol("sku");
+        const idSpIdx = dhCol("id_sp");
+        const slgIdx = dhCol("slg");
+        const donGiaIdx = dhCol("don_gia");
+        const thanhTienIdx = dhCol("thanh_tien");
+        const tenKhachIdx = dhCol("ten_khach");
+        const ngNhanIdx = dhCol("ng_nhan");
+        const diaChiIdx = dhCol("dia_chi");
+        const linkDonIdx = dhCol("link_don");
 
         const matchingRows = [];
         for (let i = 1; i < values.length; i++) {

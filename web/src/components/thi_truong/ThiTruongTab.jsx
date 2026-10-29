@@ -1,14 +1,14 @@
 import React, {useCallback, useState} from 'react';
+import {KeyRound, Search, Wallet, LineChart} from 'lucide-react';
 import {getApiKey, setApiKey, searchMarket, fetchPriceHistory, fetchShopProducts, parseItemId} from '../../services/addlivetagApi.js';
 import {formatMoneyVND} from '../../utils/formatters.js';
+import {Page, Crumbs, Tabs, Card, Toolbar, FilterBar, Grow, SearchBox, Dropdown} from '../common/PageShell.jsx';
 
 const num = (v) => (Number(v) || 0).toLocaleString('vi-VN');
 const pct = (v) => v == null ? '' : `${Math.round(v * 1000) / 10}%`;
 const short = (v) => { const n = Number(v) || 0; return n >= 1e9 ? `${(n / 1e9).toFixed(1)} tỷ` : n >= 1e6 ? `${(n / 1e6).toFixed(1)} tr` : num(n); };
-const control = {padding:'7px 10px',border:'1px solid #cbd5e1',borderRadius:6,background:'#fff',fontSize:12};
-const td = {padding:'8px 10px',borderBottom:'1px solid #e2e8f0',verticalAlign:'top',fontSize:12,textAlign:'left'};
-const box = {background:'#fff',border:'1px solid #e2e8f0',borderRadius:8,padding:12};
-const SORTS = [['revenue_all','Doanh thu luỹ kế'],['revenue_30d','Doanh thu 30 ngày'],['sold_30d','Bán 30 ngày'],['sales','Lượt bán luỹ kế'],['growth','Đang tăng tốc'],['comm_rate','Hoa hồng'],['price','Giá']];
+const field = {padding:'7px 10px',border:'1px solid #d9e0eb',borderRadius:8,fontSize:12};
+const SORTS = [['revenue_all','Doanh thu luỹ kế'],['revenue_30d','Doanh thu 30 ngày'],['sold_30d','Bán 30 ngày'],['sales','Lượt bán'],['growth','Đang tăng tốc'],['comm_rate','Hoa hồng'],['price','Giá']];
 
 // Biểu đồ giá dạng bậc thang: giá giữ nguyên tới mốc đổi giá tiếp theo.
 function PriceChart({points, to}) {
@@ -36,14 +36,15 @@ export default function ThiTruongTab() {
     const [shop, setShop] = useState(null);
 
     const saveKey = () => { setApiKey(keyDraft); setKey(keyDraft.trim()); setError(''); };
-    const search = useCallback(async (e) => {
-        e?.preventDefault();
-        if (!q.trim()) return;
+    const run = useCallback(async (opts) => {
+        const o = {q, sort, priceMin, priceMax, ...opts};
+        if (!o.q.trim()) return;
         setLoading(true); setError('');
-        try { setMarket(await searchMarket(q.trim(), {sort, price_min: priceMin, price_max: priceMax, limit: 100})); }
+        try { setMarket(await searchMarket(o.q.trim(), {sort: o.sort, price_min: o.priceMin, price_max: o.priceMax, limit: 100})); }
         catch (err) { setError(err.message); }
         finally { setLoading(false); }
     }, [q, sort, priceMin, priceMax]);
+    const changeSort = (v) => { setSort(v); if (market) run({sort: v}); };
 
     const openProduct = useCallback(async (itemId, base = {}) => {
         if (!itemId) { setError('Không nhận ra item_id. Dán link shopee.vn đầy đủ hoặc nhập số item_id.'); return; }
@@ -62,86 +63,84 @@ export default function ThiTruongTab() {
     }, []);
 
     const m = market?.market, h = detail?.history, st = h?.stats || {}, all = h?.allTime || {};
-    return <div style={{display:'flex',flexDirection:'column',gap:12,width:'100%'}}>
-        <div style={{...box,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-            <b>THỊ TRƯỜNG</b>
-            <input type="password" aria-label="API Key addlivetag" style={{...control,width:240}} placeholder="Dán API Key addlivetag" value={keyDraft} onChange={e => setKeyDraft(e.target.value)}/>
-            <button style={control} onClick={saveKey}>Lưu Key</button>
-            <span style={{fontSize:12,color:key ? '#15803d' : '#b45309'}}>{key ? 'Đã có Key (lưu trên máy này)' : 'Chưa có Key — tạo ở addlivetag.com → API Key'}</span>
-        </div>
-
-        <form onSubmit={search} style={{...box,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-            <input aria-label="Từ khoá" style={{...control,flex:1,minWidth:200}} placeholder="Từ khoá sản phẩm, vd: áo mưa, kem chống nắng…" value={q} onChange={e => setQ(e.target.value)}/>
-            <input aria-label="Giá từ" type="number" style={{...control,width:110}} placeholder="Giá từ" value={priceMin} onChange={e => setPriceMin(e.target.value)}/>
-            <input aria-label="Giá đến" type="number" style={{...control,width:110}} placeholder="Giá đến" value={priceMax} onChange={e => setPriceMax(e.target.value)}/>
-            <select aria-label="Sắp xếp" style={control} value={sort} onChange={e => setSort(e.target.value)}>{SORTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
-            <button type="submit" style={{...control,background:'#4f46e5',color:'#fff',borderColor:'#4f46e5'}} disabled={loading || !key}>{loading ? 'Đang tìm…' : 'Phân tích'}</button>
-            <span style={{width:1,height:24,background:'#e2e8f0'}}/>
-            <input aria-label="Tra sản phẩm" style={{...control,minWidth:220}} placeholder="item_id hoặc link SP đối thủ" value={lookup} onChange={e => setLookup(e.target.value)}/>
-            <button type="button" style={control} disabled={!key} onClick={() => openProduct(parseItemId(lookup))}>Xem lịch sử giá</button>
-        </form>
-
-        {error && <div role="alert" style={{padding:10,background:'#fef2f2',color:'#b91c1c'}}>{error}</div>}
-
-        {m && <div style={{...box,display:'flex',gap:22,flexWrap:'wrap',fontSize:12}}>
-            <span>Sản phẩm: <b>{num(m.totalProducts)}</b></span>
-            <span>Shop: <b>{num(m.totalShops)}</b></span>
-            <span>Doanh thu luỹ kế: <b>{short(m.totalRevenue)}</b></span>
-            <span>Doanh thu 30 ngày*: <b>{short(market.last30Days?.totalRevenue)}</b></span>
-            <span>Giá TB: <b>{formatMoneyVND(m.avgPrice)}</b></span>
-            <span>Tỷ lệ có bán: <b>{pct(m.sellThroughRate)}</b></span>
-            <span title="0–100, cao = dễ vào">Điểm dễ vào: <b>{m.blueOceanScore}</b></span>
-            <span title="Gần 0 = phân tán, gần 1 = vài shop thống trị">Độ tập trung (HHI): <b>{m.hhi}</b></span>
-            <span style={{color:'#94a3b8'}}>*chỉ tính {pct(market.last30Days?.coverage)} SP đủ lịch sử · khớp: {market.query?.matchMode}{market.cached ? ' · cache' : ''}</span>
-        </div>}
-
-        <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'flex-start'}}>
-            <div style={{flex:'1 1 640px',overflow:'auto',maxHeight:'70vh',background:'#fff',border:'1px solid #e2e8f0',borderRadius:8}}>
-                <table style={{borderCollapse:'collapse',width:'100%',minWidth:900}}><thead><tr>{['Sản phẩm','Shop','Giá','Đã bán','Bán 30N','DT 30N','Tăng tốc','HH','★'].map(c => <th key={c} style={{...td,background:'#f8fafc',position:'sticky',top:0,whiteSpace:'nowrap'}}>{c}</th>)}</tr></thead><tbody>
-                    {(market?.products || []).map(p => <tr key={p.itemId} style={{background:detail?.itemId === String(p.itemId) ? '#eef2ff' : '#fff',cursor:'pointer'}} onClick={() => openProduct(String(p.itemId), {productName: p.productName, imageUrl: p.imageUrl, productLink: p.productLink, shopId: p.shopId, shopName: p.shopName})}>
-                        <td style={{...td,minWidth:280}}><div style={{display:'flex',gap:8}}>{p.imageUrl && <img alt="" src={p.imageUrl} loading="lazy" style={{width:40,height:40,objectFit:'cover',borderRadius:4}}/>}<span>{p.productName}</span></div></td>
-                        <td style={td}>{p.shopName}</td>
-                        <td style={td}>{formatMoneyVND(p.price)}</td>
-                        <td style={td}>{num(p.sales)}</td>
-                        <td style={td}>{num(p.sold30d)}</td>
-                        <td style={td}>{short(p.revenue30d)}</td>
-                        <td style={{...td,color:p.growth > 1 ? '#15803d' : p.growth && p.growth < 1 ? '#b91c1c' : undefined}}>{p.growth ? `×${p.growth}` : ''}</td>
-                        <td style={td}>{pct(p.commissionRate)}</td>
-                        <td style={td}>{p.rating}</td>
-                    </tr>)}
-                    {!market?.products?.length && <tr><td colSpan={9} style={{...td,textAlign:'center',padding:30,color:'#64748b'}}>{loading ? 'Đang phân tích…' : market ? 'Không có sản phẩm phù hợp.' : 'Nhập từ khoá rồi bấm Phân tích để xem thị trường. Bấm một dòng để xem lịch sử giá.'}</td></tr>}
-                </tbody></table>
-            </div>
-
-            {detail && <section style={{...box,flex:'1 1 360px',minWidth:0,display:'flex',flexDirection:'column',gap:10}}>
-                <div style={{display:'flex',gap:10}}>
-                    {detail.imageUrl && <img alt="" src={detail.imageUrl} style={{width:64,height:64,objectFit:'cover',borderRadius:6}}/>}
-                    <div style={{fontSize:13}}><b>{detail.productName || `SP ${detail.itemId}`}</b>
-                        <div style={{fontSize:11,color:'#64748b',marginTop:4}}>ID {detail.itemId}{detail.shopName ? ` · ${detail.shopName}` : ''}{detail.productLink && <> · <a href={detail.productLink} target="_blank" rel="noreferrer">Mở Shopee</a></>}</div>
-                    </div>
+    return <Page>
+        <Crumbs group="Nghiên cứu" title="Thị trường" right={key ? 'API addlivetag: đã có Key' : 'API addlivetag: chưa có Key'}/>
+        <Tabs label="Sắp xếp sản phẩm" value={sort} onChange={changeSort} tabs={SORTS}/>
+        <Card>
+            <Toolbar>
+                <form onSubmit={e => { e.preventDefault(); run(); }} style={{display:'contents'}}>
+                    <SearchBox value={q} onChange={setQ} placeholder="Từ khoá sản phẩm, vd: áo mưa, kem chống nắng…"/>
+                    <button type="submit" className="dh-primary" disabled={loading || !key}><Search size={14}/>{loading ? 'Đang phân tích…' : 'Phân tích'}</button>
+                </form>
+                <Grow/>
+                <form onSubmit={e => { e.preventDefault(); openProduct(parseItemId(lookup)); }} style={{display:'flex',gap:6}}>
+                    <input aria-label="Tra sản phẩm" style={{...field,width:220}} placeholder="item_id hoặc link SP đối thủ" value={lookup} onChange={e => setLookup(e.target.value)}/>
+                    <button type="submit" className="dh-ghost" disabled={!key}><LineChart size={14}/>Lịch sử giá</button>
+                </form>
+                <Dropdown icon={KeyRound} label="API Key" active={!key} align="right">
+                    <div className="dh-dd-dates"><label>API Key addlivetag<input type="password" value={keyDraft} onChange={e => setKeyDraft(e.target.value)} placeholder="Dán API Key"/></label>
+                    <button type="button" data-close className="dh-primary" onClick={saveKey}>Lưu Key</button>
+                    <small style={{color:'#64748b'}}>Key chỉ lưu trên máy này. Tạo ở addlivetag.com → API Key.</small></div>
+                </Dropdown>
+            </Toolbar>
+            <FilterBar>
+                <Dropdown icon={Wallet} label={priceMin || priceMax ? `Giá: ${priceMin ? num(priceMin) : '0'} → ${priceMax ? num(priceMax) : '∞'}` : 'Khoảng giá'} active={!!(priceMin || priceMax)}>
+                    <div className="dh-dd-dates"><label>Giá từ<input type="number" value={priceMin} onChange={e => setPriceMin(e.target.value)}/></label><label>Giá đến<input type="number" value={priceMax} onChange={e => setPriceMax(e.target.value)}/></label>
+                    <div className="dh-dd-quick"><button type="button" data-close onClick={() => run()}>Áp dụng</button><button type="button" data-close onClick={() => { setPriceMin(''); setPriceMax(''); run({priceMin: '', priceMax: ''}); }}>Bỏ chọn</button></div></div>
+                </Dropdown>
+                <Grow/>
+                {m ? <span className="dh-sum">Sản phẩm <b>{num(m.totalProducts)}</b> · Shop <b>{num(m.totalShops)}</b> · DT luỹ kế <b>{short(m.totalRevenue)}</b> · DT 30N* <b>{short(market.last30Days?.totalRevenue)}</b> · Giá TB <b>{formatMoneyVND(m.avgPrice)}</b> · Có bán <b>{pct(m.sellThroughRate)}</b> · <span title="0–100, cao = dễ vào">Dễ vào <b>{m.blueOceanScore}</b></span> · <span title="Gần 0 = phân tán">HHI <b>{m.hhi}</b></span></span>
+                    : <span className="dh-sum">Nhập từ khoá rồi bấm Phân tích để xem toàn cảnh thị trường.</span>}
+            </FilterBar>
+            {error && <div role="alert" className="dh-error">{error}</div>}
+            <div style={{display:'flex',flexWrap:'wrap',minHeight:0}}>
+                <div className="dh-scroll dh-list" style={{flex:'1 1 640px',minWidth:0}}>
+                    <table style={{minWidth:900}}><thead><tr>{['Sản phẩm','Shop','Giá','Đã bán','Bán 30N','DT 30N','Tăng tốc','HH','★'].map(c => <th key={c}>{c}</th>)}</tr></thead><tbody>
+                        {(market?.products || []).map(p => <tr key={p.itemId} className={detail?.itemId === String(p.itemId) ? 'sel' : ''} style={{cursor:'pointer'}} onClick={() => openProduct(String(p.itemId), {productName: p.productName, imageUrl: p.imageUrl, productLink: p.productLink, shopId: p.shopId, shopName: p.shopName})}>
+                            <td style={{minWidth:280}}><div className="dh-product">{p.imageUrl ? <img alt="" src={p.imageUrl} loading="lazy"/> : <span className="dh-image-placeholder">SP</span>}<div><strong>{p.productName}</strong></div></div></td>
+                            <td>{p.shopName}</td>
+                            <td>{formatMoneyVND(p.price)}</td>
+                            <td>{num(p.sales)}</td>
+                            <td>{num(p.sold30d)}</td>
+                            <td>{short(p.revenue30d)}</td>
+                            <td style={{color:p.growth > 1 ? '#15803d' : p.growth && p.growth < 1 ? '#b91c1c' : undefined}}>{p.growth ? `×${p.growth}` : ''}</td>
+                            <td>{pct(p.commissionRate)}</td>
+                            <td>{p.rating}</td>
+                        </tr>)}
+                        {!market?.products?.length && <tr><td colSpan={9} className="dh-empty">{loading ? 'Đang phân tích…' : market ? 'Không có sản phẩm phù hợp.' : key ? 'Bấm một dòng để xem lịch sử giá.' : 'Bấm nút API Key để nhập Key trước khi dùng.'}</td></tr>}
+                    </tbody></table>
                 </div>
-                <b style={{fontSize:12}}>Lịch sử giá 180 ngày</b>
-                {detailLoading ? <p style={{fontSize:12}}>Đang tải…</p> : h && <>
-                    <PriceChart points={h.points || []} to={detail.to}/>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,fontSize:12}}>
-                        <span>Hiện tại: <b>{formatMoneyVND(all.currentPrice ?? st.last)}</b></span>
-                        <span>Số lần đổi giá: <b>{st.changeCount ?? 0}</b></span>
-                        <span>Thấp nhất: <b>{formatMoneyVND(st.min)}</b> {st.minDate}</span>
-                        <span>Cao nhất: <b>{formatMoneyVND(st.max)}</b> {st.maxDate}</span>
-                        <span>Trung bình: <b>{formatMoneyVND(Math.round(st.avg || 0))}</b></span>
-                        <span>Đáy mọi thời: <b>{formatMoneyVND(all.minPrice)}</b></span>
+
+                {detail && <section style={{flex:'1 1 360px',minWidth:0,borderLeft:'1px solid #eef1f6',padding:14,display:'flex',flexDirection:'column',gap:10}}>
+                    <div style={{display:'flex',gap:10}}>
+                        {detail.imageUrl && <img alt="" src={detail.imageUrl} style={{width:64,height:64,objectFit:'cover',borderRadius:6}}/>}
+                        <div style={{fontSize:13}}><b>{detail.productName || `SP ${detail.itemId}`}</b>
+                            <div style={{fontSize:11,color:'#64748b',marginTop:4}}>ID {detail.itemId}{detail.shopName ? ` · ${detail.shopName}` : ''}{detail.productLink && <> · <a href={detail.productLink} target="_blank" rel="noreferrer">Mở Shopee</a></>}</div>
+                        </div>
                     </div>
-                    {detail.status === 'no_data' && <p style={{fontSize:12,color:'#b45309'}}>Kho dữ liệu chưa theo dõi sản phẩm này.</p>}
-                    <div style={{maxHeight:160,overflowY:'auto',fontSize:12}}>{[...(h.points || [])].reverse().map(p => <div key={p.date} style={{display:'flex',justifyContent:'space-between',borderBottom:'1px solid #f1f5f9',padding:'3px 0'}}><span>{p.date}{p.flashSale ? ' ⚡' : ''}</span><b>{formatMoneyVND(p.price)}</b></div>)}</div>
-                </>}
-                {detail.shopId && <button style={control} onClick={() => openShop(detail.shopId)}>Xem SP có hoa hồng của shop này</button>}
-                {shop && <div style={{fontSize:12}}>
-                    <b>{shop.loading ? 'Đang tải shop…' : `${shop.shopName || shop.shopId}: ${shop.products.length}${shop.hasNextPage ? '+' : ''} SP`}</b>
-                    <div style={{maxHeight:240,overflowY:'auto',marginTop:6}}>{shop.products.map(p => <div key={p.itemId} style={{display:'flex',gap:6,padding:'4px 0',borderBottom:'1px solid #f1f5f9',cursor:'pointer'}} onClick={() => openProduct(String(p.itemId), {productName: p.name, imageUrl: p.image, productLink: p.link, shopId: p.shopId, shopName: p.shopName})}>
-                        {p.image && <img alt="" src={p.image} loading="lazy" style={{width:32,height:32,objectFit:'cover'}}/>}<span style={{flex:1}}>{p.name}</span><span>{formatMoneyVND(p.price)}<div style={{color:'#64748b'}}>{num(p.sales)} bán</div></span>
-                    </div>)}</div>
-                </div>}
-            </section>}
-        </div>
-    </div>;
+                    <b style={{fontSize:12}}>Lịch sử giá 180 ngày</b>
+                    {detailLoading ? <p style={{fontSize:12}}>Đang tải…</p> : h && <>
+                        <PriceChart points={h.points || []} to={detail.to}/>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,fontSize:12}}>
+                            <span>Hiện tại: <b>{formatMoneyVND(all.currentPrice ?? st.last)}</b></span>
+                            <span>Số lần đổi giá: <b>{st.changeCount ?? 0}</b></span>
+                            <span>Thấp nhất: <b>{formatMoneyVND(st.min)}</b> {st.minDate}</span>
+                            <span>Cao nhất: <b>{formatMoneyVND(st.max)}</b> {st.maxDate}</span>
+                            <span>Trung bình: <b>{formatMoneyVND(Math.round(st.avg || 0))}</b></span>
+                            <span>Đáy mọi thời: <b>{formatMoneyVND(all.minPrice)}</b></span>
+                        </div>
+                        {detail.status === 'no_data' && <p style={{fontSize:12,color:'#b45309'}}>Kho dữ liệu chưa theo dõi sản phẩm này.</p>}
+                        <div style={{maxHeight:160,overflowY:'auto',fontSize:12}}>{[...(h.points || [])].reverse().map(p => <div key={p.date} style={{display:'flex',justifyContent:'space-between',borderBottom:'1px solid #f1f5f9',padding:'3px 0'}}><span>{p.date}{p.flashSale ? ' ⚡' : ''}</span><b>{formatMoneyVND(p.price)}</b></div>)}</div>
+                    </>}
+                    {detail.shopId && <button className="dh-ghost" onClick={() => openShop(detail.shopId)}>Xem SP có hoa hồng của shop này</button>}
+                    {shop && <div style={{fontSize:12}}>
+                        <b>{shop.loading ? 'Đang tải shop…' : `${shop.shopName || shop.shopId}: ${shop.products.length}${shop.hasNextPage ? '+' : ''} SP`}</b>
+                        <div style={{maxHeight:240,overflowY:'auto',marginTop:6}}>{shop.products.map(p => <div key={p.itemId} style={{display:'flex',gap:6,padding:'4px 0',borderBottom:'1px solid #f1f5f9',cursor:'pointer'}} onClick={() => openProduct(String(p.itemId), {productName: p.name, imageUrl: p.image, productLink: p.link, shopId: p.shopId, shopName: p.shopName})}>
+                            {p.image && <img alt="" src={p.image} loading="lazy" style={{width:32,height:32,objectFit:'cover'}}/>}<span style={{flex:1}}>{p.name}</span><span>{formatMoneyVND(p.price)}<div style={{color:'#64748b'}}>{num(p.sales)} bán</div></span>
+                        </div>)}</div>
+                    </div>}
+                </section>}
+            </div>
+        </Card>
+    </Page>;
 }

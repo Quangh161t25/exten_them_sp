@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
-import {HEADERS,RAW_HEADERS,LEGACY_HEADERS,statusOf,recordsForOrder,mergePlan,parseSheet} from '../shared/dh-sheet.js';
+import {HEADERS,RAW_HEADERS,REMOVED_HEADERS,statusOf,recordsForOrder,mergePlan,parseSheet,migrateValues} from '../shared/dh-sheet.js';
+// 27 cột của sheet DH đời cũ: dùng để thử ghi vào sheet chưa chuyển đổi.
+const LEGACY_HEADERS=['gian','ngay','ngay_gio','mdh','mvd','tong_tien','ma_giam_gia','phi_vc','phu_phi','thue','doanh_thu','phi_khac','tien_sp','loi_nhuan','tinh_trang','trang_thai','sku','id_sp','slg','don_gia','thanh_tien','ten_khach','ng_nhan','dia_chi','link_don','mvd_huy','mdh_huy'];
 import {findDeep} from '../extension/order-tool/orders.js';
 
 for(const [input,expected]of [['Đã giao cho ĐVVC','Đang giao'],['Đã giao','Đã giao'],['Hoàn thành','Hoàn thành'],['Đã hủy','Đã hủy'],['Đã hoàn tiền','Hoàn tiền'],['Đang chuyển hoàn','Hoàn hàng'],['Trả hàng','Trả hàng'],['Trả hàng / Hoàn tiền','Trả hàng / Hoàn tiền']])assert.equal(statusOf(input),expected);
@@ -22,7 +24,7 @@ console.log('PASS: trạng thái tách riêng, JSON không mất dữ liệu, gi
 // Chạy bundle worker thật với Shopee/Google giả lập; không gửi hoặc sửa đơn Shopee.
 let now=Date.now(),requests=0,failWrite=false,failCard=false;
 class Clock extends Date {static now(){return now;}}
-const storage={'tcdd-shop-code':'BCE'},sheet=[LEGACY_HEADERS,other],props={sheetId:1,title:'DH',gridProperties:{rowCount:1000,columnCount:27}};
+const storage={'tcdd-shop-code':'BCE'},sheet=[[...LEGACY_HEADERS],other],props={sheetId:1,title:'DH',gridProperties:{rowCount:1000,columnCount:27}};
 let listener;
 const ctx={console,Date:Clock,URLSearchParams,setTimeout,clearTimeout,AbortSignal,
   SHARED_GOOGLE_CONFIG:{webSpreadsheetId:'test'},getGoogleAccessToken:async()=>'test',ensureSheetExists:async()=>'DH',fetchSpreadsheetMetadata:async()=>({sheets:[{properties:props}]}),
@@ -68,3 +70,20 @@ const orders=parseSheet(sheet);assert.equal(orders.filter(o=>o.gian==='BCE').len
 assert.equal(orders.find(o=>o.mdh==='261030TEST1').status,'Đã hủy');
 await sync();assert.equal(parseSheet(sheet).length,44);
 console.log(`PASS: worker phân trang 43 đơn, upsert không trùng, giữ đơn hủy và gian khác, lỗi Google/thiếu card không bỏ qua trang (${requests} request giả lập).`);
+
+// Chuyển đổi sheet cũ: bỏ 10 cột cũ, mdh ở D, mvd ở E, giữ cột lạ và mọi ô dữ liệu.
+{
+  const old=[[...LEGACY_HEADERS,'shop_id','cot_tu_them',...RAW_HEADERS],LEGACY_HEADERS.map(h=>({gian:'BCE',ngay:'30/10/2026',mdh:'M1',mvd:'V1',tong_tien:100,link_don:'x'})[h]??'').concat(['1','ghi tay','{"a"',':1}'])];
+  const m=migrateValues(old);
+  assert.equal(m.headers[3],'mdh');assert.equal(m.headers[4],'mvd');
+  for(const h of REMOVED_HEADERS)assert.ok(!m.headers.includes(h));
+  assert.ok(m.headers.includes('cot_tu_them'));assert.equal(m.headers.indexOf('cot_tu_them'),m.headers.indexOf(RAW_HEADERS[0])-1);
+  const row=Object.fromEntries(m.headers.map((h,i)=>[h,m.rows[0][i]]));
+  assert.equal(row.mdh,'M1');assert.equal(row.tong_tien,100);assert.equal(row.cot_tu_them,'ghi tay');assert.equal(row.du_lieu_goc_1+row.du_lieu_goc_2,'{"a":1}');
+  const kept=old[1].filter(v=>v!==''&&v!=='30/10/2026'&&v!=='x').length;assert.equal(m.rows[0].filter(v=>v!=='').length,kept);
+  // Cột cũ còn dữ liệu thật (vd giá vốn nhập tay) thì không tự xóa.
+  const filled=structuredClone(old);filled[1][LEGACY_HEADERS.indexOf('tien_sp')]=5000;assert.throws(()=>migrateValues(filled),/tien_sp/);
+  // Ghi đơn sau khi chuyển đổi: dùng đúng thứ tự cột mới, không thêm lại cột cũ.
+  assert.deepEqual(mergePlan([m.headers,...m.rows],[]).headers,m.headers);
+}
+console.log('PASS: chuyển đổi DH bỏ 10 cột cũ, mdh cột D, giữ cột tự thêm và dữ liệu gốc, chặn xóa cột còn dữ liệu.');

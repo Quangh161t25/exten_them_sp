@@ -42,7 +42,10 @@ import ChoLayHangTab from './components/cho_lay_hang/ChoLayHangTab.jsx';
 import AutoChatTab from './components/autochat/AutoChatTab.jsx';
 import OrdersTab from './components/dh/OrdersTab.jsx';
 import ThiTruongTab from './components/thi_truong/ThiTruongTab.jsx';
-import Pagination from './components/layout/Pagination.jsx';
+import {Page,Crumbs,Tabs,Card,Toolbar,FilterBar,Grow,Pager} from './components/common/PageShell.jsx';
+
+// Các module sản phẩm dùng chung bảng sheet: hiện thành tab ở vùng 2.
+const PRODUCT_TABS = ['DS_SP', 'TINH_GIA', 'SP_GIAM_GIA', 'WEB_SP'];
 import LoadingMask from './components/layout/LoadingMask.jsx';
 import DropOverlay from './components/layout/DropOverlay.jsx';
 import ToastContainer from './components/layout/ToastContainer.jsx';
@@ -704,7 +707,8 @@ export default function App() {
     // -------------------------------------------------------------------------
     // Pagination Slicing
     // -------------------------------------------------------------------------
-    const rowsPerPage = 100;
+    const [rowsPerPage, setRowsPerPage] = useState(100);
+    const [columnsRequest, setColumnsRequest] = useState(0);
     const totalRows = sortedRows.length;
     const paginatedRows = useMemo(() => {
         const start = (currentPage - 1) * rowsPerPage;
@@ -1649,6 +1653,26 @@ export default function App() {
         return Array.from(set).sort();
     }, [currentTab, allData]);
 
+    const headerProps = {
+        currentTab,
+        searchTerm,
+        onSearchChange: setSearchTerm,
+        truongFilter,
+        onTruongFilterChange: setTruongFilter,
+        storeFilter,
+        onStoreFilterChange: setStoreFilter,
+        storeOptions: storeDropdownOptions,
+        onReload: () => loadData(currentTab),
+        onUploadFiles: handleProcessFiles,
+        onAddNew: () => {
+            setEditingRecord(null);
+            setRecordModalOpen(true);
+        },
+        onBatchMinPrice: handleBatchMinPrice,
+        onBatchDefaultFees: handleBatchDefaultFees,
+        onSyncDsSp: handleSyncTinhGiaFromDsSp
+    };
+
     return (
         <div className={`app-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
             {/* Fullscreen Loading Spinner Mask */}
@@ -1674,28 +1698,19 @@ export default function App() {
                     <ChoLayHangTab />
                 ) : (
                     <>
+                <Page>
+                <Crumbs group="Sản phẩm" title={TAB_TITLES[currentTab] || currentTab} right={isLoading ? 'Đang tải…' : `${totalRows.toLocaleString('vi-VN')} dòng`} />
+                <Tabs label="Module sản phẩm" value={currentTab} onChange={handleTabChange} tabs={PRODUCT_TABS.map(t => [t, TAB_TITLES[t] || t])} />
+                <Card>
                 <div className="header-container">
-                    {/* Top Action Bar */}
-                    <HeaderActions
-                        currentTab={currentTab}
-                        searchTerm={searchTerm}
-                        onSearchChange={setSearchTerm}
-                        truongFilter={truongFilter}
-                        onTruongFilterChange={setTruongFilter}
-                        truongOptions={[]}
-                        storeFilter={storeFilter}
-                        onStoreFilterChange={setStoreFilter}
-                        storeOptions={storeDropdownOptions}
-                        onReload={() => loadData(currentTab)}
-                        onUploadFiles={handleProcessFiles}
-                        onAddNew={() => {
-                            setEditingRecord(null);
-                            setRecordModalOpen(true);
-                        }}
-                        onBatchMinPrice={handleBatchMinPrice}
-                        onBatchDefaultFees={handleBatchDefaultFees}
-                        onSyncDsSp={handleSyncTinhGiaFromDsSp}
-                    />
+                    <Toolbar>
+                        <HeaderActions {...headerProps} part="toolbar" onCustomizeColumns={() => setColumnsRequest(n => n + 1)} />
+                    </Toolbar>
+                    <FilterBar>
+                        <HeaderActions {...headerProps} part="filters" />
+                        <Grow />
+                        <span className="dh-sum"><b>{totalRows.toLocaleString('vi-VN')}</b> dòng{selectedIds.size ? ` · đã chọn ${selectedIds.size}` : ''}</span>
+                    </FilterBar>
 
                     {/* Tab DS_SP / TINH_GIA / WEB_SP: Prefix Filters Bar */}
                     {(currentTab === 'DS_SP' || currentTab === 'TINH_GIA' || currentTab === 'WEB_SP') && (
@@ -1852,15 +1867,19 @@ export default function App() {
                     onQuickLoiNhuan={handleQuickLoiNhuan}
                     onQuickGiaDang={handleQuickGiaDang}
                     onQuickFees={handleQuickFees}
+                    columnsRequest={columnsRequest}
                 />
 
-                {/* Pagination Controls */}
-                <Pagination
-                    currentPage={currentPage}
-                    totalRows={totalRows}
-                    rowsPerPage={rowsPerPage}
-                    onPageChange={(p) => setCurrentPage(p)}
+                <Pager
+                    page={currentPage}
+                    total={totalRows}
+                    size={rowsPerPage}
+                    onPage={(p) => setCurrentPage(p)}
+                    onSize={(n) => { setRowsPerPage(n); setCurrentPage(1); }}
+                    sizes={[50, 100, 200, 500]}
                 />
+                </Card>
+                </Page>
                     </>
                 )}
             </main>

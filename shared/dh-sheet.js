@@ -1,7 +1,22 @@
-// Schema chung cho extension và web. Giữ 27 cột DH cũ, chỉ nối thêm cột.
-export const LEGACY_HEADERS = ['gian','ngay','ngay_gio','mdh','mvd','tong_tien','ma_giam_gia','phi_vc','phu_phi','thue','doanh_thu','phi_khac','tien_sp','loi_nhuan','tinh_trang','trang_thai','sku','id_sp','slg','don_gia','thanh_tien','ten_khach','ng_nhan','dia_chi','link_don','mvd_huy','mdh_huy'];
+// Schema chung cho extension và web. Thứ tự cột theo nhóm; mdh luôn ở cột D, mvd ở cột E
+// (một số chức năng cũ vẫn đọc DH!D:D). Các cột cũ bỏ hẳn: xem REMOVED_HEADERS.
 export const RAW_HEADERS = Array.from({length:12},(_,i)=>`du_lieu_goc_${i+1}`);
-export const HEADERS = [...LEGACY_HEADERS,'shop_id','order_id','item_id','model_id','ten_sp','phan_loai','anh','sku_san_pham','nguoi_mua_id','sdt','don_vi_vc','hinh_thuc_vc','thanh_toan','han_giao','ghi_chu','mo_ta_trang_thai','ma_trang_thai','ly_do_huy','ly_do_tra_hoan','ngay_hoan_thanh','ngay_huy','phi_co_dinh','phi_dich_vu','phi_giao_dich','thue_gtgt','thue_tncn','vc_nguoi_mua','vc_tro_gia','chi_tiet_phi','chi_tiet_dong_bo','dong_bo_luc',...RAW_HEADERS];
+export const HEADERS = [
+  // Đơn
+  'gian','shop_id','ngay_gio','mdh','mvd','order_id','trang_thai','mo_ta_trang_thai','ma_trang_thai',
+  // Khách
+  'ten_khach','nguoi_mua_id','ng_nhan','sdt','dia_chi',
+  // Sản phẩm (mỗi dòng một sản phẩm)
+  'item_id','model_id','ten_sp','phan_loai','anh','sku','sku_san_pham','slg','don_gia','thanh_tien',
+  // Tiền
+  'tong_tien','doanh_thu','phi_vc','vc_nguoi_mua','vc_tro_gia','phu_phi','phi_co_dinh','phi_dich_vu','phi_giao_dich','thue','thue_gtgt','thue_tncn','chi_tiet_phi',
+  // Vận chuyển & thời gian
+  'don_vi_vc','hinh_thuc_vc','thanh_toan','han_giao','ghi_chu','ly_do_huy','ly_do_tra_hoan','ngay_hoan_thanh','ngay_huy',
+  // Đồng bộ
+  'chi_tiet_dong_bo','dong_bo_luc',...RAW_HEADERS
+];
+// Cột của DH cũ: trống hoặc trùng với cột mới (ngay = ngay_gio, link_don tạo từ order_id).
+export const REMOVED_HEADERS = ['ngay','ma_giam_gia','phi_khac','tien_sp','loi_nhuan','tinh_trang','id_sp','link_don','mvd_huy','mdh_huy'];
 export const STATUS = ['Chờ thanh toán','Chờ xác nhận','Chờ lấy hàng','Đang giao','Đã giao','Hoàn thành','Đã hủy','Trả hàng','Hoàn tiền','Hoàn hàng','Trả hàng / Hoàn tiền','Khác'];
 export const norm = s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().trim();
 export function statusOf(text) {
@@ -26,11 +41,10 @@ export function recordsForOrder(o,shop,code,findDeep,at=Date.now()) {
   const d=o.detail||{}, text=keys=>findDeep(d,keys,v=>typeof v==='string'&&v.trim())||'';
   const date=keys=>timestamp(findDeep(d,keys,v=>Number(v)>0));
   const f=o.income?.byField||{}, hasIncome=!!o.income, detailOK=!!o.detail;
-  const base={gian:code,mdh:o.orderSn,shop_id:String(shop.shopId),order_id:o.orderId,ngay:o.orderDate,
+  const base={gian:code,mdh:o.orderSn,shop_id:String(shop.shopId),order_id:o.orderId,
     ngay_gio:date(['create_time','order_create_time','ctime'])||timestamp(o.createTime),
     mvd:o.tracking,tong_tien:o.total,trang_thai:statusOf(o.status),mo_ta_trang_thai:[o.status,o.statusNote].filter(Boolean).join(' · '),ma_trang_thai:o.statusCode,
     ten_khach:o.buyer,nguoi_mua_id:o.buyerId,don_vi_vc:o.shipping,hinh_thuc_vc:o.shippingType,thanh_toan:o.payment,han_giao:timestamp(o.shipBy),ghi_chu:o.note,
-    link_don:`https://banhang.shopee.vn/portal/sale/order/${encodeURIComponent(o.orderId)}`,
     chi_tiet_dong_bo:[detailOK?'Chi tiết: đã tải':`Chi tiết: ${o.detailError||'chưa tải'}`,hasIncome?'Doanh thu: đã tải':`Doanh thu: ${o.incomeError||'chưa có'}`].join(' · '),dong_bo_luc:new Date(at).toISOString()};
   if(detailOK)Object.assign(base,{ng_nhan:text(['recipient_name','name_of_recipient','receiver_name','buyer_address_name']),sdt:text(['recipient_phone','phone_number','buyer_address_phone','phone']),dia_chi:o.address,
     ly_do_huy:text(['cancel_reason','cancellation_reason','cancel_reason_description']),ly_do_tra_hoan:text(['return_reason','refund_reason','return_reason_description']),ngay_hoan_thanh:date(['complete_time','completed_time']),ngay_huy:date(['cancel_time','cancelled_time'])});
@@ -48,6 +62,18 @@ export function recordsForOrder(o,shop,code,findDeep,at=Date.now()) {
     return r;
   });
 }
+// Sắp lại sheet DH theo HEADERS: bỏ REMOVED_HEADERS, giữ cột lạ (đặt trước dữ liệu gốc), không mất ô nào.
+export function migrateValues(values) {
+  const old=(values[0]||[]).map(x=>String(x).trim());
+  if(values.length>1&&!old.includes('mdh'))throw new Error('Sheet DH thiếu cột mdh');
+  const extra=old.filter(h=>h&&!HEADERS.includes(h)&&!REMOVED_HEADERS.includes(h));
+  const raw=HEADERS.indexOf(RAW_HEADERS[0]);
+  const headers=[...HEADERS.slice(0,raw),...extra,...RAW_HEADERS];
+  const dropped=REMOVED_HEADERS.filter(h=>old.includes(h)&&values.slice(1).some(r=>String(r[old.indexOf(h)]??'').trim()!==''&&!['ngay','link_don'].includes(h)));
+  if(dropped.length)throw new Error(`Cột ${dropped.join(', ')} còn dữ liệu; không tự xóa`);
+  const rows=values.slice(1).map(r=>headers.map(h=>{const i=old.indexOf(h);return i<0?'':(r[i]??'');}));
+  return {headers,rows,removed:REMOVED_HEADERS.filter(h=>old.includes(h))};
+}
 export function mergePlan(values,incoming) {
   const oldHeaders=(values[0]||[]).map(x=>String(x).trim());
   if(values.length>1&&(!oldHeaders.includes('mdh')||!oldHeaders.includes('gian')))throw new Error('Sheet DH thiếu cột mdh/gian; giữ nguyên dữ liệu, không ghi đè');
@@ -64,7 +90,7 @@ export function mergePlan(values,incoming) {
         ||candidates.find(x=>!used.has(x.row)&&r.sku&&x.data.sku===r.sku)
         ||candidates.find(x=>!used.has(x.row));
       const row=match?match.row:next++;used.add(row);
-      // Chỉ cập nhật các cột lấy từ Shopee, giữ giá vốn/lợi nhuận/ghi chú thủ công và cột lạ.
+      // Chỉ cập nhật các cột lấy từ Shopee, giữ cột người dùng tự thêm.
       const data={...r};
       if(match){
         for(const h of ['sku','ten_sp','phan_loai','anh','mvd','item_id','model_id','sku_san_pham'])if(data[h]===''&&match.data[h])delete data[h];
