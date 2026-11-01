@@ -1752,184 +1752,203 @@ async function runAutoBackground() {
           continue;
         }
 
-        // Tạo phiếu in
-        const job = await bgApi("/api/v3/logistics/create_sd_jobs", {
-          group_list: ok,
-          ...shop,
-          channel_id: g.channel_id,
-          generate_file_details: [{ file_type: "NORMAL_PDF", file_name: "Phiếu gửi hàng và Phiếu đóng gói", file_contents: [1] }],
-          record_generate_schema: true,
-        });
-
-        const done = g.list.filter((r) => ok.some((o) => o.primary_package_number === r.package_number));
-        const sns = done.map((r) => r.order_sn);
-        const orders = done.map((r) => ({ order_id: r.order_id, order_sn: r.order_sn, tn: tn[r.package_number] || "" }));
-
-        for (const jb of job.list || []) {
-          const url = `https://banhang.shopee.vn/awbprint?job_id=${encodeURIComponent(jb.job_id)}&shop_id=${shop.shop_id}&lang=vi&first_time=${jb.is_first_time ?? 1}`;
-          chrome.tabs.create({ url, active: false });
-          await bgLog(`🖨 Đã mở phiếu in: ${jb.job_name || jb.job_id}`);
-
-          // Lấy mã gian và tên shop từ sheet CAI_DAT
-          const { code: shopCode, tenShop, shopId: sheetShopId } = await getTenShopAndCode(orders);
-
-          // Tạo tên file Wameli: ddmm-magian-HHMM-n
-          const now = new Date();
-          const p2 = (n) => String(n).padStart(2, "0");
-          const recentJobs = await readJobs();
-          const todayJobs = recentJobs.filter((j) => new Date(j.at).toDateString() === now.toDateString());
-          const base = `${p2(now.getDate())}${p2(now.getMonth() + 1)}-${shopCode}-${p2(now.getHours())}${p2(now.getMinutes())}-${todayJobs.length + 1}`;
-
-          const rec = { job_id: jb.job_id, sns, orders, at: Date.now(), base };
-          recentJobs.unshift(rec);
-          await writeJobs(recentJobs.slice(0, 30));
-          await recordPrinted(base, sns);
-
-          if (cfg["tcdd-autopdf"] !== "0") {
-            // Đợi Shopee tạo file PDF
-            let pdfLink = null;
-            const q = `&job_id=${encodeURIComponent(jb.job_id)}&is_first_time=0`;
-            for (let i = 0; i < 15; i++) {
-              const st = await bgApi("/api/v3/logistics/get_sd_job", null, "GET", q);
-              if (st.job_status === 5) break;
-              if (st.job_status > 5) throw new Error("Shopee tạo phiếu lỗi");
-              await new Promise((res) => setTimeout(res, 2000));
-            }
-            const dLink = await bgApi("/api/v3/logistics/download_sd_job_filelink", null, "GET", q);
-            pdfLink = dLink.media_link;
-            if (!pdfLink) throw new Error("Shopee chưa trả link PDF");
-
-            // Tải file PDF về máy
-            await chrome.downloads.download({
-              url: pdfLink,
-              filename: `TOPCARE-phieu-in/${base}.pdf`,
-              conflictAction: "uniquify",
+        // In từng đơn một: mỗi đơn một phiếu, một file PDF/Excel và một lần nạp Wameli.
+        // Đơn lỗi không chặn các đơn còn lại vì tất cả đã được xác nhận với Shopee.
+        for (const one of ok) {
+          try {
+            // Tạo phiếu in
+            const job = await bgApi("/api/v3/logistics/create_sd_jobs", {
+              group_list: [one],
+              ...shop,
+              channel_id: g.channel_id,
+              generate_file_details: [{ file_type: "NORMAL_PDF", file_name: "Phiếu gửi hàng và Phiếu đóng gói", file_contents: [1] }],
+              record_generate_schema: true,
             });
-            await bgLog(`💾 Đã tải PDF: ${base}.pdf`);
 
-            // Đọc nội dung PDF thành base64 để nạp Wameli
-            const pdfResp = await fetch(pdfLink);
-            const pdfBuf = await pdfResp.arrayBuffer();
-            const pdfBytes = new Uint8Array(pdfBuf);
-            let pdfBin = "";
-            for (let i = 0; i < pdfBytes.length; i += 8192) {
-              pdfBin += String.fromCharCode.apply(null, pdfBytes.subarray(i, i + 8192));
-            }
-            const pdfB64 = btoa(pdfBin);
+            const done = g.list.filter((r) => r.package_number === one.primary_package_number);
+            const sns = done.map((r) => r.order_sn);
+            const orders = done.map((r) => ({ order_id: r.order_id, order_sn: r.order_sn, tn: tn[r.package_number] || "" }));
 
-            // Tạo file Excel 28 cột và trích xuất dữ liệu chi tiết
-            const orderDetailList = [];
-            const xlsRows = [XLS_HEAD];
-            for (const o of orders) {
-              try {
-                const od = await bgApi("/api/v3/order/get_one_order", null, "GET", `&order_id=${o.order_id}`);
-                const carrier = [od.masking_carrier_name, od.fulfillment_carrier_name].filter(Boolean).join("-") || o.carrier || "";
-                for (const it of od.order_items || []) {
-                  const parentSku = (it.product?.sku || "").trim();
-                  const modelSku = (it.item_model?.sku || "").trim() || parentSku;
-                  const productName = (it.product?.name || "").trim();
-                  const modelName = (it.item_model?.name || "").trim();
-                  const fullName = modelName ? `${productName} [${modelName}]` : productName;
-                  const price = Math.round(+it.order_price || 0);
-                  const amount = it.amount || 1;
-                  const orderTotal = Math.round((od.payment_info?.total_price || 0) / 1e5) || (price * amount);
+            for (const jb of job.list || []) {
+              const url = `https://banhang.shopee.vn/awbprint?job_id=${encodeURIComponent(jb.job_id)}&shop_id=${shop.shop_id}&lang=vi&first_time=${jb.is_first_time ?? 1}`;
+              chrome.tabs.create({ url, active: false });
+              await bgLog(`🖨 Đã mở phiếu in: ${jb.job_name || jb.job_id}`);
 
-                  const r = Array(XLS_HEAD.length).fill("");
-                  r[0] = od.order_sn || o.order_sn;
-                  r[5] = o.tn || "";
-                  r[6] = carrier;
-                  r[18] = modelSku;
-                  r[24] = DEFAULT_EXCEL_PRICE;
-                  r[25] = amount;
-                  xlsRows.push(r);
+              // Lấy mã gian và tên shop từ sheet CAI_DAT
+              const { code: shopCode, tenShop, shopId: sheetShopId } = await getTenShopAndCode(orders);
 
-                  orderDetailList.push({
-                    order_sn: od.order_sn || o.order_sn,
-                    package_number: o.package_number || od.package_number || "",
-                    tn: o.tn || "",
-                    carrier,
-                    parentSku,
-                    modelSku,
-                    productName: fullName,
-                    amount,
-                    price,
-                    orderTotal,
-                  });
+              // Tạo tên file Wameli: ddmm-magian-HHMM-n
+              const now = new Date();
+              const p2 = (n) => String(n).padStart(2, "0");
+              const recentJobs = await readJobs();
+              const todayJobs = recentJobs.filter((j) => new Date(j.at).toDateString() === now.toDateString());
+              const baseStem = `${p2(now.getDate())}${p2(now.getMonth() + 1)}-${shopCode}-${p2(now.getHours())}${p2(now.getMinutes())}-${todayJobs.length + 1}`;
+              // Lịch sử chỉ giữ 30 lô nên số thứ tự có thể lặp: thêm hậu tố để tên lô không trùng
+              let base = baseStem;
+              for (let n = 2; recentJobs.some((j) => j.base === base); n++) base = `${baseStem}-${n}`;
+
+              const rec = { job_id: jb.job_id, sns, orders, at: Date.now(), base };
+              recentJobs.unshift(rec);
+              await writeJobs(recentJobs.slice(0, 30));
+              await recordPrinted(base, sns);
+
+              if (cfg["tcdd-autopdf"] !== "0") {
+                // Đợi Shopee tạo file PDF
+                let pdfLink = null;
+                const q = `&job_id=${encodeURIComponent(jb.job_id)}&is_first_time=0`;
+                for (let i = 0; i < 15; i++) {
+                  const st = await bgApi("/api/v3/logistics/get_sd_job", null, "GET", q);
+                  if (st.job_status === 5) break;
+                  if (st.job_status > 5) throw new Error("Shopee tạo phiếu lỗi");
+                  await new Promise((res) => setTimeout(res, 2000));
                 }
-              } catch (e) {
-                await bgLog(`⚠️ Lỗi lấy chi tiết đơn ${o.order_sn}: ${e.message}`);
-                orderDetailList.push({
-                  order_sn: o.order_sn,
-                  package_number: o.package_number || "",
-                  tn: o.tn || "",
-                  carrier: o.carrier || "",
-                  parentSku: "",
-                  modelSku: "",
-                  productName: Array.isArray(o.items) ? o.items.join("; ") : (o.items || ""),
-                  amount: 1,
-                  price: o.total || 0,
-                  orderTotal: o.total || 0,
+                const dLink = await bgApi("/api/v3/logistics/download_sd_job_filelink", null, "GET", q);
+                pdfLink = dLink.media_link;
+                if (!pdfLink) throw new Error("Shopee chưa trả link PDF");
+
+                // Tải file PDF về máy
+                await chrome.downloads.download({
+                  url: pdfLink,
+                  filename: `TOPCARE-phieu-in/${base}.pdf`,
+                  conflictAction: "uniquify",
+                });
+                await bgLog(`💾 Đã tải PDF: ${base}.pdf`);
+
+                // Đọc nội dung PDF thành base64 để nạp Wameli
+                const pdfResp = await fetch(pdfLink);
+                const pdfBuf = await pdfResp.arrayBuffer();
+                const pdfBytes = new Uint8Array(pdfBuf);
+                let pdfBin = "";
+                for (let i = 0; i < pdfBytes.length; i += 8192) {
+                  pdfBin += String.fromCharCode.apply(null, pdfBytes.subarray(i, i + 8192));
+                }
+                const pdfB64 = btoa(pdfBin);
+
+                // Tạo file Excel 28 cột và trích xuất dữ liệu chi tiết
+                const orderDetailList = [];
+                const xlsRows = [XLS_HEAD];
+                for (const o of orders) {
+                  try {
+                    const od = await bgApi("/api/v3/order/get_one_order", null, "GET", `&order_id=${o.order_id}`);
+                    const carrier = [od.masking_carrier_name, od.fulfillment_carrier_name].filter(Boolean).join("-") || o.carrier || "";
+                    for (const it of od.order_items || []) {
+                      const parentSku = (it.product?.sku || "").trim();
+                      const modelSku = (it.item_model?.sku || "").trim() || parentSku;
+                      const productName = (it.product?.name || "").trim();
+                      const modelName = (it.item_model?.name || "").trim();
+                      const fullName = modelName ? `${productName} [${modelName}]` : productName;
+                      const price = Math.round(+it.order_price || 0);
+                      const amount = it.amount || 1;
+                      const orderTotal = Math.round((od.payment_info?.total_price || 0) / 1e5) || (price * amount);
+
+                      const r = Array(XLS_HEAD.length).fill("");
+                      r[0] = od.order_sn || o.order_sn;
+                      r[5] = o.tn || "";
+                      r[6] = carrier;
+                      r[18] = modelSku;
+                      r[24] = DEFAULT_EXCEL_PRICE;
+                      r[25] = amount;
+                      xlsRows.push(r);
+
+                      orderDetailList.push({
+                        order_sn: od.order_sn || o.order_sn,
+                        package_number: o.package_number || od.package_number || "",
+                        tn: o.tn || "",
+                        carrier,
+                        parentSku,
+                        modelSku,
+                        productName: fullName,
+                        amount,
+                        price,
+                        orderTotal,
+                      });
+                    }
+                  } catch (e) {
+                    await bgLog(`⚠️ Lỗi lấy chi tiết đơn ${o.order_sn}: ${e.message}`);
+                    orderDetailList.push({
+                      order_sn: o.order_sn,
+                      package_number: o.package_number || "",
+                      tn: o.tn || "",
+                      carrier: o.carrier || "",
+                      parentSku: "",
+                      modelSku: "",
+                      productName: Array.isArray(o.items) ? o.items.join("; ") : (o.items || ""),
+                      amount: 1,
+                      price: o.total || 0,
+                      orderTotal: o.total || 0,
+                    });
+                  }
+                }
+
+                const xlsxB64 = await globalThis.makeXlsxBase64(xlsRows);
+                await chrome.downloads.download({
+                  url: "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + xlsxB64,
+                  filename: `TOPCARE-phieu-in/${base}.xlsx`,
+                  conflictAction: "uniquify",
+                });
+                await bgLog(`💾 Đã tải Excel: ${base}.xlsx (${xlsRows.length - 1} dòng)`); 
+                // Nạp Wameli
+                let wRes = null;
+                const warehouse_id = isHCM(g.ad?.warehouse_name) ? 2 : 1; // theo địa chỉ lấy hàng (dùng cả khi ghi sheet)
+                if (cfg["tcdd-wameli"] !== "0") {
+                  const target_slot = cfg["tcdd-wameli-slot"] || "auto";
+                  const skip_sunday = cfg["tcdd-skip-sunday"] !== "0";
+                  wRes = await executeWameliUpload({
+                    base,
+                    warehouse_id,
+                    pdf: pdfB64,
+                    xlsx: xlsxB64,
+                    shop_code: shopCode,
+                    shop_name: tenShop,
+                    shop_id: sheetShopId,
+                    target_slot,
+                  });
+                  if (wRes?.ok) {
+                    const sName = wRes.shop_name || tenShop || "Shop " + (wRes.shop_id || "");
+                    await bgLog(`☁️ Đã nạp Wameli: ${base} · [${sName}] · khung <b>${wRes.slot}</b> · kho ${warehouse_id === 1 ? "HN" : "HCM"}`);
+                    await recordWameli(base, wRes.slot, warehouse_id === 1 ? "HN" : "HCM", orders.length, sns);
+                    await notifyAndSound({
+                      title: `${tenShop || "AutoIn"} · Wameli`,
+                      message: `Đã nạp ${base} lên Wameli · Khung ${wRes.slot}`,
+                      sound: "ting",
+                    });
+                  } else {
+                    const wErr = wRes?.error || "Lỗi không xác định khi nạp Wameli";
+                    await bgLog(`❌ Nạp Wameli lỗi: ${wErr}`);
+                    await recordError(base, "Nạp Wameli", wErr);
+                    await notifyAndSound({
+                      title: `${tenShop || "AutoIn"} ❌ LỖI WAMELI`,
+                      message: `Nạp Wameli thất bại: ${wErr}`,
+                      sound: "error",
+                      isError: true,
+                    });
+                  }
+                }
+
+                // Ghi nhận lịch sử in vào Google Sheet IN_DON_WML
+                const wamStatus = wRes?.ok ? `Thành công (${wRes.slot})` : (wRes?.error ? `Lỗi: ${wRes.error}` : "Chưa nạp");
+                await syncPrintedOrdersToSheet({
+                  base,
+                  slot: wRes?.slot || "--",
+                  warehouse: warehouse_id === 1 ? "Hà Nội" : "Hồ Chí Minh",
+                  shopCode,
+                  tenShop,
+                  orderDetails: orderDetailList,
+                  wameliStatus: wamStatus,
+                  source: "Chưa xử lý",
+                  note: "Tự động chạy nền"
                 });
               }
             }
-
-            const xlsxB64 = await globalThis.makeXlsxBase64(xlsRows);
-            await chrome.downloads.download({
-              url: "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + xlsxB64,
-              filename: `TOPCARE-phieu-in/${base}.xlsx`,
-              conflictAction: "uniquify",
-            });
-            await bgLog(`💾 Đã tải Excel: ${base}.xlsx (${xlsRows.length - 1} dòng)`); 
-            // Nạp Wameli
-            let wRes = null;
-            const warehouse_id = isHCM(g.ad?.warehouse_name) ? 2 : 1; // theo địa chỉ lấy hàng (dùng cả khi ghi sheet)
-            if (cfg["tcdd-wameli"] !== "0") {
-              const target_slot = cfg["tcdd-wameli-slot"] || "auto";
-              const skip_sunday = cfg["tcdd-skip-sunday"] !== "0";
-              wRes = await executeWameliUpload({
-                base,
-                warehouse_id,
-                pdf: pdfB64,
-                xlsx: xlsxB64,
-                shop_code: shopCode,
-                shop_name: tenShop,
-                shop_id: sheetShopId,
-                target_slot,
-              });
-              if (wRes?.ok) {
-                const sName = wRes.shop_name || tenShop || "Shop " + (wRes.shop_id || "");
-                await bgLog(`☁️ Đã nạp Wameli: ${base} · [${sName}] · khung <b>${wRes.slot}</b> · kho ${warehouse_id === 1 ? "HN" : "HCM"}`);
-                await recordWameli(base, wRes.slot, warehouse_id === 1 ? "HN" : "HCM", orders.length, sns);
-                await notifyAndSound({
-                  title: `${tenShop || "AutoIn"} · Wameli`,
-                  message: `Đã nạp ${base} lên Wameli · Khung ${wRes.slot}`,
-                  sound: "ting",
-                });
-              } else {
-                const wErr = wRes?.error || "Lỗi không xác định khi nạp Wameli";
-                await bgLog(`❌ Nạp Wameli lỗi: ${wErr}`);
-                await recordError(base, "Nạp Wameli", wErr);
-                await notifyAndSound({
-                  title: `${tenShop || "AutoIn"} ❌ LỖI WAMELI`,
-                  message: `Nạp Wameli thất bại: ${wErr}`,
-                  sound: "error",
-                  isError: true,
-                });
-              }
-            }
-
-            // Ghi nhận lịch sử in vào Google Sheet IN_DON_WML
-            const wamStatus = wRes?.ok ? `Thành công (${wRes.slot})` : (wRes?.error ? `Lỗi: ${wRes.error}` : "Chưa nạp");
-            await syncPrintedOrdersToSheet({
-              base,
-              slot: wRes?.slot || "--",
-              warehouse: warehouse_id === 1 ? "Hà Nội" : "Hồ Chí Minh",
-              shopCode,
-              tenShop,
-              orderDetails: orderDetailList,
-              wameliStatus: wamStatus,
-              source: "Chưa xử lý",
-              note: "Tự động chạy nền"
+          } catch (e) {
+            const sn = g.list.find((r) => r.package_number === one.primary_package_number)?.order_sn;
+            await bgLog(`❌ ${sn}: lỗi in/nạp: ${e.message}`);
+            await recordError(sn, "Quy trình in/nạp", e.message);
+            await notifyAndSound({
+              title: "TOPCARE ❌ LỖI QUY TRÌNH",
+              message: `${sn}: ${e.message}`,
+              sound: "error",
+              isError: true,
             });
           }
         }

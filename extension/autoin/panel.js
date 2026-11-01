@@ -813,21 +813,34 @@ async function shipAndPrint(g, dayIdx, log) {
 }
 
 async function printPackages(list, channel_id, ok, tn, log) {
-  const job = await api("/api/v3/logistics/create_sd_jobs", {
-    group_list: ok, ...shop, channel_id,
-    generate_file_details: [{ file_type: "NORMAL_PDF", file_name: "Phiếu gửi hàng và Phiếu đóng gói", file_contents: [1] }],
-    record_generate_schema: true,
-  });
-  const done = list.filter((r) => ok.some((o) => o.primary_package_number === r.package_number));
-  const sns = done.map((r) => r.order_sn);
-  const orders = done.map((r) => ({ order_id: r.order_id, order_sn: r.order_sn, tn: tn[r.package_number] || "" }));
-  for (const jb of job.list || []) {
-    const url = `https://banhang.shopee.vn/awbprint?job_id=${encodeURIComponent(jb.job_id)}&shop_id=${shop.shop_id}&lang=vi&first_time=${jb.is_first_time ?? 1}`;
-    chrome.tabs.create({ url, active: true });
-    log(`🖨 Đã mở phiếu in: ${esc(jb.job_name || jb.job_id)}`);
-    const rec = { job_id: jb.job_id, sns, orders, at: Date.now() };
-    rememberJob(rec);
-    if (ls.get("tcdd-autopdf", "1") === "1") await downloadJob(rec, log, true);
+  // In từng đơn một: mỗi đơn một phiếu, một file PDF/Excel và một lần nạp Wameli.
+  // Đơn lỗi không chặn các đơn còn lại vì tất cả đã được xác nhận với Shopee.
+  for (const one of ok) {
+    const done = list.filter((r) => r.package_number === one.primary_package_number);
+    const sns = done.map((r) => r.order_sn);
+    try {
+      const job = await api("/api/v3/logistics/create_sd_jobs", {
+        group_list: [one], ...shop, channel_id,
+        generate_file_details: [{ file_type: "NORMAL_PDF", file_name: "Phiếu gửi hàng và Phiếu đóng gói", file_contents: [1] }],
+        record_generate_schema: true,
+      });
+      const orders = done.map((r) => ({ order_id: r.order_id, order_sn: r.order_sn, tn: tn[r.package_number] || "" }));
+      for (const jb of job.list || []) {
+        const url = `https://banhang.shopee.vn/awbprint?job_id=${encodeURIComponent(jb.job_id)}&shop_id=${shop.shop_id}&lang=vi&first_time=${jb.is_first_time ?? 1}`;
+        chrome.tabs.create({ url, active: true });
+        log(`🖨 Đã mở phiếu in: ${esc(jb.job_name || jb.job_id)}`);
+        const rec = { job_id: jb.job_id, sns, orders, at: Date.now() };
+        // Lịch sử chỉ giữ 30 lô nên số thứ tự có thể lặp: thêm hậu tố để tên lô không trùng
+        const stem = baseName(rec), taken = jobs().map(baseName);
+        rec.base = stem;
+        for (let n = 2; taken.includes(rec.base); n++) rec.base = `${stem}-${n}`;
+        rememberJob(rec);
+        if (ls.get("tcdd-autopdf", "1") === "1") await downloadJob(rec, log, true);
+      }
+    } catch (e) {
+      log(`❌ ${esc(sns[0])}: lỗi in/nạp: ${esc(e.message)}`);
+      chrome.runtime.sendMessage({ type: "tcdd-record-error", order_sn: sns[0], stage: "Quy trình in/nạp", message: e.message });
+    }
   }
 }
 
