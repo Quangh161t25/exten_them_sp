@@ -563,7 +563,7 @@ function card(r) {
   });
   if (!items.length) items.push({ name: "Chưa có thông tin sản phẩm", model: "", itemSku: "", modelSku: "", qty: "" });
   const span = `rowspan="${items.length}"`;
-  const flags = `${isNew ? '<span class="tc-tag blue">Đơn mới</span>' : ''}${r.warn ? '<span class="tc-tag">Sắp/quá hạn</span>' : ''}`;
+  const flags = `${cur === "da-xu-ly" && wmlUploaded.has(r.order_sn) ? '<span class="tc-tag blue">Đã in lên WML</span>' : ''}${isNew ? '<span class="tc-tag blue">Đơn mới</span>' : ''}${r.warn ? '<span class="tc-tag">Sắp/quá hạn</span>' : ''}`;
   return items.map((it, i) => `<tr class="${r.warn ? 'warn' : ''} ${picked.has(r.package_number) ? 'sel' : ''}">
     ${i === 0 ? `<td ${span} class="tc-check">${selectable ? `<input type="checkbox" aria-label="Chọn đơn ${esc(r.order_sn)}" data-p="${esc(r.package_number)}" ${picked.has(r.package_number) ? 'checked' : ''}>` : ''}</td>
     <td ${span} class="tc-order"><a href="https://banhang.shopee.vn/portal/sale/order/${r.order_id}" target="_blank" rel="noopener">${esc(r.order_sn)}</a><div>${flags}</div></td>
@@ -611,6 +611,7 @@ function renderPrinted(body) {
   all.checked = rows.length > 0 && rows.every((r) => picked.has(r.package_number));
   all.onchange = () => { rows.forEach((r) => (all.checked ? picked.add(r.package_number) : picked.delete(r.package_number))); render(); };
   const sel = rows.filter((r) => picked.has(r.package_number));
+  const selWml = sel.filter((r) => wmlUploaded.has(r.order_sn));
   const box = $("#tc-ship");
   box.hidden = false;
   box.innerHTML = `
@@ -624,6 +625,7 @@ function renderPrinted(body) {
     <div style="display:flex;gap:6px;margin-top:2px;">
       <button class="tc-btn green" id="tc-print" style="flex:1;padding:6px;font-size:12px;" ${sel.length && !printing ? "" : "disabled"}>⚡ Chạy đơn đã chọn (${sel.length})</button>
       <button class="tc-btn blue" id="tc-print-all" style="flex:1;padding:6px;font-size:12px;" ${rows.length && !printing ? "" : "disabled"}>⚡ Chạy lại tất cả (${rows.length})</button>
+      <button class="tc-btn" id="tc-wml-delete" style="flex:1;padding:6px;font-size:12px;background:#dc2626;color:#fff;" ${selWml.length && !printing ? "" : "disabled"}>🗑 Xóa WML (${selWml.length})</button>
     </div>
   `;
 
@@ -634,9 +636,46 @@ function renderPrinted(body) {
   if (pAllBtn) pAllBtn.onclick = () => runProcessedOrdersFlow(rows);
   const pSelBtn = $("#tc-print");
   if (pSelBtn) pSelBtn.onclick = () => runProcessedOrdersFlow(sel);
+  const wDelBtn = $("#tc-wml-delete");
+  if (wDelBtn) wDelBtn.onclick = () => deleteFromWameli(selWml);
 }
 
 let printing = false;
+
+// Đơn đã nạp Wameli do máy này ghi nhớ (background giữ 7 ngày)
+let wmlUploaded = new Set();
+async function loadWmlUploaded() {
+  const list = (await chrome.storage.local.get("tcdd-wml-watch"))["tcdd-wml-watch"];
+  wmlUploaded = new Set((Array.isArray(list) ? list : []).filter((x) => Date.now() - x.at < 7 * 24 * 60 * 60 * 1000).map((x) => x.order_sn));
+  if (cur === "da-xu-ly") render();
+}
+loadWmlUploaded();
+chrome.storage.onChanged.addListener((changes, area) => { if (area === "local" && changes["tcdd-wml-watch"]) loadWmlUploaded(); });
+
+async function deleteFromWameli(targetList) {
+  if (printing || !targetList.length) return;
+  if (!confirm(`XÓA ${targetList.length} ĐƠN KHỎI WAMELI?\n\n${targetList.map((r) => r.order_sn).join("\n")}\n\nChỉ xóa đơn kho chưa in.`)) return;
+  printing = true;
+  render();
+  const TEXT = {
+    deleted: "đã xóa",
+    printed: "kho ĐÃ IN, không xóa",
+    missing: "không thấy (lô gộp hoặc đã xóa), kiểm tra tay",
+    ambiguous: "có nhiều dòng trên Wameli, chưa xóa, kiểm tra tay",
+    failed: "xóa không thành công, xóa tay",
+  };
+  try {
+    const res = await chrome.runtime.sendMessage({ type: "tcdd-wml-delete", order_sns: targetList.map((r) => r.order_sn) });
+    const summary = (res?.results || []).map((x) => `${x.order_sn}: ${TEXT[x.result] || x.result}${x.error ? ` (${x.error})` : ""}`).join("\n");
+    autoLog(`🗑 Xóa WML:\n${summary}`);
+    alert(summary || "Không nhận được kết quả xóa");
+  } catch (err) {
+    alert(`Lỗi kết nối: ${err.message}`);
+  } finally {
+    printing = false;
+    render();
+  }
+}
 async function runProcessedOrdersFlow(targetList) {
   if (printing) return;
   if (!targetList || !targetList.length) {
@@ -831,7 +870,7 @@ async function printPackages(list, channel_id, ok, tn, log) {
         log(`🖨 Đã mở phiếu in: ${esc(jb.job_name || jb.job_id)}`);
         const rec = { job_id: jb.job_id, sns, orders, at: Date.now() };
         // Lịch sử chỉ giữ 30 lô nên số thứ tự có thể lặp: thêm hậu tố để tên lô không trùng
-        const stem = baseName(rec), taken = jobs().map(baseName);
+        const stem = `${baseName(rec)}-${sns[0]}`, taken = jobs().map(baseName);
         rec.base = stem;
         for (let n = 2; taken.includes(rec.base); n++) rec.base = `${stem}-${n}`;
         rememberJob(rec);
@@ -900,6 +939,7 @@ async function downloadJob(job, log, upload = false, force = false) {
   let wRes = null;
   if (upload && pdf && xlsx && (force || ls.get("tcdd-wameli", "1") === "1")) {
     wRes = await uploadWameli(pdf, xlsx, base, log);
+    if (wRes?.slot && !wRes.error && job.orders.length === 1) chrome.runtime.sendMessage({ type: "tcdd-wml-watch", order: job.orders[0], base }).catch(() => {});
   }
 
   // Đồng bộ lịch sử vào Google Sheet IN_DON_WML

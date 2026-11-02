@@ -1344,6 +1344,114 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, reply) => {
   if (msg.type === "autoin-cho-lay-hang") return handleChoLayHang(msg, reply);
 });
 
+// ---------- ĐƠN HỦY: XÓA KHỎI WAMELI NẾU KHO CHƯA IN ----------
+const WML_WATCH_KEY = "tcdd-wml-watch";
+const WML_WATCH_MS = 7 * 24 * 60 * 60 * 1000;
+async function readWameliWatch() {
+  const list = (await chrome.storage.local.get(WML_WATCH_KEY))[WML_WATCH_KEY];
+  return (Array.isArray(list) ? list : []).filter((x) => Date.now() - x.at < WML_WATCH_MS);
+}
+async function rememberWameliOrder(order, base) {
+  if (!order?.order_id) return;
+  const list = (await readWameliWatch()).filter((x) => x.order_id !== order.order_id);
+  list.unshift({ order_id: order.order_id, order_sn: order.order_sn, base, at: Date.now() });
+  await chrome.storage.local.set({ [WML_WATCH_KEY]: list.slice(0, 1000) });
+}
+
+// Đọc 5 trang danh sách đơn Wameli. Dòng đã in không có ô chọn nên không thể bị xóa nhầm.
+async function findWameliRow(tabId, sn) {
+  const [r] = await chrome.scripting.executeScript({
+    target: { tabId },
+    args: [sn],
+    func: async (sn) => {
+      const hits = [];
+      for (let page = 1; page <= 5; page++) {
+        const html = await (await fetch(`/admin/order/upload?page=${page}`, { credentials: "include" })).text();
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const rows = [...doc.querySelectorAll("table tbody tr")].filter((tr) => tr.cells.length > 8);
+        if (page === 1 && !doc.querySelector("table")) return { error: "Wameli chưa đăng nhập" };
+        for (const tr of rows) {
+          if (tr.cells[5].textContent.includes(sn) || tr.cells[8].textContent.includes(sn)) {
+            hits.push({ page, id: tr.querySelector('input[name="id[]"]')?.value || "", printed: !tr.querySelector('input[name="id[]"]') });
+          }
+        }
+        if (!rows.length) break;
+      }
+      return { hits };
+    },
+  });
+  if (r.result?.error) throw new Error(r.result.error);
+  return r.result?.hits || [];
+}
+
+async function deleteWameliOrder(item) {
+  const tab = await chrome.tabs.create({ url: "https://phanmem.wameli.vn/admin/order/upload", active: false });
+  try {
+    await waitComplete(tab.id);
+    const hits = await findWameliRow(tab.id, item.order_sn);
+    if (!hits.length) return "missing";
+    if (hits.some((h) => h.printed)) return "printed";
+    if (hits.length !== 1) return "ambiguous";
+    await chrome.tabs.update(tab.id, { url: `https://phanmem.wameli.vn/admin/order/upload?page=${hits[0].page}` });
+    await waitComplete(tab.id);
+    const [clicked] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: "MAIN",
+      args: [hits[0].id],
+      func: (id) => {
+        const box = [...document.querySelectorAll('input[name="id[]"]')].find((x) => x.value === id);
+        const btn = [...document.querySelectorAll("a.toolbar")].find((x) => x.textContent.trim() === "Xóa");
+        if (!box || !btn) return false;
+        window.confirm = () => true;
+        box.click();
+        setTimeout(() => btn.click(), 100);
+        return true;
+      },
+    });
+    if (!clicked?.result) return "failed";
+    await new Promise((res) => setTimeout(res, 3000));
+    await waitComplete(tab.id);
+    return (await findWameliRow(tab.id, item.order_sn)).length ? "failed" : "deleted";
+  } finally {
+    await chrome.tabs.remove(tab.id).catch(() => {});
+  }
+}
+
+async function checkCancelledOrders() {
+  if (isAutoBusy) return;
+  const watch = await readWameliWatch();
+  if (!watch.length) return;
+  const cancelled = new Set();
+  for (let page = 1; page <= 3; page++) {
+    const d = await bgApi("/api/v3/order/search_order_list_index", {
+      order_list_tab: 600, entity_type: 1, // 600 = Đơn huỷ
+      pagination: { from_page_number: page, page_number: page, page_size: 40 },
+      filter: { fulfillment_type: 0, is_drop_off: 0, fulfillment_source: 0, action_filter: 0 },
+      sort: { sort_type: 3, ascending: false },
+    });
+    const list = d.index_list || [];
+    for (const x of list) cancelled.add(x.order_id);
+    if (list.length < 40) break;
+  }
+  for (const item of watch.filter((x) => cancelled.has(x.order_id))) {
+    // Lỗi tạm thời (chưa đăng nhập, mất mạng): giữ đơn lại để lần sau thử tiếp
+    const result = await deleteWameliOrder(item);
+    const text = {
+      deleted: `Đơn hủy ${item.order_sn}: đã xóa khỏi Wameli (kho chưa in).`,
+      printed: `Đơn hủy ${item.order_sn}: KHO ĐÃ IN, báo kho giữ lại hàng. Lô ${item.base}.`,
+      missing: `Đơn hủy ${item.order_sn}: không thấy trên Wameli, kiểm tra tay lô ${item.base}.`,
+      ambiguous: `Đơn hủy ${item.order_sn}: thấy nhiều dòng trên Wameli, chưa xóa, kiểm tra tay.`,
+      failed: `Đơn hủy ${item.order_sn}: xóa tự động không thành công, xóa tay lô ${item.base}.`,
+    }[result];
+    const isError = result !== "deleted";
+    await bgLog(`${isError ? "⚠️" : "🗑"} ${text}`);
+    if (isError) await recordError(item.order_sn, "Xóa đơn hủy", text);
+    await notifyAndSound({ title: isError ? "TOPCARE ❌ ĐƠN HỦY" : "TOPCARE · Đơn hủy", message: text, sound: isError ? "error" : "ting", isError });
+    const rest = (await readWameliWatch()).filter((x) => x.order_id !== item.order_id);
+    await chrome.storage.local.set({ [WML_WATCH_KEY]: rest });
+  }
+}
+
 async function bgFetchIndex(status = 1) {
   let out = [], page = 1;
   for (;;) {
@@ -1782,7 +1890,7 @@ async function runAutoBackground() {
               const p2 = (n) => String(n).padStart(2, "0");
               const recentJobs = await readJobs();
               const todayJobs = recentJobs.filter((j) => new Date(j.at).toDateString() === now.toDateString());
-              const baseStem = `${p2(now.getDate())}${p2(now.getMonth() + 1)}-${shopCode}-${p2(now.getHours())}${p2(now.getMinutes())}-${todayJobs.length + 1}`;
+              const baseStem = `${p2(now.getDate())}${p2(now.getMonth() + 1)}-${shopCode}-${p2(now.getHours())}${p2(now.getMinutes())}-${todayJobs.length + 1}-${sns[0]}`;
               // Lịch sử chỉ giữ 30 lô nên số thứ tự có thể lặp: thêm hậu tố để tên lô không trùng
               let base = baseStem;
               for (let n = 2; recentJobs.some((j) => j.base === base); n++) base = `${baseStem}-${n}`;
@@ -1907,6 +2015,7 @@ async function runAutoBackground() {
                     const sName = wRes.shop_name || tenShop || "Shop " + (wRes.shop_id || "");
                     await bgLog(`☁️ Đã nạp Wameli: ${base} · [${sName}] · khung <b>${wRes.slot}</b> · kho ${warehouse_id === 1 ? "HN" : "HCM"}`);
                     await recordWameli(base, wRes.slot, warehouse_id === 1 ? "HN" : "HCM", orders.length, sns);
+                    await rememberWameliOrder(orders[0], base);
                     await notifyAndSound({
                       title: `${tenShop || "AutoIn"} · Wameli`,
                       message: `Đã nạp ${base} lên Wameli · Khung ${wRes.slot}`,
@@ -2123,7 +2232,7 @@ async function processProcessedOrders(targetOrders = null, options = {}) {
           const now = new Date();
           const recentJobs = await readJobs();
           const todayJobs = recentJobs.filter((j) => new Date(j.at).toDateString() === now.toDateString());
-          const base = `${p2(now.getDate())}${p2(now.getMonth() + 1)}-${shopCode}-${p2(now.getHours())}${p2(now.getMinutes())}-${todayJobs.length + 1}`;
+          const base = `${p2(now.getDate())}${p2(now.getMonth() + 1)}-${shopCode}-${p2(now.getHours())}${p2(now.getMinutes())}-${todayJobs.length + 1}${sns.length === 1 ? `-${sns[0]}` : ""}`;
 
           const rec = { job_id: jb.job_id, sns, orders, at: Date.now(), base, source };
           recentJobs.unshift(rec);
@@ -2253,6 +2362,7 @@ async function processProcessedOrders(targetOrders = null, options = {}) {
                 const sName = wRes.shop_name || tenShop || "Shop " + (wRes.shop_id || "");
                 await bgLog(`☁️ Đã nạp Wameli: ${base} · [${sName}] · khung <b>${wRes.slot}</b> · kho ${warehouse_id === 1 ? "HN" : "HCM"}`);
                 await recordWameli(base, wRes.slot, warehouse_id === 1 ? "HN" : "HCM", orders.length, sns);
+                for (const o of orders) await rememberWameliOrder(o, base);
                 await notifyAndSound({
                   title: `${tenShop || "AutoIn"} · Wameli`,
                   message: `[Đã xử lý] Đã nạp ${base} lên Wameli · Khung ${wRes.slot}`,
@@ -2421,6 +2531,7 @@ async function initAlarms() {
 
   // 4. Alarm kiểm tra tự mở tab Wameli (mỗi 1 phút)
   chrome.alarms.create("tcdd-wameli-tab-check", { periodInMinutes: 1 });
+  chrome.alarms.create("tcdd-cancel-check", { periodInMinutes: 5 });
 
   // 5. Alarm định kỳ kiểm tra tin nhắn Telegram đến bot (mỗi 1 phút)
   chrome.alarms.create("tcdd-tele-poll", { periodInMinutes: 1 });
@@ -2437,6 +2548,8 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     await triggerDailyReport("8h");
   } else if (alarm.name === "tcdd-wameli-tab-check") {
     await checkAutoOpenWameliTab();
+  } else if (alarm.name === "tcdd-cancel-check") {
+    await checkCancelledOrders().catch((e) => bgLog(`⚠️ Kiểm tra đơn hủy lỗi: ${e.message}`));
   } else if (alarm.name === "tcdd-tele-poll") {
     startTelegramPollingLoop();
     await pollTelegramUpdates();
@@ -2548,6 +2661,31 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
         reply({ ok: false, error: e.message || String(e) });
       }
     })();
+    return true;
+  }
+
+  if (msg.type === "tcdd-wml-delete") {
+    (async () => {
+      const results = [];
+      for (const order_sn of msg.order_sns || []) {
+        try {
+          const result = await deleteWameliOrder({ order_sn });
+          if (result === "deleted") {
+            const rest = (await readWameliWatch()).filter((x) => x.order_sn !== order_sn);
+            await chrome.storage.local.set({ [WML_WATCH_KEY]: rest });
+          }
+          results.push({ order_sn, result });
+        } catch (e) {
+          results.push({ order_sn, result: "failed", error: e.message });
+        }
+      }
+      reply({ results });
+    })();
+    return true;
+  }
+
+  if (msg.type === "tcdd-wml-watch") {
+    rememberWameliOrder(msg.order, msg.base).then(() => reply({ ok: true }));
     return true;
   }
 
