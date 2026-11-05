@@ -1697,17 +1697,17 @@ export default function App() {
                     <>
                 <Page>
                 <Crumbs group="Sản phẩm" title={TAB_TITLES[currentTab] || currentTab} right={isLoading ? 'Đang tải…' : `${totalRows.toLocaleString('vi-VN')} dòng`} />
-                <Tabs label="Module sản phẩm" value={currentTab} onChange={handleTabChange} tabs={PRODUCT_TABS.map(t => [t, TAB_TITLES[t] || t])} />
                 <Card>
                 <div className="header-container">
                     <Toolbar>
                         <HeaderActions {...headerProps} part="toolbar" onCustomizeColumns={() => setColumnsRequest(n => n + 1)} />
                     </Toolbar>
-                    <FilterBar>
+                    {/* Hàng lọc chỉ còn ô Gian hàng (WEB SP, SP GIẢM GIÁ); số dòng đã hiện ở thanh trên */}
+                    {(currentTab === 'WEB_SP' || currentTab === 'SP_GIAM_GIA') && <FilterBar>
                         <HeaderActions {...headerProps} part="filters" />
                         <Grow />
                         <span className="dh-sum"><b>{totalRows.toLocaleString('vi-VN')}</b> dòng{selectedIds.size ? ` · đã chọn ${selectedIds.size}` : ''}</span>
-                    </FilterBar>
+                    </FilterBar>}
 
                     {/* Tab DS_SP / TINH_GIA / WEB_SP: Prefix Filters Bar */}
                     {(currentTab === 'DS_SP' || currentTab === 'TINH_GIA' || currentTab === 'WEB_SP') && (

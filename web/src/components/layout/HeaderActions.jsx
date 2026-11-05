@@ -39,12 +39,6 @@ export default function HeaderActions({
         if (isDhTab) return null;
         return (
             <>
-                <Dropdown icon={ListFilter} label={truongFilter ? `Trường: ${truongFilter}` : 'Lọc theo Trường'} active={!!truongFilter}>
-                    <div className="dh-dd-dates">
-                        <label>Trường chứa<input autoFocus value={truongFilter} onChange={(e) => onTruongFilterChange(e.target.value)} placeholder="Nhập mã / tên trường..." /></label>
-                        {truongFilter && <div className="dh-dd-quick"><button type="button" data-close onClick={() => onTruongFilterChange('')}>Bỏ lọc</button></div>}
-                    </div>
-                </Dropdown>
                 {showStoreFilter && (
                     <SelectFilter icon={Store} name="Gian hàng" value={storeFilter} onChange={onStoreFilterChange} options={storeOptions.map((s) => [s, s])} allLabel="Tất cả gian hàng" />
                 )}
