@@ -54,7 +54,7 @@ export default function HeaderActions({
 
     return (
         <>
-            <SearchBox value={searchTerm} onChange={onSearchChange} placeholder="Tìm kiếm nhanh..." />
+            <SearchBox value={searchTerm} onChange={onSearchChange} placeholder="Tìm kiếm nhanh... (a / b: có cả a và b · a, b: a hoặc b)" />
             <Grow />
             {onCustomizeColumns && (
                 <button type="button" className="dh-ghost" onClick={onCustomizeColumns} title="Kéo thả, ẩn/hiện, cố định, căn lề, độ rộng">

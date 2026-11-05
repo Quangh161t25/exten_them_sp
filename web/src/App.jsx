@@ -478,23 +478,16 @@ export default function App() {
     const baseFilteredRows = useMemo(() => {
         const source = (currentTab === 'DH') ? dhMasterRows : allData;
         const term = searchTerm.toLowerCase().trim();
-        const terms = term.split(',').map(s => s.trim()).filter(Boolean);
+        // "a, b": có a HOẶC b; "a / b": phải có CẢ a VÀ b (vd "chảo / inox")
+        const terms = term.split(',').map(g => g.split('/').map(s => s.trim()).filter(Boolean)).filter(g => g.length);
+        const hit = (cells) => { const text = cells.map(c => String(c || '').toLowerCase()).join(' '); return terms.some(g => g.every(t => text.includes(t))); };
 
         return source.filter((row) => {
             // General multi-term search
             if (terms.length > 0) {
                 const match = (currentTab === 'DH')
-                    ? allData.some(item =>
-                        String(item[3] || '').trim() === String(row[3] || '').trim() &&
-                        item.some(cell => {
-                            const cStr = String(cell || '').toLowerCase();
-                            return terms.some(t => cStr.includes(t));
-                        })
-                    )
-                    : row.some(cell => {
-                        const cStr = String(cell || '').toLowerCase();
-                        return terms.some(t => cStr.includes(t));
-                    });
+                    ? allData.some(item => String(item[3] || '').trim() === String(row[3] || '').trim() && hit(item))
+                    : hit(row);
                 if (!match) return false;
             }
 
