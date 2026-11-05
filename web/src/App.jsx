@@ -64,6 +64,7 @@ import TinhGiaModal from './components/tinh_gia/TinhGiaModal.jsx';
 
 import DsSpPrefixFilters from './components/ds_sp/DsSpPrefixFilters.jsx';
 import ImageSearchModal from './components/ds_sp/ImageSearchModal.jsx';
+import ImageLightbox from './components/common/ImageLightbox.jsx';
 
 const STORAGE_TAB_KEY = 'xnk_tt_current_tab';
 const CUSTOM_BUTTONS_KEY = 'bce_custom_copy_buttons';
@@ -1680,6 +1681,7 @@ export default function App() {
 
             {/* Toast Notifications */}
             <ToastContainer />
+            <ImageLightbox />
 
             {/* Sidebar Navigation */}
             <Sidebar
