@@ -56,7 +56,11 @@ async function checkConnection() {
 $('#btnConnect').onclick = checkConnection;
 
 // ---------- Tabs ----------
+const pageParams = new URLSearchParams(location.search);
+const productsOnly = pageParams.get('view') === 'products';
 function showTab(name) {
+  // Module Sản phẩm: ẩn thanh mục, chỉ hiện lại khi sang Tạo / Sửa để còn đường quay về
+  document.querySelector('nav.tabs').style.display = productsOnly && name === 'products' ? 'none' : '';
   $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
   $$('.panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + name));
   if (name === 'auto') renderAuto();
@@ -64,6 +68,8 @@ function showTab(name) {
   if (window.parent !== window) window.parent.postMessage({ type: 'HUB_FS_TAB', tab: name }, '*');
 }
 $$('.tab').forEach((t) => (t.onclick = () => showTab(t.dataset.tab)));
+if (pageParams.has('hideProducts')) $('.tab[data-tab="products"]').style.display = 'none';
+if (productsOnly) showTab('products');
 // Trang chung (hub) yêu cầu chuyển tab
 window.addEventListener('message', (e) => {
   if (e.source === window.parent && e.data && e.data.type === 'HUB_SHOW_FS_TAB') showTab(e.data.tab);

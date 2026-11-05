@@ -25,6 +25,29 @@ export const P_TABLE_DEFAULT_COLS = [
   { id: 'actions', label: 'Thao tác', isParent: true, defaultWidth: 320, defaultAlign: 'left', defaultWrap: true, defaultFixed: false }
 ];
 let pTableCols = [];
+const SHEET_TABLE_DEFAULT_COLS = [
+  { id: 'chk', label: 'Chọn', isParent: true, defaultWidth: 46, defaultAlign: 'center', defaultWrap: false, defaultFixed: true },
+  { id: 'gian', label: 'Gian', isParent: true, defaultWidth: 80, defaultAlign: 'center', defaultWrap: false, defaultFixed: false },
+  { id: 'itemId', label: 'ID chính', isParent: true, defaultWidth: 140, defaultAlign: 'left', defaultWrap: false, defaultFixed: false },
+  { id: 'name', label: 'Tên sản phẩm', isParent: true, defaultWidth: 230, defaultAlign: 'left', defaultWrap: true, defaultFixed: false },
+  { id: 'link', label: 'Link SP', isParent: true, defaultWidth: 70, defaultAlign: 'center', defaultWrap: false, defaultFixed: false },
+  { id: 'desc', label: 'Mô tả SP', isParent: true, defaultWidth: 180, defaultAlign: 'left', defaultWrap: true, defaultFixed: false },
+  { id: 'parentSku', label: 'SKU', isParent: true, defaultWidth: 110, defaultAlign: 'left', defaultWrap: false, defaultFixed: false },
+  { id: 'modelId', label: 'ID phân loại', isParent: false, defaultWidth: 95, defaultAlign: 'left', defaultWrap: false, defaultFixed: false },
+  { id: 'modelName', label: 'Tên phân loại', isParent: false, defaultWidth: 130, defaultAlign: 'left', defaultWrap: true, defaultFixed: false },
+  { id: 'modelSku', label: 'SKU phân loại', isParent: false, defaultWidth: 115, defaultAlign: 'left', defaultWrap: false, defaultFixed: false },
+  { id: 'modelImg', label: 'Ảnh phân loại', isParent: false, defaultWidth: 75, defaultAlign: 'center', defaultWrap: false, defaultFixed: false },
+  { id: 'images', label: 'Ảnh chính', isParent: true, defaultWidth: 90, defaultAlign: 'center', defaultWrap: false, defaultFixed: false },
+  { id: 'descImages', label: 'Ảnh mô tả', isParent: true, defaultWidth: 90, defaultAlign: 'center', defaultWrap: false, defaultFixed: false },
+  { id: 'videos', label: 'Video', isParent: true, defaultWidth: 80, defaultAlign: 'center', defaultWrap: false, defaultFixed: false },
+  { id: 'price', label: 'Giá', isParent: false, defaultWidth: 95, defaultAlign: 'right', defaultWrap: false, defaultFixed: false },
+  { id: 'promoPrice', label: 'Giá KM', isParent: false, defaultWidth: 95, defaultAlign: 'right', defaultWrap: false, defaultFixed: false },
+  { id: 'stock', label: 'Tồn kho', isParent: false, defaultWidth: 105, defaultAlign: 'center', defaultWrap: false, defaultFixed: false },
+  { id: 'createTime', label: 'Ngày tạo', isParent: true, defaultWidth: 95, defaultAlign: 'center', defaultWrap: false, defaultFixed: false },
+  { id: 'actions', label: 'Thao tác', isParent: true, defaultWidth: 320, defaultAlign: 'left', defaultWrap: true, defaultFixed: false }
+];
+let sheetTableCols = [];
+const getActiveSheetCols = () => (sheetTableCols.length ? sheetTableCols : SHEET_TABLE_DEFAULT_COLS).filter((c) => c.visible !== false);
 export const getActivePTableCols = () => (pTableCols.length ? pTableCols : P_TABLE_DEFAULT_COLS).filter((c) => c.visible !== false);
 
 const PAGE_SIZE = 50;
@@ -198,6 +221,9 @@ export function renderPTableThead() {
   }
 }
 
+// Ô SKU sửa được: modelId rỗng là SKU sản phẩm
+const skuView = (value, itemId, modelId = '') => `<span class="sku-edit-view" data-item-id="${esc(itemId)}" data-model-id="${esc(modelId)}" title="Bấm để sửa SKU trên Shopee" style="cursor:pointer;">${esc(value) || '<span class="muted">—</span>'} <span style="font-size:10px;opacity:.65;">✏️</span></span>`;
+
 function productRows(p) {
   const activeCols = getActivePTableCols();
   const st = statusOf(p);
@@ -227,10 +253,10 @@ function productRows(p) {
       name: () => `<td data-col="name" ${rs} class="name-cell"><div class="name">${esc(p.name)}</div><span class="status ${st.cls}">${st.label}</span></td>`,
       link: () => `<td data-col="link" ${rs}>${linkCell}</td>`,
       desc: () => `<td data-col="desc" ${rs}>${descCell}</td>`,
-      parentSku: () => `<td data-col="parentSku" ${rs}>${esc(p.parentSku) || '<span class="muted">—</span>'}</td>`,
+      parentSku: () => `<td data-col="parentSku" ${rs}>${skuView(p.parentSku, p.itemId)}</td>`,
       modelId: () => `<td data-col="modelId">${m.modelId || '—'}</td>`,
       modelName: () => `<td data-col="modelName">${esc(m.name) || '<span class="muted">Mặc định</span>'}</td>`,
-      modelSku: () => `<td data-col="modelSku">${esc(m.sku) || '<span class="muted">—</span>'}</td>`,
+      modelSku: () => `<td data-col="modelSku">${skuView(m.sku, p.itemId, m.modelId || 0)}</td>`,
       modelImg: () => `<td data-col="modelImg">${media ? (mImg ? thumb(mImg, m.name) : '<span class="muted">—</span>') : loadingCell}</td>`,
       images: () => `<td data-col="images" ${rs}>${media ? imagesCell(media.images) : (p.image ? `<img class="cell-img" src="${esc(p.image)}">` : loadingCell)}</td>`,
       descImages: () => `<td data-col="descImages" ${rs}>${media ? imagesCell(media.descImages) : loadingCell}</td>`,
@@ -1017,6 +1043,36 @@ function productToSpShopeeFullRows(p, maGian) {
   });
 }
 
+// Tải mô tả/ảnh/video của cả lô (5 SP cùng lúc, lỗi thì thử lại 1 lần). Trả về các SP không tải được.
+async function ensureMediaForList(list, btn) {
+  const queue = list.filter((p) => !mediaCache.has(p.itemId));
+  const failed = [];
+  let done = 0;
+  const worker = async () => {
+    while (queue.length) {
+      const item = queue.shift();
+      try {
+        await getMedia(item.itemId);
+      } catch {
+        await sleep(1000);
+        await getMedia(item.itemId).catch((e) => {
+          console.warn(`Lỗi media SP ${item.itemId}:`, e);
+          failed.push(item);
+        });
+      }
+      done++;
+      if (btn) btn.textContent = `Tải mô tả, ảnh, video (${done}/${total})...`;
+    }
+  };
+  const total = queue.length;
+  await Promise.all(Array.from({ length: 5 }, worker));
+  return failed;
+}
+
+const mediaFailNote = (failed) => failed.length
+  ? ` ${failed.length} SP thiếu mô tả/ảnh/video vì tải lỗi: ${failed.slice(0, 5).map((p) => p.itemId).join(', ')}${failed.length > 5 ? '...' : ''}. Bấm lại để thử tiếp.`
+  : '';
+
 async function fillAllToSpShopeeFull() {
   const list = state.all;
   if (!list.length) return hooks.toast('Chưa có dữ liệu sản phẩm. Vui lòng bấm "Tải toàn bộ sản phẩm" trước!', 'error');
@@ -1040,20 +1096,22 @@ async function fillAllToSpShopeeFull() {
   const oldText = btn ? btn.textContent : '';
   if (btn) {
     btn.disabled = true;
-    btn.textContent = 'Đang đẩy lên Sheet đầy đủ...';
+    btn.textContent = 'Đang chuẩn bị...';
   }
 
   try {
+    const failed = await ensureMediaForList(list, btn);
     const allRows = [];
     for (const p of list) {
       allRows.push(...productToSpShopeeFullRows(p, currentMaGian));
     }
 
+    if (btn) btn.textContent = 'Đang đẩy lên Sheet đầy đủ...';
     const res = await new Promise((resolve) => {
       chrome.runtime.sendMessage({ type: 'UPLOAD_SP_SHOPEE_DAY_DU', values: allRows, maGian: currentMaGian }, resolve);
     });
     if (res && res.ok) {
-      hooks.toast(`Đã cập nhật thành công ${allRows.length} dòng vào sheet ${res.sheetTitle || 'SP Shopee đầy đủ'}!`, 'success');
+      hooks.toast(`Đã cập nhật thành công ${allRows.length} dòng vào sheet ${res.sheetTitle || 'SP Shopee đầy đủ'}!${mediaFailNote(failed)}`, failed.length ? 'error' : 'success');
       const sel = $('#sheetSourceSelect');
       if (sel) sel.value = 'SP_SHOPEE_DAY_DU';
       if (sheetProductsRows.length > 0) {
@@ -1092,7 +1150,7 @@ function productToWebSpRows(p, maGian) {
   }
 
   return p.models.map((m, idx) => {
-    const mImg = (m0 && m0.modelImages && m0.modelImages[m.modelId]) ? m0.modelImages[m.modelId].url : '';
+    const mImg = (m0 && m0.modelImages && m0.modelImages[m.modelId]) ? m0.modelImages[m.modelId].url : (m.image || '');
     const autoId = 'WEB_' + p.itemId + (m.modelId ? '_' + m.modelId : (p.models.length > 1 ? '_' + idx : ''));
 
     // Cột H: Điền tất cả các ảnh vào và ảnh cách nhau | (kèm ảnh phân loại nếu có)
@@ -1153,18 +1211,7 @@ async function fillAllToWebSp() {
   }
 
   try {
-    const missing = list.filter((p) => !mediaCache.has(p.itemId));
-    if (missing.length > 0) {
-      for (let i = 0; i < missing.length; i++) {
-        if (btn) btn.textContent = `Tải media (${i + 1}/${missing.length})...`;
-        try {
-          await getMedia(missing[i].itemId);
-          await sleep(150);
-        } catch (e) {
-          console.warn(`Lỗi media SP ${missing[i].itemId}:`, e);
-        }
-      }
-    }
+    const failed = await ensureMediaForList(list, btn);
 
     const allRows = [];
     for (const p of list) {
@@ -1173,10 +1220,10 @@ async function fillAllToWebSp() {
 
     if (btn) btn.textContent = 'Đang đẩy lên WEB_SP...';
     const res = await new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: 'UPLOAD_WEB_SP', values: allRows, maGian: currentMaGian }, resolve);
+      chrome.runtime.sendMessage({ type: 'UPLOAD_WEB_SP', values: allRows, maGian: currentMaGian, partial: isSel }, resolve);
     });
     if (res && res.ok) {
-      hooks.toast(`Đã cập nhật thành công ${allRows.length} dòng vào sheet WEB_SP!`, 'success');
+      hooks.toast(`Đã cập nhật thành công ${allRows.length} dòng vào sheet WEB_SP!${mediaFailNote(failed)}`, failed.length ? 'error' : 'success');
     } else {
       throw new Error((res && res.error) || 'Lỗi không xác định');
     }
@@ -1730,10 +1777,16 @@ function populateSheetGianDropdown() {
   }
 }
 
+// Ngày trên sheet dạng ngày/tháng/năm (vd 2/11/2026). SP không có ngày xếp cuối.
+function sheetDateValue(text) {
+  const m = String(text || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return Date.UTC(+m[3], +m[2] - 1, +m[1]);
+  return Date.parse(text) || 0;
+}
+
 function filteredSheetProducts() {
   const kw = ($('#sheetSearchInput')?.value || '').trim().toLowerCase();
   const gianFilter = ($('#sheetGianFilter')?.value || '').trim().toLowerCase();
-  const stockFilter = $('#sheetStockFilter')?.value || '';
   const sort = $('#sheetSortFilter')?.value || 'newest';
 
   let list = sheetState.products.filter((p) => {
@@ -1751,11 +1804,6 @@ function filteredSheetProducts() {
       if (!hay.includes(kw)) return false;
     }
 
-    const s = sheetTotalStock(p);
-    if (stockFilter === 'out' && s > 0) return false;
-    if (stockFilter === 'low' && !(s > 0 && s <= 10)) return false;
-    if (stockFilter === 'in' && s <= 0) return false;
-
     return true;
   });
 
@@ -1765,12 +1813,7 @@ function filteredSheetProducts() {
     priceDesc: (a, b) => sheetMaxPrice(b) - sheetMaxPrice(a),
     stockAsc: (a, b) => sheetTotalStock(a) - sheetTotalStock(b),
     stockDesc: (a, b) => sheetTotalStock(b) - sheetTotalStock(a),
-    newest: (a, b) => {
-      const tA = Date.parse(a.createTime) || 0;
-      const tB = Date.parse(b.createTime) || 0;
-      if (tA && tB) return tB - tA;
-      return 0;
-    }
+    newest: (a, b) => sheetDateValue(b.createTime) - sheetDateValue(a.createTime)
   };
 
   if (sorters[sort]) list = list.slice().sort(sorters[sort]);
@@ -1824,59 +1867,69 @@ function sheetProductRows(p) {
       ? thumb(m.imgObj, m.name)
       : (m.image ? `<a href="${esc(m.image)}" target="_blank"><img class="cell-img" src="${esc(m.image)}" loading="lazy"></a>` : '<span class="muted">—</span>');
 
-    const stockCell = `<td class="stock-cell" data-item-id="${p.itemId}" data-model-id="${m.modelId || 0}" data-stock="${m.stock}" style="text-align:center;">
+    const stockCell = `<td class="stock-cell" data-col="stock" data-item-id="${p.itemId}" data-model-id="${m.modelId || 0}" data-stock="${m.stock}">
       <div class="stock-display" style="display:inline-flex;align-items:center;gap:4px;justify-content:center;">
         <span class="stock-num" style="${isOut ? 'color:var(--err);font-weight:700;' : 'font-weight:600;'}" title="Bấm để sửa tồn kho trên Shopee">${m.stock}</span>
         <button type="button" class="btn-stock-edit" title="Sửa tồn kho trên Shopee" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;padding:0;font-size:10.5px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:3px;cursor:pointer;opacity:0.75;" onmouseover="this.style.opacity=1;this.style.background='#e0f2fe'" onmouseout="this.style.opacity=0.75;this.style.background='#f8fafc'">✏️</button>
       </div>
     </td>`;
 
-    if (i > 0) {
-      return `<tr class="model-row" data-sheet-key="${esc(p.key)}" data-id="${p.itemId}">
-        <td style="font-family:monospace;font-size:11px;">${m.modelId || '<span class="muted">—</span>'}</td>
-        <td style="font-size:12px;color:#334155;">${esc(m.name) || '<span class="muted">Mặc định</span>'}</td>
-        <td style="font-family:monospace;font-size:11.5px;color:#334155;">${esc(m.sku) || '<span class="muted">—</span>'}</td>
-        <td style="text-align:center;">${mImgCell}</td>
-        <td style="text-align:right;font-weight:600;font-size:12.5px;">${m.price ? money(m.price) : '<span class="muted">—</span>'}</td>
-        <td style="text-align:right;font-weight:600;color:#e11d48;font-size:12.5px;">${m.promoPrice && m.promoPrice < m.price ? money(m.promoPrice) : '<span class="muted">—</span>'}</td>
-        ${stockCell}
-      </tr>`;
-    }
-
-    return `<tr class="first-model" data-sheet-key="${esc(p.key)}" data-id="${p.itemId}">
-      <td ${rs} style="text-align:center;"><input type="checkbox" data-sheet-sel="${esc(p.key)}" ${sheetState.selected.has(p.key) ? 'checked' : ''}></td>
-      <td ${rs} style="font-weight:600;text-align:center;">${gianBadge}</td>
-      <td ${rs}>
-        <span style="font-family:monospace;font-weight:600;color:#0f172a;">${esc(p.itemId)}</span>
-        <button type="button" class="btn small" data-copy-sheet="${esc(p.itemId)}" title="Sao chép Mã SP" style="padding:1px 5px;font-size:11px;margin-left:4px;">📋</button>
-      </td>
-      <td ${rs} class="name-cell">
-        <div class="name" title="${esc(p.name)}">${esc(p.name)}</div>
-      </td>
-      <td ${rs} style="text-align:center;">${linkCell}</td>
-      <td ${rs}>${descCell}</td>
-      <td ${rs} style="font-family:monospace;font-size:11.5px;color:#334155;">${esc(p.parentSku) || '<span class="muted">—</span>'}</td>
-      <td style="font-family:monospace;font-size:11px;">${m.modelId || '<span class="muted">—</span>'}</td>
-      <td style="font-size:12px;color:#334155;">${esc(m.name) || '<span class="muted">Mặc định</span>'}</td>
-      <td style="font-family:monospace;font-size:11.5px;color:#334155;">${esc(m.sku) || '<span class="muted">—</span>'}</td>
-      <td style="text-align:center;">${mImgCell}</td>
-      <td ${rs} style="text-align:center;">${sheetImagesCell(p.images, p.key)}</td>
-      <td ${rs} style="text-align:center;">${sheetImagesCell(p.descImages, p.key)}</td>
-      <td ${rs} style="text-align:center;">${videoCell(p.videos)}</td>
-      <td style="text-align:right;font-weight:600;font-size:12.5px;">${m.price ? money(m.price) : '<span class="muted">—</span>'}</td>
-      <td style="text-align:right;font-weight:600;color:#e11d48;font-size:12.5px;">${m.promoPrice && m.promoPrice < m.price ? money(m.promoPrice) : '<span class="muted">—</span>'}</td>
-      ${stockCell}
-      <td ${rs} style="text-align:center;font-size:12px;color:#64748b;">${esc(p.createTime) || '<span class="muted">—</span>'}</td>
-      <td ${rs} class="row" style="white-space:nowrap;gap:4px;">
+    const parentCell = {
+      chk: () => `<input type="checkbox" data-sheet-sel="${esc(p.key)}" ${sheetState.selected.has(p.key) ? 'checked' : ''}>`,
+      gian: () => gianBadge,
+      itemId: () => `<span style="font-family:monospace;font-weight:600;color:#0f172a;">${esc(p.itemId)}</span>
+        <button type="button" class="btn small" data-copy-sheet="${esc(p.itemId)}" title="Sao chép Mã SP" style="padding:1px 5px;font-size:11px;margin-left:4px;">📋</button>`,
+      name: () => `<div class="name" title="${esc(p.name)}">${esc(p.name)}</div>`,
+      link: () => linkCell,
+      desc: () => descCell,
+      parentSku: () => `<span style="font-family:monospace;font-size:11.5px;color:#334155;">${skuView(p.parentSku, p.itemId)}</span>`,
+      images: () => sheetImagesCell(p.images, p.key),
+      descImages: () => sheetImagesCell(p.descImages, p.key),
+      videos: () => videoCell(p.videos),
+      createTime: () => `<span style="font-size:12px;color:#64748b;">${esc(p.createTime) || '<span class="muted">—</span>'}</span>`,
+      actions: () => `<div class="row" style="gap:4px;">
         <button class="btn small" data-open-edit="${p.itemId}" data-sheet-key="${esc(p.key)}" title="Xem &amp; Chỉnh sửa chi tiết sản phẩm đầy đủ như Shopee Portal" style="font-weight:700;background:#f59e0b;border-color:#d97706;color:#fff;">📝 Sửa chi tiết</button>
         <button class="btn small primary" data-sheet-to-fs="${esc(p.key)}" title="Đưa sản phẩm này vào Flash Sale">⚡ FS</button>
         <button class="btn small" data-sheet-media="${esc(p.key)}" title="Xem ảnh & video">🖼 Ảnh</button>
         <button class="btn small" data-sync-item="${p.itemId}" title="Đồng bộ lại thông tin &amp; tồn kho của sản phẩm này từ Shopee" style="font-weight:700;background:#6366f1;border-color:#4f46e5;color:#fff;">🔄 Đồng bộ</button>
         <a class="btn small" target="_blank" href="https://banhang.shopee.vn/portal/product/${p.itemId}">Sửa</a>
         ${sLink ? `<a class="btn small" target="_blank" href="${esc(sLink)}">Xem</a>` : ''}
-      </td>
-    </tr>`;
+      </div>`
+    };
+    const modelCell = {
+      modelId: () => `<td data-col="modelId" style="font-family:monospace;font-size:11px;">${m.modelId || '<span class="muted">—</span>'}</td>`,
+      modelName: () => `<td data-col="modelName" style="font-size:12px;color:#334155;">${esc(m.name) || '<span class="muted">Mặc định</span>'}</td>`,
+      modelSku: () => `<td data-col="modelSku" style="font-family:monospace;font-size:11.5px;color:#334155;">${skuView(m.sku, p.itemId, m.modelId || 0)}</td>`,
+      modelImg: () => `<td data-col="modelImg">${mImgCell}</td>`,
+      price: () => `<td data-col="price" style="font-weight:600;font-size:12.5px;">${m.price ? money(m.price) : '<span class="muted">—</span>'}</td>`,
+      promoPrice: () => `<td data-col="promoPrice" style="font-weight:600;color:#e11d48;font-size:12.5px;">${m.promoPrice && m.promoPrice < m.price ? money(m.promoPrice) : '<span class="muted">—</span>'}</td>`,
+      stock: () => stockCell
+    };
+    const cells = getActiveSheetCols().map((c) => {
+      if (modelCell[c.id]) return modelCell[c.id]();
+      return i === 0 && parentCell[c.id] ? `<td ${rs} data-col="${c.id}">${parentCell[c.id]()}</td>` : '';
+    }).join('');
+    return `<tr class="${i === 0 ? 'first-model' : 'model-row'}" data-sheet-key="${esc(p.key)}" data-id="${p.itemId}">${cells}</tr>`;
   }).join('');
+}
+
+function renderSheetTableThead() {
+  const thead = $('#sheetPTable thead');
+  if (!thead) return;
+  thead.innerHTML = `<tr>${getActiveSheetCols().map((c) => (c.id === 'chk'
+    ? '<th data-col="chk"><input type="checkbox" id="sheetChkAll" title="Chọn cả trang"></th>'
+    : `<th data-col="${c.id}">${esc(c.label)}</th>`)).join('')}</tr>`;
+  const chkAll = $('#sheetChkAll');
+  if (chkAll) {
+    chkAll.onchange = (e) => {
+      const start = (sheetState.page - 1) * sheetState.pageSize;
+      filteredSheetProducts().slice(start, start + sheetState.pageSize).forEach((p) => {
+        if (e.target.checked) sheetState.selected.add(p.key);
+        else sheetState.selected.delete(p.key);
+      });
+      renderSheetProductsTable();
+    };
+  }
 }
 
 function renderSheetProductsTable() {
@@ -1902,7 +1955,7 @@ function renderSheetProductsTable() {
   if (!tbody) return;
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="19" class="muted" style="text-align:center;padding:30px;">${sheetState.products.length ? 'Không có sản phẩm khớp bộ lọc.' : 'Chưa có dữ liệu.'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${getActiveSheetCols().length}" class="muted" style="text-align:center;padding:30px;">${sheetState.products.length ? 'Không có sản phẩm khớp bộ lọc.' : 'Chưa có dữ liệu.'}</td></tr>`;
   } else {
     tbody.innerHTML = rows.map(sheetProductRows).join('');
   }
@@ -1929,6 +1982,83 @@ function renderSheetProductsTable() {
   }
 }
 
+// ---------- Sửa SKU tại ô ----------
+function applySavedSku(itemId, modelId, sku) {
+  const lists = [state.all, sheetState.products];
+  for (const list of lists) {
+    for (const p of list.filter((x) => Number(x.itemId) === Number(itemId))) {
+      if (modelId === null) p.parentSku = sku;
+      else (p.models.find((m) => Number(m.modelId || 0) === modelId) || (p.models.length === 1 ? p.models[0] : {})).sku = sku;
+    }
+  }
+}
+
+function onSkuEditClick(e) {
+  const view = e.target.closest('.sku-edit-view');
+  if (!view) return;
+  e.stopPropagation();
+  const td = view.closest('td');
+  const itemId = view.dataset.itemId;
+  const modelId = view.dataset.modelId === '' ? null : Number(view.dataset.modelId);
+  const list = [...state.all, ...sheetState.products].find((x) => Number(x.itemId) === Number(itemId));
+  const model = modelId === null ? null : list?.models.find((m) => Number(m.modelId || 0) === modelId) || (list?.models.length === 1 ? list.models[0] : null);
+  const oldSku = String((modelId === null ? list?.parentSku : model?.sku) ?? '');
+  const oldHtml = td.innerHTML;
+  const oldWhiteSpace = td.style.whiteSpace;
+
+  td.style.whiteSpace = 'normal';
+  td.innerHTML = `<div class="sku-inline-form" style="display:flex;flex-wrap:wrap;gap:3px;">
+    <input type="text" class="sku-inline-input" maxlength="100" value="${esc(oldSku)}" style="flex:1 1 100%;min-width:0;height:24px;padding:0 4px;font-size:11.5px;">
+    <button type="button" class="btn small primary btn-sku-save" style="height:22px;padding:0 6px;background:#16a34a;border-color:#16a34a;color:#fff;">Lưu</button>
+    <button type="button" class="btn small btn-sku-cancel" style="height:22px;padding:0 6px;" title="Hủy">✕</button>
+  </div>`;
+  const input = td.querySelector('.sku-inline-input');
+  const saveBtn = td.querySelector('.btn-sku-save');
+  const cancelBtn = td.querySelector('.btn-sku-cancel');
+  input.focus();
+  input.select();
+
+  const close = () => {
+    td.innerHTML = oldHtml;
+    td.style.whiteSpace = oldWhiteSpace;
+  };
+  const save = async () => {
+    const sku = input.value.trim();
+    if (sku === oldSku.trim()) return close();
+    saveBtn.disabled = true;
+    cancelBtn.disabled = true;
+    input.disabled = true;
+    saveBtn.textContent = '⏳';
+    try {
+      await products.updateSku(itemId, modelId, sku);
+      applySavedSku(itemId, modelId, sku);
+      persistProductsCache();
+      const mainP = state.all.find((x) => Number(x.itemId) === Number(itemId));
+      if (mainP) autoSyncProductToSpShopee(mainP);
+      const sheetRes = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'UPDATE_SKU_IN_SHEETS', itemId, modelId, sku }, resolve);
+      });
+      if (sheetRes && sheetRes.ok) hooks.toast(`✔ Đã lưu SKU "${sku || 'trống'}" lên Shopee và ${sheetRes.updated} ô trên Sheet`, 'success');
+      else hooks.toast(`Đã lưu lên Shopee nhưng chưa ghi được Sheet: ${(sheetRes && sheetRes.error) || 'không rõ lỗi'}`, 'error');
+      render();
+      renderSheetProductsTable();
+    } catch (err) {
+      hooks.toast('Lỗi lưu SKU: ' + err.message, 'error');
+      saveBtn.disabled = false;
+      cancelBtn.disabled = false;
+      input.disabled = false;
+      saveBtn.textContent = 'Lưu';
+    }
+  };
+  saveBtn.onclick = (ev) => { ev.stopPropagation(); save(); };
+  cancelBtn.onclick = (ev) => { ev.stopPropagation(); close(); };
+  input.onclick = (ev) => ev.stopPropagation();
+  input.onkeydown = (ev) => {
+    if (ev.key === 'Enter') save();
+    if (ev.key === 'Escape') close();
+  };
+}
+
 // ---------- Khởi tạo ----------
 export async function initProductsTab(h) {
   hooks = { ...hooks, ...h };
@@ -1949,9 +2079,12 @@ export async function initProductsTab(h) {
   const btnReloadSheet = $('#btnReloadSheetProducts');
   if (btnReloadSheet) btnReloadSheet.onclick = () => loadSheetProducts(true);
 
-  for (const id of ['#sheetStockFilter', '#sheetSortFilter']) {
-    const el = $(id);
-    if (el) el.onchange = () => { sheetState.page = 1; renderSheetProductsTable(); };
+  const sheetSortFilter = $('#sheetSortFilter');
+  if (sheetSortFilter) {
+    sheetSortFilter.onchange = () => {
+      sheetState.page = 1;
+      renderSheetProductsTable();
+    };
   }
 
   const sheetGianSelect = $('#sheetGianFilter');
@@ -1979,8 +2112,6 @@ export async function initProductsTab(h) {
     btnClearSheet.onclick = () => {
       if (sheetGianSelect) sheetGianSelect.value = '';
       if (sheetSearchInput) sheetSearchInput.value = '';
-      const stockEl = $('#sheetStockFilter');
-      if (stockEl) stockEl.value = '';
       const sortEl = $('#sheetSortFilter');
       if (sortEl) sortEl.value = 'newest';
       sheetState.page = 1;
@@ -1988,133 +2119,27 @@ export async function initProductsTab(h) {
     };
   }
 
-  const chkAllSheet = $('#sheetChkAll');
-  if (chkAllSheet) {
-    chkAllSheet.onchange = (e) => {
-      const list = filteredSheetProducts();
-      const start = (sheetState.page - 1) * sheetState.pageSize;
-      list.slice(start, start + sheetState.pageSize).forEach((p) => {
-        if (e.target.checked) sheetState.selected.add(p.key);
-        else sheetState.selected.delete(p.key);
-      });
-      renderSheetProductsTable();
-    };
-  }
-
-  const btnSheetSelFiltered = $('#btnSheetSelectFiltered');
-  if (btnSheetSelFiltered) {
-    btnSheetSelFiltered.onclick = () => {
-      filteredSheetProducts().forEach((p) => sheetState.selected.add(p.key));
-      renderSheetProductsTable();
-    };
-  }
-
-  const btnSheetClearSel = $('#btnSheetClearSel');
-  if (btnSheetClearSel) {
-    btnSheetClearSel.onclick = () => {
-      sheetState.selected.clear();
-      if (chkAllSheet) chkAllSheet.checked = false;
-      renderSheetProductsTable();
-    };
-  }
-
-  const btnSheetToFs = $('#btnSheetToFs');
-  if (btnSheetToFs) {
-    btnSheetToFs.onclick = () => {
-      const list = selectedSheetProducts();
-      if (!list.length) return hooks.toast('Chưa chọn sản phẩm nào từ Sheet', 'error');
-      hooks.onFlashSale(list);
-    };
-  }
-
-  const btnSheetBatchStock = $('#btnSheetEditStockBatch');
-  if (btnSheetBatchStock) {
-    btnSheetBatchStock.onclick = async () => {
-      const list = selectedSheetProducts();
-      if (!list.length) return hooks.toast('Vui lòng tích chọn ít nhất 1 sản phẩm để sửa tồn kho!', 'error');
-
-      const input = prompt(`Nhập số lượng tồn kho mới cho ${list.length} sản phẩm đã chọn:\n(Tồn kho sẽ được cập nhật trực tiếp lên Kênh Người Bán Shopee.
-Shop nhiều kho: số này ghi vào kho đầu tiên – Hà Nội, các kho khác giữ nguyên)`, '100');
-      if (input === null) return;
-      const newStock = parseInt(input.trim(), 10);
-      if (isNaN(newStock) || newStock < 0) {
-        return hooks.toast('Số lượng tồn kho không hợp lệ (phải >= 0)', 'error');
+  sheetTableCols = getTableConfig('sheetPTable', SHEET_TABLE_DEFAULT_COLS);
+  applyTableStyles('sheetPTable', sheetTableCols);
+  renderSheetTableThead();
+  const btnSheetCols = $('#btnSheetTableCols');
+  if (btnSheetCols) {
+    btnSheetCols.onclick = () => openColumnCustomizerModal({
+      tableId: 'sheetPTable',
+      tableName: 'Bảng SP từ Sheet',
+      defaultCols: SHEET_TABLE_DEFAULT_COLS,
+      currentConfig: sheetTableCols,
+      onSave: (newCfg) => {
+        sheetTableCols = newCfg;
+        renderSheetTableThead();
+        renderSheetProductsTable();
       }
-
-      if (!confirm(`Xác nhận cập nhật tồn kho = ${newStock} cho toàn bộ ${list.length} sản phẩm đã chọn trên Shopee?`)) return;
-
-      btnSheetBatchStock.disabled = true;
-      const oldText = btnSheetBatchStock.textContent;
-      let successCount = 0;
-      let failCount = 0;
-
-      for (let i = 0; i < list.length; i++) {
-        const p = list[i];
-        btnSheetBatchStock.textContent = `Đang cập nhật (${i + 1}/${list.length})...`;
-        try {
-          const res = await products.updateStock(p.itemId, 0, newStock, true);
-          p.models.forEach((m) => { m.stock = newStock; m.locationStocksSynced = true; });
-          p.stock = newStock * p.models.length;
-          applySavedStock(p, res, null, newStock);
-
-          const mainP = state.all.find((x) => Number(x.itemId) === Number(p.itemId));
-          if (mainP) {
-            mainP.models.forEach((m) => { m.stock = newStock; m.locationStocksSynced = true; });
-            mainP.stock = newStock * mainP.models.length;
-            autoSyncProductToSpShopee(mainP);
-          }
-          successCount++;
-        } catch (err) {
-          console.warn(`Lỗi sửa tồn kho SP #${p.itemId}:`, err);
-          failCount++;
-        }
-        await sleep(200);
-      }
-
-      persistProductsCache();
-      btnSheetBatchStock.disabled = false;
-      btnSheetBatchStock.textContent = oldText;
-      renderSheetProductsTable();
-      hooks.toast(`Đã cập nhật tồn kho thành công cho ${successCount}/${list.length} sản phẩm trên Shopee${failCount ? ` (${failCount} lỗi)` : ''}!`, successCount ? 'success' : 'error');
-    };
+    });
   }
 
   const btnSheetSyncBatch = $('#btnSheetSyncBatch');
   if (btnSheetSyncBatch) {
     btnSheetSyncBatch.onclick = () => syncBatchProducts(true);
-  }
-
-  const btnSheetExportMedia = $('#btnSheetExportMedia');
-  if (btnSheetExportMedia) {
-    btnSheetExportMedia.onclick = () => {
-      const list = sheetState.selected.size > 0 ? selectedSheetProducts() : filteredSheetProducts();
-      if (!list.length) return hooks.toast('Không có sản phẩm nào để xuất link ảnh/video', 'error');
-
-      const head = ['Mã sản phẩm', 'Gian', 'Tên sản phẩm'];
-      for (let i = 1; i <= 9; i++) head.push(`Ảnh ${i}`);
-      head.push('Ảnh phân loại', 'Ảnh mô tả', 'Video');
-
-      const cell = (s) => `"${String(s ?? '').replace(/"/g, '""')}"`;
-      const lines = [head.map(cell).join(',')];
-
-      for (const p of list) {
-        const row = [p.itemId, p.gian || '', p.name];
-        const imgs = (p.images || []).map((x) => x.url);
-        for (let k = 0; k < 9; k++) row.push(imgs[k] || '');
-        row.push((p.models || []).filter((m) => m.image).map((m) => `${m.name}: ${m.image}`).join('\n'));
-        row.push((p.descImages || []).map((x) => x.url).join('\n'));
-        row.push((p.videos || []).map((v) => v.url || (v.id ? 'video_id ' + v.id : '')).join('\n'));
-        lines.push(row.map(cell).join(','));
-      }
-
-      const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `anh-video-sheet-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-      hooks.toast(`Đã xuất link ảnh/video của ${list.length} sản phẩm!`, 'success');
-    };
   }
 
   const sheetTable = $('#sheetPTable');
@@ -2748,6 +2773,10 @@ Shop nhiều kho: số này ghi vào kho đầu tiên – Hà Nội, các kho kh
         openPTableCustomizer();
       }
     });
+  }
+
+  for (const table of [$('#pTable'), $('#sheetPTable')]) {
+    if (table) table.addEventListener('click', onSkuEditClick);
   }
 
   state.warehouses = await getShopWarehouses().catch(() => []);

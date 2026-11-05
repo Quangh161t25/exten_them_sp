@@ -6282,8 +6282,8 @@ saveToSheetTestButton.addEventListener("click", async () => {
 });
 
 const GRP2_TAB_IDS = new Set([
-  "tab-hang-hoan", "tab-api-images", "tab-doanh-thu", "tab-tools",
-  "tab-images", "tab-print", "tab-test", "tab-km", "tab-nhieu-don-hang", "tab-roas-that"
+  "tab-chat-ai", "tab-hang-hoan", "tab-hh-api", "tab-api-images", "tab-doanh-thu", "tab-tools",
+  "tab-images", "tab-print", "tab-km", "tab-nhieu-don-hang", "tab-roas-that"
 ]);
 
 function switchTabGroup(groupNumber, autoClickFirst = false) {
@@ -8072,15 +8072,19 @@ const CAI_DAT_TAB_NAME_TO_ID = {
   "ds don hang": "tab-nhieu-don-hang",
   "dh": "tab-nhieu-don-hang",
   "hang hoan": "tab-hang-hoan",
+  "hang hoan api": "tab-hh-api",
 
 
 
 
   "km": "tab-km",
   "khuyen mai": "tab-km",
+  "chat ai": "tab-chat-ai",
+  "tu van chat": "tab-chat-ai",
+  "chat shopee": "tab-chat-ai",
   "doanh thu": "tab-doanh-thu",
-  "test": "tab-test",
   "tien ich": "tab-tools",
+  "san pham": "tab-san-pham",
   "flash sale": "tab-fs-tool",
   "flash sale tool": "tab-fs-tool",
   "fs": "tab-fs-tool",
@@ -8106,11 +8110,6 @@ const CAI_DAT_TAB_NAME_TO_ID = {
 
 
 
-  "quet shop": "tab-quet-shop",
-  "quet sp": "tab-quet-shop",
-  "doc sp shop": "tab-quet-shop",
-  "doc san pham shop": "tab-quet-shop",
-  "quet san pham": "tab-quet-shop",
   "roas that": "tab-roas-that",
   "roas": "tab-roas-that",
   "roas quang cao": "tab-roas-that"
@@ -8164,8 +8163,8 @@ function applyCaiDatTabOrder(tabNames) {
   const grp2Container = document.getElementById("tab-group-btns-2");
 
   if (grp1Container && grp2Container) {
-    const grp1Ids = ["tab-web-sp", "tab-in-nang-cao", "tab-clone-manual", "tab-order-tool", "tab-settings", "tab-fs-tool", "tab-day-sp", "tab-hieu-qua-sp", "tab-quet-shop", "tab-autoin", "tab-autochat"];
-    const grp2Ids = ["tab-hang-hoan", "tab-api-images", "tab-doanh-thu", "tab-tools", "tab-images", "tab-print", "tab-test", "tab-km", "tab-nhieu-don-hang", "tab-roas-that"];
+    const grp1Ids = ["tab-web-sp", "tab-in-nang-cao", "tab-clone-manual", "tab-order-tool", "tab-settings", "tab-san-pham", "tab-fs-tool", "tab-day-sp", "tab-hieu-qua-sp", "tab-autoin", "tab-autochat"];
+    const grp2Ids = ["tab-chat-ai", "tab-hang-hoan", "tab-hh-api", "tab-api-images", "tab-doanh-thu", "tab-tools", "tab-images", "tab-print", "tab-km", "tab-nhieu-don-hang", "tab-roas-that"];
 
     // Sắp xếp lại trong Nhóm 1 nếu có trong orderedIds
     const orderedGrp1 = orderedIds.filter(id => grp1Ids.includes(id));

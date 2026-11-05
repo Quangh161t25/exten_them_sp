@@ -522,6 +522,10 @@ export default function App() {
                 if (currentTab === 'TINH_GIA' && !String(row[0] || '').trim() && !String(row[1] || '').trim()) {
                     return false;
                 }
+                // TINH_GIA: chỉ hiện SP con (ID_SP_CON dài hơn 5 ký tự, vd Z058-SI-00); bỏ dòng SP cha như Z058
+                if (currentTab === 'TINH_GIA' && idCon.length <= 5) {
+                    return false;
+                }
             }
 
             // DH Specific Filters

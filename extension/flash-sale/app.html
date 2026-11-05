@@ -144,12 +144,6 @@
             <select id="sheetGianFilter">
               <option value="">Tất cả gian / shop</option>
             </select>
-            <select id="sheetStockFilter">
-              <option value="">Tất cả tồn kho</option>
-              <option value="in">Còn hàng</option>
-              <option value="low">Sắp hết (≤ 10)</option>
-              <option value="out">Hết hàng</option>
-            </select>
             <label>Sắp xếp
               <select id="sheetSortFilter">
                 <option value="newest">Mới nhất</option>
@@ -164,12 +158,8 @@
           </div>
           <div class="toolbar">
             <span class="muted">Đã chọn: <b id="sheetSelCount">0</b></span>
-            <button id="btnSheetSelectFiltered" class="btn small">Chọn tất cả kết quả lọc</button>
-            <button id="btnSheetClearSel" class="btn small">Bỏ chọn</button>
-            <button id="btnSheetToFs" class="btn small">⚡ Thêm vào Flash Sale</button>
-            <button id="btnSheetEditStockBatch" class="btn small" style="background:#f59e0b;border-color:#d97706;color:#fff;font-weight:700;" title="Sửa tồn kho cho các sản phẩm đã chọn trực tiếp trên Shopee">✏️ Đổi tồn kho đã chọn</button>
             <button id="btnSheetSyncBatch" class="btn small" style="background:#6366f1;border-color:#4f46e5;color:#fff;font-weight:700;" title="Đồng bộ lại thông tin và tồn kho cho các sản phẩm đã chọn từ Shopee">🔄 Đồng bộ đã chọn</button>
-            <button id="btnSheetExportMedia" class="btn small">⬇ Xuất link ảnh/video</button>
+            <button id="btnSheetTableCols" class="btn small" title="Chỉnh sửa chi tiết các cột (ẩn hiện, kéo thả, căn lề, kích thước, cố định cột)" style="font-weight:600;"><span style="font-size:13px;">⚙️</span> Tuỳ chỉnh cột</button>
           </div>
           <div class="table-wrap">
             <table class="grid" id="sheetPTable">

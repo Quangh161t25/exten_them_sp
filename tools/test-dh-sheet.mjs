@@ -28,9 +28,18 @@ const storage={'tcdd-shop-code':'BCE'},sheet=[[...LEGACY_HEADERS],other],props={
 let listener;
 const ctx={console,Date:Clock,URLSearchParams,setTimeout,clearTimeout,AbortSignal,
   SHARED_GOOGLE_CONFIG:{webSpreadsheetId:'test'},getGoogleAccessToken:async()=>'test',ensureSheetExists:async()=>'DH',fetchSpreadsheetMetadata:async()=>({sheets:[{properties:props}]}),
-  fetchSheetValues:async range=>range.endsWith('1:1')?[sheet[0]]:structuredClone(sheet),
+  fetchSheetValues:async range=>{
+    if(range.endsWith('1:1'))return [sheet[0]];
+    const m=range.match(/!([A-Z]+)2:([A-Z]+)$/);if(!m)return structuredClone(sheet);
+    const i=[...m[1]].reduce((n,c)=>n*26+c.charCodeAt(0)-64,0)-1;
+    const v=sheet.slice(1).map(r=>[r?.[i]??'']);while(v.length&&v.at(-1)[0]==='')v.pop();return v;
+  },
   fetchJsonWithTimeout:async(url,options)=>{
     if(failWrite)throw new Error('Google unavailable');
+    if(url.includes('values:batchGet')){
+      const cols=[...url.matchAll(/ranges=([^&]+)/g)].map(m=>decodeURIComponent(m[1]).match(/!([A-Z]+)2/)[1]);
+      return {res:{ok:true},data:{valueRanges:cols.map(c=>{const i=[...c].reduce((n,ch)=>n*26+ch.charCodeAt(0)-64,0)-1;const v=sheet.slice(1).map(r=>r?.[i]??'');while(v.length&&v.at(-1)==='')v.pop();return {values:[v]};})}};
+    }
     for(const r of JSON.parse(options.body).requests){
       if(r.appendDimension){const k=r.appendDimension.dimension==='ROWS'?'rowCount':'columnCount';props.gridProperties[k]+=r.appendDimension.length;}
       if(r.updateCells){const u=r.updateCells,start=u.start||{rowIndex:u.range.startRowIndex,columnIndex:u.range.startColumnIndex};
@@ -41,7 +50,7 @@ const ctx={console,Date:Clock,URLSearchParams,setTimeout,clearTimeout,AbortSigna
     return {res:{ok:true},data:{}};
   },
   chrome:{storage:{local:{get:async keys=>Object.fromEntries((typeof keys==='string'?[keys]:keys).map(k=>[k,structuredClone(storage[k])])),set:async obj=>Object.assign(storage,structuredClone(obj))}},
-    alarms:{create(){},onAlarm:{addListener(){}}},runtime:{onMessage:{addListener(fn){listener=fn;}}},
+    alarms:{create(){},clear(){},onAlarm:{addListener(){}}},runtime:{onMessage:{addListener(fn){listener=fn;}}},
     cookies:{get:async()=>({value:'fake'})},tabs:{query:async()=>[{id:1,status:'complete',url:'https://banhang.shopee.vn/'}],get:async()=>({id:1,status:'complete',url:'https://banhang.shopee.vn/'}),onUpdated:{addListener(){},removeListener(){}}},
     scripting:{executeScript:async({args})=>{
       const [url,method,body]=args;requests++;

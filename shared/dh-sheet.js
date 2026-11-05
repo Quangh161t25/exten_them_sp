@@ -7,16 +7,18 @@ export const HEADERS = [
   // Khách
   'ten_khach','nguoi_mua_id','ng_nhan','sdt','dia_chi',
   // Sản phẩm (mỗi dòng một sản phẩm)
-  'item_id','model_id','ten_sp','phan_loai','anh','sku','sku_san_pham','slg','don_gia','thanh_tien',
+  'item_id','model_id','ten_sp','phan_loai','anh','sku','sku_san_pham','slg','don_gia','thanh_tien','gia_sp','thanh_tien_sp',
   // Tiền
-  'tong_tien','doanh_thu','phi_vc','vc_nguoi_mua','vc_tro_gia','phu_phi','phi_co_dinh','phi_dich_vu','phi_giao_dich','thue','thue_gtgt','thue_tncn','chi_tiet_phi',
+  'tong_tien','doanh_thu','phi_vc','vc_nguoi_mua','vc_tro_gia','phu_phi','phi_co_dinh','phi_dich_vu','phi_giao_dich','thue','thue_gtgt','thue_tncn','chi_tiet_phi','tong_thanh_tien_sp','loi_nhuan',
   // Vận chuyển & thời gian
   'don_vi_vc','hinh_thuc_vc','thanh_toan','han_giao','ghi_chu','ly_do_huy','ly_do_tra_hoan','ngay_hoan_thanh','ngay_huy',
   // Đồng bộ
-  'chi_tiet_dong_bo','dong_bo_luc',...RAW_HEADERS
+  'chi_tiet_dong_bo','dong_bo_luc',...RAW_HEADERS,
+  // Khóa dòng (gian|mdh|item_id-model_id|n) và dấu vân tay để biết dòng có đổi không
+  'khoa','dau_van_tay'
 ];
 // Cột của DH cũ: trống hoặc trùng với cột mới (ngay = ngay_gio, link_don tạo từ order_id).
-export const REMOVED_HEADERS = ['ngay','ma_giam_gia','phi_khac','tien_sp','loi_nhuan','tinh_trang','id_sp','link_don','mvd_huy','mdh_huy'];
+export const REMOVED_HEADERS = ['ngay','ma_giam_gia','phi_khac','tien_sp','tinh_trang','id_sp','link_don','mvd_huy','mdh_huy'];
 export const STATUS = ['Chờ thanh toán','Chờ xác nhận','Chờ lấy hàng','Đang giao','Đã giao','Hoàn thành','Đã hủy','Trả hàng','Hoàn tiền','Hoàn hàng','Trả hàng / Hoàn tiền','Khác'];
 export const norm = s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().trim();
 export function statusOf(text) {
@@ -36,11 +38,16 @@ export function statusOf(text) {
 }
 export const terminal = s=>['Hoàn thành','Đã hủy','Hoàn tiền','Hoàn hàng'].includes(statusOf(s));
 export function timestamp(value) {const n=Number(value);return n>0?new Date(n<1e12?n*1000:n).toISOString():'';}
-export function recordsForOrder(o,shop,code,findDeep,at=Date.now()) {
+// Giá SP = gia_ban DS_SP theo SKU phân loại (khớp đủ, rồi 10 ký tự đầu). prices: Map từ costMap.
+function costOf(prices,sku){const k=String(sku||'').trim().toUpperCase();if(!prices||!k)return null;const v=prices.get(k)??prices.get(k.slice(0,10));return v==null?null:v;}
+export function recordsForOrder(o,shop,code,findDeep,at=Date.now(),prices=null) {
   if(!o.orderSn || !shop.shopId || !code)throw new Error('Thiếu mã đơn hoặc mã gian/ID shop');
   const d=o.detail||{}, text=keys=>findDeep(d,keys,v=>typeof v==='string'&&v.trim())||'';
   const date=keys=>timestamp(findDeep(d,keys,v=>Number(v)>0));
-  const f=o.income?.byField||{}, hasIncome=!!o.income, detailOK=!!o.detail;
+  // byField có thể thiếu/null (đơn lưu từ bản cũ): lấy bù từ bảng chi tiết phí (rows)
+  const f={...Object.fromEntries((o.income?.rows||[]).filter(r=>r.field&&r.amount!=null).map(r=>[r.field,r.amount])),
+    ...Object.fromEntries(Object.entries(o.income?.byField||{}).filter(([,v])=>v!=null))};
+  const hasIncome=!!o.income, detailOK=!!o.detail;
   const base={gian:code,mdh:o.orderSn,shop_id:String(shop.shopId),order_id:o.orderId,
     ngay_gio:date(['create_time','order_create_time','ctime'])||timestamp(o.createTime),
     mvd:o.tracking,tong_tien:o.total,trang_thai:statusOf(o.status),mo_ta_trang_thai:[o.status,o.statusNote].filter(Boolean).join(' · '),ma_trang_thai:o.statusCode,
@@ -53,11 +60,18 @@ export function recordsForOrder(o,shop,code,findDeep,at=Date.now()) {
     for(const [key,field]of Object.entries(mapping))if(f[field]!=null)base[key]=f[field];
     base.chi_tiet_phi=JSON.stringify(o.income.rows||[]);
   }
+  // Tổng thành tiền SP & lợi nhuận: chỉ ghi khi mọi sản phẩm đều có giá trong DS_SP
+  const costs=o.items.map(it=>{const p=costOf(prices,it.modelSku||it.itemSku);return p==null||!(Number(it.qty)>0)?null:p*Number(it.qty);});
+  if(prices&&o.items.length&&costs.every(c=>c!=null)){
+    base.tong_thanh_tien_sp=costs.reduce((a,b)=>a+b,0);
+    if(hasIncome&&f.ESCROW_AMOUNT!=null)base.loi_nhuan=f.ESCROW_AMOUNT-base.tong_thanh_tien_sp;
+  }
   // Chia JSON để không vượt giới hạn 50.000 ký tự/ô. Không cắt mất dữ liệu.
   const raw=JSON.stringify({card:o.raw,detail:o.detail||null,income:o.incomeRaw||null});
   if(raw.length>RAW_HEADERS.length*45000)throw new Error(`Dữ liệu đơn ${o.orderSn} vượt dung lượng lưu JSON`);
   return (o.items.length?o.items:[{}]).map((it,i)=>{
     const r={...base,ten_sp:it.name||'',phan_loai:it.model||'',anh:it.image||'',sku:it.modelSku||'',sku_san_pham:it.itemSku||'',item_id:String(it.itemId||''),model_id:String(it.modelId||''),slg:it.qty??'',don_gia:it.price??'',thanh_tien:it.price!=null&&it.qty!=null?it.price*it.qty:''};
+    const p=costOf(prices,it.modelSku||it.itemSku);r.gia_sp=p??'';r.thanh_tien_sp=p!=null&&it.qty!=null?p*Number(it.qty):'';
     RAW_HEADERS.forEach((h,n)=>r[h]=i===0?raw.slice(n*45000,(n+1)*45000):'');
     return r;
   });
@@ -68,11 +82,61 @@ export function migrateValues(values) {
   if(values.length>1&&!old.includes('mdh'))throw new Error('Sheet DH thiếu cột mdh');
   const extra=old.filter(h=>h&&!HEADERS.includes(h)&&!REMOVED_HEADERS.includes(h));
   const raw=HEADERS.indexOf(RAW_HEADERS[0]);
-  const headers=[...HEADERS.slice(0,raw),...extra,...RAW_HEADERS];
+  const headers=[...HEADERS.slice(0,raw),...extra,...RAW_HEADERS,...HEADERS.slice(raw+RAW_HEADERS.length)];
   const dropped=REMOVED_HEADERS.filter(h=>old.includes(h)&&values.slice(1).some(r=>String(r[old.indexOf(h)]??'').trim()!==''&&!['ngay','link_don'].includes(h)));
   if(dropped.length)throw new Error(`Cột ${dropped.join(', ')} còn dữ liệu; không tự xóa`);
   const rows=values.slice(1).map(r=>headers.map(h=>{const i=old.indexOf(h);return i<0?'':(r[i]??'');}));
   return {headers,rows,removed:REMOVED_HEADERS.filter(h=>old.includes(h))};
+}
+// ---------- Ghi theo khóa (giống Hàng hoàn API): có thì ghi đè, chưa có thì thêm, không xóa dòng nào ----------
+export const KEY_COLS=['gian','mdh','item_id','model_id','khoa','dau_van_tay'];
+// FNV-1a 32 bit: đủ để phát hiện dòng thay đổi
+function hash(s){let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193);}return (h>>>0).toString(16).padStart(8,'0');}
+// Gắn khoa (n đếm khi một đơn có 2 dòng cùng phân loại) và dau_van_tay (bỏ qua giờ đồng bộ)
+export function withKeys(rows){
+  const count=new Map();
+  return rows.map(r=>{
+    const base=[r.gian,r.mdh,`${r.item_id||''}-${r.model_id||''}`].join('|'),n=(count.get(base)||0)+1;count.set(base,n);
+    const out={...r,khoa:`${base}|${n}`};
+    out.dau_van_tay=hash(JSON.stringify(HEADERS.filter(h=>!['dong_bo_luc','khoa','dau_van_tay'].includes(h)).map(h=>String(out[h]??''))));
+    return out;
+  });
+}
+// columns: {header: [giá trị từ dòng 2...]} của KEY_COLS (đọc riêng từng cột, không đọc dữ liệu gốc nặng)
+// Trả về: updates [{row (0 = dòng tiêu đề), data}], appended, unchanged, rowCount
+export function keyPlan(headersIn,columns,incoming){
+  const headers=headersIn.map(x=>String(x).trim());
+  if(new Set(headers.filter(Boolean)).size!==headers.filter(Boolean).length)throw new Error('Sheet DH có tiêu đề trùng');
+  for(const h of HEADERS)if(!headers.includes(h))headers.push(h);
+  const col=h=>columns[h]||[],n=Math.max(0,...KEY_COLS.map(h=>col(h).length));
+  // Dòng cũ chưa có khoa: tính lại theo gian/mdh/item_id/model_id như lúc ghi
+  const count=new Map(),byKey=new Map(),legacy=new Map();
+  for(let i=0;i<n;i++){
+    const gian=String(col('gian')[i]??''),mdh=String(col('mdh')[i]??'');
+    let key=String(col('khoa')[i]??'');
+    if(!key&&mdh){
+      const it=String(col('item_id')[i]??''),base=[gian,mdh,`${it}-${col('model_id')[i]??''}`].join('|'),c=(count.get(base)||0)+1;count.set(base,c);key=`${base}|${c}`;
+      // Dòng rất cũ không có item_id: ghép theo thứ tự với sản phẩm của cùng đơn
+      if(!it){const g=gian+'|'+mdh;if(!legacy.has(g))legacy.set(g,[]);legacy.get(g).push(i+1);}
+    }
+    if(key&&!byKey.has(key))byKey.set(key,{row:i+1,fp:String(col('dau_van_tay')[i]??''),hasKey:!!col('khoa')[i]});
+  }
+  const updates=[],used=new Set();let next=n+1,appended=0,unchanged=0;
+  for(const r of withKeys(incoming)){
+    let hit=byKey.get(r.khoa);
+    if(!hit){const q=legacy.get(r.gian+'|'+r.mdh);const row=q?.find(x=>!used.has(x));if(row)hit={row,fp:'',hasKey:false};}
+    if(hit&&used.has(hit.row))hit=null;
+    if(hit){
+      used.add(hit.row);
+      if(hit.hasKey&&hit.fp===r.dau_van_tay){unchanged++;continue;}
+      // Không ghi ô rỗng đè dữ liệu cũ (Shopee lỗi tạm thời trả thiếu)
+      const data=Object.fromEntries(Object.entries(r).filter(([,v])=>v!==''&&v!=null));
+      // Chi tiết đơn lỗi lần này: giữ dữ liệu gốc cũ
+      if(!String(r.chi_tiet_dong_bo).includes('Chi tiết: đã tải'))RAW_HEADERS.forEach(h=>delete data[h]);
+      updates.push({row:hit.row,data});
+    }else{updates.push({row:next++,data:r});appended++;}
+  }
+  return {headers,updates,appended,updated:updates.length-appended,unchanged,rowCount:Math.max(next,n+1)};
 }
 export function mergePlan(values,incoming) {
   const oldHeaders=(values[0]||[]).map(x=>String(x).trim());

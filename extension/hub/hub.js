@@ -6,12 +6,14 @@ const MODULES = {
   'fs-auto': { frame: 'fs', fsTab: 'auto' },
   'fs-logs': { frame: 'fs', fsTab: 'logs' },
   'order-shopee': { frame: 'orders' },
+  'hh-api': { frame: 'hhApi' },
   'order-wml': { frame: 'wmlOrders' },
   'product-wml': { frame: 'wmlProducts' }
 };
 const FRAMES = {
   fs: '../flash-sale/app.html',
   orders: '../order-tool/app.html',
+  hhApi: '../hh-api/app.html',
   wmlOrders: '../order-tool/wameli.html?kind=orders',
   wmlProducts: '../order-tool/wameli.html?kind=products'
 };

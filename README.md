@@ -116,3 +116,22 @@ Có thể đổi Spreadsheet ID lúc chạy bằng tab Cài đặt (`customSprea
 - Cột **Đã tự chat** dựa trên lần gửi Auto Chat thành công đã được ghi nhận; trả lời tay và gửi lỗi không được tính. Các lần gửi cũ đã mất khỏi bộ nhớ trước khi thêm tính năng không thể xác nhận lại chỉ bằng nội dung câu chào.
 - Web có tìm kiếm cả nội dung hội thoại, lọc gian, lọc Chưa tự chat / Đã tự chat; bấm tên khách để xem lịch sử. Dữ liệu đang tải chưa hoàn tất được đánh dấu rõ, lỗi API/phân trang giữ lại dữ liệu cũ.
 - Sau cập nhật cần Reload extension và bấm đồng bộ lần đầu. Kiểm thử: `node tools/test-chat-sheet.mjs`.
+
+## Tài chính ngay trên danh sách đơn Shopee
+
+Trang `banhang.shopee.vn/portal/sale/order` tự thêm khung **Tài chính đơn hàng** dưới từng đơn: tổng tiền sản phẩm, doanh thu ước tính, tổng vốn theo số lượng và lợi nhuận. Số liệu thanh toán đọc từ API Shopee trong đúng tab đang mở. Giá vốn dùng cột `gia_ban` theo `id_sp_con` / `id_sp_ct` của `DS_SP`, cùng nguồn đang dùng ở trang chi tiết. SKU đầy đủ được ưu tiên; mã 10 ký tự chỉ dùng khi giá vốn không mâu thuẫn giữa các dòng.
+
+Lợi nhuận = doanh thu ước tính − tổng vốn. Thiếu giá vốn của bất kỳ sản phẩm nào thì hiển thị cảnh báo và để trống tổng vốn/lợi nhuận. Số tiền người mua thanh toán trên thẻ đơn không được dùng thay cho tổng tiền sản phẩm. Mỗi đơn chỉ tải lần đầu trong phiên trang; tải lại trang hoặc bấm ↻ mới đọc lại số liệu. Khung tải tối đa hai đơn đồng thời, có nút Thu gọn / Mở rộng và chi tiết giá vốn từng dòng. Nhãn **Đã in lên WML** dùng dữ liệu `tcdd-wml-watch` trong 7 ngày, cùng nguồn với Auto In; cập nhật nhãn từ bộ nhớ không tải lại API tài chính.
+
+Sau khi cập nhật code: Reload extension trong `chrome://extensions`, rồi tải lại trang danh sách đơn Shopee để bắt cặp mã đơn/ID từ API danh sách. Build bằng `npm run build:dh`; kiểm thử bằng `node tools/test-order-list-finance.mjs`.
+
+## Hàng hoàn API → Sheet HH API
+
+- Vào **Nhóm 2 → Hàng hoàn API** trong side panel, hoặc mục **Hàng hoàn API** của Seller Hub. Cần mở sẵn một tab banhang.shopee.vn đã đăng nhập.
+- **Tab 1. Đơn trên Shopee:** nhập Mã gian, bấm **Đọc từ Shopee**. Module gọi API danh sách Trả hàng/Hoàn tiền/Hủy (`get_exceptional_case_list`, 40 yêu cầu/trang) và đọc hết các trang. Xem, lọc theo loại (Hủy, Trả hàng/Hoàn tiền, Giao không thành công), rồi bấm **Điền vào GG Sheet**.
+- **Tab 2. Trên Google Sheet:** đọc sheet **HH API** trong bảng tính web, sắp xếp theo **Ngày đặt đơn** mới nhất, có nút **Cập nhật từ Shopee** để đọc lại N yêu cầu mới nhất (mặc định 100) rồi cập nhật Sheet, lọc theo gian, loại, tìm kiếm.
+- **Ngày đặt đơn** là 6 số đầu của mã đơn, **Ngày hoàn hàng** là 6 số đầu của mã yêu cầu (dạng YYMMDD, vd 261025 → 25/10/2026). Đơn không có mã yêu cầu thì để trống ngày hoàn.
+- Mỗi sản phẩm của một yêu cầu là một dòng, đối chiếu bằng cột **Khóa** (mã gian + mã yêu cầu/đơn + sản phẩm/phân loại). Khi ghi, module đọc Sheet một lần: đơn mới thêm cuối sheet, đơn đã có chỉ cập nhật khi thông tin đổi, không đổi thì bỏ qua, đơn không nằm trong phần vừa đọc giữ nguyên. Ghi RAW theo lô.
+- **Tự cập nhật:** mỗi ngày đến giờ đã chọn (mặc định 10:00) tự đọc theo **Số trang lấy** đang điền ở tab 1 (40 yêu cầu/trang) và cập nhật Sheet. Bỏ lỡ giờ thì chạy bù khi mở Chrome hoặc extension; extension tự kiểm tra mỗi 15 phút. Cần mở sẵn tab banhang.shopee.vn, chưa có thì chờ.
+- Sheet HH API của module cũ (khác cấu trúc) được đổi tên thành `HH API cu <thời gian>` ở lần ghi đầu, không xóa.
+- Kiểm thử: `node tools/test-hh-api.mjs`. Sau khi sửa code: Reload extension.

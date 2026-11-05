@@ -160,7 +160,18 @@ export const products = {
       params.search_type = searchType;
     }
     const d = await request('GET', '/api/v3/mpsku/list/search_product_list', { params });
-    return ((d && d.products) || []).map((p) => ({ itemId: Number(p.id ?? p.item_id ?? p.product_id), name: p.name || '' }));
+    return ((d && d.products) || []).map((p) => ({
+      itemId: Number(p.id ?? p.item_id ?? p.product_id),
+      name: p.name || '',
+      cover: p.cover_image || (Array.isArray(p.images) && p.images[0]) || ''
+    }));
+  },
+
+  // Chỉ gửi các trường cần đổi; trả về nguyên JSON để đọc user_message.
+  async updateRaw(productId, productInfo) {
+    return requestRaw('POST', '/api/v3/product/update_product_info/', {
+      body: { is_draft: false, product_id: productId, product_info: productInfo }
+    });
   },
 
   async getRaw(itemId) {

@@ -450,6 +450,35 @@ export const products = {
     return { changed: changedCount, stock: after.get(Number(itemId)) || null };
   },
 
+  // Sửa SKU sản phẩm (modelId = null) hoặc SKU một phân loại, rồi đọc lại để chắc Shopee đã lưu.
+  async updateSku(itemId, modelId, sku) {
+    const value = String(sku || '').trim();
+    const idOf = (m) => Number(m.id ?? m.model_id ?? 0);
+    const skuOfModel = (raw) => {
+      const list = (raw && raw.model_list) || [];
+      return list.find((m) => idOf(m) === Number(modelId)) || (list.length === 1 ? list[0] : null);
+    };
+    const raw = await this.getRaw(itemId);
+    const updates = {};
+    if (modelId === null) {
+      updates.parent_sku = value;
+    } else {
+      const target = skuOfModel(raw);
+      if (!target) throw new Error('Không tìm thấy phân loại #' + modelId + ' của sản phẩm #' + itemId);
+      updates.model_list = raw.model_list.map((m) => {
+        const entry = { id: idOf(m), tier_index: m.tier_index || [0] };
+        if (idOf(m) === idOf(target)) entry.sku = value;
+        return entry;
+      });
+    }
+    await this.updateFullProduct(itemId, updates);
+    await sleep(350);
+    const after = await this.getRaw(itemId);
+    const saved = modelId === null ? after?.parent_sku : skuOfModel(after)?.sku;
+    if (String(saved ?? '').trim() !== value) throw new Error('Shopee chưa lưu SKU mới, hãy kiểm tra lại sản phẩm');
+    return value;
+  },
+
   // Cập nhật thông tin chi tiết sản phẩm lên Shopee (Tên SP, Mô tả, SKU, Kích thước, Cân nặng, Phân loại, Tồn kho, Giá)
   async updateFullProduct(itemId, updates) {
     const productInfo = {};

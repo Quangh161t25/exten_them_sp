@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Hàng hoàn API</title>
+  <link rel="stylesheet" href="app.css">
+  <script src="../hub/embed.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Hàng hoàn API</h1>
+      <p>Đơn Trả hàng/Hoàn tiền, Hủy và Giao không thành công của Shopee → Sheet <b>HH API</b></p>
+    </div>
+    <a class="btn" href="https://banhang.shopee.vn/portal/sale/returnrefundcancel" target="_blank" rel="noopener">Mở trang Shopee ↗</a>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button type="button" class="tab active" data-view="web" role="tab">1. Đơn trên Shopee</button>
+    <button type="button" class="tab" data-view="sheet" role="tab">2. Trên Google Sheet</button>
+  </nav>
+
+  <section class="bar" id="bar-web">
+    <label>Mã gian <input id="code" maxlength="20" placeholder="GDD, JOY..."></label>
+    <label>Số trang lấy <input id="page-limit" type="number" min="1" max="200" step="1" value="1" title="Đọc từ trang 1 đến số trang đã nhập; tối đa 40 yêu cầu mỗi trang."></label>
+    <button type="button" class="btn primary" id="btn-read">🔄 Đọc từ Shopee</button>
+    <button type="button" class="btn" id="btn-stop" hidden>Dừng</button>
+
+  </section>
+  <p id="page-limit-hint" class="read-hint">Đọc từ trang 1 · Mỗi trang tối đa 40 yêu cầu · Chỉ lấy số trang bạn chọn.</p>
+  <section class="bar auto" id="bar-auto">
+    <label><input type="checkbox" id="auto-on"> Tự cập nhật theo Số trang lấy lúc</label>
+    <input type="time" id="auto-time" value="10:00">
+    <button type="button" class="btn" id="btn-auto-run">Cập nhật ngay</button>
+    <span id="auto-last" class="read-hint"></span>
+  </section>
+  <section class="sync" id="bar-sync">
+    <div class="sync-head">Ghi sang Google Sheet <small>Lấy N đơn mới nhất trong bảng bên dưới · chưa có thì thêm · có rồi mà khác thì cập nhật</small></div>
+      <div class="sync-row">
+        <div class="sync-name"><b>HH API</b><small>Mọi loại đơn</small></div>
+        <label class="sync-field"><input type="number" id="hh-count" min="1" value="50"> đơn mới nhất</label>
+        <label class="sync-field"><input type="checkbox" id="hh-auto"> Tự động mỗi <input type="number" id="hh-min" min="1" value="15"> phút</label>
+        <button type="button" class="btn green" id="btn-write">📥 Ghi ngay</button>
+        <span class="sync-last" id="hh-last"></span>
+      </div>
+      <div class="sync-row">
+        <div class="sync-name"><b>HH_SHOP_DIEN</b><small>Trả hàng + Giao không thành công (sheet kho)</small></div>
+        <label class="sync-field"><input type="number" id="sd-count" min="1" value="50"> đơn mới nhất</label>
+        <label class="sync-field"><input type="checkbox" id="sd-auto"> Tự động mỗi <input type="number" id="sd-min" min="1" value="15"> phút</label>
+        <button type="button" class="btn " id="btn-shop-dien">📦 Ghi ngay</button>
+        <span class="sync-last" id="sd-last"></span>
+      </div>
+  </section>
+  <section class="bar" id="bar-sheet" hidden>
+    <button type="button" class="btn primary" id="btn-sheet">🔄 Đọc từ Sheet</button>
+    <select id="gian-filter"><option value="">Tất cả gian</option></select>
+    <label>Cập nhật lại <input type="number" id="top-count" min="1" max="8000" value="100"> đơn đầu</label>
+    <button type="button" class="btn green" id="btn-top">🔄 Cập nhật từ Shopee</button>
+  </section>
+
+  <section class="bar">
+    <input id="search" class="grow" placeholder="Tìm mã đơn, mã yêu cầu, SKU, sản phẩm, vận đơn...">
+    <span class="chips" id="type-filter"></span>
+    <button type="button" class="btn" id="btn-cols">⚙ Tùy chỉnh cột</button>
+  </section>
+  <div id="status" class="status" role="status">Mở trang Trả hàng/Hoàn tiền trên Shopee (đã đăng nhập) rồi bấm Đọc từ Shopee.</div>
+
+  <div class="scroll">
+    <table id="hhTable">
+      <thead>
+        <tr><th data-col="c_gian">Gian / Loại</th><th data-col="c_order">Mã đơn / Yêu cầu</th><th data-col="c_product">Sản phẩm</th><th data-col="c_qty">SL</th><th data-col="c_status">Trạng thái</th><th data-col="c_reason">Lý do / Phương án</th><th data-col="c_refund">Tiền hoàn</th><th data-col="c_track">Vận đơn</th><th data-col="c_logistics">Cập nhật VC</th><th data-col="c_order_date">Ngày đặt đơn</th><th data-col="c_return_date">Ngày hoàn hàng</th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <div class="pager"><button type="button" class="btn" id="prev">← Trước</button><span id="page-info"></span><button type="button" class="btn" id="next">Sau →</button></div>
+
+  <script src="returns.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

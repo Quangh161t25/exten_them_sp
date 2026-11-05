@@ -66,6 +66,25 @@
   "content_scripts": [
     {
       "matches": [
+        "https://banhang.shopee.vn/*"
+      ],
+      "js": [
+        "extension/content/order-finance-hook.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://banhang.shopee.vn/*"
+      ],
+      "js": [
+        "extension/content/order-list-finance.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
         "https://shopee.vn/*",
         "https://banhang.shopee.vn/*"
       ],

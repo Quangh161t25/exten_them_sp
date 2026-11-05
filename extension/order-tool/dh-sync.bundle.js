@@ -209,7 +209,7 @@ var DHSheetSync = (function (exports) {
   // Cấu trúc có thể thay đổi, nên các trường được tìm theo tên ở mọi cấp (deep search),
   // và luôn giữ nguyên dữ liệu gốc (raw / detail) để xem / xuất đầy đủ.
 
-  const num = (v) => {
+  const num$1 = (v) => {
     const n = parseFloat(v);
     return Number.isFinite(n) ? n : 0;
   };
@@ -277,12 +277,12 @@ var DHSheetSync = (function (exports) {
 
   // Tiền: một số API trả giá nhân 100.000
   function money(v) {
-    const n = num(v);
+    const n = num$1(v);
     return n >= 1e9 && n % 1000 === 0 ? n / 100000 : n;
   }
 
   function timeOf(v) {
-    const n = num(v);
+    const n = num$1(v);
     if (!n) return 0;
     return n > 1e12 ? Math.floor(n / 1000) : n; // ms -> s
   }
@@ -324,7 +324,7 @@ var DHSheetSync = (function (exports) {
       itemSku: it.product?.sku || find(['item_sku', 'parent_sku', 'product_sku'], isText) || '',
       modelSku: it.item_model?.sku || find(['model_sku', 'variation_sku', 'sku'], isText) || variation.sku,
       variationText,
-      qty: num(find(['amount', 'quantity', 'item_count', 'qty']) ?? 1) || 1,
+      qty: num$1(find(['amount', 'quantity', 'item_count', 'qty']) ?? 1) || 1,
       price: money(find(['order_price', 'item_price', 'discounted_price', 'price'])),
       originalPrice: money(find(['original_price', 'price_before_discount'])),
       image: IMG(find(['image', 'item_image', 'cover_image', 'product_image'], isText))
@@ -339,7 +339,7 @@ var DHSheetSync = (function (exports) {
     const tpl = desc.description_value || desc.description || desc.text || '';
     if (!isText(tpl)) return '';
     const fmtTs = (v) => {
-      const n = num(v);
+      const n = num$1(v);
       if (n < 1e9) return String(v);
       const d = new Date((n > 1e12 ? n : n * 1000));
       return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -355,12 +355,12 @@ var DHSheetSync = (function (exports) {
       }
     })(desc);
     // Không có mốc thời gian trong status_description thì tìm trong status_info (fallback)
-    const anyTs = Object.values(params).find((v) => num(v) >= 1e9)
-      ?? (fallback ? findDeep(fallback, ['timestamp', 'pickup_time', 'ship_by_date', 'deadline', 'time', 'update_time'], (v) => num(v) >= 1e9) : undefined);
+    const anyTs = Object.values(params).find((v) => num$1(v) >= 1e9)
+      ?? (fallback ? findDeep(fallback, ['timestamp', 'pickup_time', 'ship_by_date', 'deadline', 'time', 'update_time'], (v) => num$1(v) >= 1e9) : undefined);
     return tpl.replace(/\{(\w+)\}/g, (_, name) => {
       const v = params[name] ?? (/time|date|timestamp/i.test(name) ? anyTs : undefined);
       if (v === undefined) return `{${name}}`;
-      return /time|date|timestamp/i.test(name) || num(v) >= 1e9 ? fmtTs(v) : String(v);
+      return /time|date|timestamp/i.test(name) || num$1(v) >= 1e9 ? fmtTs(v) : String(v);
     });
   }
 
@@ -431,14 +431,14 @@ var DHSheetSync = (function (exports) {
 
     // Kiện hàng để in phiếu giao: mã kiện (OFG...) + kênh vận chuyển (channel_id, vd 50021 = SPX)
     const CHANNEL_KEYS = ['channel_id', 'fulfilment_channel_id', 'fulfillment_channel_id', 'logistics_channel_id', 'checkout_channel_id'];
-    const isId = (v) => num(v) > 0;
+    const isId = (v) => num$1(v) > 0;
     const cardChannel = findDeep(card, CHANNEL_KEYS, isId);
     let shipPackages = packages
-      .map((p) => ({ packageNumber: p.package_number || findDeep(p, ['package_number', 'package_sn'], isText) || '', channelId: num(findDeep(p, CHANNEL_KEYS, isId) || cardChannel) }))
+      .map((p) => ({ packageNumber: p.package_number || findDeep(p, ['package_number', 'package_sn'], isText) || '', channelId: num$1(findDeep(p, CHANNEL_KEYS, isId) || cardChannel) }))
       .filter((p) => p.packageNumber);
     if (!shipPackages.length) {
       const pn = findDeep(card, ['package_number', 'package_sn'], isText);
-      if (pn) shipPackages = [{ packageNumber: pn, channelId: num(cardChannel) }];
+      if (pn) shipPackages = [{ packageNumber: pn, channelId: num$1(cardChannel) }];
     }
     const orderSn = String(header.order_sn ?? pick(['order_sn']) ?? '');
     const snDate = dateFromOrderSn(orderSn);
@@ -475,7 +475,7 @@ var DHSheetSync = (function (exports) {
   }
 
   // Tiền trong API doanh thu luôn nhân 100.000
-  const incomeMoney = (v) => Math.round(num(v) / 1000) / 100;
+  const incomeMoney = (v) => Math.round(num$1(v) / 1000) / 100;
 
   /**
    * -> { byField: { FIELD_NAME: amount }, rows: [{ level, field, name, amount, caption, details: [{ name, amount }] }] }
@@ -489,7 +489,7 @@ var DHSheetSync = (function (exports) {
       const lists = [ext.service_fee_infos, ext.commission_fee_infos, ext.seller_txn_fee_info ? [ext.seller_txn_fee_info] : null]
         .filter(Array.isArray).flat();
       return lists
-        .filter((f) => f && (f.name || num(f.amount) || num(f.fee_rate)))
+        .filter((f) => f && (f.name || num$1(f.amount) || num$1(f.fee_rate)))
         .map((f) => ({ name: f.name || '', amount: incomeMoney(f.amount), rate: f.fee_rate ? f.fee_rate / 1000 : 0 }));
     };
     const add = (b, level) => {
@@ -502,6 +502,151 @@ var DHSheetSync = (function (exports) {
     return { byField, rows, escrow: byField.ESCROW_AMOUNT ?? null };
   }
 
+  function costMap(values) {
+    const head=(values[0]||[]).map(v=>String(v).trim().toLowerCase());
+    const id=head.findIndex(v=>['id_sp_con','id_sp_ct'].includes(v)),price=head.indexOf('gia_ban');
+    if(id<0||price<0)throw new Error('DS_SP thiếu cột id_sp_con/id_sp_ct hoặc gia_ban');
+    const result=new Map();
+    for(const row of values.slice(1)){
+      const key=String(row[id]||'').trim().toUpperCase(),raw=String(row[price]??'').trim();
+      if(!key||!raw)continue;
+      let amount=raw.replace(/[^\d,.-]/g,'');
+      if(/^-?\d{1,3}([.,]\d{3})+$/.test(amount))amount=amount.replace(/[.,]/g,'');
+      else if(amount.includes(',')&&amount.includes('.')){
+        const decimal=amount.lastIndexOf(',')>amount.lastIndexOf('.')?',':'.';
+        amount=amount.replace(decimal===','?/\./g:/,/g,'').replace(',','.');
+      }else amount=amount.replace(',','.');
+      const value=typeof row[price]==='number'?row[price]:Number(amount);
+      if(!Number.isFinite(value)||value<0)continue;
+      for(const k of new Set([key,key.slice(0,10)])){
+        if(result.has(k)&&result.get(k)!==value)result.set(k,null);else if(!result.has(k))result.set(k,value);
+      }
+    }
+    return result;
+  }
+  function financials(order,income,prices) {
+    const items=order.items.map(it=>{
+      const sku=String(it.modelSku||'').trim().toUpperCase();
+      const exact=prices?.get(sku),unit=exact!==undefined?exact:prices?.get(sku.slice(0,10));
+      return {name:it.name,sku:it.modelSku,qty:it.qty,unitCost:unit??null,cost:unit==null?null:unit*it.qty};
+    });
+    const missing=items.filter(it=>it.cost==null||!(it.qty>0));
+    const capital=items.length&&!missing.length?items.reduce((s,it)=>s+it.cost,0):null;
+    const revenue=income?.byField.ESCROW_AMOUNT??null;
+    return {merchandise:income?.byField.MERCHANDISE_SUBTOTAL??null,revenue,capital,profit:capital==null||revenue==null?null:revenue-capital,
+      quantity:items.reduce((s,it)=>s+it.qty,0),missing:missing.map(it=>it.sku||it.name||'SP chưa có SKU'),items};
+  }
+
+  // Chạy trong đúng tab gửi yêu cầu; chỉ gọi các API đọc của Kênh Người Bán.
+  async function readOrderFinancialApi(orderId,spc,variant) {
+    const query=new URLSearchParams({SPC_CDS:spc,SPC_CDS_VER:'2'});
+    async function request(path,body){
+      const response=await fetch(path+(path.includes('?')?'&':'?')+query,{method:body?'POST':'GET',credentials:'include',headers:{accept:'application/json','content-type':'application/json'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(20000)});
+      if(!response.ok)throw new Error(`Shopee HTTP ${response.status}`);
+      const json=await response.json();if(json.code||json.error)throw new Error(json.message||json.msg||'Shopee từ chối yêu cầu');return json.data;
+    }
+    const shop=await request('/api/selleraccount/shop_info/');
+    const shopId=String(shop?.shop_id||shop?.shopid||'');if(!shopId)throw new Error('Không xác định được shop đang đăng nhập');
+    const detail=await request('/api/v3/order/get_one_order?order_id='+encodeURIComponent(orderId));
+    let income=null,error='',used=variant;
+    const variants=[[2,3],[1,2,3],[1,2,3,4,5],null];
+    const order=[variant,...variants.map((_,i)=>i)].filter((v,i,a)=>Number.isInteger(v)&&a.indexOf(v)===i);
+    for(const i of order){
+      try{
+        const d=await request('/api/v4/accounting/pc/seller_income/income_detail/get_order_income_components',{order_id:Number(orderId),...(variants[i]?{components:variants[i]}:{})});
+        if(d?.seller_income_breakdown?.breakdown?.length){income=d;used=i;break;}
+        error='Shopee chưa trả thông tin doanh thu';
+      }catch(e){error=e.message;}
+    }
+    const check=await request('/api/selleraccount/shop_info/');
+    if(String(check?.shop_id||check?.shopid)!==shopId)throw new Error('Shop đã đổi trong lúc tải, vui lòng thử lại');
+    return {detail,income,incomeError:income?'':error,variant:used,shopId};
+  }
+
+  let priceTask=null,priceAt=0,variant=null;
+  const pending=new Map();
+  async function getPrices(force=false){
+    if(force||!priceTask||Date.now()-priceAt>300000){
+      priceAt=Date.now();
+      priceTask=Promise.all([getGoogleAccessToken(),getSpreadsheetId()]).then(([token,id])=>fetchSheetValues('DS_SP!A:G',token,30000,id)).then(costMap).catch(e=>{priceTask=null;throw e;});
+    }
+    return priceTask;
+  }
+  // Sheet nháp: lưu tài chính đã đọc; lần sau đọc từ sheet, bấm ↻ thì đọc lại Shopee và ghi đè
+  const FIN_SHEET='NHAP_TAI_CHINH_DH';
+  const FIN_HEAD=['order_id','order_sn','shop_id','tong_tien_sp','doanh_thu','von','loi_nhuan','so_sp','thieu_von','chi_tiet','cap_nhat'];
+  let finTask=null,finWrite=Promise.resolve();
+  // Bản sao trên máy (chrome.storage) để trang đơn hiện ngay, không chờ đọc Google Sheet
+  const FIN_LOCAL='qlsp_fin_cache';
+  async function finLocal(entries){const old=(await chrome.storage.local.get(FIN_LOCAL))[FIN_LOCAL]||{};await chrome.storage.local.set({[FIN_LOCAL]:{...old,...entries}});}
+  const num=v=>v===''||v==null?null:Number(v);
+  function finRow(d){return [d.orderId,d.orderSn||'',d.shopId||'',d.merchandise??'',d.revenue??'',d.capital??'',d.profit??'',d.quantity||0,(d.missing||[]).join(', '),JSON.stringify(d.items||[]),new Date(d.at).toLocaleString('vi-VN')];}
+  function finData(r,at){
+    let items=[];try{items=JSON.parse(r[9]||'[]');}catch{}
+    return {ok:true,orderId:String(r[0]),orderSn:r[1],shopId:r[2],merchandise:num(r[3]),revenue:num(r[4]),capital:num(r[5]),profit:num(r[6]),quantity:Number(r[7])||0,missing:r[8]?String(r[8]).split(', '):[],items,at,fromSheet:true};
+  }
+  // Map order_id -> {row, data}; đọc sheet 1 lần (5 phút đọc lại)
+  function finSheet(){
+    if(!finTask||Date.now()-finTask.at>300000){
+      const t=(async()=>{
+        const [token,id]=await Promise.all([getGoogleAccessToken(),getSpreadsheetId()]);
+        const title=await ensureSheetExists(FIN_SHEET,token,id);
+        const values=await fetchSheetValues(`'${title}'!A:K`,token,30000,id);
+        const map=new Map();
+        values.slice(1).forEach((r,i)=>{if(r[0])map.set(String(r[0]),{row:i+2,data:finData(r,Date.now())});});
+        finLocal(Object.fromEntries([...map].map(([k,v])=>[k,v.data]))).catch(()=>{});
+        return {title,map,next:Math.max(2,values.length+1),hasHead:String(values[0]?.[0]||'')==='order_id'};
+      })();
+      finTask={at:Date.now(),p:t.catch(e=>{finTask=null;throw e;})};
+    }
+    return finTask.p;
+  }
+  function saveFin(d){
+    finWrite=finWrite.then(async()=>{
+      const sheet=await finSheet(),[token,id]=await Promise.all([getGoogleAccessToken(),getSpreadsheetId()]);
+      const put=async(range,values)=>{const {res,data}=await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,{method:'PUT',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({values})},30000);if(!res.ok)throw new Error(data.error?.message||'Không ghi được sheet nháp');};
+      if(!sheet.hasHead){await put(`'${sheet.title}'!A1:K1`,[FIN_HEAD]);sheet.hasHead=true;}
+      const old=sheet.map.get(d.orderId),row=old?old.row:sheet.next++;
+      await put(`'${sheet.title}'!A${row}:K${row}`,[finRow(d)]);
+      sheet.map.set(d.orderId,{row,data:{...d,fromSheet:true}});
+      await finLocal({[d.orderId]:{...d,fromSheet:true}});
+    }).catch(e=>console.warn('Lỗi ghi sheet nháp tài chính:',e));
+    return finWrite;
+  }
+  async function load(msg,sender){
+    if(msg.force!==true&&/^\d{5,20}$/.test(String(msg.orderId))){
+      try{const hit=(await finSheet()).map.get(String(msg.orderId));if(hit)return hit.data;}catch(e){console.warn('Không đọc được sheet nháp tài chính:',e);}
+    }
+    const data=await loadShopee(msg,sender);
+    // Chỉ lưu khi đã có doanh thu (đơn chưa có số liệu thì lần sau đọc lại Shopee)
+    if(data.revenue!=null)saveFin(data);
+    return data;
+  }
+  async function loadShopee(msg,sender){
+    if(!sender.tab?.id||!/^https:\/\/banhang\.shopee\.vn\//.test(sender.url||sender.tab.url||'')||sender.frameId!==0)throw new Error('Chỉ hỗ trợ trang Kênh Người Bán chính');
+    if(!/^\d{5,20}$/.test(String(msg.orderId)))throw new Error('ID đơn không hợp lệ');
+    const tabId=sender.tab.id,key=`${tabId}:${sender.documentId||''}:${msg.orderId}`;
+    if(pending.has(key))return pending.get(key);
+    const task=(async()=>{
+      const cookie=await chrome.cookies.get({url:'https://banhang.shopee.vn',name:'SPC_CDS'});
+      const costResult=getPrices(msg.force===true).then(prices=>({prices})).catch(e=>({costError:e.message}));
+      const [injected]=await chrome.scripting.executeScript({target:{tabId,...(sender.documentId?{documentIds:[sender.documentId]}:{frameIds:[0]})},world:'MAIN',func:readOrderFinancialApi,args:[String(msg.orderId),cookie?.value||'',variant]});
+      const result=injected?.result;if(!result?.detail)throw new Error('Không lấy được chi tiết đơn Shopee');
+      variant=result.variant;
+      const actual=findDeep(result.detail,['order_id'],v=>/^\d+$/.test(String(v)));
+      if(actual&&String(actual)!==String(msg.orderId))throw new Error('Shopee trả ID đơn không khớp');
+      const order=parseOrder({order_ext_info:{order_id:msg.orderId},card_header:{order_sn:msg.orderSn}},result.detail);
+      const actualSn=findDeep(result.detail,['order_sn'],v=>typeof v==='string'&&v.length>8);
+      if(actualSn&&msg.orderSn&&actualSn!==msg.orderSn)throw new Error('Shopee trả mã đơn không khớp');
+      const {prices,costError}=await costResult;
+      return {ok:true,orderId:String(msg.orderId),orderSn:actualSn||msg.orderSn,shopId:result.shopId,...financials(order,result.income?parseIncome(result.income):null,prices),incomeError:result.incomeError,costError,at:Date.now()};
+    })().finally(()=>pending.delete(key));pending.set(key,task);return task;
+  }
+  chrome.runtime.onMessage.addListener((msg,sender,reply)=>{
+    if(msg?.type!=='QLSP_ORDER_LIST_FINANCE')return false;
+    load(msg,sender).then(reply).catch(e=>reply({ok:false,error:e.message}));return true;
+  });
+
   // Schema chung cho extension và web. Thứ tự cột theo nhóm; mdh luôn ở cột D, mvd ở cột E
   // (một số chức năng cũ vẫn đọc DH!D:D). Các cột cũ bỏ hẳn: xem REMOVED_HEADERS.
   const RAW_HEADERS = Array.from({length:12},(_,i)=>`du_lieu_goc_${i+1}`);
@@ -511,13 +656,15 @@ var DHSheetSync = (function (exports) {
     // Khách
     'ten_khach','nguoi_mua_id','ng_nhan','sdt','dia_chi',
     // Sản phẩm (mỗi dòng một sản phẩm)
-    'item_id','model_id','ten_sp','phan_loai','anh','sku','sku_san_pham','slg','don_gia','thanh_tien',
+    'item_id','model_id','ten_sp','phan_loai','anh','sku','sku_san_pham','slg','don_gia','thanh_tien','gia_sp','thanh_tien_sp',
     // Tiền
-    'tong_tien','doanh_thu','phi_vc','vc_nguoi_mua','vc_tro_gia','phu_phi','phi_co_dinh','phi_dich_vu','phi_giao_dich','thue','thue_gtgt','thue_tncn','chi_tiet_phi',
+    'tong_tien','doanh_thu','phi_vc','vc_nguoi_mua','vc_tro_gia','phu_phi','phi_co_dinh','phi_dich_vu','phi_giao_dich','thue','thue_gtgt','thue_tncn','chi_tiet_phi','tong_thanh_tien_sp','loi_nhuan',
     // Vận chuyển & thời gian
     'don_vi_vc','hinh_thuc_vc','thanh_toan','han_giao','ghi_chu','ly_do_huy','ly_do_tra_hoan','ngay_hoan_thanh','ngay_huy',
     // Đồng bộ
-    'chi_tiet_dong_bo','dong_bo_luc',...RAW_HEADERS
+    'chi_tiet_dong_bo','dong_bo_luc',...RAW_HEADERS,
+    // Khóa dòng (gian|mdh|item_id-model_id|n) và dấu vân tay để biết dòng có đổi không
+    'khoa','dau_van_tay'
   ];
   const norm = s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().trim();
   function statusOf(text) {
@@ -537,11 +684,16 @@ var DHSheetSync = (function (exports) {
   }
   const terminal = s=>['Hoàn thành','Đã hủy','Hoàn tiền','Hoàn hàng'].includes(statusOf(s));
   function timestamp(value) {const n=Number(value);return n>0?new Date(n<1e12?n*1000:n).toISOString():'';}
-  function recordsForOrder(o,shop,code,findDeep,at=Date.now()) {
+  // Giá SP = gia_ban DS_SP theo SKU phân loại (khớp đủ, rồi 10 ký tự đầu). prices: Map từ costMap.
+  function costOf(prices,sku){const k=String(sku||'').trim().toUpperCase();if(!prices||!k)return null;const v=prices.get(k)??prices.get(k.slice(0,10));return v==null?null:v;}
+  function recordsForOrder(o,shop,code,findDeep,at=Date.now(),prices=null) {
     if(!o.orderSn || !shop.shopId || !code)throw new Error('Thiếu mã đơn hoặc mã gian/ID shop');
     const d=o.detail||{}, text=keys=>findDeep(d,keys,v=>typeof v==='string'&&v.trim())||'';
     const date=keys=>timestamp(findDeep(d,keys,v=>Number(v)>0));
-    const f=o.income?.byField||{}, hasIncome=!!o.income, detailOK=!!o.detail;
+    // byField có thể thiếu/null (đơn lưu từ bản cũ): lấy bù từ bảng chi tiết phí (rows)
+    const f={...Object.fromEntries((o.income?.rows||[]).filter(r=>r.field&&r.amount!=null).map(r=>[r.field,r.amount])),
+      ...Object.fromEntries(Object.entries(o.income?.byField||{}).filter(([,v])=>v!=null))};
+    const hasIncome=!!o.income, detailOK=!!o.detail;
     const base={gian:code,mdh:o.orderSn,shop_id:String(shop.shopId),order_id:o.orderId,
       ngay_gio:date(['create_time','order_create_time','ctime'])||timestamp(o.createTime),
       mvd:o.tracking,tong_tien:o.total,trang_thai:statusOf(o.status),mo_ta_trang_thai:[o.status,o.statusNote].filter(Boolean).join(' · '),ma_trang_thai:o.statusCode,
@@ -554,46 +706,75 @@ var DHSheetSync = (function (exports) {
       for(const [key,field]of Object.entries(mapping))if(f[field]!=null)base[key]=f[field];
       base.chi_tiet_phi=JSON.stringify(o.income.rows||[]);
     }
+    // Tổng thành tiền SP & lợi nhuận: chỉ ghi khi mọi sản phẩm đều có giá trong DS_SP
+    const costs=o.items.map(it=>{const p=costOf(prices,it.modelSku||it.itemSku);return p==null||!(Number(it.qty)>0)?null:p*Number(it.qty);});
+    if(prices&&o.items.length&&costs.every(c=>c!=null)){
+      base.tong_thanh_tien_sp=costs.reduce((a,b)=>a+b,0);
+      if(hasIncome&&f.ESCROW_AMOUNT!=null)base.loi_nhuan=f.ESCROW_AMOUNT-base.tong_thanh_tien_sp;
+    }
     // Chia JSON để không vượt giới hạn 50.000 ký tự/ô. Không cắt mất dữ liệu.
     const raw=JSON.stringify({card:o.raw,detail:o.detail||null,income:o.incomeRaw||null});
     if(raw.length>RAW_HEADERS.length*45000)throw new Error(`Dữ liệu đơn ${o.orderSn} vượt dung lượng lưu JSON`);
     return (o.items.length?o.items:[{}]).map((it,i)=>{
       const r={...base,ten_sp:it.name||'',phan_loai:it.model||'',anh:it.image||'',sku:it.modelSku||'',sku_san_pham:it.itemSku||'',item_id:String(it.itemId||''),model_id:String(it.modelId||''),slg:it.qty??'',don_gia:it.price??'',thanh_tien:it.price!=null&&it.qty!=null?it.price*it.qty:''};
+      const p=costOf(prices,it.modelSku||it.itemSku);r.gia_sp=p??'';r.thanh_tien_sp=p!=null&&it.qty!=null?p*Number(it.qty):'';
       RAW_HEADERS.forEach((h,n)=>r[h]=i===0?raw.slice(n*45000,(n+1)*45000):'');
       return r;
     });
   }
-  function mergePlan(values,incoming) {
-    const oldHeaders=(values[0]||[]).map(x=>String(x).trim());
-    if(values.length>1&&(!oldHeaders.includes('mdh')||!oldHeaders.includes('gian')))throw new Error('Sheet DH thiếu cột mdh/gian; giữ nguyên dữ liệu, không ghi đè');
-    if(new Set(oldHeaders.filter(Boolean)).size!==oldHeaders.filter(Boolean).length)throw new Error('Sheet DH có tiêu đề trùng');
-    const headers=[...oldHeaders];for(const h of HEADERS)if(!headers.includes(h))headers.push(h);
-    const objects=values.slice(1).map((row,i)=>({row:i+1,data:Object.fromEntries(oldHeaders.map((h,j)=>[h,row[j]??'']))}));
-    const updates=[],used=new Set();let next=values.length||1;
-    const groupKey=r=>JSON.stringify([norm(r.gian),String(r.mdh)]), groups=new Map();
-    for(const r of incoming){const k=groupKey(r);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r);}
-    for(const rows of groups.values()){
-      const sample=rows[0], candidates=objects.filter(x=>groupKey(x.data)===groupKey(sample)&&(!x.data.shop_id||String(x.data.shop_id)===String(sample.shop_id)));
-      for(const r of rows){
-        const match=candidates.find(x=>!used.has(x.row)&&r.item_id&&String(x.data.item_id)===r.item_id&&String(x.data.model_id)===r.model_id)
-          ||candidates.find(x=>!used.has(x.row)&&r.sku&&x.data.sku===r.sku)
-          ||candidates.find(x=>!used.has(x.row));
-        const row=match?match.row:next++;used.add(row);
-        // Chỉ cập nhật các cột lấy từ Shopee, giữ cột người dùng tự thêm.
-        const data={...r};
-        if(match){
-          for(const h of ['sku','ten_sp','phan_loai','anh','mvd','item_id','model_id','sku_san_pham'])if(data[h]===''&&match.data[h])delete data[h];
-          if(match.data.dong_bo_luc&&String(r.chi_tiet_dong_bo).includes('Chi tiết:')&&!String(r.chi_tiet_dong_bo).includes('Chi tiết: đã tải'))RAW_HEADERS.forEach(h=>delete data[h]);
-        }
-        updates.push({row,data});
+  // ---------- Ghi theo khóa (giống Hàng hoàn API): có thì ghi đè, chưa có thì thêm, không xóa dòng nào ----------
+  const KEY_COLS=['gian','mdh','item_id','model_id','khoa','dau_van_tay'];
+  // FNV-1a 32 bit: đủ để phát hiện dòng thay đổi
+  function hash(s){let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193);}return (h>>>0).toString(16).padStart(8,'0');}
+  // Gắn khoa (n đếm khi một đơn có 2 dòng cùng phân loại) và dau_van_tay (bỏ qua giờ đồng bộ)
+  function withKeys(rows){
+    const count=new Map();
+    return rows.map(r=>{
+      const base=[r.gian,r.mdh,`${r.item_id||''}-${r.model_id||''}`].join('|'),n=(count.get(base)||0)+1;count.set(base,n);
+      const out={...r,khoa:`${base}|${n}`};
+      out.dau_van_tay=hash(JSON.stringify(HEADERS.filter(h=>!['dong_bo_luc','khoa','dau_van_tay'].includes(h)).map(h=>String(out[h]??''))));
+      return out;
+    });
+  }
+  // columns: {header: [giá trị từ dòng 2...]} của KEY_COLS (đọc riêng từng cột, không đọc dữ liệu gốc nặng)
+  // Trả về: updates [{row (0 = dòng tiêu đề), data}], appended, unchanged, rowCount
+  function keyPlan(headersIn,columns,incoming){
+    const headers=headersIn.map(x=>String(x).trim());
+    if(new Set(headers.filter(Boolean)).size!==headers.filter(Boolean).length)throw new Error('Sheet DH có tiêu đề trùng');
+    for(const h of HEADERS)if(!headers.includes(h))headers.push(h);
+    const col=h=>columns[h]||[],n=Math.max(0,...KEY_COLS.map(h=>col(h).length));
+    // Dòng cũ chưa có khoa: tính lại theo gian/mdh/item_id/model_id như lúc ghi
+    const count=new Map(),byKey=new Map(),legacy=new Map();
+    for(let i=0;i<n;i++){
+      const gian=String(col('gian')[i]??''),mdh=String(col('mdh')[i]??'');
+      let key=String(col('khoa')[i]??'');
+      if(!key&&mdh){
+        const it=String(col('item_id')[i]??''),base=[gian,mdh,`${it}-${col('model_id')[i]??''}`].join('|'),c=(count.get(base)||0)+1;count.set(base,c);key=`${base}|${c}`;
+        // Dòng rất cũ không có item_id: ghép theo thứ tự với sản phẩm của cùng đơn
+        if(!it){const g=gian+'|'+mdh;if(!legacy.has(g))legacy.set(g,[]);legacy.get(g).push(i+1);}
       }
-      for(const stale of candidates)if(!used.has(stale.row))updates.push({row:stale.row,clear:true});
+      if(key&&!byKey.has(key))byKey.set(key,{row:i+1,fp:String(col('dau_van_tay')[i]??''),hasKey:!!col('khoa')[i]});
     }
-    return {headers,updates,rowCount:Math.max(next,values.length,1)};
+    const updates=[],used=new Set();let next=n+1,appended=0,unchanged=0;
+    for(const r of withKeys(incoming)){
+      let hit=byKey.get(r.khoa);
+      if(!hit){const q=legacy.get(r.gian+'|'+r.mdh);const row=q?.find(x=>!used.has(x));if(row)hit={row,fp:'',hasKey:false};}
+      if(hit&&used.has(hit.row))hit=null;
+      if(hit){
+        used.add(hit.row);
+        if(hit.hasKey&&hit.fp===r.dau_van_tay){unchanged++;continue;}
+        // Không ghi ô rỗng đè dữ liệu cũ (Shopee lỗi tạm thời trả thiếu)
+        const data=Object.fromEntries(Object.entries(r).filter(([,v])=>v!==''&&v!=null));
+        // Chi tiết đơn lỗi lần này: giữ dữ liệu gốc cũ
+        if(!String(r.chi_tiet_dong_bo).includes('Chi tiết: đã tải'))RAW_HEADERS.forEach(h=>delete data[h]);
+        updates.push({row:hit.row,data});
+      }else {updates.push({row:next++,data:r});appended++;}
+    }
+    return {headers,updates,appended,updated:updates.length-appended,unchanged,rowCount:Math.max(next,n+1)};
   }
 
   const ALARM='dh-all-orders-sheet',CFG='dh_sheet_enabled';
-  let running=null;
+  let running=null,wantRecent=false; // wantRecent: tab Đơn Shopee vừa có đơn mới
   const cell=v=>({userEnteredValue:typeof v==='number'?{numberValue:v}:{stringValue:String(v??'')}});
   async function writeOrders(records) {
     const spreadsheetId=self.SHARED_GOOGLE_CONFIG.webSpreadsheetId,token=await getGoogleAccessToken();
@@ -601,16 +782,24 @@ var DHSheetSync = (function (exports) {
     const meta=await fetchSpreadsheetMetadata(token,spreadsheetId),p=meta.sheets.find(s=>s.properties.title===title).properties;
     const rangeTitle=`'${title.replace(/'/g,"''")}'`;
     const [headers=[]]=await fetchSheetValues(`${rangeTitle}!1:1`,token,30000,spreadsheetId);
-    const last=headers.reduce((n,h,i)=>RAW_HEADERS.includes(h)?n:Math.max(n,i),0);
-    let col='';for(let n=last+1;n;n=Math.floor((n-1)/26))col=String.fromCharCode(65+(n-1)%26)+col;
-    const old=await fetchSheetValues(`${rangeTitle}!A:${col}`,token,30000,spreadsheetId);
-    if(headers.length)old[0]=headers;
-    const plan=mergePlan(old,records),requests=[];
+    if(headers.length&&(!headers.includes('mdh')||!headers.includes('gian')))throw new Error('Sheet DH thiếu cột mdh/gian; giữ nguyên dữ liệu, không ghi');
+    // Chỉ đọc các cột khóa nhẹ, không đọc các cột dữ liệu gốc
+    const letter=i=>{let s='';for(let n=i+1;n;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s;};
+    const columns={};
+    // Một request batchGet cho mọi cột khóa (tránh vượt quota đọc/phút của Google)
+    const keyCols=KEY_COLS.filter(h=>headers.includes(h));
+    if(keyCols.length){
+      const ranges=keyCols.map(h=>'ranges='+encodeURIComponent(`${rangeTitle}!${letter(headers.indexOf(h))}2:${letter(headers.indexOf(h))}`)).join('&');
+      const {res,data}=await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?${ranges}&majorDimension=COLUMNS`,{headers:{Authorization:`Bearer ${token}`}},60000);
+      if(!res.ok)throw new Error(data.error?.message||'Không đọc được cột khóa DH');
+      keyCols.forEach((h,i)=>{columns[h]=data.valueRanges?.[i]?.values?.[0]||[];});
+    }
+    const plan=keyPlan(headers,columns,records),requests=[];
+    if(!plan.updates.length)return plan;
     if(p.gridProperties.columnCount<plan.headers.length)requests.push({appendDimension:{sheetId:p.sheetId,dimension:'COLUMNS',length:plan.headers.length-p.gridProperties.columnCount}});
     if(p.gridProperties.rowCount<plan.rowCount)requests.push({appendDimension:{sheetId:p.sheetId,dimension:'ROWS',length:plan.rowCount-p.gridProperties.rowCount}});
     requests.push({updateCells:{start:{sheetId:p.sheetId,rowIndex:0,columnIndex:0},rows:[{values:plan.headers.map(cell)}],fields:'userEnteredValue'}});
     for(const update of plan.updates){
-      if(update.clear){requests.push({updateCells:{range:{sheetId:p.sheetId,startRowIndex:update.row,endRowIndex:update.row+1,startColumnIndex:0,endColumnIndex:plan.headers.length},fields:'userEnteredValue'}});continue;}
       // Một request cho từng đoạn cột liền nhau; cột do người dùng nhập không bị ghi lại.
       let start=-1,values=[];
       const flush=()=>{if(start>=0)requests.push({updateCells:{start:{sheetId:p.sheetId,rowIndex:update.row,columnIndex:start},rows:[{values}],fields:'userEnteredValue'}});start=-1;values=[];};
@@ -619,6 +808,7 @@ var DHSheetSync = (function (exports) {
     requests.push({updateSheetProperties:{properties:{sheetId:p.sheetId,gridProperties:{frozenRowCount:1}},fields:'gridProperties.frozenRowCount'}});
     const {res,data}=await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({requests})},60000);
     if(!res.ok)throw new Error(data.error?.message||'Không ghi được DH');
+    return plan;
   }
   const freshCursor=()=>({page:1,sentinel:'',pending:[],fingerprint:'',seen:0,total:0,complete:false});
   async function takePage(cursor) {
@@ -647,12 +837,15 @@ var DHSheetSync = (function (exports) {
     const historyBatch=state.history.pending.slice(0,5);
     let indices=[...historyBatch];
     // Cập nhật đơn mới và đơn chưa kết thúc trong khi đang quét lịch sử cũ.
-    if(state.ticks%5===1){const recent=await orders.listIndex({tab:100,page:1,pageSize:5});indices.push(...recent.index);}
+    if(state.ticks%5===1||wantRecent){wantRecent=false;const recent=await orders.listIndex({tab:100,page:1,pageSize:5});indices.push(...recent.index);}
     const active=Object.values(state.active).filter(a=>!a.nextAt||a.nextAt<=Date.now()).sort((a,b)=>a.at-b.at).slice(0,3);
     indices.push(...active.map(a=>a.index));
     const indexId=x=>String(x?.order_id||x?.order_sn||'');
     indices=[...new Map(indices.map(x=>[indexId(x),x])).values()];
     if(indices.some(x=>!indexId(x)))throw new Error('Chỉ mục Shopee thiếu mã đơn');
+    // Giá bán DS_SP cho cột gia_sp / tong_thanh_tien_sp / loi_nhuan; lỗi thì vẫn ghi đơn, bỏ trống các cột này
+    let prices=null;
+    try{const [token,id]=await Promise.all([getGoogleAccessToken(),getSpreadsheetId()]);prices=costMap(await fetchSheetValues('DS_SP!A:G',token,30000,id));}catch(e){console.warn('DH: không đọc được DS_SP',e);}
     const records=[],updates=[];let warnings=[];
     for(let i=0;i<indices.length;i+=5){
       const chunk=indices.slice(i,i+5),cards=await orders.cards({tab:100,index:chunk});
@@ -662,7 +855,7 @@ var DHSheetSync = (function (exports) {
         let o=parseOrder(card);if(!o.orderId)throw new Error('Đơn thiếu ID chi tiết');
         try {o=parseOrder(card,await orders.getOne(o.orderId));}catch(e){o.detailError=e.message;}
         try {o.incomeRaw=await orders.income(o.orderId);o.income=parseIncome(o.incomeRaw);}catch(e){o.incomeError=e.message;}
-        records.push(...recordsForOrder(o,shop,code,findDeep));
+        records.push(...recordsForOrder(o,shop,code,findDeep,Date.now(),prices));
         if(o.detailError||o.incomeError)warnings.push(o.orderSn);
         const index=chunk.find(x=>indexId(x)===String(o.orderId)||indexId(x)===o.orderSn);
         updates.push({id:o.orderId,index,status:o.status,retry:!!(o.detailError||o.incomeError)});
@@ -681,11 +874,72 @@ var DHSheetSync = (function (exports) {
     await chrome.storage.local.set({[key]:state,dh_sheet_meta:info,dh_sheet_error:''});
     return {ok:true,...info};
   }
+  // Tab "Đơn trên Sheet": đọc lại từ Shopee các đơn đang xem (theo order_id) rồi ghi DH.
+  // Chỉ đơn của shop đang đăng nhập; đơn shop khác bỏ qua.
+  async function reloadOrders(orderIds,shopId){
+    const cfg=await chrome.storage.local.get(['tcdd-shop-code','maGian','dhHoanTextValue']);
+    const code=String(cfg['tcdd-shop-code']||cfg.maGian||cfg.dhHoanTextValue||'').trim().toUpperCase();
+    if(!code)throw new Error('Nhập Mã gian trong Auto In trước');
+    const shop=await getShopInfo();if(!shop.shopId)throw new Error('Chưa mở/đăng nhập Kênh Người Bán Shopee');
+    if(shopId&&String(shopId)!==String(shop.shopId))throw new Error('Các đơn này thuộc shop khác shop đang đăng nhập Shopee');
+    let prices=null;
+    try{const [token,id]=await Promise.all([getGoogleAccessToken(),getSpreadsheetId()]);prices=costMap(await fetchSheetValues('DS_SP!A:G',token,30000,id));}catch(e){console.warn('DH: không đọc được DS_SP',e);}
+    const ids=[...new Set(orderIds.map(String).filter(x=>/^\d+$/.test(x)))];
+    const records=[];let ok=0,fail=0;
+    for(let i=0;i<ids.length;i+=5){
+      const chunk=ids.slice(i,i+5);
+      // Shopee có thể báo "parameter invalid" khi chỉ có order_id: bỏ qua, dựng card từ chi tiết đơn bên dưới
+      let cards=[];
+      try{cards=await orders.cards({tab:100,index:chunk.map(id=>({order_id:Number(id)}))});}catch(e){console.warn('DH: không đọc được card',e);}
+      // Đơn Shopee không trả card (đơn cũ ngoài danh sách): dựng card tối thiểu, lấy dữ liệu từ chi tiết đơn
+      for(const id of chunk)if(!cards.some(c=>String(parseOrder(c).orderId)===id))cards.push({order_ext_info:{order_id:Number(id)}});
+      for(const card of cards){
+        let o=parseOrder(card);if(!o.orderId){fail++;continue;}
+        try{const d=await orders.getOne(o.orderId);o=parseOrder(card,d);o.orderSn||=findDeep(d,['order_sn'],v=>typeof v==='string'&&v.length>8)||'';}catch(e){o.detailError=e.message;}
+        try{o.incomeRaw=await orders.income(o.orderId);o.income=parseIncome(o.incomeRaw);}catch(e){o.incomeError=e.message;}
+        try{
+          const rs=recordsForOrder(o,shop,code,findDeep,Date.now(),prices);
+          // Không đọc được trạng thái (thiếu card): giữ trạng thái đang có trên sheet
+          if(!o.status)rs.forEach(r=>{delete r.trang_thai;delete r.mo_ta_trang_thai;delete r.ma_trang_thai;});
+          records.push(...rs);ok++;
+        }catch{fail++;}
+      }
+    }
+    const check=await getShopInfo();if(String(check.shopId)!==String(shop.shopId))throw new Error('Shop đã thay đổi trong lúc tải, chưa ghi DH');
+    if(records.length)await writeOrders(records);
+    await chrome.storage.local.set({dh_sheet_meta:{...(await chrome.storage.local.get('dh_sheet_meta')).dh_sheet_meta,reloadAt:Date.now()}});
+    return {ok:true,count:ok,fail};
+  }
+  // Tab "Đơn Shopee" gửi thẳng các đơn đã tải (có chi tiết + doanh thu) để ghi DH, không gọi lại Shopee.
+  // Gửi nhiều đợt cùng batch: gom bản ghi, chỉ đọc/ghi Google 1 lần ở đợt cuối (last).
+  const batches=new Map();
+  async function writeLoaded(orders,batch,last=true){
+    let b=batch&&batches.get(batch);
+    if(!b){
+      const cfg=await chrome.storage.local.get(['tcdd-shop-code','maGian','dhHoanTextValue']);
+      const code=String(cfg['tcdd-shop-code']||cfg.maGian||cfg.dhHoanTextValue||'').trim().toUpperCase();
+      if(!code)throw new Error('Nhập Mã gian trong Auto In trước');
+      const shop=await getShopInfo();if(!shop.shopId)throw new Error('Chưa mở/đăng nhập Kênh Người Bán Shopee');
+      let prices=null;
+      try{const [token,id]=await Promise.all([getGoogleAccessToken(),getSpreadsheetId()]);prices=costMap(await fetchSheetValues('DS_SP!A:G',token,30000,id));}catch(e){console.warn('DH: không đọc được DS_SP',e);}
+      b={code,shop,prices,records:[],count:0,skipped:0};
+      if(batch)batches.set(batch,b);
+    }
+    for(const o of orders){try{b.records.push(...recordsForOrder(o,b.shop,b.code,findDeep,Date.now(),b.prices));b.count++;}catch{b.skipped++;}}
+    if(!last)return {ok:true,count:b.count,pending:true};
+    if(batch)batches.delete(batch);
+    const {records,skipped}=b;orders={length:b.count+b.skipped};
+    const plan=records.length?await writeOrders(records):null;
+    await chrome.storage.local.set({dh_sheet_meta:{...(await chrome.storage.local.get('dh_sheet_meta')).dh_sheet_meta,pushAt:Date.now()}});
+    return {ok:true,count:orders.length-skipped,skipped,appended:plan?.appended||0,updated:plan?.updated||0,unchanged:plan?.unchanged||0};
+  }
   function sync(){if(running)return running;running=run().catch(async e=>{await chrome.storage.local.set({dh_sheet_error:e.message});return {ok:false,error:e.message};}).finally(()=>running=null);return running;}
-  chrome.alarms.create(ALARM,{periodInMinutes:1});
-  chrome.alarms.onAlarm.addListener(a=>{if(a.name===ALARM)sync();});
+  // Đã tắt quét lịch sử chạy nền: sheet DH nhận đơn từ tab Đơn Shopee (dh-write-orders)
+  chrome.alarms.clear(ALARM);
   chrome.runtime.onMessage.addListener((msg,sender,reply)=>{
-    if(msg?.type==='dh-sync-sheet'){sync().then(reply);return true;}
+    if(msg?.type==='dh-write-orders'){writeLoaded(msg.orders||[],msg.batch,msg.last!==false).then(reply).catch(e=>reply({ok:false,error:e.message}));return true;}
+    if(msg?.type==='dh-reload-orders'){reloadOrders(msg.orderIds||[],msg.shopId).then(reply).catch(e=>reply({ok:false,error:e.message}));return true;}
+    if(msg?.type==='dh-sync-sheet'){if(msg.recent)wantRecent=true;sync().then(reply);return true;}
     return false;
   });
 

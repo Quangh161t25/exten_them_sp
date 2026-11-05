@@ -7,21 +7,6 @@ import { getTableConfig, saveTableConfig, applyTableStyles, attachColumnResizers
 
 const PAGE_SIZE = 50; // số đơn mỗi trang hiển thị
 
-async function showDhSync() {
-  const saved=await chrome.storage.local.get(['dh_sheet_enabled','dh_sheet_meta','dh_sheet_error']);
-  document.querySelector('#dhSheetOn').checked=saved.dh_sheet_enabled!==false;
-  const m=saved.dh_sheet_meta;
-  document.querySelector('#dhSheetInfo').textContent=saved.dh_sheet_error || (m?`Gian ${m.code} · Đã quét ${m.seen}/${m.total} đơn · ${m.complete?'Đã quét hết danh sách Shopee':'Đang tải lịch sử'} · ${new Date(m.at).toLocaleString('vi-VN')} ${m.warning||''}`:'Mỗi phút tải một đợt đơn, không giới hạn theo ô Tối đa phía trên. Mã gian lấy từ Auto In.');
-}
-document.querySelector('#dhSheetOn').onchange=async e=>{await chrome.storage.local.set({dh_sheet_enabled:e.target.checked});};
-document.querySelector('#dhSheetNow').onclick=async e=>{
-  const b=e.currentTarget;b.disabled=true;
-  document.querySelector('#dhSheetInfo').textContent='Đang tải đơn và ghi Sheet DH…';
-  try{await chrome.storage.local.set({dh_sheet_enabled:true});await chrome.runtime.sendMessage({type:'dh-sync-sheet'});await showDhSync();}
-  catch(err){document.querySelector('#dhSheetInfo').textContent=err.message;}finally{b.disabled=false;}
-};
-chrome.storage.onChanged.addListener(changes=>{if(changes.dh_sheet_meta||changes.dh_sheet_error)showDhSync();});
-showDhSync();
 
 // ---------- Tiện ích ----------
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -168,7 +153,12 @@ async function loadOrders() {
         const cards = await api.cards({ tab, index: chunk });
         for (const c of cards) {
           if (newLoaded >= max || state.stop) break;
-          const o = parseOrder(c);
+          let o = parseOrder(c);
+          // Card danh sách thiếu SKU phân loại / đơn giá: lấy luôn chi tiết đơn
+          if (o.orderId && !savedKeys.has(String(o.orderId))) {
+            progress.textContent = `Đã tải ${newLoaded + 1}/${max} đơn mới – đang lấy chi tiết...`;
+            try { o = parseOrder(c, (await api.getOne(o.orderId)) || {}); } catch (e) { o.detailError = e.message; }
+          }
           if (!o.status) o.status = tab !== 100 ? state.tabLabel : (o.statusCode !== '' ? `Mã trạng thái ${o.statusCode}` : '');
           // Giữ mã chỉ mục + tab để sau này "Load lại" đúng đơn này
           o.indexItem = chunk.find((it) => String(it?.order_id ?? '') === String(o.orderId)) || null;
@@ -274,6 +264,34 @@ function filtered() {
   return list.slice().sort(sorters[$('#fSort').value] || sorters.newest);
 }
 
+// Có đơn mới -> chạy Đồng bộ DH ngay để tab "Đơn trên Sheet" có đơn đó
+// Nút "Tải vào Sheet": ghi các đơn đã tải ở tab này vào sheet DH (theo khóa: có thì ghi đè, chưa có thì thêm).
+// Gửi 40 đơn/đợt cùng 1 batch; service worker gom lại và chỉ đọc/ghi Google 1 lần.
+let pushing = Promise.resolve();
+function pushDh(list) {
+  const btn = $('#btnToSheet'), info = $('#progress');
+  pushing = pushing.then(async () => {
+    // N đơn gần nhất (theo ngày đặt) theo ô số lượng
+    const n = Math.max(1, parseInt($('#toSheetCount').value, 10) || 50);
+    const orders = (list || state.all).filter((o) => o.orderId && o.orderSn)
+      .sort((a, b) => (b.createTime || 0) - (a.createTime || 0)).slice(0, n);
+    if (!orders.length) return toast('Chưa có đơn nào để tải vào Sheet', 'info');
+    btn.disabled = true;
+    const batch = 'b' + Date.now();
+    let res;
+    for (let i = 0; i < orders.length; i += 40) {
+      const last = i + 40 >= orders.length;
+      info.textContent = last ? `Đang ghi ${orders.length} đơn vào Sheet DH…` : `Đang gửi ${i + 40}/${orders.length} đơn…`;
+      res = await chrome.runtime.sendMessage({ type: 'dh-write-orders', orders: orders.slice(i, i + 40), batch, last });
+      if (!res?.ok) throw new Error(res?.error || 'Không ghi được sheet DH');
+    }
+    info.textContent = '';
+    toast(`Đã tải ${res.count} đơn vào Sheet: thêm ${res.appended} dòng, cập nhật ${res.updated}, không đổi ${res.unchanged}`, 'success');
+  }).catch((e) => { info.textContent = ''; toast('Lỗi tải vào Sheet: ' + e.message, 'error'); })
+    .finally(() => { btn.disabled = false; });
+  return pushing;
+}
+
 // ---------- Hiển thị ----------
 function renderSummary(list) {
   const box = $('#summary');
@@ -334,6 +352,8 @@ const DEFAULT_ORDER_COLS = [
   { id: 'col_model_sku', label: 'SKU phân loại', defaultWidth: 110, defaultAlign: 'left' },
   { id: 'col_qty', label: 'SL', defaultWidth: 50, defaultAlign: 'right' },
   { id: 'col_price', label: 'Đơn giá', defaultWidth: 95, defaultAlign: 'right' },
+  { id: 'col_cost_price', label: 'Giá SP', defaultWidth: 95, defaultAlign: 'right' },
+  { id: 'col_cost_amount', label: 'Thành tiền SP', defaultWidth: 105, defaultAlign: 'right' },
   { id: 'col_total', label: 'Tổng đơn', defaultWidth: 105, defaultAlign: 'right' },
   { id: 'col_income_merchandise_subtotal', label: 'Tổng tiền SP', defaultWidth: 100, defaultAlign: 'right' },
   { id: 'col_income_shipping_fee_paid_by_buyer', label: 'Phí VC người mua trả', defaultWidth: 100, defaultAlign: 'right' },
@@ -345,6 +365,8 @@ const DEFAULT_ORDER_COLS = [
   { id: 'col_income_vat_wht_amount', label: 'Thuế GTGT', defaultWidth: 90, defaultAlign: 'right' },
   { id: 'col_income_pit_wht_amount', label: 'Thuế TNCN', defaultWidth: 90, defaultAlign: 'right' },
   { id: 'col_income_escrow_amount', label: 'Doanh thu ước tính', defaultWidth: 115, defaultAlign: 'right' },
+  { id: 'col_cost_sum', label: 'Tổng thành tiền SP', defaultWidth: 115, defaultAlign: 'right' },
+  { id: 'col_profit', label: 'Lợi nhuận', defaultWidth: 110, defaultAlign: 'right' },
   { id: 'col_payment', label: 'Thanh toán', defaultWidth: 110, defaultAlign: 'left' },
   { id: 'col_shipping', label: 'Vận chuyển', defaultWidth: 140, defaultAlign: 'left' },
   { id: 'col_tracking', label: 'Mã vận đơn', defaultWidth: 140, defaultAlign: 'left' },
@@ -384,6 +406,53 @@ function incomeCells(o, rs) {
   }).join('');
 }
 
+// ---------- Giá SP (DS_SP) & lợi nhuận ----------
+// Giá SP = gia_ban của DS_SP, tra theo 10 ký tự đầu SKU phân loại (vd S130-SI-00), không có thì theo SKU sản phẩm.
+const dsPrice = new Map();
+async function loadDsPrice() {
+  try {
+    const res = await new Promise((resolve) => chrome.runtime.sendMessage({ type: 'FETCH_DS_SP' }, resolve));
+    if (!res?.ok || !res.values?.length) return;
+    const head = res.values[0].map((h) => String(h || '').trim().toLowerCase());
+    const keyCol = Math.max(0, head.indexOf('id_sp_con'));
+    const priceCol = head.indexOf('gia_ban') >= 0 ? head.indexOf('gia_ban') : 4;
+    dsPrice.clear();
+    for (const row of res.values.slice(1)) {
+      const key = String(row[keyCol] || '').trim().toLowerCase();
+      const price = Number(String(row[priceCol] || '').replace(/[^\d-]/g, '')) || 0;
+      if (key) dsPrice.set(key, price);
+    }
+    render();
+  } catch (e) {
+    console.warn('Lỗi đọc giá DS_SP:', e);
+  }
+}
+function costPrice(it) {
+  for (const sku of [it.modelSku, it.itemSku]) {
+    const key = String(sku || '').trim().slice(0, 10).toLowerCase();
+    if (key && dsPrice.get(key)) return dsPrice.get(key);
+  }
+  return 0;
+}
+// Tổng thành tiền SP của đơn; null khi có sản phẩm chưa có giá (không tính lợi nhuận sai)
+function orderCost(o) {
+  if (!o.items.length) return null;
+  let sum = 0;
+  for (const it of o.items) {
+    const p = costPrice(it);
+    if (!p) return null;
+    sum += p * (Number(it.qty) || 0);
+  }
+  return sum;
+}
+function profitCells(o, rs) {
+  const cost = orderCost(o);
+  const escrow = o.income ? o.income.byField.ESCROW_AMOUNT : null;
+  const profit = cost !== null && escrow !== null && escrow !== undefined ? escrow - cost : null;
+  return `<td ${rs} class="money" data-col="col_cost_sum">${cost !== null ? money(cost) : '<span class="muted" title="Có sản phẩm chưa có giá trong DS_SP">—</span>'}</td>
+      <td ${rs} class="money${profit !== null && profit < 0 ? ' neg' : ''}" data-col="col_profit">${profit !== null ? `<b>${money(profit)}</b>` : '<span class="muted" title="Cần doanh thu ước tính và giá SP của tất cả sản phẩm">—</span>'}</td>`;
+}
+
 function orderRows(o) {
   const items = o.items.length ? o.items : [{ name: '(không đọc được sản phẩm – xem Chi tiết)', model: '', itemSku: '', modelSku: '', qty: '', price: 0, image: '' }];
   const rs = `rowspan="${items.length}"`;
@@ -394,7 +463,9 @@ function orderRows(o) {
       <td class="sku" data-col="col_item_sku">${esc(it.itemSku)}${copyBtn(it.itemSku)}</td>
       <td class="sku" data-col="col_model_sku">${esc(it.modelSku)}${copyBtn(it.modelSku)}</td>
       <td data-col="col_qty">${esc(it.qty)}</td>
-      <td class="money" data-col="col_price">${it.price ? money(it.price) : ''}</td>`;
+      <td class="money" data-col="col_price">${it.price ? money(it.price) : ''}</td>
+      <td class="money" data-col="col_cost_price">${costPrice(it) ? money(costPrice(it)) : ''}</td>
+      <td class="money" data-col="col_cost_amount">${costPrice(it) && it.qty ? money(costPrice(it) * Number(it.qty)) : ''}</td>`;
     if (i > 0) return `<tr>${itemCells}</tr>`;
     return `<tr class="first">
       <td ${rs} data-col="col_pick"><input type="checkbox" data-pick="${esc(orderKey(o))}" ${state.picked.has(orderKey(o)) ? 'checked' : ''}></td>
@@ -405,6 +476,7 @@ function orderRows(o) {
       ${itemCells}
       <td ${rs} class="money" data-col="col_total"><b>${o.total ? money(o.total) : ''}</b></td>
       ${incomeCells(o, rs)}
+      ${profitCells(o, rs)}
       <td ${rs} data-col="col_payment">${esc(o.payment)}</td>
       <td ${rs} data-col="col_shipping">${esc(o.shippingType)}${o.shippingType && o.shipping ? '<br>' : ''}${esc(o.shipping)}</td>
       <td ${rs} class="nowrap" data-col="col_tracking"><b>${esc(o.tracking)}</b>${copyBtn(o.tracking)}</td>
@@ -449,7 +521,7 @@ function render() {
   const rows = list.slice((state.page - 1) * PAGE_SIZE, state.page * PAGE_SIZE);
   $('#orderTable tbody').innerHTML = rows.length
     ? rows.map(orderRows).join('')
-    : `<tr><td colspan="29" class="muted">${state.all.length ? 'Không có đơn khớp bộ lọc.' : 'Chọn trạng thái rồi bấm "Tải đơn hàng".'}</td></tr>`;
+    : `<tr><td colspan="33" class="muted">${state.all.length ? 'Không có đơn khớp bộ lọc.' : 'Chọn trạng thái rồi bấm "Tải đơn hàng".'}</td></tr>`;
   $('#pager').innerHTML = pages > 1
     ? `<button class="btn small" data-page="${state.page - 1}" ${state.page === 1 ? 'disabled' : ''}>‹ Trước</button>
        <span>Trang ${state.page}/${pages}</span>
@@ -681,7 +753,7 @@ async function syncNewOrders() {
       const chunk = unsaved.slice(i, i + 5);
       const cards = await api.cards({ tab, index: chunk });
       for (const c of cards) {
-        const o = parseOrder(c);
+        let o = parseOrder(c);
         if (!o.status) o.status = o.statusCode !== '' ? `Mã trạng thái ${o.statusCode}` : '';
         if (o.createTime && o.createTime < cutoff) {
           reachedOld = true;
@@ -693,6 +765,10 @@ async function syncNewOrders() {
         if ((k1 && savedKeys.has(k1)) || (k2 && savedKeys.has(k2))) continue;
         if (k1) savedKeys.add(k1);
         if (k2) savedKeys.add(k2);
+        // Lấy chi tiết đơn (SKU phân loại, đơn giá); giữ trạng thái đã điền
+        if (o.orderId) {
+          try { const d = parseOrder(c, (await api.getOne(o.orderId)) || {}); d.status ||= o.status; o = d; } catch (e) { o.detailError = e.message; }
+        }
         o.indexItem = chunk.find((it) => String(it?.order_id ?? '') === k1) || null;
         o.loadTab = tab;
         if (autoIncome && o.orderId) {
@@ -916,6 +992,22 @@ function showTopProducts() {
 $('#btnConnect').onclick = checkConnection;
 $('#tabSelect').onchange = () => $('#tabCustom').classList.toggle('hidden', $('#tabSelect').value !== 'custom');
 $('#btnLoad').onclick = loadOrders;
+$('#btnToSheet').onclick = () => pushDh();
+// Số lượng + tự tải vào Sheet theo chu kỳ (lưu cài đặt trên máy)
+let toSheetTimer = null;
+function setupToSheetAuto() {
+  clearInterval(toSheetTimer);
+  toSheetTimer = $('#toSheetAuto').checked ? setInterval(() => pushDh(), Math.max(1, Number($('#toSheetMin').value) || 30) * 60000) : null;
+}
+function saveToSheetCfg() {
+  chrome.storage.local.set({ to_sheet_cfg: { count: $('#toSheetCount').value, auto: $('#toSheetAuto').checked, min: $('#toSheetMin').value } });
+  setupToSheetAuto();
+}
+chrome.storage.local.get('to_sheet_cfg').then(({ to_sheet_cfg: c }) => {
+  if (c) { $('#toSheetCount').value = c.count || 50; $('#toSheetAuto').checked = !!c.auto; $('#toSheetMin').value = c.min || '30'; }
+  setupToSheetAuto();
+});
+$('#toSheetCount').onchange = $('#toSheetAuto').onchange = $('#toSheetMin').onchange = saveToSheetCfg;
 $('#btnStop').onclick = () => { state.stop = true; };
 let t = null;
 $('#fSearch').oninput = () => { clearTimeout(t); t = setTimeout(() => { state.page = 1; render(); }, 250); };
@@ -1052,3 +1144,4 @@ async function initSavedOrders() {
 render();
 checkConnection();
 initSavedOrders().then(initAutoSync);
+loadDsPrice();

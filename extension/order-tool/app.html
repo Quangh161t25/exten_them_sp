@@ -49,7 +49,12 @@
           </select>
         </label>
         <label><input type="checkbox" id="autoIncome" checked> Lấy luôn doanh thu</label>
-        <button id="btnLoad" class="btn primary">Tải đơn hàng</button>
+        <button id="btnLoad" class="btn primary" title="Đơn đã tải được lưu trên máy; chỉ tải thêm các đơn mới chưa lưu (tối đa theo số đơn chọn)">Tải đơn hàng</button>
+        <button id="btnToSheet" class="btn" title="Ghi các đơn đã tải ở đây vào sheet DH (tab Đơn trên Sheet): đơn đã có thì đồng bộ theo khóa, chưa có thì thêm">⬆ Tải vào Sheet</button>
+        <input id="toSheetCount" type="number" min="1" value="50" style="width:70px" title="Số đơn gần nhất sẽ tải vào Sheet"> đơn gần nhất
+        <label title="Khi trang này đang mở: tự tải các đơn gần nhất vào Sheet theo chu kỳ"><input type="checkbox" id="toSheetAuto"> Tự tải mỗi
+          <input id="toSheetMin" type="number" min="1" value="30" style="width:60px"> phút
+        </label>
         <button id="btnStop" class="btn danger hidden">Dừng</button>
         <button id="btnClearSaved" class="btn small danger" title="Xoá tất cả đơn đã lưu trong bộ nhớ máy">🗑 Xoá đơn đã lưu (<span id="savedCount">0</span>)</button>
         <span id="progress" class="muted"></span>
@@ -68,16 +73,6 @@
         <button id="btnSyncNow" class="btn small">🔄 Đồng bộ ngay</button>
         <span id="autoSyncInfo" class="muted small"></span>
       </div>
-      <div class="hint">Đơn đã tải được lưu tự động trên máy. Khi bấm <b>"Tải đơn hàng"</b>, hệ thống sẽ bỏ qua các đơn đã lưu và chỉ tải thêm các đơn mới chưa lưu (tối đa theo số đơn chọn).</div>
-    </div>
-
-    <div class="card">
-      <div class="toolbar">
-        <strong>Đồng bộ tất cả đơn → Sheet DH</strong>
-        <label><input id="dhSheetOn" type="checkbox" checked> Tự động chạy nền</label>
-        <button id="dhSheetNow" class="btn primary">Đồng bộ DH ngay</button>
-      </div>
-      <div id="dhSheetInfo" class="muted small">Tải dần toàn bộ lịch sử Shopee, giữ đơn hoàn thành / hủy / trả / hoàn và cập nhật trạng thái.</div>
     </div>
     <div id="summary" class="stats hidden"></div>
 
@@ -124,6 +119,8 @@
               <th data-col="col_model_sku">SKU phân loại</th>
               <th data-col="col_qty">SL</th>
               <th data-col="col_price">Đơn giá</th>
+              <th data-col="col_cost_price">Giá SP</th>
+              <th data-col="col_cost_amount">Thành tiền SP</th>
               <th data-col="col_total">Tổng đơn</th>
               <th data-col="col_income_merchandise_subtotal" class="income-h">Tổng tiền SP</th>
               <th data-col="col_income_shipping_fee_paid_by_buyer" class="income-h">Phí VC người mua trả</th>
@@ -135,6 +132,8 @@
               <th data-col="col_income_vat_wht_amount" class="income-h">Thuế GTGT</th>
               <th data-col="col_income_pit_wht_amount" class="income-h">Thuế TNCN</th>
               <th data-col="col_income_escrow_amount" class="income-h">Doanh thu ước tính</th>
+              <th data-col="col_cost_sum">Tổng thành tiền SP</th>
+              <th data-col="col_profit" class="income-h">Lợi nhuận</th>
               <th data-col="col_payment">Thanh toán</th>
               <th data-col="col_shipping">Vận chuyển</th>
               <th data-col="col_tracking">Mã vận đơn</th>
@@ -167,5 +166,6 @@
   <div id="toast" class="toast hidden"></div>
   <script src="vendor/pdf-lib.min.js"></script>
   <script type="module" src="app.js"></script>
+  <script type="module" src="sheet-tab.js"></script>
 </body>
 </html>

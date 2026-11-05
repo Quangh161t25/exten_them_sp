@@ -59,7 +59,7 @@ export function getTableConfig(tableId, defaultCols) {
           visible: s.visible !== undefined ? s.visible : (def.visible ?? true),
           align: s.align || def.align || 'left',
           wrap: s.wrap !== undefined ? s.wrap : (def.wrap ?? false),
-          width: s.width !== undefined ? Number(s.width) : (def.width || 0),
+          width: Number(s.width) > 0 ? Number(s.width) : (def.width || def.defaultWidth || 0),
           fixed: s.fixed !== undefined ? s.fixed : (def.fixed ?? false)
         });
       } else if (!def && s.id) {
@@ -75,11 +75,18 @@ export function getTableConfig(tableId, defaultCols) {
     }
 
     // 2. Bổ sung các cột mặc định chưa có trong cấu hình đã lưu
-    for (const def of defaultCols) {
-      if (!usedDefIds.has(def.id)) {
-        result.push({ ...def });
-      }
-    }
+    // Cột mới đặt ngay sau cột đứng trước nó trong danh sách mặc định (không dồn xuống cuối)
+    defaultCols.forEach((def, i) => {
+      if (usedDefIds.has(def.id)) return;
+      const prevId = i > 0 ? defaultCols[i - 1].id : null;
+      const at = prevId ? result.findIndex((c) => c.id === prevId) : -1;
+      // Lấy độ rộng/căn lề mặc định: cột "Tự động" trong bảng table-layout: fixed bị co về 0px
+      const col = cloneDefaults([def])[0];
+      if (i === 0) result.unshift(col);
+      else if (at >= 0) result.splice(at + 1, 0, col);
+      else result.push(col);
+      usedDefIds.add(def.id);
+    });
 
     return result;
   } catch (e) {

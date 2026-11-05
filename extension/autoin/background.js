@@ -98,11 +98,18 @@ async function playAudio(sound = "ting") {
 async function notifyAndSound({ title, message, sound = "ting", isError = false, reportType = null }) {
   await playAudio(sound);
   try {
+    // Đọc lại ô Mã gian mỗi lần gửi, tránh giữ tên cố định khi đổi gian.
+    const store = await chrome.storage.local.get(["dhHoanTextValue", "maGian", "tcdd-shop-code"]);
+    const shopCode = [store.dhHoanTextValue, store.maGian, store["tcdd-shop-code"]]
+      .map(value => String(value || "").trim()).find(Boolean);
+    const shopLabel = shopCode ? shopCode.toUpperCase() : "Chưa đặt mã gian";
+    const notificationTitle = String(title || (isError ? "TOPCARE ❌ LỖI" : "TOPCARE · Đơn hàng"))
+      .replace(/^TOPCARE(?=\s|$)/, () => shopLabel);
     const notifId = reportType ? `report-${reportType}-${Date.now()}` : `tcdd-${Date.now()}`;
     chrome.notifications.create(notifId, {
       type: "basic",
       iconUrl: ICON_URL,
-      title: title || (isError ? "TOPCARE ❌ LỖI" : "TOPCARE · Đơn hàng"),
+      title: notificationTitle,
       message: message || "",
       priority: isError ? 2 : 1,
     });

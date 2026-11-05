@@ -315,7 +315,8 @@ export function buildPayload(src, opts, ctx) {
           id: 0,
           sku: String(specificSku || '').slice(0, 100),
           tier_index: m.tierIndex,
-          price: String(applyPrice(basePrice(m.price, m.priceBefore) || src.price, opts.priceChange)),
+          // Giá sửa tay của phân loại được dùng nguyên, không cộng thêm mức Tăng giảm giá
+          price: String((opts.modelPrices && Number(opts.modelPrices[key])) || applyPrice(basePrice(m.price, m.priceBefore) || src.price, opts.priceChange)),
           stock,
           stock_setting_list: stockSettings(stock)
         };
@@ -326,7 +327,7 @@ export function buildPayload(src, opts, ctx) {
       custom_value: (t.name || `Phân loại ${gi + 1}`).slice(0, 14),
       value_list: t.options.map((o, oi) => ({
         id: 0,
-        custom_value: (o.length > MAX_OPTION_LEN ? `${o.slice(0, MAX_OPTION_LEN - 3)}_${oi + 1}` : o) || `Loại ${oi + 1}`,
+        custom_value: (opts.modelNames && String(opts.modelNames[`${gi}-${oi}`] || '').trim().slice(0, MAX_OPTION_LEN)) || (o.length > MAX_OPTION_LEN ? `${o.slice(0, MAX_OPTION_LEN - 3)}_${oi + 1}` : o) || `Loại ${oi + 1}`,
         image_id: gi === 0 ? (t.images[oi] || '') : ''
       }))
     }));

@@ -10,6 +10,8 @@ importScripts("autoin/background.js");
 // Auto Chat: chạy ngầm qua API chat, khách là người nhắn cuối thì tự nhắn lại + lập danh sách khách chờ (extension/autochat/)
 importScripts("autochat/shared.js", "autochat/engine.js", "autochat/background.js", "autochat/sheet-sync.js");
 importScripts("order-tool/dh-sync.bundle.js");
+importScripts("order-tool/list-finance.bundle.js");
+importScripts("hh-api/returns.js", "hh-api/background.js");
 
 let GOOGLE_SHEET_CONFIG = {
   spreadsheetId: self.SHARED_GOOGLE_CONFIG.extensionSpreadsheetId,
@@ -400,37 +402,21 @@ async function uploadImageToFreeImageHost(imageUrl) {
                  const rowGian = ((row[11] !== undefined && row[11] !== "") ? row[11] : (row[6] || "")).trim().toLowerCase();
                  return rowGian !== message.maGian.toLowerCase();
              });
-             const finalRows = filteredRows.concat(message.values || []);
-             
-             await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(targetTitle + "!A2:Z")}:clear`, {
-                 method: "POST",
-                 headers: { Authorization: `Bearer ${token}` }
-             });
-             
-             if (finalRows.length > 0) {
-                 await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(targetTitle + "!A2")}?valueInputOption=USER_ENTERED`, {
-                     method: "PUT",
-                     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                     body: JSON.stringify({ values: finalRows })
-                 });
-             }
+             await replaceSheetRows(targetTitle, filteredRows.concat(message.values || []), token, sheetId);
          } else {
-             const clearRes = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(targetTitle + "!A2:Z")}:clear`, {
-                method: "POST",
-                headers: { Authorization: `Bearer ${token}` }
-             });
-
-             if (message.values && message.values.length > 0) {
-               await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(targetTitle + "!A2")}?valueInputOption=USER_ENTERED`, {
-                   method: "PUT",
-                   headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                   body: JSON.stringify({ values: message.values })
-               });
-             }
+             await replaceSheetRows(targetTitle, message.values || [], token, sheetId);
          }
          sendResponse({ ok: true, sheetTitle: targetTitle });
       })
       .catch(error => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message?.type === "UPDATE_SKU_IN_SHEETS") {
+    Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
+      .then(([token, sheetId]) => updateSkuInSheets(message, token, sheetId))
+      .then((res) => sendResponse({ ok: true, ...res }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
 
@@ -459,39 +445,15 @@ async function uploadImageToFreeImageHost(imageUrl) {
              if (existingRes.res.ok && existingRes.data.values) {
                  existingRows = existingRes.data.values;
              }
-             // Cột B (index 1) là Mã gian
-             const filteredRows = existingRows.filter(row => {
-                 const rowGian = (row[1] || "").trim().toLowerCase();
-                 return rowGian !== message.maGian.trim().toLowerCase();
-             });
-             const finalRows = filteredRows.concat(message.values || []);
-             
-             await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("WEB_SP!A2:Z")}:clear`, {
-                 method: "POST",
-                 headers: { Authorization: `Bearer ${token}` }
-             });
-             
-             if (finalRows.length > 0) {
-                 await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("WEB_SP!A2")}?valueInputOption=USER_ENTERED`, {
-                     method: "PUT",
-                     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                     body: JSON.stringify({ values: finalRows })
-                 });
-             }
+             // Cột B (index 1) là Mã gian, cột A là ID. Chọn vài SP thì chỉ thay đúng các dòng của SP đó.
+             const newIds = new Set((message.values || []).map((row) => String(row[0])));
+             const gian = message.maGian.trim().toLowerCase();
+             const filteredRows = existingRows.filter((row) => message.partial
+                 ? !newIds.has(String(row[0] || ""))
+                 : (row[1] || "").trim().toLowerCase() !== gian);
+             await replaceSheetRows("WEB_SP", filteredRows.concat(message.values || []), token, sheetId);
          } else {
-             const clearRes = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("WEB_SP!A2:Z")}:clear`, {
-                method: "POST",
-                headers: { Authorization: `Bearer ${token}` }
-             });
-             if (!clearRes.res.ok) console.warn("Không thể clear WEB_SP: ", clearRes.data);
-
-             if (message.values && message.values.length > 0) {
-               await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("WEB_SP!A2")}?valueInputOption=USER_ENTERED`, {
-                   method: "PUT",
-                   headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                   body: JSON.stringify({ values: message.values })
-               });
-             }
+             await replaceSheetRows("WEB_SP", message.values || [], token, sheetId);
          }
          sendResponse({ ok: true });
       })
@@ -756,6 +718,29 @@ async function uploadImageToFreeImageHost(imageUrl) {
     return true;
   }
 
+  // Sheet DH do Đồng bộ DH ghi (file web), dùng cho tab "Đơn trên Sheet" của Đơn Shopee
+  if (message?.type === "FETCH_DH_WEB") {
+    // Chỉ đọc các cột cần (sheet DH có các cột JSON gốc rất nặng)
+    (async () => {
+      const token = await getGoogleAccessToken(), id = self.SHARED_GOOGLE_CONFIG.webSpreadsheetId;
+      const [head = []] = await fetchSheetValues("DH!1:1", token, 30000, id);
+      const want = Array.isArray(message.cols) ? message.cols : head;
+      const letter = (i) => { let s = ""; for (let n = i + 1; n; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; };
+      const cols = want.map((h) => head.indexOf(h)).filter((i) => i >= 0);
+      if (!cols.length) return [head];
+      const ranges = cols.map((i) => "ranges=" + encodeURIComponent(`DH!${letter(i)}2:${letter(i)}`)).join("&");
+      const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values:batchGet?${ranges}&majorDimension=COLUMNS`, { headers: { Authorization: `Bearer ${token}` } }, 60000);
+      if (!res.ok) throw new Error(data.error?.message || "Không đọc được sheet DH");
+      const columns = (data.valueRanges || []).map((r) => r.values?.[0] || []);
+      const n = Math.max(0, ...columns.map((c) => c.length));
+      const rows = Array.from({ length: n }, (_, r) => columns.map((c) => c[r] ?? ""));
+      return [cols.map((i) => head[i]), ...rows];
+    })()
+      .then(values => sendResponse({ ok: true, values }))
+      .catch(error => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   if (message?.type === "FETCH_SP_SHOPEE") {
     Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
       .then(async ([token, sheetId]) => {
@@ -786,26 +771,6 @@ async function uploadImageToFreeImageHost(imageUrl) {
         });
         if (!found) {
           sendResponse({ ok: true, values: [], sheetTitle: "SP_SHOPEE_DAY_DU" });
-          return;
-        }
-        const targetSheetTitle = found.properties.title;
-        const values = await fetchSheetValues(`${targetSheetTitle}!A:AZ`, token, GOOGLE_REQUEST_TIMEOUT_MS, sheetId);
-        sendResponse({ ok: true, values, sheetTitle: targetSheetTitle });
-      })
-      .catch(error => sendResponse({ ok: false, error: error.message, values: [] }));
-    return true;
-  }
-
-  if (message?.type === "FETCH_QUET_SP") {
-    Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
-      .then(async ([token, sheetId]) => {
-        const metadata = await fetchSpreadsheetMetadata(token, sheetId);
-        const found = (metadata.sheets || []).find((s) => {
-          const t = (s.properties?.title || "").trim().toLowerCase();
-          return t === "quet_sp" || t === "quet sp" || t === "quét sp" || t === "quét_sp" || t === "quet_shop" || t === "quét shop" || t === "quet shop" || t.includes("quet_sp") || t.includes("quet_shop");
-        });
-        if (!found) {
-          sendResponse({ ok: true, values: [], sheetTitle: "QUET_SP" });
           return;
         }
         const targetSheetTitle = found.properties.title;
@@ -1051,14 +1016,6 @@ async function uploadImageToFreeImageHost(imageUrl) {
       return { ok: true, count: cleanLinks.length, shop: currentShop, row: targetRowNum };
     })()
       .then(res => sendResponse(res))
-      .catch(error => sendResponse({ ok: false, error: error.message }));
-    return true;
-  }
-
-  if (message?.type === "FETCH_TEST_SHEET") {
-    Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
-      .then(([token, sheetId]) => fetchSheetValues("test!A:E", token, GOOGLE_REQUEST_TIMEOUT_MS, sheetId))
-      .then(values => sendResponse({ ok: true, values }))
       .catch(error => sendResponse({ ok: false, error: error.message }));
     return true;
   }
@@ -2571,147 +2528,6 @@ async function uploadImageToFreeImageHost(imageUrl) {
         sendResponse({ ok: true, data });
       })
       .catch(error => sendResponse({ ok: false, error: error.message }));
-    return true;
-  }
-
-  if (message?.type === "APPEND_QUET_SP") {
-    Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
-      .then(async ([token, sheetId]) => {
-        const metadata = await fetchSpreadsheetMetadata(token, sheetId);
-        const found = (metadata.sheets || []).find((s) => {
-          const t = (s.properties?.title || "").trim().toLowerCase();
-          return t === "quet_sp" || t === "quet sp" || t === "quét sp" || t === "quét_sp" || t === "quet_shop" || t === "quét shop" || t === "quet shop" || t.includes("quet_sp") || t.includes("quet_shop");
-        });
-        const targetSheetTitle = found ? found.properties.title : "QUET_SP";
-
-        await ensureSheetExists(targetSheetTitle, token, sheetId);
-
-        const { res: readRes, data: readData } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`${targetSheetTitle}!A:AZ`)}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const existingRows = (readRes.ok && readData.values) ? readData.values : [];
-        let lastUsedRow = 0;
-        for (let i = 0; i < existingRows.length; i++) {
-          const r = existingRows[i];
-          if (r && r.some(cell => String(cell ?? "").trim() !== "")) {
-            lastUsedRow = i + 1;
-          }
-        }
-
-        let headerRow = (existingRows.length > 0 && Array.isArray(existingRows[0])) ? existingRows[0] : null;
-
-        if (!headerRow || !headerRow.length) {
-          headerRow = [
-            "ID", "Tên shop", "ID Shopee", "Tên sản phẩm", "Tên phân loại", "SKU phân loại",
-            "Giá gốc", "Giá KM", "Tồn kho", "Đã bán", "Đánh giá", "Ngành hàng",
-            "Thương hiệu", "Link sản phẩm", "Ảnh phân loại", "Ảnh chính", "Ảnh mô tả",
-            "Video", "Mô tả sản phẩm", "Thời gian lưu", "Voucher của Shop", "Giá sau Shopee Voucher"
-          ];
-          await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`${targetSheetTitle}!A1:V1`)}?valueInputOption=USER_ENTERED`, {
-            method: "PUT",
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ values: [headerRow] })
-          });
-          lastUsedRow = 1;
-        } else {
-          // If existing header doesn't have voucher columns, append them to row 1
-          const hasVoucher = headerRow.some(h => {
-            const lower = String(h || '').toLowerCase();
-            return lower.includes('voucher') || lower.includes('giá sau');
-          });
-          if (!hasVoucher) {
-            headerRow.push("Voucher của Shop", "Giá sau Shopee Voucher");
-            await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`${targetSheetTitle}!A1:AZ1`)}?valueInputOption=USER_ENTERED`, {
-              method: "PUT",
-              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ values: [headerRow] })
-            });
-          }
-        }
-
-        function mapFieldByHeader(h) {
-          const s = String(h || '').trim().toLowerCase();
-          if (s === 'id') return 'id';
-          if (s === 'tên shop' || s === 'ten shop' || s === 'shop') return 'shopName';
-          if (s === 'id shopee' || s === 'id sản phẩm' || s === 'mã sản phẩm' || s === 'ma san pham') return 'itemId';
-          if (s === 'tên sản phẩm' || s === 'ten san pham' || s === 'tên sp') return 'name';
-          if (s === 'tên phân loại' || s === 'ten phan loai' || s === 'phân loại') return 'modelName';
-          if (s === 'sku phân loại' || s === 'sku') return 'sku';
-          if (s === 'giá gốc' || s === 'gia goc' || s === 'giá bán' || s === 'giá') return 'price';
-          if (s === 'giá km' || s === 'gia km') return 'promoPrice';
-          if (s === 'voucher của shop' || s === 'voucher') return 'voucherDesc';
-          if (s === 'giá sau shopee voucher' || s === 'giá sau voucher') return 'priceAfterVoucher';
-          if (s === 'tồn kho' || s === 'ton kho' || s === 'kho hàng' || s === 'kho') return 'stock';
-          if (s === 'đã bán' || s === 'da ban') return 'sold';
-          if (s === 'đánh giá' || s === 'danh gia') return 'rating';
-          if (s === 'ngành hàng' || s === 'nganh hang') return 'category';
-          if (s === 'thương hiệu' || s === 'thuong hieu') return 'brand';
-          if (s === 'link sản phẩm' || s === 'link') return 'url';
-          if (s === 'ảnh phân loại' || s === 'anh phan loai') return 'modelImg';
-          if (s === 'ảnh chính' || s === 'anh chinh') return 'mainImages';
-          if (s === 'ảnh mô tả' || s === 'anh mo ta') return 'descImages';
-          if (s === 'video') return 'video';
-          if (s === 'mô tả sản phẩm' || s === 'mo ta san pham' || s === 'mô tả' || s === 'mo ta') return 'description';
-          if (s === 'thời gian lưu' || s === 'thoi gian luu' || s === 'thời gian' || s === 'thoi gian') return 'timestamp';
-          return null;
-        }
-
-        const validRows = (message.values || []).map(item => {
-          if (!item) return [];
-          if (Array.isArray(item)) return item;
-          if (typeof item === 'object') {
-            return headerRow.map(h => {
-              const field = mapFieldByHeader(h);
-              return field ? (item[field] ?? '') : '';
-            });
-          }
-          return [];
-        }).filter(r => Array.isArray(r) && r.length > 0 && r.some(cell => String(cell ?? "").trim() !== ""));
-
-        if (!validRows.length) throw new Error("Không có dữ liệu hợp lệ để thêm vào sheet " + targetSheetTitle);
-
-        const startRowNum = lastUsedRow + 1;
-        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`${targetSheetTitle}!A${startRowNum}`)}?valueInputOption=USER_ENTERED`, {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ values: validRows })
-        });
-        if (!res.ok) throw new Error(data.error?.message || `Không thêm được vào ${targetSheetTitle}.`);
-        sendResponse({ ok: true, data, sheetTitle: targetSheetTitle, count: validRows.length });
-      })
-      .catch(error => sendResponse({ ok: false, error: error.message }));
-    return true;
-  }
-
-  if (message?.type === "GET_SAVED_QUET_SP_IDS") {
-    Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
-      .then(async ([token, sheetId]) => {
-        const metadata = await fetchSpreadsheetMetadata(token, sheetId);
-        const found = (metadata.sheets || []).find((s) => {
-          const t = (s.properties?.title || "").trim().toLowerCase();
-          return t === "quet_sp" || t === "quet sp" || t === "quét sp" || t === "quét_sp" || t === "quet_shop";
-        });
-        if (!found) {
-          sendResponse({ ok: true, savedIds: [], sheetTitle: "QUET_SP" });
-          return;
-        }
-        const targetSheetTitle = found.properties.title;
-        const { res, data } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`${targetSheetTitle}!C2:C`)}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const savedIds = [];
-        if (res.ok && Array.isArray(data.values)) {
-          data.values.forEach(row => {
-            const id = String(row[0] || "").trim();
-            if (id && !savedIds.includes(id)) savedIds.push(id);
-          });
-        }
-        sendResponse({ ok: true, savedIds, sheetTitle: targetSheetTitle });
-      })
-      .catch(err => sendResponse({ ok: false, error: err.message, savedIds: [] }));
     return true;
   }
 
@@ -4366,4 +4182,67 @@ async function executeAutoCleanTabs(opts = {}) {
     console.error("[executeAutoCleanTabs] Lỗi:", err);
     return { ok: false, error: err.message, closedCount: 0, remainingCount: 0 };
   }
+}
+
+// Ghi SKU vừa sửa vào SP_SHOPEE_DAY_DU (E: SKU SP, F: SKU phân loại) và WEB_SP (C: SKU phân loại, N: ID Shopee).
+async function updateSkuInSheets({ itemId, modelId, sku }, token, sheetId) {
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values`;
+  const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+  const metadata = await fetchSpreadsheetMetadata(token, sheetId);
+  const titles = (metadata.sheets || []).map((s) => s.properties?.title || "");
+  const fullTitle = titles.find((t) => { const v = t.trim().toLowerCase(); return v === "sp_shopee_day_du" || v === "sp shopee day du" || v === "sp shopee đầy đủ" || v === "sp_shopee_full"; });
+  const webTitle = titles.find((t) => t.trim().toLowerCase() === "web_sp");
+  const read = async (range) => {
+    const r = await fetchJsonWithTimeout(`${base}/${encodeURIComponent(range)}`, { headers });
+    if (!r.res.ok) throw new Error(r.data?.error?.message || `Không đọc được ${range}`);
+    return r.data.values || [];
+  };
+  const data = [];
+  const id = String(itemId);
+  const mid = modelId === null ? "" : String(modelId);
+  if (fullTitle) {
+    const rows = await read(`'${fullTitle}'!A2:F`);
+    rows.forEach((r, i) => {
+      if (String(r[0] || "").trim() !== id) return;
+      const col = modelId === null ? "E" : "F";
+      const rowModel = String(r[2] || "").trim();
+      if (modelId !== null && mid !== "0" && rowModel !== mid) return;
+      data.push({ range: `'${fullTitle}'!${col}${i + 2}`, values: [[sku]] });
+    });
+  }
+  if (webTitle && modelId !== null) {
+    const rows = await read(`'${webTitle}'!A2:N`);
+    rows.forEach((r, i) => {
+      if (String(r[13] || "").trim() !== id) return;
+      if (mid !== "0" && !String(r[0] || "").endsWith(`_${mid}`)) return;
+      data.push({ range: `'${webTitle}'!C${i + 2}`, values: [[sku]] });
+    });
+  }
+  if (data.length) {
+    const r = await fetchJsonWithTimeout(`${base}:batchUpdate`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ valueInputOption: "RAW", data })
+    });
+    if (!r.res.ok) throw new Error(r.data?.error?.message || "Không ghi được SKU vào sheet");
+  }
+  return { updated: data.length };
+}
+
+// Ghi toàn bộ dòng dữ liệu từ dòng 2, xong mới xóa phần dư bên dưới. Ghi lỗi thì dữ liệu cũ vẫn còn.
+async function replaceSheetRows(title, rows, token, sheetId) {
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/`;
+  if (rows.length) {
+    const put = await fetchJsonWithTimeout(`${base}${encodeURIComponent(`${title}!A2`)}?valueInputOption=USER_ENTERED`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ values: rows })
+    });
+    if (!put.res.ok) throw new Error(put.data?.error?.message || `Không ghi được sheet ${title}`);
+  }
+  const clear = await fetchJsonWithTimeout(`${base}${encodeURIComponent(`${title}!A${rows.length + 2}:Z`)}:clear`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!clear.res.ok) throw new Error(clear.data?.error?.message || `Không xóa được dòng dư sheet ${title}`);
 }

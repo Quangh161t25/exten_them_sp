@@ -42,13 +42,6 @@ export const CONFIG = {
             headers: ['gian', 'ngay', 'ngay_gio', 'mdh', 'mvd', 'tong_tien', 'ma_giam_gia', 'phi_vc', 'phu_phi', 'thue', 'doanh_thu', 'phi_khac', 'tien_sp', 'loi_nhuan', 'tinh_trang', 'trang_thai', 'sku', 'id_sp', 'slg', 'don_gia', 'thanh_tien', 'ten_khach', 'ng_nhan', 'dia_chi', 'link_don', 'mvd_huy', 'mdh_huy'],
             displayHeaders: ['gian', 'ngay', 'mdh', 'mvd', 'mvd_huy', 'mdh_huy', 'tong_tien', 'ma_giam_gia', 'phi_vc', 'phu_phi', 'thue', 'doanh_thu', 'phi_khac', 'tien_sp', 'loi_nhuan', 'tinh_trang', 'trang_thai', 'ten_khach', 'ng_nhan', 'dia_chi', 'link_don'],
             priceCols: [5, 6, 7, 8, 9, 10, 11, 12, 13, 19, 20]
-        },
-        'QUET_SP': {
-            range: 'QUET_SP!A2:V',
-            headers: ['id', 'ten_shop', 'id_shopee', 'ten_sp', 'phan_loai', 'sku', 'gia_goc', 'gia_km', 'voucher_shop', 'gia_sau_voucher', 'ton_kho', 'da_ban', 'danh_gia', 'nganh_hang', 'thuong_hieu', 'link_sp', 'anh_phan_loai', 'anh_chinh', 'anh_mota', 'link_video', 'mo_ta', 'thoi_gian_luu'],
-            displayHeaders: ['id', 'ten_shop', 'id_shopee', 'ten_sp', 'phan_loai', 'sku', 'gia_goc', 'gia_km', 'voucher_shop', 'gia_sau_voucher', 'ton_kho', 'da_ban', 'danh_gia', 'nganh_hang', 'thuong_hieu', 'link_sp', 'anh_phan_loai', 'anh_chinh', 'anh_mota', 'link_video', 'mo_ta', 'thoi_gian_luu'],
-            priceCols: [6, 7, 9],
-            imgCol: 16
         }
     }
 };
@@ -62,8 +55,7 @@ export const TAB_TITLES = {
     'DH': 'ĐH',
     'CHO_LAY_HANG': 'CHỜ LẤY HÀNG',
     'AUTO_CHAT': 'AUTO CHAT',
-    'THI_TRUONG': 'THỊ TRƯỜNG',
-    'QUET_SP': 'QUÉT SP'
+    'THI_TRUONG': 'THỊ TRƯỜNG'
 };
 
 // Đồng bộ hai chiều với Chrome Extension (customSpreadsheetId)

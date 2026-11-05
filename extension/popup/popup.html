@@ -24,23 +24,24 @@
     <button class="tab-btn" data-tab="tab-clone-manual">Sao chép tay</button>
     <button class="tab-btn" data-tab="tab-order-tool">Đơn Tool</button>
     <button class="tab-btn" data-tab="tab-settings">Cài đặt</button>
+    <button class="tab-btn" data-tab="tab-san-pham">Sản phẩm</button>
     <button class="tab-btn" data-tab="tab-fs-tool">Flash Sale</button>
     <button class="tab-btn" data-tab="tab-day-sp">Đẩy SP</button>
     <button class="tab-btn" data-tab="tab-hieu-qua-sp">Hiệu quả SP</button>
-    <button class="tab-btn" data-tab="tab-quet-shop" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: white; font-weight: bold;">Quét Shop</button>
     <button class="tab-btn" data-tab="tab-autoin">Auto In</button>
     <button class="tab-btn" data-tab="tab-autochat">Auto Chat</button>
     <button class="tab-btn" id="btn-open-web" title="Mở giao diện web quản lý (tab CHỜ LẤY HÀNG, DS SP, ĐH...)" style="background: linear-gradient(135deg, #0f766e, #0d9488); color: white; font-weight: bold;">🌐 Web</button>
   </div>
 
   <div class="tab-group-btns" id="tab-group-btns-2" style="display: none;">
+    <button class="tab-btn" data-tab="tab-chat-ai">Chat AI</button>
     <button class="tab-btn" data-tab="tab-hang-hoan">Hàng Hoàn</button>
+    <button class="tab-btn" data-tab="tab-hh-api">Hàng hoàn API</button>
     <button class="tab-btn" data-tab="tab-api-images">Ảnh AI & API</button>
     <button class="tab-btn" data-tab="tab-doanh-thu">Doanh Thu</button>
     <button class="tab-btn" data-tab="tab-tools">Tiện Ích</button>
     <button class="tab-btn" data-tab="tab-images">Ảnh</button>
     <button class="tab-btn" data-tab="tab-print">In</button>
-    <button class="tab-btn" data-tab="tab-test">Test</button>
     <button class="tab-btn" data-tab="tab-km">KM</button>
     <button class="tab-btn" data-tab="tab-nhieu-don-hang">Nhiều đơn hàng</button>
     <button class="tab-btn" data-tab="tab-roas-that" style="background: linear-gradient(135deg, #1b2a5a, #2b4594); color: white; font-weight: bold;">ROAS Thật</button>
@@ -604,6 +605,24 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
   </section>
 </div>
 
+<div id="tab-san-pham" class="tab-content" hidden>
+  <section class="tool-section" style="border-left: 4px solid #0284c7; padding: 10px 10px 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+      <h2 style="color: #0369a1; display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0;">
+        <span>🛍️</span> Sản phẩm
+      </h2>
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <button id="btn-san-pham-reload" type="button" class="ghost" style="padding: 4px 8px; font-size: 11px; width: auto; min-height: 28px; line-height: 1;" title="Tải lại giao diện Sản phẩm">🔄 Tải lại</button>
+        <button id="btn-san-pham-open" type="button" class="primary-action" style="padding: 4px 10px; font-size: 11px; font-weight: 700; width: auto; min-height: 28px; line-height: 1;" title="Mở Sản phẩm trong tab riêng">🚀 Mở tab riêng</button>
+      </div>
+    </div>
+    <div id="san-pham-status" style="font-size: 11px; color: #475569;" aria-live="polite"></div>
+    <div class="fs-iframe-container">
+      <iframe id="san-pham-iframe" title="Sản phẩm"></iframe>
+    </div>
+  </section>
+</div>
+
 <div id="tab-in-nang-cao" class="tab-content" hidden>
   <section class="tool-section" style="border-left: 4px solid #7c3aed; padding: 10px 10px 8px;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
@@ -640,333 +659,6 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
       <iframe id="clone-manual-iframe" title="Sao chép tay"></iframe>
     </div>
   </section>
-</div>
-
-<div id="tab-quet-shop" class="tab-content" hidden>
-  <!-- Sub-tab Navigation -->
-  <div style="display: flex; gap: 6px; margin-bottom: 10px; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px;">
-    <button id="btn-subtab-quet-moi" type="button" class="quet-shop-subtab-btn active" style="padding: 6px 12px; font-size: 12px; font-weight: 700; border: none; border-radius: 4px 4px 0 0; background: #0284c7; color: white; cursor: pointer;">
-      🔍 Quét Shop Mới
-    </button>
-    <button id="btn-subtab-toan-bo" type="button" class="quet-shop-subtab-btn" style="padding: 6px 12px; font-size: 12px; font-weight: 700; border: none; border-radius: 4px 4px 0 0; background: #f1f5f9; color: #475569; cursor: pointer;">
-      📦 Toàn bộ SP đã quét (<span id="quet-shop-total-badge">0</span>)
-    </button>
-    <button id="btn-subtab-danh-sach-shop" type="button" class="quet-shop-subtab-btn" style="padding: 6px 12px; font-size: 12px; font-weight: 700; border: none; border-radius: 4px 4px 0 0; background: #f1f5f9; color: #475569; cursor: pointer;">
-      🏪 Danh sách Shop (<span id="quet-shop-total-shops-badge">0</span>)
-    </button>
-    <button id="btn-subtab-doc-sheet" type="button" class="quet-shop-subtab-btn" style="padding: 6px 12px; font-size: 12px; font-weight: 700; border: none; border-radius: 4px 4px 0 0; background: #f1f5f9; color: #475569; cursor: pointer;">
-      📋 Đọc SP từ Sheet (<span id="quet-shop-sheet-read-badge">0</span>)
-    </button>
-  </div>
-
-  <!-- VIEW 1: QUÉT SHOP MỚI -->
-  <div id="subtab-view-quet-moi">
-    <section class="tool-section" style="border-left: 4px solid #0284c7; padding: 8px 10px; margin-bottom: 6px;">
-      <!-- Section Title & Refresh -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <h2 style="color: #0369a1; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; margin: 0;">
-          <span>🛍️</span> Quét Toàn Bộ Sản Phẩm Shop
-        </h2>
-        <button id="btn-quet-shop-get-active-tab" type="button" class="ghost" style="padding: 2px 7px; font-size: 11px; height: 24px; border-radius: 4px; border: 1px solid #bae6fd; background: #f0f9ff; color: #0284c7; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Lấy link shop từ tab Shopee đang mở">
-          🔗 Lấy link tab hiện tại
-        </button>
-      </div>
-
-      <!-- Controls: Row 1 = Link Shop | Row 2 = Tên shop + Giới hạn + Bắt đầu + Dừng (all in 1 compact row) -->
-      <div style="display: flex; flex-direction: column; gap: 5px; margin-bottom: 6px;">
-        <!-- Row 1: Link shop input -->
-        <div style="display: flex; gap: 5px; align-items: center;">
-          <input id="quet-shop-url" type="text" placeholder="Nhập link shop Shopee (vd: https://shopee.vn/ten_shop)..." style="flex: 1; padding: 4px 8px; font-size: 11px; height: 28px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
-        </div>
-
-        <!-- Row 2: Tên shop lấy + Số lượng + Bắt đầu + Dừng -->
-        <div style="display: grid; grid-template-columns: 2fr 1.3fr 1.6fr 0.9fr; gap: 5px; align-items: center;">
-          <input id="quet-shop-ten-shop" placeholder="Tên shop lấy (tự điền khi quét)..." style="width: 100%; padding: 4px 7px; font-size: 11px; height: 28px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" title="Tên shop lấy">
-          <select id="quet-shop-limit" style="width: 100%; padding: 3px 5px; font-size: 11px; height: 28px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; background: white;" title="Số lượng sản phẩm quét">
-            <option value="0">Tất cả SP</option>
-            <option value="10">10 SP (nhanh)</option>
-            <option value="30">30 SP (1 trang)</option>
-            <option value="60">60 SP (2 trang)</option>
-            <option value="100">100 SP</option>
-            <option value="200">200 SP</option>
-          </select>
-          <button id="btn-start-quet-shop" type="button" class="primary-action" style="background: linear-gradient(135deg, #0284c7, #2563eb); font-size: 11px; font-weight: bold; border: none; border-radius: 4px; height: 28px; padding: 0 8px; cursor: pointer; color: white; white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 4px;">
-            🚀 Bắt đầu quét
-          </button>
-          <button id="btn-stop-quet-shop" type="button" class="ghost" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 11px; font-weight: bold; border-radius: 4px; height: 28px; padding: 0 6px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; justify-content: center;" disabled>
-            ⏹ Dừng
-          </button>
-        </div>
-      </div>
-
-      <!-- Shop Info Card (Compact bar) -->
-      <div id="quet-shop-info-card" style="display: none; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 8px; margin-bottom: 5px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 11px;">
-          <div>
-            <span id="quet-shop-info-name" style="font-weight: 700; color: #0f172a;">Tên shop</span>
-            <span id="quet-shop-info-id" style="font-size: 10px; color: #64748b; margin-left: 4px;">(ID: 0)</span>
-          </div>
-          <div style="display: flex; gap: 8px; font-size: 10px; color: #334155; flex-wrap: wrap; align-items: center;">
-            <span>⭐ <b id="quet-shop-info-rating">5.0</b></span>
-            <span>📦 <b id="quet-shop-info-count">0</b> SP</span>
-            <span>👥 <b id="quet-shop-info-followers">0</b> theo dõi</span>
-            <span>🎟️ <b id="quet-shop-info-vouchers" style="color: #b45309;">-</b></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Progress & Status (Compact) -->
-      <div id="quet-shop-progress-container" style="display: none; margin-bottom: 5px;">
-        <div style="display: flex; justify-content: space-between; font-size: 10px; color: #475569; margin-bottom: 2px;">
-          <span id="quet-shop-status-text" style="font-weight: 600;">Đang chuẩn bị...</span>
-          <span id="quet-shop-progress-percent" style="font-weight: 700; color: #0284c7;">0%</span>
-        </div>
-        <div style="height: 5px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
-          <div id="quet-shop-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0284c7, #10b981); transition: width 0.25s ease;"></div>
-        </div>
-      </div>
-
-      <!-- Toolbar: Filter + Actions (2 compact lines) -->
-      <div id="quet-shop-toolbar" style="display: none; border-top: 1px solid #e2e8f0; padding-top: 5px; margin-top: 5px;">
-        <!-- Line 1: Search + Status filter + Count badge -->
-        <div style="display: flex; gap: 5px; align-items: center; margin-bottom: 5px;">
-          <input id="quet-shop-filter-input" type="text" placeholder="🔍 Lọc theo tên SP, ID, SKU, phân loại..." style="flex: 1; padding: 3px 7px; font-size: 11px; height: 26px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
-          <select id="quet-shop-filter-saved" style="padding: 2px 5px; font-size: 11px; height: 26px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; white-space: nowrap;">
-            <option value="all">Tất cả trạng thái</option>
-            <option value="unsaved">⚠️ Chỉ SP chưa lưu</option>
-            <option value="saved">✅ SP đã lưu</option>
-          </select>
-          <span id="quet-shop-count-badge" style="font-size: 10px; color: #0369a1; background: #e0f2fe; padding: 3px 6px; border-radius: 4px; font-weight: 600; white-space: nowrap;">
-            0 SP
-          </span>
-        </div>
-
-        <!-- Line 2: Action buttons -->
-        <div style="display: flex; gap: 5px; align-items: center;">
-          <button id="btn-quet-shop-select-unsaved" type="button" class="ghost" style="padding: 3px 8px; font-size: 11px; height: 26px; font-weight: 600; border-radius: 4px; border: 1px solid #f59e0b; background: #fffbeb; color: #b45309; cursor: pointer; white-space: nowrap;" title="Tự động tích chọn tất cả các sản phẩm chưa được lưu vào sheet">
-            ☑️ Chọn SP chưa lưu
-          </button>
-          <button id="btn-quet-shop-save-sheet" type="button" style="padding: 3px 8px; background: #16a34a; color: white; border: none; border-radius: 4px; font-size: 11px; height: 26px; font-weight: bold; cursor: pointer; white-space: nowrap;" title="Lưu toàn bộ phân loại của các sản phẩm được chọn vào Sheet QUET_SP">
-            💾 Lưu vào Sheet Quét SP
-          </button>
-          <button id="btn-quet-shop-save-sp-shopee" type="button" style="flex: 1; padding: 3px 8px; height: 26px; background: #0284c7; color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 4px;" title="Thêm tất cả sản phẩm quét được vào sheet SP_SHOPEE đầy đủ">
-            📥 Thêm vào sheet SP Shopee đầy đủ
-          </button>
-          <button id="btn-quet-shop-clear-all" type="button" class="ghost" style="padding: 3px 6px; height: 26px; font-size: 11px; border-radius: 4px; border: 1px solid #cbd5e1; color: #64748b; cursor: pointer; white-space: nowrap;" title="Xóa kết quả quét hiện tại">
-            🗑 Xóa
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Table Section for Current Scan -->
-    <section class="tool-section" id="quet-shop-table-section" style="padding: 6px; display: none;">
-      <div style="max-height: 520px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 4px;">
-        <table id="quet-shop-table" style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left; background: white;">
-          <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 2; border-bottom: 2px solid #cbd5e1;">
-            <tr>
-              <th style="padding: 6px 4px; text-align: center; width: 28px;">
-                <input type="checkbox" id="quet-shop-check-all" checked style="cursor: pointer;" title="Chọn / bỏ chọn tất cả">
-              </th>
-              <th style="padding: 6px 4px; text-align: center; width: 26px;">STT</th>
-              <th style="padding: 6px 4px; text-align: center; width: 44px;">Ảnh</th>
-              <th style="padding: 6px 6px;">Tên sản phẩm</th>
-              <th style="padding: 6px 6px; width: 140px;">Phân loại & Giá gốc/KM</th>
-              <th style="padding: 6px 6px; width: 145px; background: #fefce8; color: #854d0e;">🎟️ Giá sau Voucher</th>
-              <th style="padding: 6px 4px; width: 72px; text-align: center;">Sheet</th>
-              <th style="padding: 6px 6px; width: 55px; text-align: center;">Đã bán</th>
-              <th style="padding: 6px 6px; width: 80px; text-align: center;">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody id="quet-shop-tbody">
-            <!-- Rows will be injected dynamically -->
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </div>
-
-  <!-- VIEW 2: TOÀN BỘ SẢN PHẨM ĐÃ QUÉT (KHO SP & SỬA SHOP) -->
-  <div id="subtab-view-toan-bo" style="display: none;">
-    <section class="tool-section" style="border-left: 4px solid #7c3aed; padding: 8px 10px; margin-bottom: 6px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <h2 style="color: #6d28d9; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; margin: 0;">
-          <span>📦</span> Toàn Bộ Sản Phẩm Đã Quét
-        </h2>
-        <div style="display: flex; gap: 5px; align-items: center;">
-          <span id="history-count-badge" style="font-size: 10px; color: #6d28d9; background: #f3e8ff; padding: 2px 7px; border-radius: 4px; font-weight: 600;">
-            0 SP
-          </span>
-          <button id="btn-history-refresh" type="button" class="ghost" style="padding: 2px 7px; font-size: 11px; height: 24px; border-radius: 4px; border: 1px solid #e9d5ff; background: #faf5ff; color: #7c3aed; cursor: pointer; font-weight: 600;" title="Đọc toàn bộ sản phẩm đã quét từ Google Sheet">
-            🔄 Đọc từ Sheet
-          </button>
-        </div>
-      </div>
-
-      <!-- Shop Selector & Edit Shop & Search in 1 compact row -->
-      <div style="display: flex; gap: 5px; align-items: center;">
-        <select id="history-filter-shop" style="flex: 1.2; min-width: 140px; padding: 3px 6px; font-size: 11px; height: 28px; border: 1px solid #cbd5e1; border-radius: 4px; background: white;">
-          <option value="">-- Tất cả các Shop --</option>
-        </select>
-        <button id="btn-history-edit-shop" type="button" style="padding: 0 8px; font-size: 11px; height: 28px; font-weight: 600; border: 1px solid #7c3aed; background: #f5f3ff; color: #7c3aed; border-radius: 4px; cursor: pointer; white-space: nowrap;" title="Sửa tên shop cho các sản phẩm của shop này">
-          ✏️ Sửa tên shop
-        </button>
-        <button id="btn-history-save-sp-shopee" type="button" style="padding: 0 8px; font-size: 11px; height: 28px; font-weight: 600; border: none; background: #0284c7; color: white; border-radius: 4px; cursor: pointer; white-space: nowrap;" title="Thêm tất cả sản phẩm trong kho (hoặc theo shop đã chọn) vào Sheet SP_SHOPEE đầy đủ">
-          📥 Thêm vào Sheet SP Shopee đầy đủ
-        </button>
-        <input id="history-filter-input" type="text" placeholder="🔍 Tìm theo tên SP, ID, SKU..." style="flex: 1; min-width: 120px; padding: 3px 7px; font-size: 11px; height: 28px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
-      </div>
-    </section>
-
-    <!-- History Table -->
-    <section class="tool-section" id="history-table-section" style="padding: 6px;">
-      <div style="max-height: 520px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 4px;">
-        <table id="history-table" style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left; background: white;">
-          <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 2; border-bottom: 2px solid #cbd5e1;">
-            <tr>
-              <th style="padding: 6px 4px; text-align: center; width: 28px;">STT</th>
-              <th style="padding: 6px 6px; width: 95px;">Tên shop</th>
-              <th style="padding: 6px 4px; text-align: center; width: 44px;">Ảnh</th>
-              <th style="padding: 6px 6px;">Tên sản phẩm</th>
-              <th style="padding: 6px 6px; width: 140px;">Phân loại & Giá gốc/KM</th>
-              <th style="padding: 6px 6px; width: 145px; background: #fefce8; color: #854d0e;">🎟️ Giá sau Voucher</th>
-              <th style="padding: 6px 6px; width: 55px; text-align: center;">Đã bán</th>
-              <th style="padding: 6px 6px; width: 75px; text-align: center;">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody id="history-tbody">
-            <!-- Injected dynamically -->
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </div>
-
-  <!-- VIEW 3: DANH SÁCH SHOP -->
-  <div id="subtab-view-danh-sach-shop" style="display: none;">
-    <section class="tool-section" style="border-left: 4px solid #059669; padding: 8px 10px; margin-bottom: 6px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <h2 style="color: #047857; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; margin: 0;">
-          <span>🏪</span> Danh Sách Shop Đã Quét
-        </h2>
-        <div style="display: flex; gap: 5px; align-items: center;">
-          <span id="shop-list-count-badge" style="font-size: 10px; color: #047857; background: #ecfdf5; padding: 2px 7px; border-radius: 4px; font-weight: 600;">
-            0 Shop
-          </span>
-          <button id="btn-shop-list-refresh" type="button" class="ghost" style="padding: 2px 7px; font-size: 11px; height: 24px; border-radius: 4px; border: 1px solid #a7f3d0; background: #f0fdf4; color: #047857; cursor: pointer;" title="Tải lại danh sách shop">
-            🔄 Tải lại
-          </button>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 5px; align-items: center;">
-        <input id="shop-list-filter-input" type="text" placeholder="🔍 Tìm kiếm tên shop, ID shop..." style="flex: 1; padding: 3px 7px; font-size: 11px; height: 28px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
-      </div>
-    </section>
-
-    <!-- Shop List Table Section -->
-    <section class="tool-section" id="shop-list-table-section" style="padding: 6px;">
-      <div style="max-height: 520px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 4px;">
-        <table id="shop-list-table" style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left; background: white;">
-          <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 2; border-bottom: 2px solid #cbd5e1;">
-            <tr>
-              <th style="padding: 6px 4px; text-align: center; width: 28px;">STT</th>
-              <th style="padding: 6px 8px;">Tên shop</th>
-              <th style="padding: 6px 6px; width: 85px; text-align: center;">Số lượng SP</th>
-              <th style="padding: 6px 6px; width: 75px; text-align: center;">Đánh giá</th>
-              <th style="padding: 6px 6px; width: 115px;">Lần quét cuối</th>
-              <th style="padding: 6px 6px; width: 140px; text-align: center;">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody id="shop-list-tbody">
-            <!-- Injected dynamically -->
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </div>
-
-  <!-- VIEW 4: ĐỌC SẢN PHẨM TỪ SHEET (CÓ LỌC GIAN) -->
-  <div id="subtab-view-doc-sheet" style="display: none;">
-    <section class="tool-section" style="border-left: 4px solid #ea580c; padding: 8px 10px; margin-bottom: 6px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 5px;">
-        <h2 style="color: #c2410c; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; margin: 0;">
-          <span>📋</span> Đọc Sản Phẩm Từ Sheet
-        </h2>
-        <div style="display: flex; gap: 5px; align-items: center;">
-          <!-- Dropdown chọn sheet -->
-          <select id="sheet-read-source-select" style="padding: 2px 6px; font-size: 11px; height: 26px; border: 1px solid #fed7aa; border-radius: 4px; background: #fffaf5; font-weight: 600; color: #c2410c;" title="Chọn sheet Google để đọc">
-            <option value="QUET_SP" selected>Sheet: QUET_SP (Quét Shop)</option>
-            <option value="SP_SHOPEE">Sheet: SP_SHOPEE (Đầy đủ)</option>
-          </select>
-          <span id="sheet-read-count-badge" style="font-size: 10px; color: #c2410c; background: #ffedd5; padding: 2px 7px; border-radius: 4px; font-weight: 600; white-space: nowrap;">
-            0 dòng
-          </span>
-          <button id="btn-sheet-read-refresh" type="button" class="ghost" style="padding: 2px 8px; font-size: 11px; height: 26px; border-radius: 4px; border: 1px solid #fdba74; background: #fff7ed; color: #ea580c; cursor: pointer; font-weight: 600;" title="Đọc lại toàn bộ dữ liệu mới nhất từ Google Sheets">
-            🔄 Đọc từ Sheet
-          </button>
-        </div>
-      </div>
-
-      <!-- Filter row: Lọc gian/shop + Tìm kiếm -->
-      <div style="display: flex; gap: 5px; align-items: center;">
-        <select id="sheet-read-filter-gian" style="flex: 1.3; min-width: 145px; padding: 3px 6px; font-size: 11px; height: 28px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: 600;" title="Lọc theo Gian / Tên shop">
-          <option value="">-- Tất cả Gian / Shop (0 dòng) --</option>
-        </select>
-        <input id="sheet-read-search" type="text" placeholder="🔍 Tìm theo tên SP, ID, SKU, phân loại..." style="flex: 1.7; min-width: 140px; padding: 3px 7px; font-size: 11px; height: 28px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
-        <button id="btn-sheet-read-clear-filter" type="button" class="ghost" style="padding: 0 8px; height: 28px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 4px; color: #64748b; cursor: pointer; white-space: nowrap;" title="Xóa bộ lọc tìm kiếm">
-          ❌ Đặt lại
-        </button>
-      </div>
-    </section>
-
-    <!-- Table Section for Sheet Products -->
-    <section class="tool-section" id="sheet-read-table-section" style="padding: 6px;">
-      <div style="max-height: 520px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 4px;">
-        <table id="sheet-read-table" style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left; background: white;">
-          <thead style="position: sticky; top: 0; background: #fff7ed; z-index: 2; border-bottom: 2px solid #fed7aa;">
-            <tr>
-              <th style="padding: 6px 4px; text-align: center; width: 28px; color: #9a3412;">STT</th>
-              <th style="padding: 6px 6px; width: 100px; color: #9a3412;">Gian / Shop</th>
-              <th style="padding: 6px 4px; text-align: center; width: 44px; color: #9a3412;">Ảnh</th>
-              <th style="padding: 6px 6px; width: 85px; color: #9a3412;">Mã SP</th>
-              <th style="padding: 6px 6px; min-width: 160px; color: #9a3412;">Tên sản phẩm</th>
-              <th style="padding: 6px 6px; width: 120px; color: #9a3412;">Phân loại</th>
-              <th style="padding: 6px 6px; width: 90px; color: #9a3412;">SKU</th>
-              <th style="padding: 6px 6px; width: 80px; text-align: right; color: #9a3412;">Giá gốc</th>
-              <th style="padding: 6px 6px; width: 85px; text-align: right; color: #9a3412;">Giá KM/VC</th>
-              <th style="padding: 6px 6px; width: 55px; text-align: center; color: #9a3412;">Kho</th>
-              <th style="padding: 6px 6px; width: 75px; text-align: center; color: #9a3412;">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody id="sheet-read-tbody">
-            <!-- Rows injected dynamically -->
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </div>
-
-  <!-- Detail Modal -->
-  <div id="quet-shop-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 99999; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box;">
-    <div style="background: white; border-radius: 8px; max-width: 600px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
-      <!-- Modal Header -->
-      <div style="padding: 10px 14px; background: #0284c7; color: white; display: flex; justify-content: space-between; align-items: center;">
-        <h3 id="quet-shop-modal-title" style="margin: 0; font-size: 13px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 500px;">Chi tiết sản phẩm</h3>
-        <button id="btn-quet-shop-modal-close" type="button" style="background: transparent; border: none; color: white; font-size: 16px; font-weight: bold; cursor: pointer; width: auto; min-height: auto; padding: 0 4px;">✕</button>
-      </div>
-      <!-- Modal Body -->
-      <div id="quet-shop-modal-body" style="padding: 12px; overflow-y: auto; flex: 1; font-size: 12px; display: flex; flex-direction: column; gap: 12px;">
-        <!-- Injected dynamically -->
-      </div>
-      <!-- Modal Footer -->
-      <div style="padding: 8px 12px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap;">
-        <button id="btn-quet-shop-modal-copy-clone" type="button" class="secondary" style="width: auto; padding: 6px 12px; font-size: 12px; font-weight: bold; background: #7c3aed; border: none; border-radius: 4px; cursor: pointer; color: white;">📋 Sao chép sang Shopee</button>
-        <button id="btn-quet-shop-modal-save-sheet" type="button" class="secondary" style="width: auto; padding: 6px 12px; font-size: 12px; font-weight: bold; background: #16a34a; border: none; border-radius: 4px; cursor: pointer; color: white;">💾 Lưu SP này vào Sheet Quét SP</button>
-        <button id="btn-quet-shop-modal-close-footer" type="button" class="ghost" style="width: auto; padding: 6px 12px; font-size: 12px; border-radius: 4px; border: 1px solid #cbd5e1; cursor: pointer;">Đóng</button>
-      </div>
-    </div>
-  </div>
 </div>
 
 
@@ -1902,6 +1594,10 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
   </div>
 </div>
 
+<div id="tab-hh-api" class="tab-content" hidden>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>Hàng hoàn API → HH API</b><button id="hh-api-open" type="button">Mở trang rộng ↗</button></div>
+  <iframe id="hh-api-frame" title="Hàng hoàn API" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:0"></iframe>
+</div>
 <div id="tab-hang-hoan" class="tab-content" hidden>
 <header class="panel-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
   <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -2056,33 +1752,172 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
 </div>
 </div>
 
-<div id="tab-test" class="tab-content" hidden>
-<header class="panel-header">
-<h1>Dữ Liệu Test</h1>
-</header>
-<div class="panel-section">
-<input type="text" id="test-search" placeholder="Tìm kiếm theo SKU hoặc Tên..." style="width: 100%; padding: 6px; margin-bottom: 10px; border: 1px solid #cbd5e1; border-radius: 4px;">
-<div class="table-responsive" style="max-height: calc(100vh - 140px); overflow-y: auto; border: 1px solid #d8dee8; border-radius: 4px;">
-<table id="table-test" style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
-<thead style="position: sticky; top: 0; background: #f8fafc; z-index: 1;">
-<tr>
-<th style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 600;">SKU</th>
-<th style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 600;">Tên</th>
-<th style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 600;">Thương hiệu</th>
-<th style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 600;">Mô tả</th>
-<th style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 600;">Ảnh</th>
-</tr>
-</thead>
-<tbody id="test-tbody">
-<tr>
-<td colspan="5" style="padding: 10px; text-align: center; color: #64748b;">Nhấn vào tab để tải dữ liệu...</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</div>
 
+
+<div id="tab-chat-ai" class="tab-content" hidden>
+  <div class="chat-ai-container">
+
+    <!-- 1. TOP BAR: SCAN & CONNECTION STATUS -->
+    <div class="chat-ai-topbar">
+      <div class="chat-ai-topbar-header">
+        <div class="chat-ai-topbar-title">
+          <span class="chat-ai-logo-icon">🤖</span>
+          <div>
+            <div class="chat-ai-brand-name">Shopee AI Chat Assistant</div>
+            <div class="chat-ai-brand-sub">Quét Realtime &amp; Trả lời tự động</div>
+          </div>
+        </div>
+        <div class="chat-ai-topbar-actions">
+          <label class="chat-ai-realtime-toggle-wrap" title="Tự động phát hiện và quét tin nhắn mới theo thời gian thực không cần ấn nút">
+            <input type="checkbox" id="chat-ai-realtime-toggle" checked>
+            <span class="chat-ai-realtime-label">⚡ Realtime</span>
+          </label>
+          <button id="chat-ai-btn-scan" type="button" class="chat-ai-btn-scan-primary" title="Quét nội dung chat từ tab Shopee Webchat">
+            <span>🔄</span> Quét lại
+          </button>
+          <button id="chat-ai-btn-open-webchat" type="button" class="chat-ai-btn-webchat-link" title="Mở trang Webchat Shopee">
+            ↗ Webchat
+          </button>
+        </div>
+      </div>
+      <div id="chat-ai-status" class="chat-ai-status-banner">
+        Đang tự động kết nối Shopee Webchat (Realtime)...
+      </div>
+    </div>
+
+    <!-- 2. PRODUCT CARD (HIỂN THỊ KHI CÓ SẢN PHẨM) -->
+    <div id="chat-ai-product-section" class="chat-ai-card chat-ai-product-card" style="display: none;">
+      <div class="chat-ai-card-badge">🛍️ Sản phẩm khách đang hỏi</div>
+      <div class="chat-ai-product-body">
+        <img id="chat-ai-product-img" src="" alt="SP" class="chat-ai-p-thumb">
+        <div class="chat-ai-p-details">
+          <div id="chat-ai-product-name" class="chat-ai-p-title"></div>
+          <div class="chat-ai-p-meta">
+            <span id="chat-ai-product-price" class="chat-ai-p-price"></span>
+            <span id="chat-ai-product-orig-price" class="chat-ai-p-orig-price"></span>
+            <span id="chat-ai-product-discount" class="chat-ai-p-pill chat-ai-pill-red"></span>
+            <span id="chat-ai-product-stock" class="chat-ai-p-pill chat-ai-pill-gray"></span>
+            <span id="chat-ai-product-sold" class="chat-ai-p-pill chat-ai-pill-amber"></span>
+          </div>
+        </div>
+      </div>
+      <div id="chat-ai-product-sheet-info" class="chat-ai-sheet-match-box" style="display: none;"></div>
+    </div>
+
+    <!-- 3. CHAT HISTORY & CUSTOMER QUESTION SELECTOR -->
+    <div class="chat-ai-card">
+      <div class="chat-ai-card-head-row">
+        <div class="chat-ai-card-title">💬 Tin nhắn gần đây</div>
+        <span id="chat-ai-selected-count-badge" class="chat-ai-selected-badge">Đã chọn: 0 câu</span>
+      </div>
+
+      <!-- Khung bong bóng chat -->
+      <div id="chat-ai-history-list" class="chat-ai-history-container">
+        <div class="chat-ai-history-empty">Chưa quét dữ liệu chat từ Shopee Webchat</div>
+      </div>
+
+      <!-- Ô nhập câu hỏi đã chọn -->
+      <div class="chat-ai-question-box">
+        <div class="chat-ai-input-head">
+          <label for="chat-ai-customer-question" class="chat-ai-label">👤 Nội dung câu hỏi cần tư vấn:</label>
+          <button id="chat-ai-btn-clear-question-input" type="button" class="chat-ai-btn-clear-text" title="Xóa nội dung">Xóa</button>
+        </div>
+        <textarea id="chat-ai-customer-question" rows="2" class="chat-ai-textarea" placeholder="Nội dung câu hỏi của khách hàng được tick chọn ở trên sẽ hiển thị tại đây (có thể chỉnh sửa trực tiếp)..."></textarea>
+      </div>
+
+      <!-- Chỉ dẫn thêm cho AI (mở rộng trực tiếp) -->
+      <div class="chat-ai-custom-note-wrap">
+        <div class="chat-ai-input-head">
+          <label for="chat-ai-custom-note" class="chat-ai-label">📝 Ghi chú riêng / chỉ dẫn cho Shop (tùy chọn):</label>
+        </div>
+        <input type="text" id="chat-ai-custom-note" class="chat-ai-input-note" placeholder="VD: Bảo hành 12 tháng, giao hỏa tốc 2h, tặng kèm quà...">
+      </div>
+
+      <!-- Phong cách trả lời (4 icon 1 dòng nhỏ lại) -->
+      <div class="chat-ai-style-section">
+        <div class="chat-ai-label">🎯 Chọn phong cách trả lời:</div>
+        <div class="chat-ai-styles-grid">
+          <button type="button" class="chat-ai-style-btn active" data-style="tu_van" title="Tư vấn tận tình">🌸 Tư vấn</button>
+          <button type="button" class="chat-ai-style-btn" data-style="chot_don" title="Chốt đơn nhanh">⚡ Chốt đơn</button>
+          <button type="button" class="chat-ai-style-btn" data-style="voucher" title="Báo giá & Voucher">🏷️ Báo giá</button>
+          <button type="button" class="chat-ai-style-btn" data-style="bao_hanh" title="Bảo hành & Đổi trả">🛡️ Bảo hành</button>
+        </div>
+      </div>
+
+      <!-- Nút AI sinh câu trả lời -->
+      <button id="chat-ai-btn-generate" type="button" class="chat-ai-btn-generate-main">
+        <span>✨</span> AI Sinh Câu Trả Lời
+      </button>
+    </div>
+
+    <!-- 4. KẾT QUẢ AI SINH & TÁC VỤ GỬI -->
+    <div class="chat-ai-card chat-ai-result-card">
+      <div class="chat-ai-card-head-row">
+        <div class="chat-ai-card-title chat-ai-ai-title">
+          <span>✨</span> Câu trả lời AI (Có thể sửa trực tiếp):
+        </div>
+      </div>
+      <textarea id="chat-ai-output-text" rows="3" class="chat-ai-output-textarea" placeholder="Câu trả lời do AI tạo sẽ xuất hiện tại đây..."></textarea>
+      
+      <div class="chat-ai-action-grid">
+        <button id="chat-ai-btn-copy" type="button" class="chat-ai-btn-act chat-ai-btn-act-slate" title="Sao chép câu trả lời vào bộ nhớ">
+          📋 Copy
+        </button>
+        <button id="chat-ai-btn-fill-shopee" type="button" class="chat-ai-btn-act chat-ai-btn-act-blue" title="Điền câu trả lời vào ô chat của Shopee Webchat">
+          📝 Điền Chat
+        </button>
+        <button id="chat-ai-btn-send-shopee" type="button" class="chat-ai-btn-act chat-ai-btn-act-orange" title="Điền và gửi ngay lập tức cho khách">
+          ⚡ Điền &amp; Gửi Luôn
+        </button>
+      </div>
+      <div id="chat-ai-action-feedback" class="chat-ai-feedback-msg" style="display: none;"></div>
+    </div>
+
+    <!-- 5. MẪU TRẢ LỜI NHANH (Cột H sheet CAI_DAT & Tùy chỉnh) -->
+    <div class="chat-ai-card chat-ai-templates-card">
+      <div class="chat-ai-card-head-row">
+        <div class="chat-ai-card-title">
+          <span>⚡</span> Mẫu trả lời nhanh (Cột H sheet CAI_DAT)
+        </div>
+        <div class="chat-ai-tpl-tools">
+          <button id="chat-ai-btn-toggle-add-template" type="button" class="chat-ai-tpl-btn chat-ai-tpl-btn-green" title="Thêm câu mẫu mới">+ Thêm mẫu</button>
+          <button id="chat-ai-btn-toggle-preset-templates" type="button" class="chat-ai-tpl-btn" title="Gợi ý các mẫu câu thông dụng">💡 Mẫu gợi ý</button>
+          <button id="chat-ai-btn-refresh-templates" type="button" class="chat-ai-tpl-btn" title="Tải lại mẫu từ Sheet CAI_DAT">🔄 Làm mới</button>
+        </div>
+      </div>
+
+      <!-- KHUNG THÊM MẪU MỚI (ẨN / HIỆN) -->
+      <div id="chat-ai-add-template-panel" class="chat-ai-subpanel" style="display: none;">
+        <label for="chat-ai-new-template-input" class="chat-ai-subpanel-title">➕ Nhập nội dung câu mẫu mới:</label>
+        <textarea id="chat-ai-new-template-input" rows="2" class="chat-ai-textarea" placeholder="Ví dụ: Dạ sản phẩm bên mình luôn có sẵn và bảo hành 12 tháng ạ..."></textarea>
+        <div class="chat-ai-subpanel-footer">
+          <button id="chat-ai-btn-cancel-add-template" type="button" class="chat-ai-subpanel-btn-cancel">Hủy</button>
+          <button id="chat-ai-btn-save-new-template" type="button" class="chat-ai-subpanel-btn-save">💾 Lưu câu mẫu</button>
+        </div>
+      </div>
+
+      <!-- KHUNG MẪU GỢI Ý (ẨN / HIỆN) -->
+      <div id="chat-ai-preset-templates-panel" class="chat-ai-subpanel chat-ai-preset-panel" style="display: none;">
+        <div class="chat-ai-subpanel-head">
+          <span class="chat-ai-subpanel-title" style="color: #92400e;">💡 Mẫu câu chăm sóc khách hàng hay dùng:</span>
+          <button id="chat-ai-btn-close-presets" type="button" class="chat-ai-btn-close">✕ Đóng</button>
+        </div>
+        <div id="chat-ai-preset-templates-list" class="chat-ai-preset-list"></div>
+      </div>
+
+      <!-- Ô tìm kiếm mẫu nhanh -->
+      <div class="chat-ai-search-wrap">
+        <input type="text" id="chat-ai-search-template" class="chat-ai-search-input" placeholder="🔍 Tìm mẫu câu trả lời nhanh...">
+      </div>
+
+      <!-- Danh sách mẫu câu trả lời -->
+      <div id="chat-ai-templates-list" class="chat-ai-templates-container">
+        <div class="chat-ai-templates-loading">Đang tải mẫu trả lời nhanh...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
 
 <div id="tab-settings" class="tab-content" hidden>
 <section class="tool-section">
@@ -2211,15 +2046,16 @@ Kết quả trả về sẽ tự động định dạng bằng HTML cơ bản (&
 <script src="tabs/sp_tab.js"></script>
 <script src="tabs/order_tab.js"></script>
 
-<script src="tabs/test_tab.js"></script>
 
 
 <script src="tabs/km_tab.js"></script>
 <script src="tabs/web_sp_tab.js"></script>
 <script src="tabs/hang_hoan_tab.js"></script>
+<script src="tabs/hh_api_tab.js"></script>
 <script src="tabs/hieu_qua_sp_tab.js"></script>
 <script src="tabs/day_sp_tab.js"></script>
 <script src="tabs/doanh_thu_tab.js"></script>
+<script src="tabs/chat_ai_tab.js"></script>
 
 
 <script src="tabs/nhieu_don_hang_tab.js"></script>
@@ -2227,13 +2063,13 @@ Kết quả trả về sẽ tự động định dạng bằng HTML cơ bản (&
 
 <script src="tabs/hub_open.js"></script>
 <script src="tabs/flash_sale_tool_tab.js"></script>
+<script src="tabs/san_pham_tab.js"></script>
 <script src="tabs/order_tool_tab.js"></script>
 <script src="tabs/in_nang_cao_tab.js"></script>
 <script src="tabs/clone_manual_tab.js"></script>
 <script src="tabs/autoin_tab.js"></script>
 <script src="tabs/autochat_tab.js"></script>
 <script src="tabs/wameli_account_settings.js"></script>
-<script src="tabs/quet_shop_tab.js"></script>
 <script src="tabs/roas_that_tab.js"></script>
 <script src="tabs/open_web.js"></script>
 </body>

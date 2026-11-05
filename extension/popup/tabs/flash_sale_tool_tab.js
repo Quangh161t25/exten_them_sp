@@ -3,7 +3,8 @@
 // =========================================================================
 
 (function() {
-  const APP_URL = chrome.runtime.getURL("extension/flash-sale/app.html");
+  // Sản phẩm đã là module riêng nên Flash Sale trong popup không hiện mục này nữa
+  const APP_URL = chrome.runtime.getURL("extension/flash-sale/app.html?hideProducts=1");
   const btnOpen = document.getElementById("btn-fs-tool-open");
   const btnReload = document.getElementById("btn-fs-tool-reload");
   const iframeEl = document.getElementById("fs-tool-iframe");

@@ -1,5 +1,6 @@
-import { getShopInfo } from './shopee-api.js';
+import { getShopInfo, products as shopProducts } from './shopee-api.js';
 import { normalizeSource, cloneProduct, applyPrice, imgUrl, loadShopSettings } from './clone.js';
+import { syncVideos } from './video-sync.js';
 import { scanStock } from './scan.js';
 
 const OPTS_KEY = 'cloneOptions';
@@ -51,6 +52,8 @@ let lastAiStatusTs = 0;
 let aiWatchdog = null;
 let currentMaGian = '';
 let currentModelSkus = {};
+let currentModelNames = {}; // 'nhóm-lựa chọn' -> tên phân loại sửa tay
+let currentModelPrices = {}; // 'tier_index' -> giá sửa tay
 let caiDatCoverUrl = '';
 let cachedCaiDatRows = null;
 
@@ -75,7 +78,7 @@ async function loadOptions() {
     el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => {
       opts[key] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
       chrome.storage.local.set({ [OPTS_KEY]: opts });
-      if (key === 'priceChange' || key === 'usePriceBefore') renderPrices();
+      if (key === 'priceChange' || key === 'usePriceBefore') { renderPrices(); refreshVariantPricePlaceholders(); }
       if (key === 'aiImage1') renderAiImages();
       if (key === 'useCaiDatCover') renderCover();
       if (key === 'enableAiCover') {
@@ -672,7 +675,50 @@ window.addEventListener('resize', () => {
   }
 });
 
+// Giá tự tính của phân loại khi không sửa tay, khớp với giá gửi lên Shopee
+function autoVariantPrice(m) {
+  const base = (opts.usePriceBefore && m.priceBefore) || m.price || current?.price;
+  return applyPrice(base, opts.priceChange) || base || 0;
+}
+
+function refreshVariantPricePlaceholders() {
+  if (!current?.models) return;
+  for (const m of current.models) {
+    const inp = document.querySelector(`.var-price-input[data-key="${m.tierIndex.join('-')}"]`);
+    if (inp) inp.placeholder = String(autoVariantPrice(m));
+  }
+}
+
+const saveVariantEdits = () => {
+  opts.modelNames = currentModelNames;
+  opts.modelPrices = currentModelPrices;
+  if (current) {
+    chrome.storage.local.set({
+      [`modelNames_${current.itemId}`]: currentModelNames,
+      [`modelPrices_${current.itemId}`]: currentModelPrices
+    });
+  }
+};
+
+// Shopee từ chối tên trùng trong cùng nhóm, tên quá 20 ký tự và giá dưới 1.000đ
+function variantEditError() {
+  for (const [gi, t] of (current?.tiers || []).slice(0, 2).entries()) {
+    const seen = new Set();
+    for (const [oi, o] of t.options.entries()) {
+      const name = (String(currentModelNames[`${gi}-${oi}`] || '').trim() || o).toLowerCase();
+      if (seen.has(name)) return `Tên phân loại bị trùng: "${name}"`;
+      seen.add(name);
+    }
+  }
+  const low = Object.values(currentModelPrices).find((p) => p && Number(p) < 1000);
+  return low ? `Giá phân loại phải từ 1.000đ (đang nhập ${low})` : '';
+}
+
 function getModelDisplayName(m, tiers) {
+  const edited = (m.tierIndex || []).some((ti, gi) => String(currentModelNames[`${gi}-${ti}`] || '').trim());
+  if (edited && tiers && tiers.length) {
+    return m.tierIndex.map((ti, gi) => String(currentModelNames[`${gi}-${ti}`] || '').trim() || tiers[gi]?.options?.[ti] || '').filter(Boolean).join(' - ');
+  }
   if (m.name && m.name.trim()) return m.name.trim();
   if (tiers && tiers.length) {
     const parts = (m.tierIndex || []).map((ti, gi) => {
@@ -707,6 +753,13 @@ async function renderVariations() {
   const storageKey = `modelSkus_${current.itemId}`;
   const saved = await chrome.storage.local.get(storageKey);
   currentModelSkus = saved[storageKey] || opts.modelSkus || {};
+  const namesKey = `modelNames_${current.itemId}`;
+  const pricesKey = `modelPrices_${current.itemId}`;
+  const savedEdits = await chrome.storage.local.get([namesKey, pricesKey]);
+  currentModelNames = savedEdits[namesKey] || {};
+  currentModelPrices = savedEdits[pricesKey] || {};
+  opts.modelNames = currentModelNames;
+  opts.modelPrices = currentModelPrices;
 
   const models = current.models;
   if (countEl) countEl.textContent = String(models.length);
@@ -716,8 +769,6 @@ async function renderVariations() {
     const key = m.tierIndex.join('-');
     const name = getModelDisplayName(m, current.tiers);
     const img = getModelImage(m, current.tiers);
-    const priceVal = applyPrice(m.price, opts.priceChange) || m.price;
-    const priceStr = priceVal ? fmtMoney(priceVal) : '';
     const stockStr = m.stock != null ? String(m.stock) : '0';
     const val = currentModelSkus[key] || '';
 
@@ -744,16 +795,51 @@ async function renderVariations() {
     const infoBox = document.createElement('div');
     infoBox.style.cssText = 'min-width: 0; flex: 1;';
 
-    const nameEl = document.createElement('div');
-    nameEl.style.cssText = 'font-weight: 600; font-size: 11px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
-    nameEl.textContent = name;
-    nameEl.title = name;
+    // Tên thuộc về từng lựa chọn của nhóm, nên sửa ở một dòng thì các dòng cùng lựa chọn đổi theo
+    const nameBox = document.createElement('div');
+    nameBox.style.cssText = 'display: flex; gap: 4px; margin-bottom: 3px;';
+    m.tierIndex.slice(0, 2).forEach((ti, gi) => {
+      const optKey = `${gi}-${ti}`;
+      const original = current.tiers[gi]?.options?.[ti] || '';
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.className = 'var-name-input';
+      nameInput.dataset.optKey = optKey;
+      nameInput.maxLength = 20;
+      nameInput.placeholder = original;
+      nameInput.title = `Tên gốc: ${original}. Tối đa 20 ký tự.`;
+      nameInput.value = currentModelNames[optKey] || '';
+      nameInput.style.cssText = 'flex: 1; min-width: 0; margin: 0; padding: 3px 5px; font-size: 11px; font-weight: 600; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff;';
+      nameInput.addEventListener('input', () => {
+        currentModelNames[optKey] = nameInput.value;
+        document.querySelectorAll('.var-name-input').forEach((other) => {
+          if (other !== nameInput && other.dataset.optKey === optKey) other.value = nameInput.value;
+        });
+        saveVariantEdits();
+      });
+      nameBox.appendChild(nameInput);
+    });
 
     const metaEl = document.createElement('div');
-    metaEl.style.cssText = 'font-size: 10px; color: #64748b;';
-    metaEl.textContent = `${priceStr} · Kho: ${stockStr}`;
+    metaEl.style.cssText = 'display: flex; align-items: center; gap: 4px; font-size: 10px; color: #64748b;';
+    const priceInput = document.createElement('input');
+    priceInput.type = 'text';
+    priceInput.inputMode = 'numeric';
+    priceInput.className = 'var-price-input';
+    priceInput.dataset.key = key;
+    priceInput.placeholder = String(autoVariantPrice(m));
+    priceInput.title = 'Giá riêng của phân loại, tính bằng đồng. Để trống thì dùng giá tự tính theo Tăng giảm giá.';
+    priceInput.value = currentModelPrices[key] || '';
+    priceInput.style.cssText = 'width: 80px; margin: 0; padding: 3px 5px; font-size: 11px; font-weight: 600; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff;';
+    priceInput.addEventListener('input', () => {
+      priceInput.value = priceInput.value.replace(/\D/g, '');
+      if (priceInput.value) currentModelPrices[key] = Number(priceInput.value);
+      else delete currentModelPrices[key];
+      saveVariantEdits();
+    });
+    metaEl.append('Giá', priceInput, `đ · Kho: ${stockStr}`);
 
-    infoBox.appendChild(nameEl);
+    infoBox.appendChild(nameBox);
     infoBox.appendChild(metaEl);
     leftBox.appendChild(infoBox);
 
@@ -866,13 +952,166 @@ function renderMedia() {
     const dlGroup = document.createElement('a');
     dlGroup.textContent = '⬇ Tải nhóm này';
     dlGroup.addEventListener('click', () => downloadAllMedia(items, dlGroup));
-    head.append(label, dlGroup);
+    const headActs = document.createElement('span');
+    headActs.style.cssText = 'display: inline-flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;';
+    if (key !== 'video') {
+      const toMain = document.createElement('a');
+      toMain.textContent = 'Đưa vào ảnh chính';
+      toMain.title = 'Đưa ảnh nhóm này vào ô Ảnh sản phẩm của trang sửa sản phẩm trên Shopee';
+      toMain.addEventListener('click', () => pushImagesToEditPage(items, 'UPLOAD_PRODUCT_IMAGES', toMain));
+      const toDesc = document.createElement('a');
+      toDesc.textContent = 'Đưa vào mô tả';
+      toDesc.title = 'Đưa ảnh nhóm này vào phần Mô tả của trang sửa sản phẩm trên Shopee';
+      toDesc.addEventListener('click', () => pushImagesToEditPage(items, 'UPLOAD_DESCRIPTION_IMAGES', toDesc));
+      headActs.append(toMain, toDesc);
+    }
+    headActs.append(dlGroup);
+    head.append(label, headActs);
     const grid = document.createElement('div');
     grid.className = 'media-grid';
+    // Video xếp sát lề phải, bên trái là phần gắn video vào sản phẩm có sẵn trong shop
+    if (key === 'video') grid.style.cssText = 'grid-template-columns: repeat(auto-fit, 110px); justify-content: end; flex: 0 0 auto; margin-top: 0;';
     items.forEach((m, i) => grid.appendChild(mediaItem(m, i)));
-    group.append(head, grid);
+    if (key === 'video') {
+      const body = document.createElement('div');
+      body.style.cssText = 'display: flex; gap: 10px; align-items: flex-start; margin-top: 6px;';
+      body.append(videoSyncPanel(), grid);
+      group.append(head, body);
+    } else {
+      group.append(head, grid);
+    }
     container.appendChild(group);
   });
+}
+
+// Tab sửa/đăng sản phẩm dạng banhang.shopee.vn/portal/product/56214022220 hoặc /new
+async function findProductEditTab() {
+  const tabs = await chrome.tabs.query({ url: 'https://banhang.shopee.vn/portal/product/*' });
+  const isEdit = (t) => /\/portal\/product\/(\d+|new)(?:[/?#]|$)/.test(t.url || '');
+  return tabs.filter(isEdit).sort((a, b) => (b.active - a.active) || ((b.lastAccessed || 0) - (a.lastAccessed || 0)))[0] || null;
+}
+
+async function pushImagesToEditPage(items, type, btn) {
+  if (btn.dataset.busy) return;
+  const text = btn.textContent;
+  btn.dataset.busy = '1';
+  try {
+    const tab = await findProductEditTab();
+    if (!tab) throw new Error('Chưa mở trang sửa sản phẩm (banhang.shopee.vn/portal/product/...)');
+    btn.textContent = 'Đang đưa...';
+    const files = await Promise.all(items.map(async (m, i) => {
+      const r = await fetch(m.url);
+      if (!r.ok) throw new Error(`Không tải được ${m.label} (HTTP ${r.status})`);
+      const blob = await r.blob();
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error(`Không đọc được ${m.label}`));
+        reader.readAsDataURL(blob);
+      });
+      return { name: `image-${i + 1}.${blob.type.includes('png') ? 'png' : 'jpg'}`, type: blob.type || 'image/jpeg', lastModified: Date.now(), dataUrl };
+    }));
+    const res = await chrome.tabs.sendMessage(tab.id, { type, files });
+    if (res && (res.ok === false || res.success === false || res.error)) throw new Error(res.error || res.message || 'Trang Shopee không nhận ảnh');
+    await chrome.tabs.update(tab.id, { active: true });
+    btn.textContent = 'Đã đưa!';
+    log(`Đã đưa ${files.length} ảnh vào trang sửa sản phẩm.`, 'ok');
+  } catch (e) {
+    btn.textContent = 'Lỗi';
+    log(`Không đưa được ảnh: ${e.message}`, 'err');
+  } finally {
+    delete btn.dataset.busy;
+    setTimeout(() => { btn.textContent = text; }, 1500);
+  }
+}
+
+// ---------- Gắn video vào sản phẩm có sẵn (gộp từ ShopeeVideoSync) ----------
+
+let videoTarget = null;
+
+function videoSyncPanel() {
+  const box = document.createElement('div');
+  box.style.cssText = 'flex: 1; min-width: 0; font-size: 11px;';
+  box.innerHTML = `
+    <div style="font-weight: 600; margin-bottom: 4px;">Gắn video này vào sản phẩm có sẵn trong shop</div>
+    <form class="vs-search" style="display: flex; gap: 4px;">
+      <input class="vs-q" placeholder="Tên hoặc ID sản phẩm..." style="flex: 1; min-width: 0; margin: 0; padding: 4px 6px; font-size: 11px;">
+      <button type="submit" class="btn" style="padding: 3px 8px; font-size: 11px;">Tìm</button>
+    </form>
+    <div class="vs-results" style="max-height: 150px; overflow-y: auto; margin-top: 4px;"></div>
+    <div class="vs-target" hidden style="margin-top: 4px; padding: 4px; border: 1px solid #2d8cf0; border-radius: 4px; background: #eef6ff;"></div>
+    <label style="display: flex; align-items: center; gap: 4px; margin: 4px 0;"><input type="checkbox" class="vs-replace"> Thay thế video đang có (không chọn = thêm vào)</label>
+    <button type="button" class="btn primary vs-sync" disabled style="width: 100%; padding: 5px; font-size: 12px;">🎬 Đồng bộ Video</button>`;
+  const results = box.querySelector('.vs-results');
+  const targetEl = box.querySelector('.vs-target');
+  const syncBtn = box.querySelector('.vs-sync');
+  const videos = (current && current.videos) || [];
+  const refresh = () => { syncBtn.disabled = !videoTarget || !videos.length || !!syncBtn.dataset.busy; };
+  const showTarget = () => {
+    targetEl.hidden = !videoTarget;
+    if (videoTarget) targetEl.textContent = `Đã chọn: [${videoTarget.itemId}] ${videoTarget.name}`;
+    refresh();
+  };
+
+  box.querySelector('.vs-search').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = box.querySelector('.vs-q').value.trim();
+    if (!q) return;
+    results.textContent = 'Đang tìm...';
+    try {
+      const list = await shopProducts.search({ keyword: q, searchType: /^\d+$/.test(q) ? 'id' : 'name' });
+      results.innerHTML = '';
+      if (!list.length) results.textContent = 'Không tìm thấy sản phẩm nào.';
+      list.forEach((p) => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.style.cssText = 'display: flex; gap: 6px; align-items: center; width: 100%; padding: 3px; border: 0; border-bottom: 1px solid #f0f0f0; background: none; text-align: left; cursor: pointer; font-size: 11px;';
+        if (p.cover) {
+          const img = document.createElement('img');
+          img.src = imgUrl(p.cover) + '_tn';
+          img.alt = '';
+          img.style.cssText = 'width: 28px; height: 28px; object-fit: cover; border-radius: 3px; flex: 0 0 auto;';
+          row.appendChild(img);
+        }
+        const name = document.createElement('span');
+        name.textContent = `[${p.itemId}] ${p.name}`;
+        row.appendChild(name);
+        row.addEventListener('click', () => {
+          videoTarget = p;
+          results.innerHTML = '';
+          showTarget();
+        });
+        results.appendChild(row);
+      });
+    } catch (err) {
+      results.textContent = '';
+      log('Lỗi tìm sản phẩm: ' + err.message, 'err');
+    }
+  });
+
+  syncBtn.addEventListener('click', async () => {
+    if (syncBtn.dataset.busy || !videoTarget) return;
+    syncBtn.dataset.busy = '1';
+    refresh();
+    try {
+      const { changed, count, confirmed } = await syncVideos(videoTarget.itemId, videos, {
+        replace: box.querySelector('.vs-replace').checked,
+        log: (t) => log(t)
+      });
+      if (!changed) log('Sản phẩm này đã có video đó rồi, không cần đồng bộ.', 'warn');
+      else if (confirmed === false) log('Shopee báo thành công nhưng đọc lại không thấy video. Hãy mở sản phẩm để kiểm tra.', 'warn');
+      else log(`✔ Đã đồng bộ video, sản phẩm hiện có ${count} video.`, 'ok');
+      if (changed) chrome.tabs.create({ url: `https://banhang.shopee.vn/portal/product/${videoTarget.itemId}` });
+    } catch (e) {
+      log('✖ Đồng bộ video: ' + e.message, 'err');
+    } finally {
+      delete syncBtn.dataset.busy;
+      refresh();
+    }
+  });
+
+  showTarget();
+  return box;
 }
 
 async function downloadAllMedia(list = null, btnEl = null) {
@@ -1225,6 +1464,8 @@ async function runClone() {
   $('#btnClone').textContent = '⏳ Đang đăng sản phẩm lên Shopee...';
   try {
     opts.modelSkus = currentModelSkus;
+    const editError = variantEditError();
+    if (editError) throw new Error(editError);
     const coverDataUrl = coverMatches() ? aiCover.dataUrl : null;
 
     const { productId } = await cloneProduct(current, opts, {

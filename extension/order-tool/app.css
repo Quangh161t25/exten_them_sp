@@ -22,7 +22,7 @@ body { margin: 0; font: 14px/1.45 "Segoe UI", Roboto, Arial, sans-serif; backgro
 .badge.ok { background: #fff; color: var(--ok); }
 .badge.err { background: #fff; color: var(--err); }
 
-main { padding: 16px 20px 40px; max-width: 1600px; margin: 0 auto; }
+main { padding: 16px 20px 40px; }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .card-head h3 { margin: 0; font-size: 16px; }
@@ -152,3 +152,39 @@ table.grid th.sticky { z-index: 3; background: #fafafa; }
 }
 
 .log-line.error { color: var(--err); }
+
+/* 2 tab: Đơn Shopee / Đơn trên Sheet */
+.page-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.page-tab { border: 1px solid var(--border); background: var(--card); color: var(--text); padding: 8px 18px; border-radius: 8px; font: inherit; font-weight: 600; cursor: pointer; }
+.page-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+#dhSheetTable { width: 100%; border-collapse: collapse; }
+#dhSheetTable th, #dhSheetTable td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+#dhSheetTable th { position: sticky; top: 0; background: #fafafa; white-space: nowrap; }
+#dhSheetTable td.money { text-align: right; }
+.pager { display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 10px; }
+
+/* Ô thống kê chỉ hiện ở tab "Đơn trên Sheet" */
+#summary { display: none !important; }
+#dhStats { margin: 10px 0; }
+.toolbar + .toolbar { margin-top: 6px; }
+
+/* Lọc ngày tab Đơn trên Sheet */
+.dp-wrap { position: relative; }
+.dp-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 50; display: flex; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+.dp-pop[hidden] { display: none; }
+.dp-quick { display: flex; flex-direction: column; padding: 8px 0; border-right: 1px solid var(--border); min-width: 110px; }
+.dp-quick button { border: 0; background: none; text-align: left; padding: 7px 14px; cursor: pointer; font: inherit; }
+.dp-quick button:hover, .dp-quick button.on { background: #fff1ee; color: var(--primary); }
+.dp-cal { padding: 10px 12px; }
+.dp-nav { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+.dp-nav span { flex: 1; text-align: center; }
+.dp-nav button { border: 0; background: none; cursor: pointer; font-size: 16px; padding: 2px 6px; color: #666; }
+.dp-months { display: flex; gap: 20px; }
+.dp-title { text-align: center; font-weight: 600; margin-bottom: 6px; }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 32px); gap: 2px; text-align: center; }
+.dp-grid b { font-weight: 500; color: #888; font-size: 12px; padding: 4px 0; }
+.dp-day { border: 0; background: none; height: 30px; border-radius: 6px; cursor: pointer; font: inherit; }
+.dp-day:hover { background: #f2f2f2; }
+.dp-day.today { color: var(--primary); font-weight: 700; }
+.dp-day.in { background: #fff1ee; }
+.dp-day.sel { background: var(--primary); color: #fff; }
