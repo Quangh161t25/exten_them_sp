@@ -4,6 +4,7 @@ import {STATUS,norm,HEADERS,RAW_HEADERS,matchSearchQuery} from '../../../../shar
 import {parseMoney} from '../../utils/formatters.js';
 import {ArrowLeft,ArrowUpDown,Calendar,ChevronLeft,ChevronRight,ChevronsLeft,ChevronsRight,Columns3,Download,Eye,Home,RefreshCw,Search,Store,X} from 'lucide-react';
 import {Dropdown,Option} from '../common/PageShell.jsx';
+import DateRangePicker from '../common/DateRangePicker.jsx';
 import './orders.css';
 
 const money=v=>v===''||v==null?'—':`${parseMoney(v).toLocaleString('vi-VN')} ₫`;
@@ -115,7 +116,7 @@ export default function OrdersTab(){
     <nav className="dh-tabs" aria-label="Trạng thái đơn">{tabs.map(([s,n])=><button key={s||'all'} aria-pressed={status===s} className={status===s?'active':''} onClick={()=>setStatus(s)}>{s||'Tất cả'}<span>{n}</span></button>)}</nav>
     <div className="dh-card">
       <div className="dh-toolbar">
-        {filtered&&<button className="dh-ghost" onClick={()=>{setSearch('');setShop('');setFrom('');setTo('');setSort('new');}}><ArrowLeft size={14}/>Bỏ lọc</button>}
+        {filtered&&<button className="dh-ghost" onClick={()=>{setSearch('');setShop('');setFrom('');setTo('');setRangeLabel('');setSort('new');}}><ArrowLeft size={14}/>Bỏ lọc</button>}
         <label className="dh-search" title="Hỗ trợ tìm kiếm thông minh:&#10;• Phép VÀ (AND): cách nhau bằng dấu cách, dấu +, hoặc từ 'và'&#10;• Phép HOẶC (OR): cách nhau bằng dấu phẩy ',', dấu '|', hoặc từ 'hoặc'"><Search size={15}/><input aria-label="Tìm đơn hàng" placeholder="Tìm mã đơn, vận đơn, khách, sản phẩm, SKU… (hỗ trợ VÀ & HOẶC)" value={search} onChange={e=>setSearch(e.target.value)}/>{search&&<button type="button" aria-label="Xoá tìm kiếm" onClick={()=>setSearch('')}><X size={13}/></button>}</label>
         <div className="dh-grow"/>
         <Dropdown icon={Columns3} label={`Tùy chỉnh cột${extras.size?` (+${extras.size})`:''}`} align="right"><div className="dh-cols">
@@ -128,10 +129,7 @@ export default function OrdersTab(){
       </div>
       <div className="dh-filterbar">
         <Dropdown icon={Store} label={shop?`Gian: ${shop}`:'Gian'} active={!!shop}><Option on={!shop} onClick={()=>setShop('')}>Tất cả gian</Option>{shops.map(s=><Option key={s} on={shop===s} onClick={()=>setShop(s)}>{s}</Option>)}</Dropdown>
-        <Dropdown icon={Calendar} label={from||to?`${from?fmtDate(from+'T00:00'):'…'} → ${to?fmtDate(to+'T00:00'):'…'}`:'Ngày đặt'} active={!!(from||to)}>
-          <div className="dh-dd-dates"><label>Từ<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>Đến<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label>
-          <div className="dh-dd-quick">{[['Hôm nay',0],['7 ngày',6],['30 ngày',29]].map(([l,d])=><button key={l} type="button" data-close onClick={()=>{const iso=x=>x.toLocaleDateString('sv-SE');setFrom(iso(new Date(Date.now()-d*86400000)));setTo(iso(new Date()));}}>{l}</button>)}<button type="button" data-close onClick={()=>{setFrom('');setTo('');}}>Bỏ chọn</button></div></div>
-        </Dropdown>
+        <DateRangePicker from={from} to={to} label={rangeLabel} onChange={(f, t, lbl) => { setFrom(f); setTo(t); setRangeLabel(lbl); }} />
         <Dropdown icon={ArrowUpDown} label={SORTS.find(s=>s[0]===sort)[1]} active={sort!=='new'}>{SORTS.map(([v,l])=><Option key={v} on={sort===v} onClick={()=>setSort(v)}>{l}</Option>)}</Dropdown>
         <span className="dh-grow"/>
         <span className="dh-sum">{rows.length} đơn · Tổng thanh toán <b>{money(total)}</b></span>
