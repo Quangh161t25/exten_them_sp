@@ -1,7 +1,7 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {fetchDhSheet,fetchDhRaw} from '../../services/dhSheet.js';
 import {STATUS,norm,HEADERS,RAW_HEADERS,matchSearchQuery} from '../../../../shared/dh-sheet.js';
-import {parseMoney} from '../../utils/formatters.js';
+import {parseMoney, formatMoneyVND} from '../../utils/formatters.js';
 import {ArrowLeft,ArrowUpDown,Calendar,ChevronLeft,ChevronRight,ChevronsLeft,ChevronsRight,Columns3,Download,Eye,Home,RefreshCw,Search,Store,X} from 'lucide-react';
 import {Dropdown,Option} from '../common/PageShell.jsx';
 import DateRangePicker from '../common/DateRangePicker.jsx';
@@ -101,7 +101,33 @@ export default function OrdersTab(){
   const exportRows=checked.size?rows.filter(o=>checked.has(o.key)):rows;
   const filtered=!!(shop||from||to||sort!=='new'||search);
   const tabs=[['',base.length],...STATUS.filter(s=>counts[s]||s===status||['Chờ lấy hàng','Đang giao','Đã giao','Hoàn thành','Đã hủy','Trả hàng','Hoàn tiền'].includes(s)).map(s=>[s,counts[s]])];
-  const total=rows.reduce((s,o)=>s+parseMoney(o.tong_tien),0);
+    const total=rows.reduce((s,o)=>s+parseMoney(o.tong_tien),0);
+  const stats = useMemo(() => {
+    if (!rows.length) return null;
+    const n = (v) => {
+      if (v === '' || v == null) return null;
+      const num = parseMoney(v);
+      return isNaN(num) ? null : num;
+    };
+    const sum = (key) => rows.reduce((s, r) => s + (n(r[key]) || 0), 0);
+    const has = (key) => rows.filter((r) => n(r[key]) !== null).length;
+    const note = (key) => (has(key) < rows.length ? ` (${has(key)}/${rows.length} đơn)` : '');
+
+    return {
+      count: rows.length,
+      tongTien: sum('tong_tien'),
+      doanhThu: sum('doanh_thu'),
+      doanhThuNote: note('doanh_thu'),
+      phuPhi: sum('phu_phi'),
+      phuPhiNote: note('phu_phi'),
+      thue: sum('thue'),
+      thueNote: note('thue'),
+      thanhTienSp: sum('tong_thanh_tien_sp'),
+      thanhTienSpNote: note('tong_thanh_tien_sp'),
+      loiNhuan: sum('loi_nhuan'),
+      loiNhuanNote: note('loi_nhuan'),
+    };
+  }, [rows]);
   const cells={
     order:o=><><span className="dh-shop">{o.gian||'—'}</span><button className="dh-order-link" onClick={()=>setSelected(o)}>{o.mdh}</button></>,
     product:o=><><Product item={o.items[0]}/>{o.items.length>1&&<button className="dh-more" onClick={()=>setSelected(o)}>+ {o.items.length-1} sản phẩm khác</button>}</>,
@@ -134,6 +160,50 @@ export default function OrdersTab(){
         <span className="dh-grow"/>
         <span className="dh-sum">{rows.length} đơn · Tổng thanh toán <b>{money(total)}</b></span>
       </div>
+      {stats && (
+        <div className="dh-stats-section">
+          <div className="dh-stats-grid">
+            <div className="dh-stat-card">
+              <div className="dh-stat-v">{stats.count}</div>
+              <div className="dh-stat-l">Đơn</div>
+            </div>
+            <div className="dh-stat-card">
+              <div className="dh-stat-v">{formatMoneyVND(stats.tongTien)}</div>
+              <div className="dh-stat-l">Tổng tiền đơn</div>
+            </div>
+            <div className="dh-stat-card">
+              <div className="dh-stat-v text-income">{formatMoneyVND(stats.doanhThu)}</div>
+              <div className="dh-stat-l">
+                Doanh thu ước tính{stats.doanhThuNote && <small>{stats.doanhThuNote}</small>}
+              </div>
+            </div>
+            <div className="dh-stat-card">
+              <div className="dh-stat-v">{formatMoneyVND(stats.phuPhi)}</div>
+              <div className="dh-stat-l">
+                Tổng phụ phí{stats.phuPhiNote && <small>{stats.phuPhiNote}</small>}
+              </div>
+            </div>
+            <div className="dh-stat-card">
+              <div className="dh-stat-v">{formatMoneyVND(stats.thue)}</div>
+              <div className="dh-stat-l">
+                Tổng thuế{stats.thueNote && <small>{stats.thueNote}</small>}
+              </div>
+            </div>
+            <div className="dh-stat-card">
+              <div className="dh-stat-v">{formatMoneyVND(stats.thanhTienSp)}</div>
+              <div className="dh-stat-l">
+                Tổng thành tiền SP{stats.thanhTienSpNote && <small>{stats.thanhTienSpNote}</small>}
+              </div>
+            </div>
+            <div className="dh-stat-card">
+              <div className="dh-stat-v text-income">{formatMoneyVND(stats.loiNhuan)}</div>
+              <div className="dh-stat-l">
+                Lợi nhuận{stats.loiNhuanNote && <small>{stats.loiNhuanNote}</small>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {error&&<div role="alert" className="dh-error">{error}. Dữ liệu đã tải trước đó được giữ lại.</div>}
       <div className="dh-scroll dh-list"><table className="dh-fixed" style={{minWidth:1180+extraCols.length*150}}><thead><tr><th className="dh-check"><input type="checkbox" aria-label="Chọn tất cả trên trang" checked={allOnPage} onChange={()=>setChecked(c=>{const n=new Set(c);visible.forEach(o=>allOnPage?n.delete(o.key):n.add(o.key));return n;})}/></th>{cols.map(([k,l])=><th key={k} className={`c-${k}`}>{l}</th>)}{extraCols.map(([k,l])=><th key={k} className="c-extra" title={k}>{l}</th>)}<th className="dh-act">Thao tác</th></tr></thead>
         <tbody>{visible.map(o=><tr key={o.key} className={checked.has(o.key)?'sel':''}><td className="dh-check"><input type="checkbox" aria-label={`Chọn đơn ${o.mdh}`} checked={checked.has(o.key)} onChange={()=>pick(o.key)}/></td>{cols.map(([k])=><td key={k} className={`c-${k}`}>{cells[k](o)}</td>)}{extraCols.map(([k])=>{const v=extraValue(o,k);return <td key={k} className="c-extra" title={v}><div className="dh-cell">{v}</div></td>;})}<td className="dh-act"><button className="dh-icon" title="Xem chi tiết" aria-label={`Xem chi tiết đơn ${o.mdh}`} onClick={()=>setSelected(o)}><Eye size={16}/></button></td></tr>)}
