@@ -205,8 +205,10 @@ export function parseSheet(values) {
   if(values.length&&!headers.includes('mdh'))throw new Error('Sheet DH thiếu cột mdh');
   for(const [index,cells] of values.slice(1).entries()){
     const r=Object.fromEntries(headers.map((h,i)=>[h,cells[i]??'']));if(!r.mdh)continue;
+    const sheetRow = index + 2;
+    r.sheetRow = sheetRow;
     const key=JSON.stringify([r.shop_id||norm(r.gian),r.mdh]);
-    if(!groups.has(key))groups.set(key,{...r,key,sheetRow:index+2,items:[],status:statusOf(r.trang_thai),raw:''});
+    if(!groups.has(key))groups.set(key,{...r,key,sheetRow,items:[],status:statusOf(r.trang_thai),raw:''});
     const o=groups.get(key);o.items.push(r);
     if(!o.raw)o.raw=RAW_HEADERS.map(h=>r[h]||'').join('');
   }

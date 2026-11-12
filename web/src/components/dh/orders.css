@@ -125,3 +125,250 @@
   color: #94a3b8;
   font-weight: 400;
 }
+
+/* Chi tiết đơn: Nút sửa & Khối điều chỉnh đối soát */
+.dh-detail-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dh-btn-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2563eb !important;
+  background: #eff6ff !important;
+  border: 1px solid #bfdbfe !important;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.dh-btn-edit:hover {
+  background: #dbeafe !important;
+  border-color: #93c5fd !important;
+  color: #1d4ed8 !important;
+}
+.dh-btn-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white !important;
+  background: #16a34a !important;
+  border: 1px solid #16a34a !important;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.dh-btn-save:hover:not(:disabled) {
+  background: #15803d !important;
+  border-color: #15803d !important;
+}
+.dh-btn-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.dh-btn-cancel {
+  padding: 7px 12px;
+  font-size: 13px;
+  color: #64748b !important;
+  background: white !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.dh-btn-cancel:hover {
+  background: #f1f5f9 !important;
+}
+
+.dh-reconciliation-card {
+  margin: 16px 0;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+.dh-reconciliation-card.is-editing {
+  background: #ffffff;
+  border-color: #3b82f6;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.12);
+}
+.dh-reconciliation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.dh-reconciliation-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dh-editing-tag {
+  font-size: 11px;
+  font-weight: 600;
+  background: #eff6ff;
+  color: #2563eb;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #bfdbfe;
+}
+.dh-reconciliation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px 20px;
+  font-size: 12.5px;
+}
+.dh-recon-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dh-recon-label {
+  font-size: 11.5px;
+  color: #64748b;
+}
+.dh-recon-val {
+  color: #0f172a;
+  font-weight: 500;
+}
+.dh-recon-val.text-money {
+  color: #2563eb;
+  font-weight: 700;
+  font-size: 14px;
+}
+.dh-recon-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+  width: fit-content;
+}
+.dh-recon-tag.has-val {
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 600;
+}
+.dh-congno-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  width: fit-content;
+}
+.dh-congno-badge.chờ-tính,
+.dh-congno-badge[class*="chờ-tính"] {
+  background: #fef3c7;
+  color: #b45309;
+}
+.dh-congno-badge.đã-tính,
+.dh-congno-badge[class*="đã-tính"] {
+  background: #dcfce7;
+  color: #15803d;
+}
+.dh-congno-badge.không-tính,
+.dh-congno-badge[class*="không-tính"] {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.dh-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.dh-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.dh-form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.dh-edit-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #334155;
+}
+.dh-input-with-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dh-input-with-actions input {
+  flex: 1;
+}
+.dh-preset-btn {
+  padding: 7px 11px !important;
+  font-size: 11.5px !important;
+  white-space: nowrap;
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #334155 !important;
+  border-radius: 6px !important;
+}
+.dh-preset-btn:hover {
+  background: #e2e8f0 !important;
+}
+.dh-combo-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dh-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px dashed #e2e8f0;
+}
+.dh-btn-save-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dh-success-msg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #15803d;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  margin: 4px 0;
+}
+.dh-link-btn {
+  border: 0 !important;
+  background: none !important;
+  color: #2563eb !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 0 !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.dh-link-btn:hover {
+  text-decoration: underline;
+}

@@ -1,8 +1,8 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {fetchDhSheet,fetchDhRaw} from '../../services/dhSheet.js';
+import {fetchDhSheet,fetchDhRaw,updateDhOrder} from '../../services/dhSheet.js';
 import {STATUS,norm,HEADERS,RAW_HEADERS,matchSearchQuery} from '../../../../shared/dh-sheet.js';
 import {parseMoney, formatMoneyVND} from '../../utils/formatters.js';
-import {ArrowLeft,ArrowUpDown,Calendar,ChevronLeft,ChevronRight,ChevronsLeft,ChevronsRight,Columns3,Download,Eye,Home,RefreshCw,Search,Store,X} from 'lucide-react';
+import {ArrowLeft,ArrowUpDown,Calendar,ChevronLeft,ChevronRight,ChevronsLeft,ChevronsRight,Columns3,Download,Eye,Home,RefreshCw,Search,Store,X,Edit3,Save,CheckCircle2} from 'lucide-react';
 import {Dropdown,Option} from '../common/PageShell.jsx';
 import DateRangePicker from '../common/DateRangePicker.jsx';
 import './orders.css';
@@ -19,16 +19,276 @@ const tone=s=>/Hoàn thành|Đã giao/.test(s)?'green':/hủy/.test(s)?'red':/Tr
 function Badge({order}){return <span className={`dh-badge ${tone(order.status)}`}>{order.status==='Khác'?order.trang_thai||'Chưa rõ trạng thái':order.status}</span>;}
 const imageUrl=u=>/^https?:\/\//i.test(u||'')?u:'';
 function Product({item}){return <div className="dh-product">{imageUrl(item.anh)?<img loading="lazy" src={item.anh} alt=""/>:<span className="dh-image-placeholder">SP</span>}<div><strong>{item.ten_sp||'Chưa có tên sản phẩm'}</strong><small>{item.phan_loai||'Không có phân loại'} · SL: {display(item.slg)}</small><code>{item.sku||'Chưa có SKU phân loại'}</code></div></div>;}
-function Detail({order,headers,onClose}){
+const STATUS_PRESETS = [
+  'ĐỦ HÀNG - ĐẠT CHUẨN',
+  'THIẾU HÀNG',
+  'HÀNG HỎNG / VỠ',
+  'SAI MẪU - CHỜ ĐỔI',
+  'ĐÃ BÙ TIỀN',
+  'GIAO THÀNH CÔNG',
+  'KHÁCH TỪ CHỐI NHẬN',
+  'CHỜ ĐỐI SOÁT'
+];
+
+function Detail({order,headers,onUpdateOrder,onClose}){
   const [raw,setRaw]=useState(null),[error,setError]=useState(''),[loading,setLoading]=useState(false);
+  const [isEditing,setIsEditing]=useState(false);
+  const [saving,setSaving]=useState(false);
+  const [saveError,setSaveError]=useState('');
+  const [saveSuccess,setSaveSuccess]=useState('');
+
+  const [giaThucTe,setGiaThucTe]=useState(order.gia_thuc_te??'');
+  const [tinhTrangThucTe,setTinhTrangThucTe]=useState(order.tinh_trang_thuc_te??'');
+  const [xacNhanCongNo,setXacNhanCongNo]=useState(order.xac_nhan_cong_no||'CHỜ TÍNH');
+  const [ghiChu,setGhiChu]=useState(order.ghi_chu??'');
+  const [mvd,setMvd]=useState(order.mvd??'');
+
   const closeRef=useRef(null);
-  useEffect(()=>{const previous=document.activeElement;closeRef.current?.focus();const escape=e=>{if(e.key==='Escape')onClose();};document.addEventListener('keydown',escape);return()=>{document.removeEventListener('keydown',escape);previous?.focus();};},[onClose]);
+  useEffect(()=>{
+    const previous=document.activeElement;
+    closeRef.current?.focus();
+    const escape=e=>{if(e.key==='Escape'&&!isEditing)onClose();};
+    document.addEventListener('keydown',escape);
+    return()=>{document.removeEventListener('keydown',escape);previous?.focus();};
+  },[onClose,isEditing]);
+
+  const resetForm=()=>{
+    setGiaThucTe(order.gia_thuc_te??'');
+    setTinhTrangThucTe(order.tinh_trang_thuc_te??'');
+    setXacNhanCongNo(order.xac_nhan_cong_no||'CHỜ TÍNH');
+    setGhiChu(order.ghi_chu??'');
+    setMvd(order.mvd??'');
+    setSaveError('');
+    setSaveSuccess('');
+  };
+
+  const handleSave=async()=>{
+    setSaving(true);
+    setSaveError('');
+    setSaveSuccess('');
+    try{
+      const updates={
+        gia_thuc_te:giaThucTe,
+        tinh_trang_thuc_te:tinhTrangThucTe,
+        xac_nhan_cong_no:xacNhanCongNo,
+        ghi_chu:ghiChu,
+        mvd:mvd
+      };
+      await updateDhOrder(order,updates,headers);
+      const updatedOrder={
+        ...order,
+        ...updates,
+        items:(order.items||[]).map(it=>({...it,...updates}))
+      };
+      if(onUpdateOrder)onUpdateOrder(updatedOrder);
+      setSaveSuccess('Đã lưu thành công vào sheet DH!');
+      setTimeout(()=>{
+        setIsEditing(false);
+        setSaveSuccess('');
+      },1000);
+    }catch(err){
+      setSaveError(err.message||'Lỗi khi lưu vào Google Sheets');
+    }finally{
+      setSaving(false);
+    }
+  };
+
   const fields=(pairs)=><dl>{pairs.map(([label,key])=><React.Fragment key={key}><dt>{label}</dt><dd>{display(order[key])}</dd></React.Fragment>)}</dl>;
+
   return <div className="dh-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}><section className="dh-detail" role="dialog" aria-modal="true" aria-label={`Chi tiết đơn ${order.mdh}`}>
-    <header><div><small>GIAN {order.gian}</small><h2>{order.mdh}</h2><Badge order={order}/></div><button ref={closeRef} onClick={onClose} aria-label="Đóng chi tiết">✕ Đóng</button></header>
+    <header>
+      <div><small>GIAN {order.gian}</small><h2>{order.mdh}</h2><Badge order={order}/></div>
+      <div className="dh-detail-header-actions">
+        {!isEditing?(
+          <button type="button" className="dh-btn-edit" onClick={()=>{setIsEditing(true);setSaveError('');setSaveSuccess('');}} title="Chỉnh sửa thông tin đơn hàng & đối soát thực tế">
+            <Edit3 size={14}/> Sửa
+          </button>
+        ):(
+          <>
+            <button type="button" className="dh-btn-save" disabled={saving} onClick={handleSave} title="Lưu thay đổi vào Google Sheets">
+              <Save size={14}/> {saving?'Đang lưu…':'Lưu'}
+            </button>
+            <button type="button" className="dh-btn-cancel" disabled={saving} onClick={()=>{setIsEditing(false);resetForm();}}>
+              Hủy
+            </button>
+          </>
+        )}
+        <button ref={closeRef} onClick={onClose} aria-label="Đóng chi tiết">✕ Đóng</button>
+      </div>
+    </header>
     <div className="dh-detail-body">
       <p className="dh-muted">{order.mo_ta_trang_thai||order.trang_thai} · Cập nhật: {stamp(order.dong_bo_luc)}</p>
       {order.chi_tiet_dong_bo&&<p className="dh-note">{order.chi_tiet_dong_bo}</p>}
+
+      <div className={`dh-reconciliation-card ${isEditing?'is-editing':''}`}>
+        <div className="dh-reconciliation-header">
+          <h4>
+            <CheckCircle2 size={16} color={isEditing?'#2563eb':'#16a34a'}/>
+            {isEditing?'Chỉnh sửa thông tin đơn & Đối soát thực tế':'Thông tin điều chỉnh & Đối soát'}
+          </h4>
+          {!isEditing?(
+            <button type="button" className="dh-link-btn" onClick={()=>setIsEditing(true)}>
+              <Edit3 size={13}/> Sửa thông tin này
+            </button>
+          ):(
+            <span className="dh-editing-tag">Đang mở chế độ sửa</span>
+          )}
+        </div>
+
+        {!isEditing?(
+          <div className="dh-reconciliation-grid">
+            <div className="dh-recon-item">
+              <span className="dh-recon-label">Giá thực tế (tính lại tiền):</span>
+              <b className="dh-recon-val text-money">{order.gia_thuc_te?money(order.gia_thuc_te):'— (Theo Shopee)'}</b>
+            </div>
+            <div className="dh-recon-item">
+              <span className="dh-recon-label">Tình trạng thực tế:</span>
+              <span className={`dh-recon-tag ${order.tinh_trang_thuc_te?'has-val':''}`}>
+                {order.tinh_trang_thuc_te||'Chưa cập nhật'}
+              </span>
+            </div>
+            <div className="dh-recon-item">
+              <span className="dh-recon-label">Xác nhận công nợ:</span>
+              <span className={`dh-congno-badge ${(order.xac_nhan_cong_no||'CHỜ TÍNH').toLowerCase().replace(/\s+/g,'-')}`}>
+                {order.xac_nhan_cong_no||'CHỜ TÍNH'}
+              </span>
+            </div>
+            <div className="dh-recon-item">
+              <span className="dh-recon-label">Ghi chú đối soát:</span>
+              <span className="dh-recon-val">{order.ghi_chu||'—'}</span>
+            </div>
+          </div>
+        ):(
+          <div className="dh-edit-form">
+            <div className="dh-form-row">
+              <label>
+                <span>Giá thực tế (₫) - Tính lại tiền cho đơn</span>
+                <div className="dh-input-with-actions">
+                  <input
+                    type="number"
+                    placeholder="Nhập giá thực tế nếu có điều chỉnh..."
+                    value={giaThucTe}
+                    onChange={e=>setGiaThucTe(e.target.value)}
+                  />
+                  {order.doanh_thu&&(
+                    <button
+                      type="button"
+                      className="dh-preset-btn"
+                      onClick={()=>setGiaThucTe(String(parseMoney(order.doanh_thu)))}
+                      title="Lấy bằng doanh thu Shopee"
+                    >
+                      Lấy DT ({money(order.doanh_thu)})
+                    </button>
+                  )}
+                  {order.tong_tien&&(
+                    <button
+                      type="button"
+                      className="dh-preset-btn"
+                      onClick={()=>setGiaThucTe(String(parseMoney(order.tong_tien)))}
+                      title="Lấy bằng tổng tiền đơn"
+                    >
+                      Lấy Tổng tiền ({money(order.tong_tien)})
+                    </button>
+                  )}
+                  {giaThucTe&&(
+                    <button
+                      type="button"
+                      className="dh-preset-btn"
+                      onClick={()=>setGiaThucTe('')}
+                      title="Xóa giá thực tế"
+                    >
+                      Xóa
+                    </button>
+                  )}
+                </div>
+              </label>
+            </div>
+
+            <div className="dh-form-grid-2">
+              <label>
+                <span>Tình trạng thực tế (chính xác)</span>
+                <div className="dh-combo-group">
+                  <select
+                    value={STATUS_PRESETS.includes(tinhTrangThucTe)?tinhTrangThucTe:(tinhTrangThucTe?'KHAC':'')}
+                    onChange={e=>{
+                      const val=e.target.value;
+                      if(val!=='KHAC')setTinhTrangThucTe(val);
+                    }}
+                  >
+                    <option value="">-- Chọn nhanh tình trạng --</option>
+                    {STATUS_PRESETS.map(s=><option key={s} value={s}>{s}</option>)}
+                    <option value="KHAC">Tự nhập khác...</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Nhập tình trạng chi tiết..."
+                    value={tinhTrangThucTe}
+                    onChange={e=>setTinhTrangThucTe(e.target.value)}
+                    style={{marginTop:6}}
+                  />
+                </div>
+              </label>
+
+              <label>
+                <span>Xác nhận công nợ</span>
+                <select
+                  value={xacNhanCongNo}
+                  onChange={e=>setXacNhanCongNo(e.target.value)}
+                >
+                  <option value="CHỜ TÍNH">CHỜ TÍNH (Chưa hạch toán)</option>
+                  <option value="ĐÃ TÍNH">ĐÃ TÍNH (Đã hạch toán công nợ)</option>
+                  <option value="KHÔNG TÍNH">KHÔNG TÍNH (Bỏ qua công nợ)</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="dh-form-grid-2">
+              <label>
+                <span>Mã vận đơn (MVD)</span>
+                <input
+                  type="text"
+                  placeholder="Mã vận đơn..."
+                  value={mvd}
+                  onChange={e=>setMvd(e.target.value)}
+                />
+              </label>
+
+              <label>
+                <span>Ghi chú nội bộ</span>
+                <input
+                  type="text"
+                  placeholder="Ghi chú điều chỉnh..."
+                  value={ghiChu}
+                  onChange={e=>setGhiChu(e.target.value)}
+                />
+              </label>
+            </div>
+
+            {saveError&&<p className="dh-error" role="alert">{saveError}</p>}
+            {saveSuccess&&<p className="dh-success-msg"><CheckCircle2 size={15}/> {saveSuccess}</p>}
+
+            <div className="dh-edit-actions">
+              <button
+                type="button"
+                className="dh-primary dh-btn-save-submit"
+                disabled={saving}
+                onClick={handleSave}
+              >
+                <Save size={15}/> {saving?'Đang lưu vào Google Sheets…':'Lưu vào Sheet DH'}
+              </button>
+              <button
+                type="button"
+                className="dh-ghost"
+                disabled={saving}
+                onClick={()=>{setIsEditing(false);resetForm();}}
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       <h3>Sản phẩm ({order.items.length})</h3><div className="dh-scroll"><table><thead><tr><th>Sản phẩm / SKU phân loại</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead><tbody>{order.items.map((it,i)=><tr key={i}><td><Product item={it}/></td><td>{money(it.don_gia)}</td><td>{money(it.thanh_tien)}</td></tr>)}</tbody></table></div>
       <div className="dh-detail-grid"><section><h3>Khách hàng & giao nhận</h3>{fields([['Người mua','ten_khach'],['Người nhận','ng_nhan'],['Số điện thoại','sdt'],['Địa chỉ','dia_chi'],['Vận đơn','mvd'],['Đơn vị vận chuyển','don_vi_vc'],['Hình thức vận chuyển','hinh_thuc_vc'],['Hạn giao','han_giao'],['Ghi chú','ghi_chu']])}</section>
       <section><h3>Trạng thái & thời gian</h3>{fields([['Ngày đặt','ngay_gio'],['Trạng thái Shopee','mo_ta_trang_thai'],['Hoàn thành lúc','ngay_hoan_thanh'],['Hủy lúc','ngay_huy'],['Lý do hủy','ly_do_huy'],['Lý do trả / hoàn','ly_do_tra_hoan'],['Mã trạng thái gốc','ma_trang_thai']])}</section></div>
@@ -60,7 +320,7 @@ const SORTS=[['new','Mới nhất'],['old','Cũ nhất'],['money','Tổng tiền
 const fmtDate=v=>v?new Date(v).toLocaleDateString('vi-VN'):'—';
 export default function OrdersTab(){
   const [data,setData]=useState({orders:[],headers:[]}),[loading,setLoading]=useState(false),[error,setError]=useState(''),[loaded,setLoaded]=useState(0);
-  const [search,setSearch]=useState(''),[shop,setShop]=useState(''),[status,setStatus]=useState(''),[from,setFrom]=useState(''),[to,setTo]=useState(''),[sort,setSort]=useState('new'),[page,setPage]=useState(1),[size,setSize]=useState(20),[selected,setSelected]=useState(null),[checked,setChecked]=useState(new Set());
+  const [search,setSearch]=useState(''),[shop,setShop]=useState(''),[status,setStatus]=useState(''),[from,setFrom]=useState(''),[to,setTo]=useState(''),[rangeLabel,setRangeLabel]=useState(''),[sort,setSort]=useState('new'),[page,setPage]=useState(1),[size,setSize]=useState(20),[selected,setSelected]=useState(null),[checked,setChecked]=useState(new Set());
   const [extras,setExtras]=useState(()=>{try{return new Set(JSON.parse(localStorage.getItem(EXTRA_KEY)||'[]'));}catch{return new Set();}});
   const [hidden,setHidden]=useState(()=>{try{return new Set(JSON.parse(localStorage.getItem(COL_KEY)||'[]'));}catch{return new Set();}});
   const busy=useRef(false),mounted=useRef(false);
@@ -68,6 +328,13 @@ export default function OrdersTab(){
   useEffect(()=>{mounted.current=true;refresh();const timer=setInterval(refresh,60000);return()=>{mounted.current=false;clearInterval(timer);};},[refresh]);
   useEffect(()=>{setPage(1);setChecked(new Set());},[search,shop,status,from,to,sort,size]);
   const toggleColumn=k=>setHidden(h=>{const n=new Set(h);n.has(k)?n.delete(k):n.add(k);try{localStorage.setItem(COL_KEY,JSON.stringify([...n]));}catch{/* bỏ qua */}return n;});
+  const handleUpdateOrder=useCallback((updatedOrder)=>{
+    setData(prev=>({
+      ...prev,
+      orders:prev.orders.map(o=>o.key===updatedOrder.key?updatedOrder:o)
+    }));
+    setSelected(updatedOrder);
+  },[]);
   const shops=useMemo(()=>[...new Set(data.orders.map(o=>o.gian).filter(Boolean))].sort(),[data]);
   const base=useMemo(()=>data.orders.filter(o=>{
     const t=dateValue(o);
@@ -211,6 +478,6 @@ export default function OrdersTab(){
       <footer className="dh-footer"><div className="dh-pagesize"><span>{rows.length?`${start+1}–${start+visible.length}`:'0'}/<i>Tổng:</i>{rows.length}</span><select aria-label="Số dòng mỗi trang" value={size} onChange={e=>setSize(Number(e.target.value))}>{[20,50,100].map(n=><option key={n} value={n}>{n}</option>)}</select><i>/ trang</i></div>
         <div className="dh-pager"><button aria-label="Trang đầu" disabled={current<=1} onClick={()=>setPage(1)}><ChevronsLeft size={14}/></button><button aria-label="Trang trước" disabled={current<=1} onClick={()=>setPage(current-1)}><ChevronLeft size={14}/></button><b>{current}</b><span>/{pages}</span><button aria-label="Trang sau" disabled={current>=pages} onClick={()=>setPage(current+1)}><ChevronRight size={14}/></button><button aria-label="Trang cuối" disabled={current>=pages} onClick={()=>setPage(pages)}><ChevronsRight size={14}/></button></div></footer>
     </div>
-    {selected&&<Detail key={selected.key} order={selected} headers={data.headers} onClose={close}/>}
+    {selected&&<Detail key={selected.key} order={selected} headers={data.headers} onUpdateOrder={handleUpdateOrder} onClose={close}/>}
   </div>;
 }

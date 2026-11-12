@@ -23,3 +23,76 @@ export async function fetchDhRaw(order,headers){
   const raw=RAW_HEADERS.map(h=>row[headers.indexOf(h)]||'').join('');
   return raw?JSON.parse(raw):null;
 }
+
+export async function updateDhOrder(order, updates, headers) {
+  const token = await getAccessToken();
+  let currentHeaders = headers;
+  if (!currentHeaders || !currentHeaders.length) {
+    const [h = []] = await read("'DH'!1:1");
+    currentHeaders = h;
+  }
+
+  const rows = (order.items && order.items.length)
+    ? [...new Set(order.items.map(it => it.sheetRow || order.sheetRow).filter(Boolean))]
+    : [order.sheetRow].filter(Boolean);
+
+  if (!rows.length) {
+    throw new Error('Không xác định được số dòng của đơn trong sheet DH');
+  }
+
+  let fieldCols = {};
+  for (const key of Object.keys(updates)) {
+    let idx = currentHeaders.indexOf(key);
+    if (idx >= 0) {
+      fieldCols[key] = column(idx);
+    }
+  }
+
+  const missingKeys = Object.keys(updates).filter(k => !fieldCols[k]);
+  if (missingKeys.length > 0) {
+    const [freshHeaders = []] = await read("'DH'!1:1");
+    currentHeaders = freshHeaders;
+    for (const key of missingKeys) {
+      const idx = currentHeaders.indexOf(key);
+      if (idx >= 0) {
+        fieldCols[key] = column(idx);
+      }
+    }
+  }
+
+  const data = [];
+  for (const row of rows) {
+    for (const [key, val] of Object.entries(updates)) {
+      const colLetter = fieldCols[key];
+      if (colLetter) {
+        data.push({
+          range: `'DH'!${colLetter}${row}`,
+          values: [[val === null || val === undefined ? '' : String(val)]]
+        });
+      }
+    }
+  }
+
+  if (!data.length) {
+    throw new Error('Không tìm thấy cột tương ứng trong sheet DH để lưu');
+  }
+
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values:batchUpdate`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      valueInputOption: 'USER_ENTERED',
+      data
+    })
+  });
+
+  const resData = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(resData.error?.message || 'Lỗi khi cập nhật dữ liệu đơn vào sheet DH');
+  }
+
+  return resData;
+}
