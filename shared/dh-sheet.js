@@ -15,7 +15,8 @@ export const HEADERS = [
   // Đồng bộ
   'chi_tiet_dong_bo','dong_bo_luc',...RAW_HEADERS,
   // Khóa dòng (gian|mdh|item_id-model_id|n) và dấu vân tay để biết dòng có đổi không
-  'khoa','dau_van_tay'
+  'khoa','dau_van_tay',
+  'gia_thuc_te','tinh_trang_thuc_te','xac_nhan_cong_no'
 ];
 // Cột của DH cũ: trống hoặc trùng với cột mới (ngay = ngay_gio, link_don tạo từ order_id).
 export const REMOVED_HEADERS = ['ngay','ma_giam_gia','phi_khac','tien_sp','tinh_trang','id_sp','link_don','mvd_huy','mdh_huy'];
