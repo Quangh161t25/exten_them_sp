@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {ArrowUpDown, RefreshCw, Store, Timer} from 'lucide-react';
 import {fetchWaitingSheet} from '../../services/waitingOrdersSheet.js';
 import {formatMoneyVND} from '../../utils/formatters.js';
+import {matchSearchQuery} from '../../../../shared/dh-sheet.js';
 import {Page, Crumbs, Tabs, Card, Toolbar, FilterBar, Grow, SearchBox, Dropdown, Option, SelectFilter, Pager} from '../common/PageShell.jsx';
 
 const stamp = (at) => at ? new Date(at).toLocaleString('vi-VN') : 'Chưa đồng bộ';
@@ -23,8 +24,12 @@ export default function ChoLayHangTab() {
     useEffect(()=>setPage(1),[status,gian,search,sort,size]);
     const shops=useMemo(()=>[...new Set(rows.map(r=>r.gian))].sort(),[rows]);
     const base=useMemo(()=>{
-        const q=search.trim().toLocaleLowerCase('vi-VN');
-        return rows.filter(r=>(!gian||r.gian===gian)&&(!q||[r.gian,r.orderSn,r.buyer,r.tracking,...r.items].join(' ').toLocaleLowerCase('vi-VN').includes(q)));
+        return rows.filter(r=>{
+            if (gian && r.gian !== gian) return false;
+            if (!search || !search.trim()) return true;
+            const target = [r.gian, r.orderSn, r.buyer, r.tracking, ...r.items].filter(Boolean).join(' ');
+            return matchSearchQuery(target, search);
+        });
     },[rows,gian,search]);
     const filtered=useMemo(()=>base.filter(r=>!status||r.stage===status)
         .sort((a,b)=>sort==='total'?b.total-a.total:sort==='orderTime'?b.orderTime-a.orderTime:(a.shipByTs||Infinity)-(b.shipByTs||Infinity)),[base,status,sort]);

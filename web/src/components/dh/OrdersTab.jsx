@@ -1,6 +1,6 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {fetchDhSheet,fetchDhRaw} from '../../services/dhSheet.js';
-import {STATUS,norm,HEADERS,RAW_HEADERS} from '../../../../shared/dh-sheet.js';
+import {STATUS,norm,HEADERS,RAW_HEADERS,matchSearchQuery} from '../../../../shared/dh-sheet.js';
 import {parseMoney} from '../../utils/formatters.js';
 import {ArrowLeft,ArrowUpDown,Calendar,ChevronLeft,ChevronRight,ChevronsLeft,ChevronsRight,Columns3,Download,Eye,Home,RefreshCw,Search,Store,X} from 'lucide-react';
 import {Dropdown,Option} from '../common/PageShell.jsx';
@@ -69,7 +69,22 @@ export default function OrdersTab(){
   const toggleColumn=k=>setHidden(h=>{const n=new Set(h);n.has(k)?n.delete(k):n.add(k);try{localStorage.setItem(COL_KEY,JSON.stringify([...n]));}catch{/* bỏ qua */}return n;});
   const shops=useMemo(()=>[...new Set(data.orders.map(o=>o.gian).filter(Boolean))].sort(),[data]);
   const base=useMemo(()=>data.orders.filter(o=>{
-    const t=dateValue(o),q=norm(search);return (!shop||o.gian===shop)&&(!from||t>=new Date(from+'T00:00:00').getTime())&&(!to||t<=new Date(to+'T23:59:59').getTime())&&(!q||norm([o.mdh,o.mvd,o.ten_khach,o.ng_nhan,...o.items.flatMap(i=>[i.ten_sp,i.phan_loai,i.sku])].join(' ')).includes(q));
+    const t=dateValue(o);
+    if (shop && o.gian !== shop) return false;
+    if (from && t < new Date(from+'T00:00:00').getTime()) return false;
+    if (to && t > new Date(to+'T23:59:59').getTime()) return false;
+    if (!search || !search.trim()) return true;
+    const target = [
+      o.gian,
+      o.mdh,
+      o.mvd,
+      o.ten_khach,
+      o.ng_nhan,
+      o.sdt,
+      o.don_vi_vc,
+      ...o.items.flatMap(i => [i.ten_sp, i.phan_loai, i.sku, i.sku_san_pham])
+    ].filter(Boolean).join(' ');
+    return matchSearchQuery(target, search);
   }),[data,search,shop,from,to]);
   const counts=useMemo(()=>Object.fromEntries(STATUS.map(s=>[s,base.filter(o=>o.status===s).length])),[base]);
   const rows=useMemo(()=>base.filter(o=>!status||o.status===status).sort((a,b)=>sort==='money'?parseMoney(b.tong_tien)-parseMoney(a.tong_tien):sort==='old'?dateValue(a)-dateValue(b):dateValue(b)-dateValue(a)),[base,status,sort]);
@@ -101,7 +116,7 @@ export default function OrdersTab(){
     <div className="dh-card">
       <div className="dh-toolbar">
         {filtered&&<button className="dh-ghost" onClick={()=>{setSearch('');setShop('');setFrom('');setTo('');setSort('new');}}><ArrowLeft size={14}/>Bỏ lọc</button>}
-        <label className="dh-search"><Search size={15}/><input aria-label="Tìm đơn hàng" placeholder="Tìm mã đơn, vận đơn, khách, sản phẩm, SKU…" value={search} onChange={e=>setSearch(e.target.value)}/>{search&&<button type="button" aria-label="Xoá tìm kiếm" onClick={()=>setSearch('')}><X size={13}/></button>}</label>
+        <label className="dh-search" title="Hỗ trợ tìm kiếm thông minh:&#10;• Phép VÀ (AND): cách nhau bằng dấu cách, dấu +, hoặc từ 'và'&#10;• Phép HOẶC (OR): cách nhau bằng dấu phẩy ',', dấu '|', hoặc từ 'hoặc'"><Search size={15}/><input aria-label="Tìm đơn hàng" placeholder="Tìm mã đơn, vận đơn, khách, sản phẩm, SKU… (hỗ trợ VÀ & HOẶC)" value={search} onChange={e=>setSearch(e.target.value)}/>{search&&<button type="button" aria-label="Xoá tìm kiếm" onClick={()=>setSearch('')}><X size={13}/></button>}</label>
         <div className="dh-grow"/>
         <Dropdown icon={Columns3} label={`Tùy chỉnh cột${extras.size?` (+${extras.size})`:''}`} align="right"><div className="dh-cols">
           <b>Cột chính</b>{COLUMNS.map(([k,l])=><label key={k} className="dh-dd-check"><input type="checkbox" checked={show(k)} disabled={k==='order'} onChange={()=>toggleColumn(k)}/>{l}</label>)}

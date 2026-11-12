@@ -21,6 +21,39 @@ export const HEADERS = [
 export const REMOVED_HEADERS = ['ngay','ma_giam_gia','phi_khac','tien_sp','tinh_trang','id_sp','link_don','mvd_huy','mdh_huy'];
 export const STATUS = ['Chờ thanh toán','Chờ xác nhận','Chờ lấy hàng','Đang giao','Đã giao','Hoàn thành','Đã hủy','Trả hàng','Hoàn tiền','Hoàn hàng','Trả hàng / Hoàn tiền','Khác'];
 export const norm = s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().trim();
+
+/**
+ * Tìm kiếm nâng cao hỗ trợ đồng thời cả phép HOẶC (OR) và phép VÀ (AND):
+ * - HOẶC (OR): Ngăn cách bởi dấu phẩy (,), chấm phẩy (;), gạch đứng (|), xuống dòng (\n), từ 'hoặc', 'or'.
+ * - VÀ (AND): Ngăn cách bởi dấu cách (' '), dấu cộng (+), dấu và (&), từ 'và', 'and'.
+ * Khớp nếu chuỗi thỏa mãn BẤT KỲ cụm HOẶC nào, và trong mỗi cụm phải chứa TẤT CẢ từ khóa VÀ.
+ */
+export function matchSearchQuery(targetText, rawQuery) {
+  if (!rawQuery || !rawQuery.trim()) return true;
+  if (!targetText) return false;
+
+  const normalizedTarget = norm(targetText);
+  const normQuery = norm(rawQuery);
+
+  let orClauses = normQuery
+    .split(/[,;\n|]|\b(?:hoac|or)\b/g)
+    .map(c => c.trim())
+    .filter(Boolean);
+
+  if (orClauses.length === 0) {
+    return normalizedTarget.includes(normQuery);
+  }
+
+  return orClauses.some(clause => {
+    const cleanClause = clause.replace(/\b(?:va|and)\b|[+&]/g, ' ');
+    const andTokens = cleanClause.split(/\s+/).map(t => t.trim()).filter(Boolean);
+    if (andTokens.length === 0) {
+      return normalizedTarget.includes(clause);
+    }
+    return andTokens.every(token => normalizedTarget.includes(token));
+  });
+}
+
 export function statusOf(text) {
   const t=norm(text);
   if(/tra hang.*hoan tien|return.*refund/.test(t))return 'Trả hàng / Hoàn tiền';
