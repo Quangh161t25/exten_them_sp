@@ -1834,8 +1834,7 @@ export default function App() {
                         if (currentTab === 'DH') {
                             handleOpenDhDetail(String(row[3] || ''));
                         } else if (currentTab === 'TINH_GIA') {
-                            setEditingTinhGiaRow(row);
-                            setTinhGiaModalOpen(true);
+                            // Bỏ popup khi nhấp đúp ở Tính giá (nhấp để copy ID/tên)
                         } else {
                             setEditingRecord(row);
                             setRecordModalOpen(true);
