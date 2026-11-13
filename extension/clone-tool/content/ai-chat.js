@@ -656,7 +656,7 @@
     }
 
     if (!foundImg) {
-      showSuccessBadge("Shopee Clone: Hết thời gian chờ tạo ảnh. Bấm nút 📥 Dùng làm ảnh bìa trên ảnh khi tạo xong.", "#ed4014");
+      showSuccessBadge("Shopee Clone: Hết thời gian chờ tạo ảnh. Bấm nút 📥 Bìa trên ảnh khi tạo xong.", "#ed4014");
       reportStatus("Hết thời gian chờ tạo ảnh. Bấm nút 📥 trên ảnh khi xong.", "#ed4014");
       return;
     }
@@ -690,6 +690,10 @@
       candidateImages.forEach((img) => {
         if (img.closest('[class*="avatar"], button[id*="headlessui-menu-button"]')) return;
         if (img.naturalWidth > 0 && img.naturalWidth < 120 && img.naturalHeight > 0 && img.naturalHeight < 120) return;
+        // Bỏ qua ảnh thu nhỏ (ảnh người dùng gửi, dải ảnh nhỏ bên cạnh) — chỉ gắn nút lên ảnh lớn
+        const shown = img.getBoundingClientRect();
+        if (shown.width > 0 && shown.width < 200) return;
+        if (img.closest('[data-message-author-role="user"]')) return;
 
         const box = img.closest('div.relative, div[class*="relative"], div.overflow-hidden, div[class*="group"]') || img.parentElement;
         if (!box || box.querySelector(".scl-cover-btn")) return;
@@ -698,25 +702,26 @@
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "scl-cover-btn";
-        btn.textContent = "📥 Dùng làm ảnh bìa";
+        btn.textContent = "📥 Bìa"; btn.title = "Dùng làm ảnh bìa";
         Object.assign(btn.style, {
           position: "absolute",
-          top: "10px",
-          left: "10px",
+          top: "6px",
+          left: "6px",
           zIndex: "9999",
-          padding: "6px 14px",
+          padding: "2px 8px",
           border: "none",
-          borderRadius: "16px",
+          borderRadius: "10px",
           background: "#10a37f",
           color: "#fff",
-          fontSize: "13px",
+          fontSize: "11px",
+          lineHeight: "16px",
           fontWeight: "600",
+          whiteSpace: "nowrap",
+          width: "auto",
+          maxWidth: "none",
           cursor: "pointer",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "4px",
-          transition: "all 0.2s ease"
+          opacity: "0.92",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.25)"
         });
         btn.addEventListener("click", (ev) => {
           ev.preventDefault();
@@ -728,7 +733,7 @@
             btn.disabled = false;
             if (!res.ok) {
               console.warn("[Shopee Clone AI] Fetch cover failed:", res.error);
-              btn.textContent = "📥 Dùng làm ảnh bìa";
+              btn.textContent = "📥 Bìa"; btn.title = "Dùng làm ảnh bìa";
               showSuccessBadge("Shopee Clone: Không lấy được ảnh (" + res.error + "). Hãy kéo ảnh hoặc bấm Ctrl+V trong tiện ích.", "#ed4014");
               return;
             }
@@ -763,21 +768,26 @@
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "scl-cover-btn";
-        btn.textContent = "📥 Dùng làm ảnh bìa";
+        btn.textContent = "📥 Bìa"; btn.title = "Dùng làm ảnh bìa";
         Object.assign(btn.style, {
           position: "absolute",
-          top: "10px",
-          left: "10px",
+          top: "6px",
+          left: "6px",
           zIndex: "5",
-          padding: "6px 12px",
+          padding: "2px 8px",
           border: "none",
-          borderRadius: "16px",
+          borderRadius: "10px",
           background: "#ee4d2d",
           color: "#fff",
-          fontSize: "13px",
+          fontSize: "11px",
+          lineHeight: "16px",
           fontWeight: "600",
+          whiteSpace: "nowrap",
+          width: "auto",
+          maxWidth: "none",
           cursor: "pointer",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+          opacity: "0.92",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.25)"
         });
         btn.addEventListener("click", (ev) => {
           ev.preventDefault();
@@ -789,7 +799,7 @@
             btn.disabled = false;
             if (!res.ok) {
               console.warn("[Shopee Clone AI] Fetch cover failed:", res.error);
-              btn.textContent = "📥 Dùng làm ảnh bìa";
+              btn.textContent = "📥 Bìa"; btn.title = "Dùng làm ảnh bìa";
               showSuccessBadge("Shopee Clone: Không lấy được ảnh (" + res.error + "). Hãy tải ảnh về rồi bấm 'Chọn ảnh từ máy' trong tiện ích.", "#ed4014");
               return;
             }
