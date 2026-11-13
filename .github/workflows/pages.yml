@@ -1,10 +1,16 @@
-name: Deploy web (dist) lên GitHub Pages
+name: Deploy web lên GitHub Pages
 
+# Mỗi lần đẩy code web lên main: GitHub tự build (vite) rồi đăng lên Pages.
+# Link: https://<user>.github.io/<repo>/
 on:
   push:
     branches: [main]
     paths:
-      - 'dist/**'
+      - 'web/**'
+      - 'shared/**'
+      - 'vite.config.js'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -18,14 +24,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Cài Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Cài thư viện
+        run: npm ci
+
+      - name: Build web
+        run: node --max-old-space-size=4096 ./node_modules/vite/bin/vite.js build
 
       - name: Cấu hình Pages
         uses: actions/configure-pages@v5
@@ -35,6 +50,13 @@ jobs:
         with:
           path: dist
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
