@@ -520,6 +520,22 @@ export default function DataTable({
                                             const cellStr = String(cell || '').trim();
                                             const colStyle = getCellStyle(colConfig, false, isChecked, rowIndex);
 
+                                            // Click ID_SP_CON / ID_SP để copy
+                                            if (!isDhTab && (header === 'id_sp_con' || header === 'id_sp' || header === 'id_sp_ct')) {
+                                                const label = header === 'id_sp' ? 'ID_SP' : 'ID_SP_CON';
+                                                return (
+                                                    <td
+                                                        key={header}
+                                                        data-col={header}
+                                                        style={{ padding: '6px 10px', whiteSpace: 'nowrap', cursor: cellStr ? 'copy' : undefined, ...colStyle }}
+                                                        onClick={(e) => cellStr && handleCopyCode(e, cellStr, label)}
+                                                        title={cellStr ? `Click để copy ${label}: ${cellStr}` : ''}
+                                                    >
+                                                        {cellStr}
+                                                    </td>
+                                                );
+                                            }
+
                                             // DH Special cell renderings
                                             if (isDhTab) {
                                                 if (header === 'gian') {
@@ -696,7 +712,12 @@ export default function DataTable({
                                                     const tenSpVal = String(row[2] || '').trim();
                                                     return (
                                                         <td key={header} className="col-ten-sp" data-col={header} style={{ padding: '6px 10px', ...colStyle }}>
-                                                            <div className="multiline-cell-wrapper" title={tenSpVal}>{tenSpVal}</div>
+                                                            <div
+                                                                className="multiline-cell-wrapper"
+                                                                title={tenSpVal ? `Click để copy tên: ${tenSpVal}` : ''}
+                                                                style={{ cursor: tenSpVal ? 'copy' : undefined }}
+                                                                onClick={(e) => tenSpVal && handleCopyCode(e, tenSpVal, 'tên SP')}
+                                                            >{tenSpVal}</div>
                                                             {customButtons.length > 0 && (
                                                                 <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: '4px', marginTop: '5px' }}>
                                                                     {customButtons.map((bText) => {
