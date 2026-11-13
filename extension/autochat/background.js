@@ -14,8 +14,14 @@
     await chrome.action.setBadgeBackgroundColor({ color: '#ee4d2d' });
   }
 
+  // Chu kỳ quét theo Cài đặt (giây, tối thiểu 30); chỉ tạo lại báo thức khi đổi chu kỳ
+  async function schedule() {
+    const sec = Math.max(30, Number((await AUTOCHAT.getSettings()).pollSec) || 30);
+    const cur = await chrome.alarms.get(ALARM);
+    if (!cur || cur.periodInMinutes !== sec / 60) chrome.alarms.create(ALARM, { periodInMinutes: sec / 60 });
+  }
   function init() {
-    chrome.alarms.create(ALARM, { periodInMinutes: 0.5 });
+    schedule();
     updateBadge();
   }
 
@@ -79,6 +85,7 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
     if (changes[AUTOCHAT.K.queue] || changes[AUTOCHAT.K.settings]) updateBadge();
+    if (changes[AUTOCHAT.K.settings]) schedule();
     // Vừa bật / đổi chế độ, hoặc vừa có token mới: chạy ngay, không đợi báo thức.
     const st = changes[AUTOCHAT.K.settings];
     if ((st && st.newValue && (!st.oldValue || st.newValue.mode !== st.oldValue.mode)) || changes[AUTOCHAT.K.session]) {

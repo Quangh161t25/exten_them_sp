@@ -53,7 +53,10 @@ async function getSellerTab() {
   const tabs = await chrome.tabs.query({ url: SELLER_ORIGIN + '/*' });
   let tab = tabs.find((t) => t.status === 'complete') || tabs[0];
   if (!tab) {
-    throw new Error('Chưa mở tab Kênh Người Bán Shopee. Vui lòng mở banhang.shopee.vn để tiếp tục.');
+    // Chưa có tab Kênh Người Bán: tự mở trang Đơn cần xử lý ở tab nền rồi chạy tiếp
+    tab = await chrome.tabs.create({ url: 'https://banhang.shopee.vn/portal/sale/order?type=toship&source=to_process&sort_by=ship_by_date_asc', active: false });
+    await waitTabComplete(tab.id);
+    await new Promise((r) => setTimeout(r, 2000)); // chờ trang khởi tạo phiên
   }
   tab = await waitTabComplete(tab.id);
   if (!tab.url || !tab.url.startsWith(SELLER_ORIGIN)) {

@@ -288,3 +288,15 @@ a.btn { text-decoration: none; color: inherit; display: inline-block; }
   padding-bottom: 0;
 }
 
+
+/* Lọc 1 ký tự (Đọc SP từ Sheet) */
+.prefix-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 6px 0 2px; }
+.prefix-chips:empty { display: none; }
+.prefix-chip { border: 1px solid #cbd5e1; background: #fff; border-radius: 4px; padding: 2px 7px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.prefix-chip sub { font-size: 9px; font-weight: 500; color: #64748b; margin-left: 1px; }
+.prefix-chip.active { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+.prefix-chip.active sub { color: #e0e7ff; }
+
+.rule-items { margin: 8px 0; }
+.rule-items summary { cursor: pointer; font-weight: 600; color: #0369a1; }
+.rule-items table { margin-top: 6px; }

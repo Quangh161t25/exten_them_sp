@@ -461,9 +461,21 @@ var AUTOCHAT_ENGINE = (function () {
         }
       }
       await AUTOCHAT.saveMeta({ lastPollAt: Date.now(), lastError: msg });
+      if (err instanceof SessionError) openWebchat().catch(() => {});
     } finally {
       running = false;
     }
+  }
+
+  // Lỗi phiên: tự mở trang Webchat ở tab nền để Shopee cấp lại phiên (tối đa 1 lần / 10 phút, không mở trùng)
+  const WEBCHAT_URL = 'https://banhang.shopee.vn/new-webchat/conversations';
+  async function openWebchat() {
+    const { autochat_webchat_opened: last = 0 } = await chrome.storage.local.get('autochat_webchat_opened');
+    if (Date.now() - last < 10 * 60000) return;
+    const open = await chrome.tabs.query({ url: ['https://banhang.shopee.vn/new-webchat/*', 'https://banhang.shopee.vn/webchat/*'] });
+    await chrome.storage.local.set({ autochat_webchat_opened: Date.now() });
+    if (open.length) await chrome.tabs.reload(open[0].id);
+    else await chrome.tabs.create({ url: WEBCHAT_URL, active: false });
   }
 
   return { tick, applyMessages, pickTargets, sendTo, syncSessionFromTab,

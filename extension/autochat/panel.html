@@ -12,6 +12,7 @@
       <div>
         <b>Auto Chat · chạy ngầm</b>
         <small>Tự nhắn qua API Shopee để shop luôn là người nhắn cuối. Không cần mở webchat, không đụng màn hình.</small>
+        <a href="https://banhang.shopee.vn/new-webchat/conversations" target="_blank" rel="noopener" style="font-size:11px;font-weight:700;color:#ee4d2d;">💬 Mở Webchat Shopee ↗</a>
       </div>
       <span class="dot" id="dot"></span>
     </div>
@@ -56,9 +57,10 @@
     <label class="row" title="Khách nhắn liên tục thì không gửi dồn.">2 tin Auto Chat cho cùng 1 khách cách nhau ít nhất <input type="number" id="s-fgap" min="1" max="1440"> phút</label>
     <label class="row" title="Ví dụ tắt máy cả đêm, sáng bật lại: khách nhắn từ tối qua không nhận câu chào muộn nữa, chỉ nằm trong danh sách chờ.">Chỉ tự nhắn khách nhắn trong vòng <input type="number" id="s-age" min="5" max="1440"> phút</label>
     <label class="row" title="Chốt an toàn: lỡ có lỗi thì không gửi ồ ạt.">Tối đa <input type="number" id="s-max" min="1" max="1000"> tin Auto Chat mỗi giờ</label>
+      <label class="row" title="Bao lâu quét tin nhắn 1 lần (tối thiểu 30 giây). Quét dày hơn trả lời nhanh hơn nhưng gọi Shopee nhiều hơn.">Quét tin nhắn mỗi <input type="number" id="s-poll" min="30" max="3600" style="width:70px"> giây</label>
     <button id="btn-save" class="btn">💾 Lưu cài đặt</button>
     <p class="note">
-      Chạy ngầm trong extension mỗi 30 giây, kể cả khi đóng side panel và tab webchat (Chrome phải đang mở).
+      Chạy ngầm trong extension theo chu kỳ quét ở trên, kể cả khi đóng side panel và tab webchat (Chrome phải đang mở).
       Phiên Shopee lấy tự động mỗi khi bạn mở một trang <a href="https://banhang.shopee.vn/new-webchat/conversations" target="_blank">Kênh Người Bán</a>.
     </p>
     <p class="note">

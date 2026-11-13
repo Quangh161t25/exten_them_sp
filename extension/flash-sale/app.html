@@ -44,6 +44,8 @@
             <div class="row">
               <span id="pProgress" class="muted"></span>
               <button id="btnPStop" class="btn danger small hidden">Dừng</button>
+              <button id="btnPLoadNew" class="btn small" title="Chỉ tải các trang đầu (sản phẩm mới nhất) rồi gộp vào danh sách đang có; dừng khi gặp trang toàn sản phẩm đã có">🆕 Tải SP mới nhất</button>
+              <label class="muted" title="Khi trang này đang mở: tự tải sản phẩm mới nhất theo chu kỳ"><input type="checkbox" id="pAutoOn"> Tự tải mỗi <input type="number" id="pAutoMin" min="1" value="30" style="width:52px"> phút</label>
               <button id="btnPLoad" class="btn primary">Tải toàn bộ sản phẩm</button>
             </div>
           </div>
@@ -85,6 +87,7 @@
             <button id="btnPToSpShopee" class="btn small" style="background:#0284c7;border-color:#0284c7;color:#fff;font-weight:700;" title="Thêm vào sheet SP_SHOPEE">📥 Thêm vào SP_SHOPEE</button>
             <button id="btnPToWebSp" class="btn small" style="background:#10b981;border-color:#10b981;color:#fff;font-weight:700;" title="Thêm vào sheet WEB_SP">🌐 Thêm vào WEB_SP</button>
             <button id="btnPToSpShopeeFull" class="btn small primary" style="background:#2563eb;border-color:#1d4ed8;color:#fff;font-weight:700;" title="Thêm toàn bộ sản phẩm của shop vào Sheet SP Shopee đầy đủ">📥 Thêm vào SP Shopee đầy đủ</button>
+            <label class="muted" title="Khi trang này đang mở: tải SP mới nhất rồi ghi toàn bộ sản phẩm vào 3 sheet (mới thì thêm, khác thì cập nhật)"><input type="checkbox" id="pSheetAutoOn"> Tự đồng bộ 3 sheet mỗi <input type="number" id="pSheetAutoMin" min="5" value="60" style="width:52px"> phút</label>
             <button id="btnPEditStockBatch" class="btn small" style="background:#f59e0b;border-color:#d97706;color:#fff;font-weight:700;" title="Sửa tồn kho cho các sản phẩm đã chọn trực tiếp trên Shopee">✏️ Đổi tồn kho đã chọn</button>
             <button id="btnPSyncBatch" class="btn small" style="background:#6366f1;border-color:#4f46e5;color:#fff;font-weight:700;" title="Đồng bộ lại thông tin và tồn kho cho các sản phẩm đã chọn từ Shopee">🔄 Đồng bộ đã chọn</button>
             <button id="btnPExportMedia" class="btn small">⬇ Xuất link ảnh/video</button>
@@ -140,7 +143,7 @@
 
         <div class="card">
           <div class="toolbar">
-            <input id="sheetSearchInput" placeholder="Tìm tên, ID, SKU, phân loại...">
+            <input id="sheetSearchInput" placeholder="Tìm tên, ID, SKU... (, = hoặc, \ = và)">
             <select id="sheetGianFilter">
               <option value="">Tất cả gian / shop</option>
             </select>
@@ -154,11 +157,18 @@
                 <option value="stockDesc">Tồn kho nhiều nhất</option>
               </select>
             </label>
+            <select id="sheetStatusFilter" title="Lọc trạng thái (cột Trạng thái của sheet)"><option value="">Trạng thái: tất cả</option></select>
+            <select id="sheetStockFilter" title="Lọc tồn kho"><option value="">Tồn: tất cả</option><option value="in">Còn hàng</option><option value="out">Hết hàng</option></select>
+            <select id="sheetVideoFilter" title="Lọc video"><option value="">Video: tất cả</option><option value="yes">Có video</option><option value="no">Không video</option></select>
+            <select id="sheetModelFilter" title="Lọc số phân loại"><option value="">Phân loại: tất cả</option><option value="one">1 phân loại</option><option value="many">Nhiều phân loại</option></select>
+            <select id="sheetDescFilter" title="Lọc mô tả"><option value="">Mô tả: tất cả</option><option value="yes">Có mô tả</option><option value="no">Không mô tả</option><option value="img">Có ảnh mô tả</option><option value="noimg">Không ảnh mô tả</option></select>
             <span class="muted">Khớp: <b id="sheetFilteredCount">0</b></span>
           </div>
+          <div class="prefix-chips" id="sheetPrefixChips"></div>
           <div class="toolbar">
             <span class="muted">Đã chọn: <b id="sheetSelCount">0</b></span>
             <button id="btnSheetSyncBatch" class="btn small" style="background:#6366f1;border-color:#4f46e5;color:#fff;font-weight:700;" title="Đồng bộ lại thông tin và tồn kho cho các sản phẩm đã chọn từ Shopee">🔄 Đồng bộ đã chọn</button>
+            <button id="btnSheetCopyIds" class="btn small" title="Copy ID chính của các SP đang khớp bộ lọc, cách nhau dấu ," style="font-weight:600;">📋 Copy ID chính</button>
             <button id="btnSheetTableCols" class="btn small" title="Chỉnh sửa chi tiết các cột (ẩn hiện, kéo thả, căn lề, kích thước, cố định cột)" style="font-weight:600;"><span style="font-size:13px;">⚙️</span> Tuỳ chỉnh cột</button>
           </div>
           <div class="table-wrap">

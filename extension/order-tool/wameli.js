@@ -143,7 +143,24 @@ async function saveToSheet(silent = false) {
       id_sp: at('id_sp', 1), ten_sp: at('ten_sp', 2), gia_nhap_ncc: at('gia_nhap_ncc', 3),
       gia_ban: at('gia_ban', 4), gia_dong_goi: at('gia_dong_goi', 5), gia_thap_nhat: at('gia_thap_nhat', 6)
     };
-    const existing = new Set(values.slice(1).map((r) => String((r || [])[idx.id_sp_con] ?? '').trim()).filter(Boolean));
+    // Mã -> số dòng trên sheet (dòng đầu tiên nếu trùng)
+    const existingRow = new Map();
+    values.slice(1).forEach((r, i) => { const k = String((r || [])[idx.id_sp_con] ?? '').trim(); if (k && !existingRow.has(k)) existingRow.set(k, i + 2); });
+    const existing = new Set(existingRow.keys());
+    // SP đã có: so 4 cột giá với Wameli, khác thì cập nhật đúng ô đó
+    const PRICE = [['gia_nhap_ncc', 'giaNhap'], ['gia_ban', 'giaBan'], ['gia_dong_goi', 'giaDongGoi'], ['gia_thap_nhat', 'giaThapNhat']];
+    const updates = [];
+    const changed = new Set();
+    for (const r of state.rows) {
+      const ma = String(r[col.ma] ?? '').trim();
+      const rowNum = existingRow.get(ma);
+      if (!rowNum) continue;
+      const old = values[rowNum - 1] || [];
+      for (const [sheetKey, wmlKey] of PRICE) {
+        const v = digits(r[col[wmlKey]]);
+        if (v && v !== digits(old[idx[sheetKey]])) { updates.push({ row: rowNum, col: idx[sheetKey], value: v }); changed.add(ma); }
+      }
+    }
 
     const width = Math.max(header.length, ...Object.values(idx).map((i) => i + 1));
     const newRows = [];
@@ -162,11 +179,17 @@ async function saveToSheet(silent = false) {
       newRows.push(row);
     }
 
+    if (updates.length) {
+      status(`Đang cập nhật giá ${changed.size} sản phẩm đã có trong DS_SP...`);
+      const up = await chrome.runtime.sendMessage({ type: 'UPDATE_DS_SP_CELLS', updates });
+      if (!up || !up.ok) throw new Error((up && up.error) || 'Không cập nhật được giá trong DS_SP');
+    }
+    const updMsg = changed.size ? ` · cập nhật giá ${changed.size} SP` : '';
     if (!newRows.length) {
-      status('Tất cả sản phẩm đã có trong sheet DS_SP (không có SP mới cần thêm).');
-      if (!silent) toast('Không có sản phẩm mới (tất cả đã có trong DS_SP)', 'info');
+      status(`Không có SP mới${updMsg || ' · giá các SP đã có đều khớp'}.`);
+      if (!silent) toast(changed.size ? `Đã cập nhật giá ${changed.size} sản phẩm trong DS_SP` : 'Không có sản phẩm mới, giá đều khớp', changed.size ? 'success' : 'info');
       updateLastSyncInfo(0);
-      return { ok: true, count: 0 };
+      return { ok: true, count: 0, updated: changed.size };
     }
 
     if (!silent) {
@@ -179,7 +202,7 @@ async function saveToSheet(silent = false) {
     status(`Đang thêm ${newRows.length} sản phẩm mới vào sheet DS_SP...`);
     const add = await chrome.runtime.sendMessage({ type: 'APPEND_DS_SP', rowDatas: newRows });
     if (!add || !add.ok) throw new Error((add && add.error) || 'Không thêm được vào DS_SP');
-    const succMsg = `Đã lưu ${newRows.length} sản phẩm mới vào sheet DS_SP.`;
+    const succMsg = `Đã lưu ${newRows.length} sản phẩm mới vào sheet DS_SP${updMsg}.`;
     status(`✅ ${succMsg}`);
     toast(succMsg, 'success');
     updateLastSyncInfo(newRows.length);

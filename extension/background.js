@@ -5,6 +5,12 @@ importScripts("lib/jsrsasign-all-min.js", "../shared/google-config.js");
 importScripts("flash-sale/fs-background.bundle.js");
 // Sao chép sản phẩm (Shopee Clone Tool): lấy ảnh Gemini làm ảnh bìa (extension/clone-tool/)
 importScripts("clone-tool/background.js");
+// Shop Spy + Shopee Video Studio (gộp từ 2 extension riêng)
+importScripts("shop-spy/background.js", "video-studio/background.js");
+// Shopee Seller Auto: đẩy SP theo lịch, trả lời đánh giá, đánh giá người mua, gửi tin hàng loạt
+importScripts("seller-auto/background.js");
+// Hẹn giờ sao chép sản phẩm theo sheet HEN_GIO_SAO_CHEP
+importScripts("clone-schedule/background.js");
 // AutoIn (TOPCARE – Đọc đơn hàng): tự xác nhận lấy hàng, in phiếu, nạp Wameli, Telegram (extension/autoin/)
 importScripts("autoin/background.js");
 // Auto Chat: chạy ngầm qua API chat, khách là người nhắn cuối thì tự nhắn lại + lập danh sách khách chờ (extension/autochat/)
@@ -313,48 +319,9 @@ async function uploadImageToFreeImageHost(imageUrl) {
              console.warn("Lỗi kiểm tra header SP_SHOPEE:", hErr);
          }
 
-         if (message.maGian) {
-             const existingRes = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("SP_SHOPEE!A2:Z")}`, {
-                 headers: { Authorization: `Bearer ${token}` }
-             });
-             let existingRows = [];
-             if (existingRes.res.ok && existingRes.data.values) {
-                 existingRows = existingRes.data.values;
-             }
-             const filteredRows = existingRows.filter(row => {
-                 const rowGian = ((row[11] !== undefined && row[11] !== "") ? row[11] : (row[6] || "")).trim().toLowerCase();
-                 return rowGian !== message.maGian.toLowerCase();
-             });
-             const finalRows = filteredRows.concat(message.values || []);
-             
-             await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("SP_SHOPEE!A2:Z")}:clear`, {
-                 method: "POST",
-                 headers: { Authorization: `Bearer ${token}` }
-             });
-             
-             if (finalRows.length > 0) {
-                 await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("SP_SHOPEE!A2")}?valueInputOption=USER_ENTERED`, {
-                     method: "PUT",
-                     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                     body: JSON.stringify({ values: finalRows })
-                 });
-             }
-         } else {
-             const clearRes = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("SP_SHOPEE!A2:Z")}:clear`, {
-                method: "POST",
-                headers: { Authorization: `Bearer ${token}` }
-             });
-             if (!clearRes.res.ok) console.warn("Khong the clear SP_SHOPEE: ", clearRes.data);
-
-             if (message.values && message.values.length > 0) {
-               await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("SP_SHOPEE!A2")}?valueInputOption=USER_ENTERED`, {
-                   method: "PUT",
-                   headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                   body: JSON.stringify({ values: message.values })
-               });
-             }
-         }
-         sendResponse({ ok: true });
+         // Khóa = Mã SP (A) + Mã phân loại (C): mới thì thêm, có rồi mà khác thì cập nhật
+         const r = await upsertSheetRows("SP_SHOPEE", message.values || [], (row) => row[0] ? `${row[0]}|${row[2] || ""}` : "", token, sheetId);
+         sendResponse({ ok: true, ...r });
       })
       .catch(error => sendResponse({ ok: false, error: error.message }));
     return true;
@@ -375,38 +342,30 @@ async function uploadImageToFreeImageHost(imageUrl) {
 
          // Đảm bảo header chuẩn nếu dòng 1 còn trống
          try {
-             const headerRes = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(targetTitle + "!A1:U1")}`, {
+             const headerRes = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(targetTitle + "!A1:V1")}`, {
                  headers: { Authorization: `Bearer ${token}` }
              });
              if (!headerRes.res.ok || !headerRes.data.values || !headerRes.data.values.length || !headerRes.data.values[0].length) {
-                 const defaultHeaders = [["Mã Sản phẩm", "Tên Sản phẩm", "Mã Phân loại", "Tên phân loại", "SKU Sản phẩm", "SKU", "Giá", "Kho hàng", "Tồn kho thực tế", "", "", "Mã gian", "Giá KM", "Tồn kho", "Ngày tạo", "Link SP", "Mô tả SP", "Ảnh chính", "Ảnh mô tả", "Ảnh phân loại", "Video"]];
-                 await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(targetTitle + "!A1:U1")}?valueInputOption=USER_ENTERED`, {
+                 const defaultHeaders = [["Mã Sản phẩm", "Tên Sản phẩm", "Mã Phân loại", "Tên phân loại", "SKU Sản phẩm", "SKU", "Giá", "Kho hàng", "Tồn kho thực tế", "", "", "Mã gian", "Giá KM", "Tồn kho", "Ngày tạo", "Link SP", "Mô tả SP", "Ảnh chính", "Ảnh mô tả", "Ảnh phân loại", "Video", "Trạng thái"]];
+                 await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(targetTitle + "!A1:V1")}?valueInputOption=USER_ENTERED`, {
                      method: "PUT",
                      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
                      body: JSON.stringify({ values: defaultHeaders })
+                 });
+             } else if (!String(headerRes.data.values[0][21] || "").trim()) {
+                 // Sheet cũ chưa có cột Trạng thái (V)
+                 await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(targetTitle + "!V1")}?valueInputOption=RAW`, {
+                     method: "PUT",
+                     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                     body: JSON.stringify({ values: [["Trạng thái"]] })
                  });
              }
          } catch (hErr) {
              console.warn("Lỗi kiểm tra header SP_SHOPEE_DAY_DU:", hErr);
          }
 
-         if (message.maGian) {
-             const existingRes = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(targetTitle + "!A2:Z")}`, {
-                 headers: { Authorization: `Bearer ${token}` }
-             });
-             let existingRows = [];
-             if (existingRes.res.ok && existingRes.data.values) {
-                 existingRows = existingRes.data.values;
-             }
-             const filteredRows = existingRows.filter(row => {
-                 const rowGian = ((row[11] !== undefined && row[11] !== "") ? row[11] : (row[6] || "")).trim().toLowerCase();
-                 return rowGian !== message.maGian.toLowerCase();
-             });
-             await replaceSheetRows(targetTitle, filteredRows.concat(message.values || []), token, sheetId);
-         } else {
-             await replaceSheetRows(targetTitle, message.values || [], token, sheetId);
-         }
-         sendResponse({ ok: true, sheetTitle: targetTitle });
+         const r = await upsertSheetRows(targetTitle, message.values || [], (row) => row[0] ? `${row[0]}|${row[2] || ""}` : "", token, sheetId);
+         sendResponse({ ok: true, sheetTitle: targetTitle, ...r });
       })
       .catch(error => sendResponse({ ok: false, error: error.message }));
     return true;
@@ -437,25 +396,9 @@ async function uploadImageToFreeImageHost(imageUrl) {
              });
          }
          
-         if (message.maGian) {
-             const existingRes = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent("WEB_SP!A2:O")}`, {
-                 headers: { Authorization: `Bearer ${token}` }
-             });
-             let existingRows = [];
-             if (existingRes.res.ok && existingRes.data.values) {
-                 existingRows = existingRes.data.values;
-             }
-             // Cột B (index 1) là Mã gian, cột A là ID. Chọn vài SP thì chỉ thay đúng các dòng của SP đó.
-             const newIds = new Set((message.values || []).map((row) => String(row[0])));
-             const gian = message.maGian.trim().toLowerCase();
-             const filteredRows = existingRows.filter((row) => message.partial
-                 ? !newIds.has(String(row[0] || ""))
-                 : (row[1] || "").trim().toLowerCase() !== gian);
-             await replaceSheetRows("WEB_SP", filteredRows.concat(message.values || []), token, sheetId);
-         } else {
-             await replaceSheetRows("WEB_SP", message.values || [], token, sheetId);
-         }
-         sendResponse({ ok: true });
+         // Khóa = cột ID (A)
+         const r = await upsertSheetRows("WEB_SP", message.values || [], (row) => String(row[0] || ""), token, sheetId);
+         sendResponse({ ok: true, ...r });
       })
       .catch(error => sendResponse({ ok: false, error: error.message }));
     return true;
@@ -2362,6 +2305,25 @@ async function uploadImageToFreeImageHost(imageUrl) {
     return true;
   }
 
+  // Cập nhật từng ô trong DS_SP (giá SP đã có, từ module Sản phẩm WML). updates: [{ row, col (0 = A), value }]
+  if (message?.type === "UPDATE_DS_SP_CELLS") {
+    Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
+      .then(async ([token, sheetId]) => {
+        const colName = (i) => { let s = ""; for (let n = i + 1; n; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; };
+        const data = (message.updates || []).map((u) => ({ range: `DS_SP!${colName(u.col)}${u.row}`, values: [[u.value]] }));
+        for (let i = 0; i < data.length; i += 500) {
+          const { res, data: d } = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, {
+            method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ valueInputOption: "USER_ENTERED", data: data.slice(i, i + 500) })
+          }, 60000);
+          if (!res.ok) throw new Error(d.error?.message || "Không cập nhật được DS_SP");
+        }
+        sendResponse({ ok: true, count: data.length });
+      })
+      .catch(error => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   if (message?.type === "APPEND_DS_SP") {
     Promise.all([getGoogleAccessToken(), getSpreadsheetId()])
       .then(async ([token, sheetId]) => {
@@ -4245,4 +4207,45 @@ async function replaceSheetRows(title, rows, token, sheetId) {
     headers: { Authorization: `Bearer ${token}` }
   });
   if (!clear.res.ok) throw new Error(clear.data?.error?.message || `Không xóa được dòng dư sheet ${title}`);
+}
+
+// Ghi theo khóa: dòng chưa có -> thêm cuối; dòng có rồi mà khác -> ghi đè đúng dòng đó; giống -> bỏ qua.
+// Không xóa dòng nào (sản phẩm đã gỡ khỏi shop vẫn giữ trên sheet). keyOf(row) -> chuỗi khóa.
+async function upsertSheetRows(title, rows, keyOf, token, sheetId, ignoreCols = []) {
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/`;
+  const q = `'${String(title).replace(/'/g, "''")}'`;
+  // Đọc giá trị gốc (không định dạng) để so sánh đúng với dữ liệu mới
+  const { res, data } = await fetchJsonWithTimeout(`${base}${encodeURIComponent(`${q}!A2:Z`)}?valueRenderOption=UNFORMATTED_VALUE`, { headers: { Authorization: `Bearer ${token}` } }, 60000);
+  if (!res.ok) throw new Error(data?.error?.message || `Không đọc được sheet ${title}`);
+  const old = data.values || [];
+  const byKey = new Map();
+  old.forEach((r, i) => { const k = keyOf(r); if (k && !byKey.has(k)) byKey.set(k, i); });
+  const norm = (v) => String(v ?? "").trim();
+  const updates = [], appends = [], seen = new Set();
+  let same = 0;
+  for (const r of rows) {
+    const k = keyOf(r);
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    const i = byKey.get(k);
+    if (i == null) { appends.push(r); continue; }
+    // ignoreCols: cột không tính khi so sánh (vd thời gian cập nhật)
+    if (r.every((v, c) => ignoreCols.includes(c) || norm(v) === norm(old[i][c]))) { same++; continue; }
+    updates.push({ range: `${q}!A${i + 2}`, values: [r] });
+  }
+  for (let i = 0; i < updates.length; i += 500) {
+    const u = await fetchJsonWithTimeout(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, {
+      method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ valueInputOption: "USER_ENTERED", data: updates.slice(i, i + 500) })
+    }, 60000);
+    if (!u.res.ok) throw new Error(u.data?.error?.message || `Không cập nhật được sheet ${title}`);
+  }
+  if (appends.length) {
+    const a = await fetchJsonWithTimeout(`${base}${encodeURIComponent(`${q}!A${old.length + 2}`)}?valueInputOption=USER_ENTERED`, {
+      method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ values: appends })
+    }, 60000);
+    if (!a.res.ok) throw new Error(a.data?.error?.message || `Không thêm được vào sheet ${title}`);
+  }
+  return { added: appends.length, updated: updates.length, same };
 }

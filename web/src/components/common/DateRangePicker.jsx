@@ -30,123 +30,32 @@ const fmtShort = (s) => {
 const dayStart = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 
-export default function DateRangePicker({ from = '', to = '', onChange, label: customLabel }) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef(null);
+const MONTH_NAMES = [
+  'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4',
+  'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8',
+  'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
+];
 
-  // Parse initial dates
-  const initialStart = useMemo(() => parseIso(from), [from]);
-  const initialEnd = useMemo(() => parseIso(to), [to]);
+function CalendarPanel({
+  date,
+  onChangeDate,
+  viewMode,
+  onChangeViewMode,
+  tempStart,
+  tempEnd,
+  hoverDate,
+  onSelectDay,
+  onHoverDay,
+}) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
 
-  const [tempStart, setTempStart] = useState(initialStart);
-  const [tempEnd, setTempEnd] = useState(initialEnd);
-  const [hoverDate, setHoverDate] = useState(null);
-  const [activePreset, setActivePreset] = useState('');
+  // Decade calculation for years view
+  const decadeStart = Math.floor(year / 10) * 10;
+  const decadeEnd = decadeStart + 9;
 
-  // Default month view (shows 2 months: viewMonth and viewMonth + 1)
-  const [viewMonth, setViewMonth] = useState(() => {
-    if (initialStart) {
-      return new Date(initialStart.getFullYear(), initialStart.getMonth(), 1);
-    }
-    const now = new Date();
-    // Default show current month - 1 and current month
-    return new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  });
-
-  // Keep temp states in sync when props change
-  useEffect(() => {
-    setTempStart(parseIso(from));
-    setTempEnd(parseIso(to));
-  }, [from, to]);
-
-  // Click outside to close
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setOpen(false);
-      }
-    }
-    if (open) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [open]);
-
-  // Quick ranges definition
-  const quickRanges = useMemo(() => {
-    const now = new Date();
-    const t = dayStart(now);
-    const dow = (t.getDay() + 6) % 7; // Monday = 0, Sunday = 6
-    const weekStart = addDays(t, -dow);
-    const monthStart = new Date(t.getFullYear(), t.getMonth(), 1);
-    const lastMonthStart = new Date(t.getFullYear(), t.getMonth() - 1, 1);
-    const lastMonthEnd = addDays(monthStart, -1);
-
-    return [
-      { label: 'Hôm nay', from: t, to: t },
-      { label: 'Hôm qua', from: addDays(t, -1), to: addDays(t, -1) },
-      { label: 'Tuần này', from: weekStart, to: t },
-      { label: 'Tuần trước', from: addDays(weekStart, -7), to: addDays(weekStart, -1) },
-      { label: 'Tháng này', from: monthStart, to: t },
-      { label: 'Tháng trước', from: lastMonthStart, to: lastMonthEnd },
-      { label: 'Tất cả ngày', from: null, to: null },
-    ];
-  }, []);
-
-  const handleApplyRange = (startDate, endDate, presetLabel = '') => {
-    setActivePreset(presetLabel);
-    setTempStart(startDate);
-    setTempEnd(endDate);
-    setOpen(false);
-    if (onChange) {
-      onChange(toIso(startDate), toIso(endDate), presetLabel);
-    }
-  };
-
-  const handleSelectDay = (d) => {
-    if (!tempStart || tempEnd) {
-      // First click: select start date
-      setTempStart(d);
-      setTempEnd(null);
-      setActivePreset('');
-    } else {
-      // Second click: select end date
-      let start = tempStart;
-      let end = d;
-      if (end < start) {
-        const swap = start;
-        start = end;
-        end = swap;
-      }
-      handleApplyRange(start, end, '');
-    }
-  };
-
-  const handleNav = (months) => {
-    setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + months, 1));
-  };
-
-  // Next month
-  const nextMonth = useMemo(() => {
-    return new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1);
-  }, [viewMonth]);
-
-  // Display label on the trigger button
-  const buttonLabel = useMemo(() => {
-    if (customLabel) return customLabel;
-    if (activePreset) return activePreset;
-    if (from || to) {
-      if (from === to) return fmtShort(from);
-      return `${fmtShort(from) || '…'} → ${fmtShort(to) || '…'}`;
-    }
-    return 'Ngày đặt';
-  }, [customLabel, activePreset, from, to]);
-
-  const renderMonth = (m) => {
-    const year = m.getFullYear();
-    const month = m.getMonth();
+  // Day view rendering
+  if (viewMode === 'days') {
     const firstDay = new Date(year, month, 1).getDay(); // 0 is Sunday
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const today = dayStart(new Date()).getTime();
@@ -192,8 +101,8 @@ export default function DateRangePicker({ from = '', to = '', onChange, label: c
           key={d}
           type="button"
           className={cls}
-          onClick={() => handleSelectDay(current)}
-          onMouseEnter={() => !tempEnd && setHoverDate(current)}
+          onClick={() => onSelectDay(current)}
+          onMouseEnter={() => onHoverDay(current)}
         >
           {d}
         </button>
@@ -201,10 +110,64 @@ export default function DateRangePicker({ from = '', to = '', onChange, label: c
     }
 
     return (
-      <div className="dp-month">
-        <div className="dp-title">
-          Tháng {month + 1}/{year}
+      <div className="dp-panel">
+        <div className="dp-panel-header">
+          <div className="dp-header-navs">
+            <button
+              type="button"
+              className="dp-nav-btn"
+              onClick={() => onChangeDate(new Date(year - 1, month, 1))}
+              title="Năm trước"
+            >
+              «
+            </button>
+            <button
+              type="button"
+              className="dp-nav-btn"
+              onClick={() => onChangeDate(new Date(year, month - 1, 1))}
+              title="Tháng trước"
+            >
+              ‹
+            </button>
+          </div>
+          <div className="dp-header-title">
+            <button
+              type="button"
+              className="dp-title-btn"
+              onClick={() => onChangeViewMode('months')}
+              title="Chọn tháng"
+            >
+              Tháng {month + 1}
+            </button>
+            <button
+              type="button"
+              className="dp-title-btn"
+              onClick={() => onChangeViewMode('years')}
+              title="Chọn năm"
+            >
+              {year}
+            </button>
+          </div>
+          <div className="dp-header-navs">
+            <button
+              type="button"
+              className="dp-nav-btn"
+              onClick={() => onChangeDate(new Date(year, month + 1, 1))}
+              title="Tháng sau"
+            >
+              ›
+            </button>
+            <button
+              type="button"
+              className="dp-nav-btn"
+              onClick={() => onChangeDate(new Date(year + 1, month, 1))}
+              title="Năm sau"
+            >
+              »
+            </button>
+          </div>
         </div>
+
         <div className="dp-grid">
           {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((w) => (
             <b key={w}>{w}</b>
@@ -214,6 +177,301 @@ export default function DateRangePicker({ from = '', to = '', onChange, label: c
         </div>
       </div>
     );
+  }
+
+  // Month view rendering (Ảnh 2)
+  if (viewMode === 'months') {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    return (
+      <div className="dp-panel">
+        <div className="dp-panel-header">
+          <button
+            type="button"
+            className="dp-nav-btn"
+            onClick={() => onChangeDate(new Date(year - 1, month, 1))}
+            title="Năm trước"
+          >
+            «
+          </button>
+          <div className="dp-header-title">
+            <button
+              type="button"
+              className="dp-title-btn"
+              onClick={() => onChangeViewMode('years')}
+              title="Chọn năm"
+            >
+              {year}
+            </button>
+          </div>
+          <button
+            type="button"
+            className="dp-nav-btn"
+            onClick={() => onChangeDate(new Date(year + 1, month, 1))}
+            title="Năm sau"
+          >
+            »
+          </button>
+        </div>
+
+        <div className="dp-month-grid">
+          {MONTH_NAMES.map((name, idx) => {
+            const isCurrent = currentYear === year && currentMonth === idx;
+            const isStart = tempStart && tempStart.getFullYear() === year && tempStart.getMonth() === idx;
+            const isEnd = tempEnd && tempEnd.getFullYear() === year && tempEnd.getMonth() === idx;
+
+            let cls = 'dp-cell-btn';
+            if (isStart || isEnd) cls += ' sel';
+            else if (isCurrent) cls += ' on';
+
+            return (
+              <button
+                key={idx}
+                type="button"
+                className={cls}
+                onClick={() => {
+                  onChangeDate(new Date(year, idx, 1));
+                  onChangeViewMode('days');
+                }}
+              >
+                {name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Year view rendering (Ảnh 3)
+  if (viewMode === 'years') {
+    const currentYear = new Date().getFullYear();
+    const yearsList = [];
+    for (let y = decadeStart; y <= decadeEnd; y++) {
+      yearsList.push(y);
+    }
+
+    return (
+      <div className="dp-panel">
+        <div className="dp-panel-header">
+          <button
+            type="button"
+            className="dp-nav-btn"
+            onClick={() => onChangeDate(new Date(year - 10, month, 1))}
+            title="10 năm trước"
+          >
+            «
+          </button>
+          <div className="dp-header-title">
+            <span className="dp-title-text">
+              {decadeStart} – {decadeEnd}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="dp-nav-btn"
+            onClick={() => onChangeDate(new Date(year + 10, month, 1))}
+            title="10 năm sau"
+          >
+            »
+          </button>
+        </div>
+
+        <div className="dp-year-grid">
+          {yearsList.map((y) => {
+            const isCurrent = currentYear === y;
+            const isStart = tempStart && tempStart.getFullYear() === y;
+            const isEnd = tempEnd && tempEnd.getFullYear() === y;
+
+            let cls = 'dp-cell-btn';
+            if (isStart || isEnd) cls += ' sel';
+            else if (isCurrent) cls += ' on';
+
+            return (
+              <button
+                key={y}
+                type="button"
+                className={cls}
+                onClick={() => {
+                  onChangeDate(new Date(y, month, 1));
+                  onChangeViewMode('months');
+                }}
+              >
+                {y}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+export default function DateRangePicker({ from = '', to = '', onChange, label: customLabel }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  // Parse initial dates
+  const initialStart = useMemo(() => parseIso(from), [from]);
+  const initialEnd = useMemo(() => parseIso(to), [to]);
+
+  const [tempStart, setTempStart] = useState(initialStart);
+  const [tempEnd, setTempEnd] = useState(initialEnd);
+  const [hoverDate, setHoverDate] = useState(null);
+  const [activePreset, setActivePreset] = useState(customLabel || '');
+
+  // View modes: 'days' | 'months' | 'years'
+  const [leftMode, setLeftMode] = useState('days');
+  const [rightMode, setRightMode] = useState('days');
+
+  // Month panels dates
+  const [leftDate, setLeftDate] = useState(() => {
+    if (initialStart) {
+      return new Date(initialStart.getFullYear(), initialStart.getMonth(), 1);
+    }
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  });
+
+  const [rightDate, setRightDate] = useState(() => {
+    if (initialStart) {
+      const next = new Date(initialStart.getFullYear(), initialStart.getMonth() + 1, 1);
+      if (initialEnd && (initialEnd.getFullYear() > next.getFullYear() || initialEnd.getMonth() > next.getMonth())) {
+        return new Date(initialEnd.getFullYear(), initialEnd.getMonth(), 1);
+      }
+      return next;
+    }
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+
+  // Keep temp states in sync when props change
+  useEffect(() => {
+    setTempStart(parseIso(from));
+    setTempEnd(parseIso(to));
+    if (customLabel) {
+      setActivePreset(customLabel);
+    } else if (!from && !to) {
+      setActivePreset('');
+    }
+  }, [from, to, customLabel]);
+
+  // Click outside to close
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    }
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [open]);
+
+  // Quick ranges definition (matching Ảnh 2 & 3)
+  const quickRanges = useMemo(() => {
+    const now = new Date();
+    const t = dayStart(now);
+
+    return [
+      { label: 'Hôm nay', from: t, to: t },
+      { label: 'Hôm qua', from: addDays(t, -1), to: addDays(t, -1) },
+      { label: '1 tuần qua', from: addDays(t, -6), to: t },
+      { label: '1 tháng qua', from: addDays(t, -29), to: t },
+      { label: '3 tháng qua', from: addDays(t, -89), to: t },
+      { label: 'Tất cả ngày', from: null, to: null },
+    ];
+  }, []);
+
+  const handleApplyRange = (startDate, endDate, presetLabel = '') => {
+    setActivePreset(presetLabel);
+    setTempStart(startDate);
+    setTempEnd(endDate);
+    setOpen(false);
+    if (onChange) {
+      onChange(toIso(startDate), toIso(endDate), presetLabel);
+    }
+  };
+
+  const handleSelectDay = (d) => {
+    if (!tempStart || tempEnd) {
+      // First click: select start date
+      setTempStart(d);
+      setTempEnd(null);
+      setActivePreset('');
+    } else {
+      // Second click: select end date
+      let start = tempStart;
+      let end = d;
+      if (end < start) {
+        const swap = start;
+        start = end;
+        end = swap;
+      }
+      handleApplyRange(start, end, '');
+    }
+  };
+
+  const handleLeftDateChange = (newDate) => {
+    setLeftDate(newDate);
+    const minRight = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 1);
+    if (rightDate <= newDate) {
+      setRightDate(minRight);
+    }
+  };
+
+  const handleRightDateChange = (newDate) => {
+    setRightDate(newDate);
+    const maxLeft = new Date(newDate.getFullYear(), newDate.getMonth() - 1, 1);
+    if (leftDate >= newDate) {
+      setLeftDate(maxLeft);
+    }
+  };
+
+  // Display label on the trigger button
+  const buttonLabel = useMemo(() => {
+    if (customLabel) return customLabel;
+    if (activePreset) return activePreset;
+    if (from || to) {
+      if (from === to) return fmtShort(from);
+      return `${fmtShort(from) || '…'} → ${fmtShort(to) || '…'}`;
+    }
+    return 'Ngày đặt';
+  }, [customLabel, activePreset, from, to]);
+
+  const toggleOpen = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setLeftMode('days');
+        setRightMode('days');
+        setHoverDate(null);
+        const start = parseIso(from);
+        const end = parseIso(to);
+        setTempStart(start);
+        setTempEnd(end);
+        if (start) {
+          setLeftDate(new Date(start.getFullYear(), start.getMonth(), 1));
+          if (end && (end.getFullYear() > start.getFullYear() || end.getMonth() > start.getMonth())) {
+            setRightDate(new Date(end.getFullYear(), end.getMonth(), 1));
+          } else {
+            setRightDate(new Date(start.getFullYear(), start.getMonth() + 1, 1));
+          }
+        } else {
+          const now = new Date();
+          setLeftDate(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+          setRightDate(new Date(now.getFullYear(), now.getMonth(), 1));
+        }
+      }
+      return next;
+    });
   };
 
   return (
@@ -222,12 +480,7 @@ export default function DateRangePicker({ from = '', to = '', onChange, label: c
       <button
         type="button"
         className={`dh-dd-btn ${from || to ? 'on' : ''}`}
-        onClick={() => {
-          setOpen((v) => !v);
-          setTempStart(parseIso(from));
-          setTempEnd(parseIso(to));
-          setHoverDate(null);
-        }}
+        onClick={toggleOpen}
       >
         <Calendar size={14} />
         <span>{buttonLabel}</span>
@@ -235,18 +488,20 @@ export default function DateRangePicker({ from = '', to = '', onChange, label: c
 
       {/* Popup Menu */}
       {open && (
-        <div className="dh-dd-menu dp-pop">
+        <div className="dp-pop">
           {/* Quick presets (left sidebar) */}
           <div className="dp-quick">
             {quickRanges.map((q) => {
               const isMatch =
                 activePreset === q.label ||
+                (!activePreset && customLabel === q.label) ||
                 (!activePreset &&
+                  !customLabel &&
                   q.from &&
                   q.to &&
                   toIso(q.from) === from &&
                   toIso(q.to) === to) ||
-                (q.from === null && !from && !to);
+                (!activePreset && !customLabel && q.from === null && !from && !to);
 
               return (
                 <button
@@ -261,47 +516,31 @@ export default function DateRangePicker({ from = '', to = '', onChange, label: c
             })}
           </div>
 
-          {/* Calendar section (right area) */}
-          <div className="dp-cal">
-            <div className="dp-nav">
-              <button
-                type="button"
-                onClick={() => handleNav(-12)}
-                title="Lùi 1 năm"
-              >
-                «
-              </button>
-              <button
-                type="button"
-                onClick={() => handleNav(-1)}
-                title="Lùi 1 tháng"
-              >
-                ‹
-              </button>
-              <span>
-                {tempStart && !tempEnd
-                  ? 'Chọn ngày kết thúc'
-                  : 'Chọn ngày bắt đầu'}
-              </span>
-              <button
-                type="button"
-                onClick={() => handleNav(1)}
-                title="Tiến 1 tháng"
-              >
-                ›
-              </button>
-              <button
-                type="button"
-                onClick={() => handleNav(12)}
-                title="Tiến 1 năm"
-              >
-                »
-              </button>
-            </div>
-
+          {/* Calendars area (right section with 2 panels) */}
+          <div className="dp-cal" onMouseLeave={() => setHoverDate(null)}>
             <div className="dp-months">
-              {renderMonth(viewMonth)}
-              {renderMonth(nextMonth)}
+              <CalendarPanel
+                date={leftDate}
+                onChangeDate={handleLeftDateChange}
+                viewMode={leftMode}
+                onChangeViewMode={setLeftMode}
+                tempStart={tempStart}
+                tempEnd={tempEnd}
+                hoverDate={hoverDate}
+                onSelectDay={handleSelectDay}
+                onHoverDay={(d) => !tempEnd && setHoverDate(d)}
+              />
+              <CalendarPanel
+                date={rightDate}
+                onChangeDate={handleRightDateChange}
+                viewMode={rightMode}
+                onChangeViewMode={setRightMode}
+                tempStart={tempStart}
+                tempEnd={tempEnd}
+                hoverDate={hoverDate}
+                onSelectDay={handleSelectDay}
+                onHoverDay={(d) => !tempEnd && setHoverDate(d)}
+              />
             </div>
           </div>
         </div>

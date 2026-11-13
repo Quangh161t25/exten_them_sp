@@ -21,10 +21,15 @@
   <div class="tab-group-btns" id="tab-group-btns-1">
     <button class="tab-btn active" data-tab="tab-web-sp">Web bán SP</button>
     <button class="tab-btn" data-tab="tab-in-nang-cao">Sao chép sản phẩm</button>
+    <button class="tab-btn" data-tab="tab-clone-schedule">Hẹn giờ sao chép</button>
     <button class="tab-btn" data-tab="tab-clone-manual">Sao chép tay</button>
     <button class="tab-btn" data-tab="tab-order-tool">Đơn Tool</button>
     <button class="tab-btn" data-tab="tab-settings">Cài đặt</button>
     <button class="tab-btn" data-tab="tab-san-pham">Sản phẩm</button>
+    <button class="tab-btn" data-tab="tab-don-shopee">Đơn Shopee</button>
+    <button class="tab-btn" data-tab="tab-shop-spy">Shop Spy</button>
+    <button class="tab-btn" data-tab="tab-video-studio">Video Studio</button>
+    <button class="tab-btn" data-tab="tab-seller-auto">Seller Auto</button>
     <button class="tab-btn" data-tab="tab-fs-tool">Flash Sale</button>
     <button class="tab-btn" data-tab="tab-day-sp">Đẩy SP</button>
     <button class="tab-btn" data-tab="tab-hieu-qua-sp">Hiệu quả SP</button>
@@ -620,6 +625,67 @@ Vui lòng mở trang Kênh Người Bán và mở Popup thêm sản phẩm Flash
     <div class="fs-iframe-container">
       <iframe id="san-pham-iframe" title="Sản phẩm"></iframe>
     </div>
+  </section>
+</div>
+
+<div id="tab-don-shopee" class="tab-content" hidden>
+  <section class="tool-section" style="border-left: 4px solid #ee4d2d; padding: 10px 10px 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+      <h2 style="color: #c2410c; display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0;">
+        <span>📦</span> Đơn Shopee
+      </h2>
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <button id="btn-don-shopee-reload" type="button" class="ghost" style="padding: 4px 8px; font-size: 11px; width: auto; min-height: 28px; line-height: 1;" title="Tải lại giao diện Đơn Shopee">🔄 Tải lại</button>
+        <button id="btn-don-shopee-open" type="button" class="primary-action" style="padding: 4px 10px; font-size: 11px; font-weight: 700; width: auto; min-height: 28px; line-height: 1;" title="Mở Đơn Shopee trong tab riêng">🚀 Mở tab riêng</button>
+      </div>
+    </div>
+    <div id="don-shopee-status" style="font-size: 11px; color: #475569;" aria-live="polite"></div>
+    <div class="fs-iframe-container">
+      <iframe id="don-shopee-iframe" title="Đơn Shopee"></iframe>
+    </div>
+  </section>
+</div>
+
+<div id="tab-shop-spy" class="tab-content" hidden>
+  <section class="tool-section" style="border-left: 4px solid #7c3aed; padding: 10px 10px 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+      <h2 style="color: #7c3aed; display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0;"><span>🕵️</span> Shop Spy</h2>
+      <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;"><button id="btn-shop-spy-open" type="button" class="primary-action" style="padding: 4px 8px; font-size: 11px; width: auto; min-height: 28px; line-height: 1;">🚀 Phân tích đầy đủ</button></div>
+    </div>
+    <div style="font-size: 11px; color: #475569; margin-bottom: 6px;">Soi shop Shopee: thống kê sản phẩm, đã bán, doanh thu ước tính, top bán chạy, xuất Excel.</div>
+    <div class="fs-iframe-container"><iframe id="shop-spy-iframe" title="Shop Spy"></iframe></div>
+  </section>
+</div>
+
+<div id="tab-video-studio" class="tab-content" hidden>
+  <section class="tool-section" style="border-left: 4px solid #db2777; padding: 10px 10px 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+      <h2 style="color: #db2777; display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0;"><span>🎬</span> Video Studio</h2>
+      <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;"><button id="btn-video-download-open" type="button" class="ghost" style="padding: 4px 8px; font-size: 11px; width: auto; min-height: 28px; line-height: 1;">⬇ Tải video</button><button id="btn-video-dashboard-open" type="button" class="ghost" style="padding: 4px 8px; font-size: 11px; width: auto; min-height: 28px; line-height: 1;">📊 Theo dõi</button><button id="btn-video-studio-open" type="button" class="primary-action" style="padding: 4px 8px; font-size: 11px; width: auto; min-height: 28px; line-height: 1;">🚀 Mở tab riêng</button></div>
+    </div>
+    <div style="font-size: 11px; color: #475569; margin-bottom: 6px;">Tải video sản phẩm Shopee, soạn &amp; đăng video lên Shopee Video, theo dõi trạng thái và lượt xem.</div>
+    <div class="fs-iframe-container"><iframe id="video-studio-iframe" title="Video Studio"></iframe></div>
+  </section>
+</div>
+
+<div id="tab-clone-schedule" class="tab-content" hidden>
+  <section class="tool-section" style="border-left: 4px solid #7c3aed; padding: 10px 10px 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+      <h2 style="color: #7c3aed; display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0;"><span>⏰</span> Hẹn giờ sao chép</h2>
+      <button id="btn-clone-schedule-open" type="button" class="primary-action" style="padding: 4px 10px; font-size: 11px; font-weight: 700; width: auto; min-height: 28px; line-height: 1;">🚀 Mở tab riêng</button>
+    </div>
+    <div class="fs-iframe-container"><iframe id="clone-schedule-iframe" title="Hẹn giờ sao chép"></iframe></div>
+  </section>
+</div>
+
+<div id="tab-seller-auto" class="tab-content" hidden>
+  <section class="tool-section" style="border-left: 4px solid #ea580c; padding: 10px 10px 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+      <h2 style="color: #ea580c; display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0;"><span>⚡</span> Seller Auto</h2>
+      <div style="display: flex; gap: 6px; align-items: center;"><button id="btn-seller-auto-open" type="button" class="primary-action" style="padding: 4px 10px; font-size: 11px; font-weight: 700; width: auto; min-height: 28px; line-height: 1;">🚀 Mở tab riêng</button></div>
+    </div>
+    <div style="font-size: 11px; color: #475569; margin-bottom: 6px;">Đẩy sản phẩm theo lịch, trả lời đánh giá, đánh giá người mua, gửi tin nhắn hàng loạt theo kịch bản.</div>
+    <div class="fs-iframe-container"><iframe id="seller-auto-iframe" title="Seller Auto"></iframe></div>
   </section>
 </div>
 
@@ -2064,6 +2130,8 @@ Kết quả trả về sẽ tự động định dạng bằng HTML cơ bản (&
 <script src="tabs/hub_open.js"></script>
 <script src="tabs/flash_sale_tool_tab.js"></script>
 <script src="tabs/san_pham_tab.js"></script>
+<script src="tabs/don_shopee_tab.js"></script>
+<script src="tabs/spy_video_tab.js"></script>
 <script src="tabs/order_tool_tab.js"></script>
 <script src="tabs/in_nang_cao_tab.js"></script>
 <script src="tabs/clone_manual_tab.js"></script>

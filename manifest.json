@@ -32,7 +32,12 @@
     "https://shopee.vn/*",
     "https://*.susercontent.com/*",
     "https://gemini.google.com/*",
-    "https://chatgpt.com/*"
+    "https://chatgpt.com/*",
+    "https://creator.shopee.vn/*",
+    "https://api.mms.shopee.vn/*",
+    "https://*.shopee.vn/*",
+    "https://*.vod.shopee.com/*",
+    "http://*.vod.shopee.com/*"
   ],
   "externally_connectable": {
     "matches": [
@@ -66,7 +71,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://banhang.shopee.vn/*"
+        "https://banhang.shopee.vn/portal/sale/order*"
       ],
       "js": [
         "extension/content/order-finance-hook.js"
@@ -76,7 +81,7 @@
     },
     {
       "matches": [
-        "https://banhang.shopee.vn/*"
+        "https://banhang.shopee.vn/portal/sale/order*"
       ],
       "js": [
         "extension/content/order-list-finance.js"
@@ -243,6 +248,27 @@
       "js": [
         "extension/clone-tool/content/ai-chat.js"
       ]
+    },
+    {
+      "matches": [
+        "https://shopee.vn/*"
+      ],
+      "js": [
+        "extension/video-studio/content/product-button.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://banhang.shopee.vn/portal/sale/*"
+      ],
+      "js": [
+        "extension/cam-on/content.js"
+      ],
+      "css": [
+        "extension/cam-on/style.css"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [

@@ -6282,7 +6282,7 @@ saveToSheetTestButton.addEventListener("click", async () => {
 });
 
 const GRP2_TAB_IDS = new Set([
-  "tab-chat-ai", "tab-hang-hoan", "tab-hh-api", "tab-api-images", "tab-doanh-thu", "tab-tools",
+  "tab-shop-spy", "tab-video-studio", "tab-seller-auto", "tab-chat-ai", "tab-hang-hoan", "tab-clone-manual", "tab-api-images", "tab-doanh-thu", "tab-tools",
   "tab-images", "tab-print", "tab-km", "tab-nhieu-don-hang", "tab-roas-that"
 ]);
 
@@ -6372,6 +6372,15 @@ document.querySelectorAll(".tab-btn").forEach((tabButton) => {
     }
   });
 });
+// Trang khác (vd Shop Spy → Sao chép) yêu cầu mở 1 tab: ghi qlsp_open_tab = { tab, at } vào storage
+function openRequestedTab(req) {
+  if (req && req.tab && Date.now() - (req.at || 0) < 60000 && document.getElementById(req.tab)) {
+    switchToTab(req.tab);
+    chrome.storage.local.remove('qlsp_open_tab');
+  }
+}
+chrome.storage.local.get('qlsp_open_tab').then((s) => setTimeout(() => openRequestedTab(s.qlsp_open_tab), 300));
+chrome.storage.onChanged.addListener((c, area) => { if (area === 'local' && c.qlsp_open_tab?.newValue) openRequestedTab(c.qlsp_open_tab.newValue); });
 document.getElementById("btn-group-1")?.addEventListener("click", () => switchTabGroup(1, true));
 document.getElementById("btn-group-2")?.addEventListener("click", () => switchTabGroup(2, true));
 
@@ -8085,6 +8094,10 @@ const CAI_DAT_TAB_NAME_TO_ID = {
   "doanh thu": "tab-doanh-thu",
   "tien ich": "tab-tools",
   "san pham": "tab-san-pham",
+  "don shopee": "tab-don-shopee",
+  "shop spy": "tab-shop-spy",
+  "video studio": "tab-video-studio",
+  "seller auto": "tab-seller-auto",
   "flash sale": "tab-fs-tool",
   "flash sale tool": "tab-fs-tool",
   "fs": "tab-fs-tool",
@@ -8163,8 +8176,8 @@ function applyCaiDatTabOrder(tabNames) {
   const grp2Container = document.getElementById("tab-group-btns-2");
 
   if (grp1Container && grp2Container) {
-    const grp1Ids = ["tab-web-sp", "tab-in-nang-cao", "tab-clone-manual", "tab-order-tool", "tab-settings", "tab-san-pham", "tab-fs-tool", "tab-day-sp", "tab-hieu-qua-sp", "tab-autoin", "tab-autochat"];
-    const grp2Ids = ["tab-chat-ai", "tab-hang-hoan", "tab-hh-api", "tab-api-images", "tab-doanh-thu", "tab-tools", "tab-images", "tab-print", "tab-km", "tab-nhieu-don-hang", "tab-roas-that"];
+    const grp1Ids = ["tab-web-sp", "tab-in-nang-cao", "tab-clone-schedule", "tab-order-tool", "tab-settings", "tab-san-pham", "tab-don-shopee", "tab-hh-api", "tab-fs-tool", "tab-day-sp", "tab-hieu-qua-sp", "tab-autoin", "tab-autochat"];
+    const grp2Ids = ["tab-shop-spy", "tab-video-studio", "tab-seller-auto", "tab-chat-ai", "tab-hang-hoan", "tab-clone-manual", "tab-api-images", "tab-doanh-thu", "tab-tools", "tab-images", "tab-print", "tab-km", "tab-nhieu-don-hang", "tab-roas-that"];
 
     // Sắp xếp lại trong Nhóm 1 nếu có trong orderedIds
     const orderedGrp1 = orderedIds.filter(id => grp1Ids.includes(id));

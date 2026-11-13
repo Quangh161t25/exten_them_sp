@@ -26,6 +26,7 @@ var AUTOCHAT = (function () {
     followDelaySec: 60, // khách chờ bấy nhiêu giây chưa ai trả lời mới gửi câu nhắn tiếp (để nhân viên kịp trả lời tay)
     followGapMin: 5, // 2 tin Auto Chat liên tiếp cho cùng 1 khách cách nhau ít nhất bấy nhiêu phút
     maxPerHour: 60, // chốt an toàn: tổng số tin Auto Chat gửi trong 1 giờ
+    pollSec: 30, // quét mỗi bấy nhiêu giây (Chrome cho báo thức tối thiểu 30 giây)
     keepDoneHours: 48
   };
 

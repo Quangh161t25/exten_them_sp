@@ -114,6 +114,7 @@ async function loadList() {
               <button class="btn small" data-act="clone" data-id="${f.flash_sale_id}">Nhân bản</button>
               ${phase === 'next' ? `<button class="btn small" data-act="edit" data-id="${f.flash_sale_id}" data-slot="${f.timeslot_id}" data-start="${f.start_time}">Sửa SP</button>` : ''}
               <button class="btn small" data-act="template" data-id="${f.flash_sale_id}">Làm mẫu</button>
+              ${phase === 'next' ? `<button class="btn small danger" data-act="delete" data-id="${f.flash_sale_id}" data-slot="${f.timeslot_id}" data-label="${esc(`${fmtDay(f.start_time)} ${fmtHour(f.start_time)}`)}">Xoá</button>` : ''}
             </td></tr>`;
         }).join('')}</tbody></table></div>`;
   } catch (e) {
@@ -143,6 +144,13 @@ $('#fsList').onclick = async (e) => {
     if (b.dataset.act === 'clone') await loadFlashSaleIntoEditor(id, 'clone');
     if (b.dataset.act === 'edit') await loadFlashSaleIntoEditor(id, 'edit', { slotId: b.dataset.slot, start: b.dataset.start });
     if (b.dataset.act === 'template') await createRuleFromFlashSale(id);
+    if (b.dataset.act === 'delete') {
+      if (!confirm(`Xoá Flash Sale #${id} (${b.dataset.label})?
+Thao tác này xoá hẳn trên Shopee, không khôi phục được.`)) return;
+      await flashSale.remove(id, b.dataset.slot);
+      toast(`Đã xoá Flash Sale #${id}`, 'success');
+      loadList();
+    }
   });
 };
 
@@ -675,6 +683,7 @@ async function createRuleFromFlashSale(id) {
   showTab('auto');
 }
 
+const openRuleItems = new Set(); // mẫu đang mở bảng sản phẩm (giữ mở sau khi lưu)
 async function renderAuto() {
   const settings = await getSettings();
   $('#autoEnabled').checked = settings.autoEnabled;
@@ -686,6 +695,29 @@ async function renderAuto() {
     box.innerHTML = '<div class="card muted">Chưa có mẫu tự động nào.</div>';
     return;
   }
+  // Tên / ảnh / phân loại lấy từ danh sách Sản phẩm đã tải (fs_productCache)
+  const cache = (await chrome.storage.local.get('fs_productCache')).fs_productCache?.products || [];
+  const prodOf = new Map(cache.map((p) => [String(p.itemId), p]));
+  const money = (v) => Number(v || 0).toLocaleString('vi-VN') + 'đ';
+  // Bảng sản phẩm của mẫu: sửa giá / SL / giới hạn, xoá dòng, thêm sản phẩm từ danh sách Sản phẩm
+  const itemsTable = (r) => `<details class="rule-items" ${openRuleItems.has(r.id) ? 'open' : ''}><summary>👁 Xem / sửa sản phẩm (${r.items.length} phân loại)</summary>
+    <table class="grid"><thead><tr><th>Ảnh</th><th>Sản phẩm</th><th>Phân loại</th><th>SKU</th><th class="num">Giá FS</th><th class="num">SL FS</th><th class="num">Giới hạn (0 = không)</th><th></th></tr></thead><tbody>${r.items.map((it, i) => {
+      const p = prodOf.get(String(it.item_id)), m = p?.models?.find((x) => String(x.modelId) === String(it.model_id));
+      return `<tr data-i="${i}"><td>${p?.image ? `<img src="${esc(p.image)}" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:4px">` : ''}</td>
+        <td>${p ? esc(p.name) : `<span class="muted">ID ${it.item_id} (chưa có trong danh sách Sản phẩm)</span>`}</td>
+        <td>${m ? esc(m.name || 'Mặc định') : (it.model_id ? 'ID ' + it.model_id : 'Mặc định')}</td><td>${esc(m?.sku || p?.parentSku || '')}</td>
+        <td class="num"><input type="number" data-k="input_promo_price" min="0" value="${it.input_promo_price ?? ''}" style="width:90px"></td>
+        <td class="num"><input type="number" data-k="stock" min="1" value="${it.stock ?? ''}" style="width:60px"></td>
+        <td class="num"><input type="number" data-k="purchase_limit" min="0" value="${it.purchase_limit || 0}" style="width:60px"></td>
+        <td><button class="btn small danger" data-act="item-del" title="Xoá dòng này khỏi mẫu">✕</button></td></tr>`;
+    }).join('')}</tbody></table>
+    <div class="row" style="margin-top:6px">
+      <input list="ruleProdList" data-add placeholder="Thêm sản phẩm: gõ tên / ID / SKU rồi chọn…" style="min-width:320px">
+      <button class="btn small" data-act="item-add">➕ Thêm vào mẫu</button>
+      <button class="btn small primary" data-act="items-save">💾 Lưu sản phẩm</button>
+      <span class="muted">Sản phẩm mới thêm: giá FS = giá đang bán − 10%, SL 1 (sửa lại trước khi lưu).</span>
+    </div></details>`;
+  const prodOptions = cache.map((p) => `<option value="${esc(`${p.itemId} · ${p.name}`)}">${esc(p.parentSku || '')}</option>`).join('');
   box.innerHTML = rules.map((r) => `
     <div class="card rule ${r.enabled ? 'on' : ''}" data-id="${r.id}">
       <div class="card-head">
@@ -699,6 +731,7 @@ async function renderAuto() {
         <label>Bỏ qua khung bắt đầu trong <input type="number" data-f="minLeadHours" min="0" value="${r.minLeadHours}"> giờ tới</label>
         <label>Tối đa mỗi lần chạy <input type="number" data-f="maxPerRun" min="1" max="20" value="${r.maxPerRun}"> FS</label>
       </div>
+      ${itemsTable(r)}
       <div class="hint">Lần chạy cuối: ${r.lastRun ? new Date(r.lastRun).toLocaleString('vi-VN') : 'chưa chạy'}${r.lastResult ? ' – ' + esc(r.lastResult) : ''} · Đã đăng ký ${(r.registered || []).length} khung giờ</div>
       <div class="row">
         <button class="btn small primary" data-act="save">Lưu</button>
@@ -706,7 +739,7 @@ async function renderAuto() {
         <button class="btn small" data-act="reset">Xoá lịch sử khung đã đăng ký</button>
         <button class="btn small danger" data-act="delete">Xoá mẫu</button>
       </div>
-    </div>`).join('');
+    </div>`).join('') + `<datalist id="ruleProdList">${prodOptions}</datalist>`;
 }
 
 function readRuleForm(card) {
@@ -731,6 +764,48 @@ $('#ruleList').addEventListener('click', async (e) => {
   const card = b.closest('.rule');
   const id = card.dataset.id;
   const act = b.dataset.act;
+  // ----- Sửa sản phẩm của mẫu -----
+  if (act === 'item-del' || act === 'item-add' || act === 'items-save') {
+    const rule = (await getRules()).find((x) => x.id === id);
+    if (!rule) return;
+    openRuleItems.add(id);
+    // Đọc lại giá / SL / giới hạn đang gõ trên bảng
+    const items = rule.items.map((it, i) => {
+      const tr = card.querySelector(`tr[data-i="${i}"]`);
+      if (!tr) return it;
+      const v = (k) => toNumber(tr.querySelector(`[data-k="${k}"]`)?.value);
+      return { ...it, input_promo_price: v('input_promo_price'), stock: v('stock'), purchase_limit: v('purchase_limit') || 0 };
+    });
+    if (act === 'item-del') {
+      const i = Number(b.closest('tr').dataset.i);
+      items.splice(i, 1);
+    }
+    if (act === 'item-add') {
+      const text = card.querySelector('[data-add]').value.trim();
+      const itemId = (text.match(/^\d+/) || [])[0];
+      const cache = (await chrome.storage.local.get('fs_productCache')).fs_productCache?.products || [];
+      const p = cache.find((x) => String(x.itemId) === itemId);
+      if (!p) return toast('Chọn sản phẩm trong danh sách gợi ý (cần tải danh sách ở mục Sản phẩm trước)', 'error');
+      let added = 0;
+      for (const m of p.models || []) {
+        if (items.some((x) => String(x.item_id) === String(p.itemId) && String(x.model_id) === String(m.modelId))) continue;
+        const base = Number(m.promoPrice || m.price) || 0;
+        items.push({ item_id: Number(p.itemId), model_id: Number(m.modelId) || 0, status: 1, input_promo_price: Math.round(base * 0.9), stock: 1, purchase_limit: 0 });
+        added++;
+      }
+      if (!added) return toast('Sản phẩm này đã có trong mẫu', 'error');
+      toast(`Đã thêm ${added} phân loại. Sửa giá / SL rồi bấm "Lưu sản phẩm"`, 'success');
+    }
+    if (act === 'items-save') {
+      const bad = items.find((x) => !(x.input_promo_price > 0) || !(x.stock > 0));
+      if (bad) return toast('Mỗi dòng cần Giá FS > 0 và SL FS > 0', 'error');
+      toast(`Đã lưu ${items.length} phân loại cho mẫu`, 'success');
+    }
+    if (!items.length) return toast('Mẫu phải còn ít nhất 1 sản phẩm', 'error');
+    await patchRule(id, { items });
+    renderAuto();
+    return;
+  }
   if (act === 'save') {
     await patchRule(id, readRuleForm(card));
     toast('Đã lưu', 'success');

@@ -55,7 +55,10 @@ var DHSheetSync = (function (exports) {
     const tabs = await chrome.tabs.query({ url: SELLER_ORIGIN + '/*' });
     let tab = tabs.find((t) => t.status === 'complete') || tabs[0];
     if (!tab) {
-      throw new Error('Chưa mở tab Kênh Người Bán Shopee. Vui lòng mở banhang.shopee.vn để tiếp tục.');
+      // Chưa có tab Kênh Người Bán: tự mở trang Đơn cần xử lý ở tab nền rồi chạy tiếp
+      tab = await chrome.tabs.create({ url: 'https://banhang.shopee.vn/portal/sale/order?type=toship&source=to_process&sort_by=ship_by_date_asc', active: false });
+      await waitTabComplete(tab.id);
+      await new Promise((r) => setTimeout(r, 2000)); // chờ trang khởi tạo phiên
     }
     tab = await waitTabComplete(tab.id);
     if (!tab.url || !tab.url.startsWith(SELLER_ORIGIN)) {
@@ -664,9 +667,11 @@ var DHSheetSync = (function (exports) {
     // Đồng bộ
     'chi_tiet_dong_bo','dong_bo_luc',...RAW_HEADERS,
     // Khóa dòng (gian|mdh|item_id-model_id|n) và dấu vân tay để biết dòng có đổi không
-    'khoa','dau_van_tay'
+    'khoa','dau_van_tay',
+    'gia_thuc_te','tinh_trang_thuc_te','xac_nhan_cong_no'
   ];
   const norm = s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().trim();
+
   function statusOf(text) {
     const t=norm(text);
     if(/tra hang.*hoan tien|return.*refund/.test(t))return 'Trả hàng / Hoàn tiền';

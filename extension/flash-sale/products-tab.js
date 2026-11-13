@@ -535,6 +535,90 @@ async function loadAll() {
   }
 }
 
+// Tải sản phẩm mới nhất: đọc các trang đầu, gộp vào danh sách đang có (SP mới thêm lên đầu, SP đã có cập nhật lại).
+// Dừng khi một trang toàn sản phẩm đã có, tối đa 5 trang. silent: chạy tự động, không báo khi không có gì mới.
+async function loadNewest(silent = false) {
+  if (state.loading) return;
+  if (!state.all.length) return silent ? undefined : loadAll(); // chưa có danh sách: tải toàn bộ
+  state.loading = true;
+  const btn = $('#btnPLoadNew'), progress = $('#pProgress');
+  btn.disabled = true;
+  try {
+    const known = new Map(state.all.map((p, i) => [p.itemId, i]));
+    const added = [];
+    let updated = 0, cursor = '';
+    for (let i = 0; i < 5; i++) {
+      const res = await products.search({ cursor, pageSize: 48, pageNumber: i + 1 });
+      if (!res.products.length) break;
+      let allKnown = true;
+      for (const p of res.products) {
+        if (known.has(p.itemId)) { state.all[known.get(p.itemId)] = p; updated++; }
+        else if (!added.some((x) => x.itemId === p.itemId)) { added.push(p); allKnown = false; }
+      }
+      progress.textContent = `Đang tải SP mới... trang ${i + 1}: ${added.length} mới`;
+      if (allKnown) break;
+      cursor = res.cursor || '';
+      await sleep(400);
+    }
+    state.all = [...added, ...state.all];
+    state.loadedAt = Date.now();
+    await chrome.storage.local.set({
+      [CACHE_KEY]: { products: state.all, loadedAt: state.loadedAt, shopId: state.shopId, warehouses: state.warehouses }
+    });
+    if (added.length || !silent) hooks.toast(added.length ? `Có ${added.length} sản phẩm mới, cập nhật ${updated} sản phẩm` : `Không có sản phẩm mới (cập nhật ${updated} sản phẩm)`, 'success');
+  } catch (e) {
+    if (!silent) hooks.toast('Lỗi tải sản phẩm mới: ' + e.message, 'error');
+    else console.warn('Tự tải SP mới lỗi:', e);
+  } finally {
+    progress.textContent = '';
+    state.loading = false;
+    btn.disabled = false;
+    render();
+  }
+}
+
+// Tự tải SP mới nhất theo chu kỳ (lưu cài đặt trên máy)
+let autoLoadTimer = null;
+function setupAutoLoad() {
+  clearInterval(autoLoadTimer);
+  autoLoadTimer = $('#pAutoOn').checked ? setInterval(() => loadNewest(true), Math.max(1, Number($('#pAutoMin').value) || 30) * 60000) : null;
+}
+function initAutoLoad() {
+  const save = () => { chrome.storage.local.set({ fs_products_auto: { on: $('#pAutoOn').checked, min: $('#pAutoMin').value } }); setupAutoLoad(); };
+  chrome.storage.local.get('fs_products_auto').then(({ fs_products_auto: c }) => {
+    if (c) { $('#pAutoOn').checked = !!c.on; $('#pAutoMin').value = c.min || 30; }
+    setupAutoLoad();
+  });
+  $('#pAutoOn').onchange = $('#pAutoMin').onchange = save;
+  $('#btnPLoadNew').onclick = () => loadNewest(false);
+}
+
+// Tự đồng bộ 3 sheet (SP_SHOPEE, WEB_SP, SP Shopee đầy đủ) theo chu kỳ khi trang đang mở:
+// tải SP mới nhất trước, rồi ghi toàn bộ sản phẩm theo khóa (mới thì thêm, khác thì cập nhật).
+let sheetSyncTimer = null, sheetSyncing = false;
+async function runAutoSheetSync() {
+  if (sheetSyncing || state.loading || !state.all.length) return;
+  sheetSyncing = true;
+  try {
+    await loadNewest(true);
+    await fillAllToSpShopee(true);
+    await fillAllToWebSp(true);
+    await fillAllToSpShopeeFull(true);
+  } finally { sheetSyncing = false; }
+}
+function initAutoSheetSync() {
+  const setup = () => {
+    clearInterval(sheetSyncTimer);
+    sheetSyncTimer = $('#pSheetAutoOn').checked ? setInterval(runAutoSheetSync, Math.max(5, Number($('#pSheetAutoMin').value) || 60) * 60000) : null;
+  };
+  const save = () => { chrome.storage.local.set({ fs_sheet_auto: { on: $('#pSheetAutoOn').checked, min: $('#pSheetAutoMin').value } }); setup(); };
+  chrome.storage.local.get('fs_sheet_auto').then(({ fs_sheet_auto: c }) => {
+    if (c) { $('#pSheetAutoOn').checked = !!c.on; $('#pSheetAutoMin').value = c.min || 60; }
+    setup();
+  });
+  $('#pSheetAutoOn').onchange = $('#pSheetAutoMin').onchange = save;
+}
+
 // ---------- Xuất Excel (CSV) ----------
 // Cùng cột với bảng; mỗi phân loại một dòng. Tự lấy ảnh/video còn thiếu.
 async function exportCsv() {
@@ -892,14 +976,15 @@ async function syncBatchProducts(fromSheet = false) {
   }
 }
 
-async function fillAllToSpShopee() {
-  const list = state.selected.size > 0 ? selectedProducts() : state.all;
+async function fillAllToSpShopee(auto = false) {
+  const list = (!auto && state.selected.size > 0) ? selectedProducts() : state.all;
   if (!list.length) return hooks.toast('Chưa có sản phẩm nào để thêm vào sheet SP_SHOPEE', 'error');
 
   const { maGian, dhHoanTextValue } = await chrome.storage.local.get(['maGian', 'dhHoanTextValue']);
   const shop = await getShopInfo().catch(() => ({}));
   let currentMaGian = (maGian || dhHoanTextValue || '').trim();
   if (!currentMaGian) {
+    if (auto) return; // tự đồng bộ: chưa có Mã gian thì bỏ qua
     const input = prompt('Vui lòng nhập Mã gian để ghi vào Cột L (ví dụ: GDD):', shop.name || '');
     if (input === null) return;
     currentMaGian = input.trim();
@@ -908,12 +993,12 @@ async function fillAllToSpShopee() {
     }
   }
 
-  const isSel = state.selected.size > 0;
+  const isSel = (!auto && state.selected.size > 0);
   const msg = isSel
     ? `Cập nhật ${list.length} sản phẩm đã chọn vào sheet SP_SHOPEE?\n(Mã gian: "${currentMaGian || 'Chưa đặt'}")`
     : `Cập nhật toàn bộ ${list.length} sản phẩm vào sheet SP_SHOPEE?\n(Mã gian: "${currentMaGian || 'Chưa đặt'}")\nDữ liệu cũ của gian này trên Sheet sẽ được ghi đè/làm mới.`;
 
-  if (!confirm(msg)) return;
+  if (!auto && !confirm(msg)) return;
 
   const allRows = [];
   for (const p of list) {
@@ -931,7 +1016,7 @@ async function fillAllToSpShopee() {
       chrome.runtime.sendMessage({ type: 'UPLOAD_SP_SHOPEE', values: allRows, maGian: currentMaGian }, resolve);
     });
     if (res && res.ok) {
-      hooks.toast(`Đã cập nhật thành công ${allRows.length} dòng vào sheet SP_SHOPEE!`, 'success');
+      hooks.toast(`SP_SHOPEE: thêm ${res.added ?? 0} dòng mới, cập nhật ${res.updated ?? 0}, không đổi ${res.same ?? 0}!`, 'success');
       if (sheetProductsRows.length > 0 && $('#sheetSourceSelect')?.value === 'SP_SHOPEE') {
         loadSheetProducts(true);
       }
@@ -1038,7 +1123,8 @@ function productToSpShopeeFullRows(p, maGian) {
       allImgs,                                                 // R: Ảnh chính
       descImgs,                                                // S: Ảnh mô tả
       mImg,                                                    // T: Ảnh phân loại
-      videos                                                   // U: Video
+      videos,                                                  // U: Video
+      statusOf(p).label                                        // V: Trạng thái (Đang bán / Đã ẩn / Hết hàng…)
     ];
   });
 }
@@ -1073,7 +1159,7 @@ const mediaFailNote = (failed) => failed.length
   ? ` ${failed.length} SP thiếu mô tả/ảnh/video vì tải lỗi: ${failed.slice(0, 5).map((p) => p.itemId).join(', ')}${failed.length > 5 ? '...' : ''}. Bấm lại để thử tiếp.`
   : '';
 
-async function fillAllToSpShopeeFull() {
+async function fillAllToSpShopeeFull(auto = false) {
   const list = state.all;
   if (!list.length) return hooks.toast('Chưa có dữ liệu sản phẩm. Vui lòng bấm "Tải toàn bộ sản phẩm" trước!', 'error');
 
@@ -1081,6 +1167,7 @@ async function fillAllToSpShopeeFull() {
   const shop = await getShopInfo().catch(() => ({}));
   let currentMaGian = (maGian || dhHoanTextValue || '').trim();
   if (!currentMaGian) {
+    if (auto) return; // tự đồng bộ: chưa có Mã gian thì bỏ qua
     const input = prompt('Vui lòng nhập Mã gian để ghi vào Cột L (ví dụ: GDD):', shop.name || '');
     if (input === null) return;
     currentMaGian = input.trim();
@@ -1090,7 +1177,7 @@ async function fillAllToSpShopeeFull() {
   }
 
   const msg = `Thêm toàn bộ ${list.length} sản phẩm của shop vào sheet SP Shopee đầy đủ?\n(Mã gian: "${currentMaGian || 'Chưa đặt'}")\nDữ liệu cũ của gian này trên Sheet sẽ được ghi đè/làm mới toàn bộ.`;
-  if (!confirm(msg)) return;
+  if (!auto && !confirm(msg)) return;
 
   const btn = $('#btnPToSpShopeeFull');
   const oldText = btn ? btn.textContent : '';
@@ -1111,7 +1198,7 @@ async function fillAllToSpShopeeFull() {
       chrome.runtime.sendMessage({ type: 'UPLOAD_SP_SHOPEE_DAY_DU', values: allRows, maGian: currentMaGian }, resolve);
     });
     if (res && res.ok) {
-      hooks.toast(`Đã cập nhật thành công ${allRows.length} dòng vào sheet ${res.sheetTitle || 'SP Shopee đầy đủ'}!${mediaFailNote(failed)}`, failed.length ? 'error' : 'success');
+      hooks.toast(`${res.sheetTitle || 'SP Shopee đầy đủ'}: thêm ${res.added ?? 0} dòng mới, cập nhật ${res.updated ?? 0}, không đổi ${res.same ?? 0}!${mediaFailNote(failed)}`, failed.length ? 'error' : 'success');
       const sel = $('#sheetSourceSelect');
       if (sel) sel.value = 'SP_SHOPEE_DAY_DU';
       if (sheetProductsRows.length > 0) {
@@ -1180,14 +1267,15 @@ function productToWebSpRows(p, maGian) {
   });
 }
 
-async function fillAllToWebSp() {
-  const list = state.selected.size > 0 ? selectedProducts() : state.all;
+async function fillAllToWebSp(auto = false) {
+  const list = (!auto && state.selected.size > 0) ? selectedProducts() : state.all;
   if (!list.length) return hooks.toast('Chưa có sản phẩm nào để thêm vào sheet WEB_SP', 'error');
 
   const { maGian, dhHoanTextValue } = await chrome.storage.local.get(['maGian', 'dhHoanTextValue']);
   const shop = await getShopInfo().catch(() => ({}));
   let currentMaGian = (maGian || dhHoanTextValue || '').trim();
   if (!currentMaGian) {
+    if (auto) return; // tự đồng bộ: chưa có Mã gian thì bỏ qua
     const input = prompt('Vui lòng nhập Mã gian để ghi vào Cột B (ví dụ: GDD):', shop.name || '');
     if (input === null) return;
     currentMaGian = input.trim();
@@ -1196,12 +1284,12 @@ async function fillAllToWebSp() {
     }
   }
 
-  const isSel = state.selected.size > 0;
+  const isSel = (!auto && state.selected.size > 0);
   const msg = isSel
     ? `Cập nhật ${list.length} sản phẩm đã chọn vào sheet WEB_SP?\n(Mã gian: "${currentMaGian || 'Chưa đặt'}")`
     : `Cập nhật toàn bộ ${list.length} sản phẩm vào sheet WEB_SP?\n(Mã gian: "${currentMaGian || 'Chưa đặt'}")\nDữ liệu cũ của gian này sẽ được cập nhật lại toàn bộ.`;
 
-  if (!confirm(msg)) return;
+  if (!auto && !confirm(msg)) return;
 
   const btn = $('#btnPToWebSp');
   const oldText = btn ? btn.textContent : '';
@@ -1223,7 +1311,7 @@ async function fillAllToWebSp() {
       chrome.runtime.sendMessage({ type: 'UPLOAD_WEB_SP', values: allRows, maGian: currentMaGian, partial: isSel }, resolve);
     });
     if (res && res.ok) {
-      hooks.toast(`Đã cập nhật thành công ${allRows.length} dòng vào sheet WEB_SP!${mediaFailNote(failed)}`, failed.length ? 'error' : 'success');
+      hooks.toast(`WEB_SP: thêm ${res.added ?? 0} dòng mới, cập nhật ${res.updated ?? 0}, không đổi ${res.same ?? 0}!${mediaFailNote(failed)}`, failed.length ? 'error' : 'success');
     } else {
       throw new Error((res && res.error) || 'Lỗi không xác định');
     }
@@ -1482,6 +1570,7 @@ const getImagesColIdx = () => getSheetColIdx(['ảnh chính', 'anh chinh', 'ản
 const getDescImagesColIdx = () => getSheetColIdx(['ảnh mô tả', 'anh mo ta', 'desc images'], 18);
 const getModelImgColIdx = () => getSheetColIdx(['ảnh phân loại', 'anh phan loai', 'variation image'], 19);
 const getVideosColIdx = () => getSheetColIdx(['video', 'videos'], 20);
+const getStatusColIdx = () => getSheetColIdx(['trạng thái', 'trang thai', 'status'], 21);
 
 function parseSheetProducts(rows) {
   const col = {
@@ -1501,7 +1590,8 @@ function parseSheetProducts(rows) {
     images: getImagesColIdx(),
     descImages: getDescImagesColIdx(),
     modelImg: getModelImgColIdx(),
-    videos: getVideosColIdx()
+    videos: getVideosColIdx(),
+    status: getStatusColIdx()
   };
 
   const parseImgList = (str) => {
@@ -1573,6 +1663,7 @@ function parseSheetProducts(rows) {
         images: imgs,
         descImages: parseImgList(rawDescImgs),
         videos: parseVideoList(rawVideos),
+        status: String(r[col.status] || '').trim(),
         models: []
       };
       map.set(key, product);
@@ -1784,12 +1875,80 @@ function sheetDateValue(text) {
   return Date.parse(text) || 0;
 }
 
+// Mở link khuyến mãi (cột link_km sheet CAI_DAT) theo mã gian của SP; trang KM tự bấm Chỉnh sửa + dán tên SP vào ô tìm.
+let caiDatRowsCache = null;
+async function getLinkKmByGian(gian) {
+  if (!caiDatRowsCache) {
+    const res = await new Promise((r) => chrome.runtime.sendMessage({ type: 'FETCH_CAI_DAT' }, r));
+    if (!res?.ok) throw new Error(res?.error || 'Không đọc được sheet CAI_DAT');
+    caiDatRowsCache = res.values || [];
+  }
+  const rows = caiDatRowsCache;
+  const headers = (rows[0] || []).map((h) => String(h || '').trim().toLowerCase());
+  let gi = headers.findIndex((h) => ['gian', 'ma gian', 'mã gian', 'ma_gian'].includes(h)); if (gi < 0) gi = 1;
+  let ki = headers.findIndex((h) => h.includes('link_km') || h === 'link km'); if (ki < 0) ki = 8;
+  const target = String(gian || '').trim().toLowerCase();
+  const row = rows.slice(1).find((r) => String(r[gi] || '').trim().toLowerCase() === target && String(r[ki] || '').trim());
+  return row ? String(row[ki]).trim() : '';
+}
+
+// Kết quả điền giá KM do content script trên trang Shopee báo về
+if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
+  chrome.storage.onChanged.addListener((ch) => {
+    const r = ch.autoKmFillResult?.newValue;
+    if (!r) return;
+    if (r.ok) {
+      const sp = sheetState.products.find((x) => x.key === r.key);
+      const m = sp?.models?.[r.modelIdx];
+      if (m) { m.promoPrice = r.price; renderSheetProductsTable(); }
+    }
+    alert(r.ok ? `✅ Đã lưu giá KM ${money(r.price)} cho "${r.name}".` : `⚠️ Chưa lưu được giá KM: ${r.msg}`);
+  });
+}
+
+async function openKmLinkForProduct(p, fill = null) {
+  try {
+    const link = await getLinkKmByGian(p.gian);
+    if (!link) { alert(`Không tìm thấy link KM cho gian "${p.gian || '(trống)'}" ở cột link_km sheet CAI_DAT.`); return; }
+    const name = String(p.name || '').trim();
+    try { await navigator.clipboard.writeText(name); } catch {}
+    await chrome.storage.local.set({ autoClickEditKmTimestamp: Date.now(), autoSearchKmProductName: name, autoKmFill: fill ? { ...fill, name, ts: Date.now() } : null });
+    let url = /^https?:\/\//.test(link) ? link : `https://${link}`;
+    if (!url.includes('#auto_edit_km')) url = url.includes('#') ? url.replace('#', '#auto_edit_km=1&') : `${url}#auto_edit_km=1`;
+    window.open(url, '_blank');
+  } catch (e) {
+    alert('Lỗi mở link KM: ' + e.message);
+  }
+}
+
+// Tìm kiếm: ',' = HOẶC, '\' = VÀ. Vd "2633,3212" khớp 1 trong 2; "2633\3212" phải có cả 2.
+function matchSearchKw(hay, kw) {
+  const groups = String(kw || '').toLowerCase().split(',').map((g) => g.split('\\').map((t) => t.trim()).filter(Boolean)).filter((g) => g.length);
+  if (!groups.length) return true;
+  return groups.some((terms) => terms.every((t) => hay.includes(t)));
+}
+
 function filteredSheetProducts() {
   const kw = ($('#sheetSearchInput')?.value || '').trim().toLowerCase();
   const gianFilter = ($('#sheetGianFilter')?.value || '').trim().toLowerCase();
   const sort = $('#sheetSortFilter')?.value || 'newest';
+  const stockF = $('#sheetStockFilter')?.value || '', videoF = $('#sheetVideoFilter')?.value || '';
+  const modelF = $('#sheetModelFilter')?.value || '', descF = $('#sheetDescFilter')?.value || '';
+  const statusF = $('#sheetStatusFilter')?.value || '';
 
   let list = sheetState.products.filter((p) => {
+    if (statusF && (p.status || '(chưa có)') !== statusF) return false;
+    if (stockF === 'in' && !(sheetTotalStock(p) > 0)) return false;
+    if (stockF === 'out' && sheetTotalStock(p) > 0) return false;
+    if (videoF === 'yes' && !p.videos?.length) return false;
+    if (videoF === 'no' && p.videos?.length) return false;
+    if (modelF === 'one' && p.models.length > 1) return false;
+    if (modelF === 'many' && p.models.length <= 1) return false;
+    const hasDesc = !!String(p.description || '').trim();
+    if (descF === 'yes' && !hasDesc) return false;
+    if (descF === 'no' && hasDesc) return false;
+    if (descF === 'img' && !p.descImages?.length) return false;
+    if (descF === 'noimg' && p.descImages?.length) return false;
     if (gianFilter) {
       const g = (p.gian || '').toLowerCase();
       if (gianFilter === '(không có gian)') {
@@ -1801,7 +1960,7 @@ function filteredSheetProducts() {
 
     if (kw) {
       const hay = `${p.name} ${p.itemId} ${p.parentSku} ${p.gian} ${p.models.map((m) => `${m.sku} ${m.name} ${m.modelId}`).join(' ')}`.toLowerCase();
-      if (!hay.includes(kw)) return false;
+      if (!matchSearchKw(hay, kw)) return false;
     }
 
     return true;
@@ -1817,7 +1976,22 @@ function filteredSheetProducts() {
   };
 
   if (sorters[sort]) list = list.slice().sort(sorters[sort]);
+  // Lọc 1 ký tự đầu của SKU (số lượng tính trên các lọc khác)
+  renderSheetPrefixChips(list);
+  if (sheetState.prefix) list = list.filter((p) => sheetPrefixOf(p) === sheetState.prefix);
   return list;
+}
+
+const sheetPrefixOf = (p) => String(p.models[0]?.sku || p.parentSku || '').trim().charAt(0).toUpperCase() || '?';
+function renderSheetPrefixChips(list) {
+  const box = $('#sheetPrefixChips');
+  if (!box) return;
+  const counts = new Map();
+  list.forEach((p) => { const k = sheetPrefixOf(p); counts.set(k, (counts.get(k) || 0) + 1); });
+  if (sheetState.prefix && !counts.has(sheetState.prefix)) counts.set(sheetState.prefix, 0);
+  const keys = [...counts.keys()].sort((a, b) => a.localeCompare(b));
+  const chip = (k, label, n) => `<button type="button" class="prefix-chip${(sheetState.prefix || '') === k ? ' active' : ''}" data-prefix="${esc(k)}">${esc(label)}<sub>${n}</sub></button>`;
+  box.innerHTML = '<span class="muted">1 ký tự:</span>' + chip('', 'Tất cả', list.length) + keys.map((k) => chip(k, k, counts.get(k))).join('');
 }
 
 function renderSheetSummary() {
@@ -1889,6 +2063,7 @@ function sheetProductRows(p) {
       createTime: () => `<span style="font-size:12px;color:#64748b;">${esc(p.createTime) || '<span class="muted">—</span>'}</span>`,
       actions: () => `<div class="row" style="gap:4px;">
         <button class="btn small" data-open-edit="${p.itemId}" data-sheet-key="${esc(p.key)}" title="Xem &amp; Chỉnh sửa chi tiết sản phẩm đầy đủ như Shopee Portal" style="font-weight:700;background:#f59e0b;border-color:#d97706;color:#fff;">📝 Sửa chi tiết</button>
+        <button class="btn small" data-open-km="${esc(p.key)}" title="Mở link khuyến mãi của gian ${esc(p.gian || '')} (cột link_km sheet CAI_DAT) để sửa giá KM" style="font-weight:700;background:#e11d48;border-color:#be123c;color:#fff;">💲 Sửa KM</button>
         <button class="btn small primary" data-sheet-to-fs="${esc(p.key)}" title="Đưa sản phẩm này vào Flash Sale">⚡ FS</button>
         <button class="btn small" data-sheet-media="${esc(p.key)}" title="Xem ảnh & video">🖼 Ảnh</button>
         <button class="btn small" data-sync-item="${p.itemId}" title="Đồng bộ lại thông tin &amp; tồn kho của sản phẩm này từ Shopee" style="font-weight:700;background:#6366f1;border-color:#4f46e5;color:#fff;">🔄 Đồng bộ</button>
@@ -1902,7 +2077,7 @@ function sheetProductRows(p) {
       modelSku: () => `<td data-col="modelSku" style="font-family:monospace;font-size:11.5px;color:#334155;">${skuView(m.sku, p.itemId, m.modelId || 0)}</td>`,
       modelImg: () => `<td data-col="modelImg">${mImgCell}</td>`,
       price: () => `<td data-col="price" style="font-weight:600;font-size:12.5px;">${m.price ? money(m.price) : '<span class="muted">—</span>'}</td>`,
-      promoPrice: () => `<td data-col="promoPrice" style="font-weight:600;color:#e11d48;font-size:12.5px;">${m.promoPrice && m.promoPrice < m.price ? money(m.promoPrice) : '<span class="muted">—</span>'}</td>`,
+      promoPrice: () => `<td data-col="promoPrice" data-edit-km="${esc(p.key)}" data-model-idx="${i}" title="Bấm để sửa giá KM (tự vào link KM của gian, điền giá và lưu)" style="cursor:pointer;font-weight:600;color:#e11d48;font-size:12.5px;">${m.promoPrice && m.promoPrice < m.price ? money(m.promoPrice) : '<span class="muted">—</span>'} <span style="font-size:10px;opacity:.7;">✏️</span></td>`,
       stock: () => stockCell
     };
     const cells = getActiveSheetCols().map((c) => {
@@ -1933,6 +2108,15 @@ function renderSheetTableThead() {
 }
 
 function renderSheetProductsTable() {
+  // Danh sách trạng thái lấy từ dữ liệu sheet (giữ lựa chọn đang chọn)
+  const stSel = $('#sheetStatusFilter');
+  if (stSel) {
+    const counts = new Map();
+    sheetState.products.forEach((p) => { const k = p.status || '(chưa có)'; counts.set(k, (counts.get(k) || 0) + 1); });
+    const cur = stSel.value;
+    stSel.innerHTML = '<option value="">Trạng thái: tất cả</option>' + [...counts].sort((x, y) => y[1] - x[1])
+      .map(([k, n]) => `<option value="${esc(k)}"${k === cur ? ' selected' : ''}>${esc(k)} (${n})</option>`).join('');
+  }
   renderSheetSummary();
   const list = filteredSheetProducts();
   const totalPages = Math.max(1, Math.ceil(list.length / sheetState.pageSize));
@@ -2065,6 +2249,7 @@ export async function initProductsTab(h) {
   initProductEditModal(hooks);
 
   $('#btnPLoad').onclick = loadAll;
+  initAutoLoad();
   $('#btnPStop').onclick = () => { state.stop = true; };
   if ($('#btnPExport')) $('#btnPExport').onclick = exportCsv;
   $('#btnPExportMedia').onclick = exportMediaCsv;
@@ -2107,6 +2292,20 @@ export async function initProductsTab(h) {
     };
   }
 
+  // Lọc tồn / video / phân loại / mô tả + chip 1 ký tự
+  ['#sheetStatusFilter', '#sheetStockFilter', '#sheetVideoFilter', '#sheetModelFilter', '#sheetDescFilter'].forEach((sel) => {
+    const el = $(sel);
+    if (el) el.onchange = () => { sheetState.page = 1; renderSheetProductsTable(); };
+  });
+  const chips = $('#sheetPrefixChips');
+  if (chips) chips.onclick = (e) => {
+    const b = e.target.closest('[data-prefix]');
+    if (!b) return;
+    sheetState.prefix = b.dataset.prefix;
+    sheetState.page = 1;
+    renderSheetProductsTable();
+  };
+
   const btnClearSheet = $('#btnClearSheetFilter');
   if (btnClearSheet) {
     btnClearSheet.onclick = () => {
@@ -2140,6 +2339,19 @@ export async function initProductsTab(h) {
   const btnSheetSyncBatch = $('#btnSheetSyncBatch');
   if (btnSheetSyncBatch) {
     btnSheetSyncBatch.onclick = () => syncBatchProducts(true);
+  }
+
+  const btnSheetCopyIds = $('#btnSheetCopyIds');
+  if (btnSheetCopyIds) {
+    btnSheetCopyIds.onclick = async () => {
+      const ids = [...new Set(filteredSheetProducts().map((p) => String(p.itemId || '').trim()).filter(Boolean))];
+      if (!ids.length) { alert('Không có sản phẩm nào để copy.'); return; }
+      try { await navigator.clipboard.writeText(ids.join(',')); }
+      catch { const ta = document.createElement('textarea'); ta.value = ids.join(','); document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+      const old = btnSheetCopyIds.textContent;
+      btnSheetCopyIds.textContent = `✅ Đã copy ${ids.length} ID`;
+      setTimeout(() => { btnSheetCopyIds.textContent = old; }, 1800);
+    };
   }
 
   const sheetTable = $('#sheetPTable');
@@ -2317,6 +2529,31 @@ export async function initProductsTab(h) {
       if (syncBtn) {
         const itemId = Number(syncBtn.dataset.syncItem);
         syncSingleProduct(itemId, syncBtn);
+        return;
+      }
+
+      const kmEdit = e.target.closest('[data-edit-km]');
+      if (kmEdit) {
+        const sp = sheetState.products.find((x) => x.key === kmEdit.dataset.editKm);
+        const m = sp?.models?.[Number(kmEdit.dataset.modelIdx)];
+        if (!sp || !m) return;
+        const label = `${sp.name}${m.name ? ' — ' + m.name : ''}`;
+        const cur = m.promoPrice && m.promoPrice < m.price ? m.promoPrice : '';
+        const raw = prompt(`Giá KM mới cho:
+${label}
+(Giá gốc ${money(m.price)})`, cur);
+        if (raw == null) return;
+        const price = Number(String(raw).replace(/[^0-9]/g, ''));
+        if (!price) { alert('Giá không hợp lệ.'); return; }
+        if (m.price && price >= m.price) { alert('Giá KM phải nhỏ hơn giá gốc.'); return; }
+        openKmLinkForProduct(sp, { modelName: m.name || '', sku: m.sku || '', price, key: sp.key, modelIdx: Number(kmEdit.dataset.modelIdx), multi: sp.models.length > 1 });
+        return;
+      }
+
+      const kmBtn = e.target.closest('[data-open-km]');
+      if (kmBtn) {
+        const sp = sheetState.products.find((x) => x.key === kmBtn.dataset.openKm);
+        if (sp) openKmLinkForProduct(sp);
         return;
       }
 
@@ -2684,11 +2921,12 @@ export async function initProductsTab(h) {
   };
 
   const btnSp = $('#btnPToSpShopee');
-  if (btnSp) btnSp.onclick = fillAllToSpShopee;
+  if (btnSp) btnSp.onclick = () => fillAllToSpShopee();
   const btnWebSp = $('#btnPToWebSp');
-  if (btnWebSp) btnWebSp.onclick = fillAllToWebSp;
+  if (btnWebSp) btnWebSp.onclick = () => fillAllToWebSp();
   const btnSpFull = $('#btnPToSpShopeeFull');
-  if (btnSpFull) btnSpFull.onclick = fillAllToSpShopeeFull;
+  if (btnSpFull) btnSpFull.onclick = () => fillAllToSpShopeeFull();
+  initAutoSheetSync();
 
   const btnBatchStock = $('#btnPEditStockBatch');
   if (btnBatchStock) {

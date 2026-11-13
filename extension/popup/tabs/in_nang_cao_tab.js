@@ -44,4 +44,6 @@
   if (tab && !tab.hidden) {
     ensureLoaded(false);
   }
+  // Tab được mở bằng code (vd Shop Spy bấm "Sao chép"), không qua click: nạp khi tab hiện ra
+  if (tab) new MutationObserver(() => { if (!tab.hidden) ensureLoaded(false); }).observe(tab, { attributes: true, attributeFilter: ["hidden"] });
 })();

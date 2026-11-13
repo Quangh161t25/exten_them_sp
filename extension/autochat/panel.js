@@ -26,6 +26,7 @@
     $('s-fgap').value = s.followGapMin;
     $('s-age').value = s.greetMaxAgeMin;
     $('s-max').value = s.maxPerHour;
+    if ($('s-poll')) $('s-poll').value = s.pollSec || 30;
     if ($('s-backlog')) $('s-backlog').checked = s.replyBacklog !== false;
   }
 
@@ -42,6 +43,7 @@
       followGapMin: num('s-fgap', cur.followGapMin, 1),
       greetMaxAgeMin: num('s-age', cur.greetMaxAgeMin, 5),
       maxPerHour: num('s-max', cur.maxPerHour, 1),
+      pollSec: $('s-poll') ? num('s-poll', cur.pollSec || 30, 30) : (cur.pollSec || 30),
       replyBacklog: $('s-backlog') ? $('s-backlog').checked : true
     });
   }
@@ -114,6 +116,7 @@
         <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">
           <span>${AUTOCHAT.esc(meta.lastError)}</span>
           <button id="btn-renew-session" style="padding:3px 8px;font-size:11px;font-weight:700;border:1px solid #dc2626;border-radius:4px;background:#fff;color:#dc2626;cursor:pointer;white-space:nowrap;">🔄 Lấy lại phiên ngay</button>
+          <a href="https://banhang.shopee.vn/new-webchat/conversations" target="_blank" rel="noopener" style="padding:3px 8px;font-size:11px;font-weight:700;border:1px solid #ee4d2d;border-radius:4px;background:#fff;color:#ee4d2d;text-decoration:none;white-space:nowrap;">💬 Mở Webchat</a>
         </div>`;
       const renewBtn = $('btn-renew-session');
       if (renewBtn) {

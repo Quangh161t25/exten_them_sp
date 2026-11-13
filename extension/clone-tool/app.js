@@ -204,9 +204,22 @@ async function setCurrentItem(itemId) {
   currentItemId = itemId || '';
   current = rec ? normalizeSource(rec) : null;
   renderProduct();
+  maybeAutoStart();
 }
 
+// Shop Spy bấm "Sao chép": khi đúng sản phẩm đó đã nạp xong thì tự bấm "⚡ Tự động" (1 lần, trong 5 phút)
+async function maybeAutoStart() {
+  if (!current) return;
+  const { scl_auto_start: req } = await chrome.storage.local.get('scl_auto_start');
+  if (!req || String(req.itemId) !== String(current.itemId) || Date.now() - (req.at || 0) > 5 * 60e3) return;
+  await chrome.storage.local.remove('scl_auto_start');
+  setTimeout(() => $('#btnAuto')?.click(), 1500);
+}
+
+// Mở bằng app.html?item=<id> (Hẹn giờ sao chép): luôn dùng đúng sản phẩm đó, không theo tab đang xem
+const FIXED_ITEM = new URLSearchParams(location.search).get('item') || '';
 async function detectFromActiveTab() {
+  if (FIXED_ITEM) { if (currentItemId !== FIXED_ITEM || !current) await setCurrentItem(FIXED_ITEM); return; }
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const parsed = tab && parseShopeeUrl(tab.url);
   if (parsed) {
@@ -1473,9 +1486,12 @@ async function runClone() {
       log
     });
     log(`✔ Sao chép thành công! ID sản phẩm mới: ${productId}`, 'ok');
+    chrome.storage.local.set({ scl_clone_result: { itemId: String(current.itemId), ok: true, productId: String(productId), at: Date.now() } });
     chrome.tabs.create({ url: `https://banhang.shopee.vn/portal/product/${productId}`, active: false });
   } catch (e) {
     log('✖ ' + e.message, 'err');
+    // Báo kết quả cho Hẹn giờ sao chép
+    if (current) chrome.storage.local.set({ scl_clone_result: { itemId: String(current.itemId), ok: false, error: e.message, at: Date.now() } });
   } finally {
     busy = false;
     updateCloneButtonUI();
