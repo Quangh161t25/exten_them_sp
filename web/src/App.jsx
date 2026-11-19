@@ -15,7 +15,8 @@ import {
     buildSpShopeeGianMap,
     fetchWebSpImageMap,
     writeDsSpGiaDang,
-    batchWriteDsSpGiaDang
+    batchWriteDsSpGiaDang,
+    fetchCaiDatGians
 } from './services/googleSheetsApi.js';
 import {
     readDsSpExcelRows,
@@ -202,6 +203,26 @@ export default function App() {
         } catch (err) {
             console.warn('Could not load DS_SP price map:', err);
         }
+    }, []);
+
+    // Nút copy mặc định = các mã gian ở cột "gian" sheet CAI_DAT (giữ nút tự thêm, không hiện lại nút đã xoá)
+    useEffect(() => {
+        let cancelled = false;
+        fetchCaiDatGians().then((gians) => {
+            if (cancelled || !gians.length) return;
+            let removed = [];
+            try { removed = JSON.parse(localStorage.getItem(CUSTOM_BUTTONS_KEY + '_removed') || '[]'); } catch (_) {}
+            setCustomButtons((prev) => {
+                const hasSaved = !!localStorage.getItem(CUSTOM_BUTTONS_KEY);
+                const base = hasSaved ? prev : [];
+                const next = [...base];
+                gians.forEach((g) => { if (!next.includes(g) && !removed.includes(g)) next.push(g); });
+                if (!next.length) return prev;
+                try { localStorage.setItem(CUSTOM_BUTTONS_KEY, JSON.stringify(next)); } catch (_) {}
+                return next;
+            });
+        }).catch((err) => console.warn('Không đọc được cột gian ở CAI_DAT:', err));
+        return () => { cancelled = true; };
     }, []);
 
     const loadSpShopee = useCallback(async () => {
@@ -1111,6 +1132,10 @@ export default function App() {
         newButtons.forEach(b => {
             if (!next.includes(b)) next.push(b);
         });
+        try {
+            const removed = JSON.parse(localStorage.getItem(CUSTOM_BUTTONS_KEY + '_removed') || '[]');
+            localStorage.setItem(CUSTOM_BUTTONS_KEY + '_removed', JSON.stringify(removed.filter(r => !newButtons.includes(r))));
+        } catch (_) {}
         setCustomButtons(next);
         try {
             localStorage.setItem(CUSTOM_BUTTONS_KEY, JSON.stringify(next));
@@ -1122,6 +1147,8 @@ export default function App() {
         setCustomButtons(next);
         try {
             localStorage.setItem(CUSTOM_BUTTONS_KEY, JSON.stringify(next));
+            const removed = JSON.parse(localStorage.getItem(CUSTOM_BUTTONS_KEY + '_removed') || '[]');
+            if (!removed.includes(btnToRemove)) localStorage.setItem(CUSTOM_BUTTONS_KEY + '_removed', JSON.stringify([...removed, btnToRemove]));
         } catch (_) {}
     };
 

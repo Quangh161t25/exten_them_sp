@@ -562,3 +562,23 @@ export async function fetchWebSpImageMap(force = false) {
 
     return webSpImageMapCache;
 }
+
+// Danh sách mã gian ở cột "gian" của sheet CAI_DAT (dùng làm nút copy mặc định ở Tính giá)
+export async function fetchCaiDatGians() {
+    const token = await getAccessToken();
+    const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}?fields=sheets(properties(title))`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!metaRes.ok) return [];
+    const titles = ((await metaRes.json()).sheets || []).map(s => s.properties?.title).filter(Boolean);
+    const title = titles.find(t => t.toLowerCase() === 'cai_dat');
+    if (!title) return [];
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${encodeURIComponent(title + '!A1:Z')}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) return [];
+    const values = (await res.json()).values || [];
+    const ci = (values[0] || []).findIndex(h => String(h).trim().toLowerCase() === 'gian');
+    if (ci < 0) return [];
+    return [...new Set(values.slice(1).map(r => String(r[ci] || '').trim().toUpperCase()).filter(Boolean))];
+}
