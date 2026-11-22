@@ -246,7 +246,7 @@ export default function DataTable({
 
     return (
         <div id="tableWrapper" className="table-wrapper" style={{ flex: 1, overflow: 'auto', background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-            <table id="dataTable" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <table id="dataTable" data-tt-nosort style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                     <tr>
                         {hasCheckbox ? (
