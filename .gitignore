@@ -3,3 +3,7 @@ node_modules/
 .DS_Store
 dist-standalone/
 scratch/
+
+# Ban cu co khoa Google + du lieu don, khong dua len Git
+exten shop bản cũ/
+exten shop bản cũ.rar
