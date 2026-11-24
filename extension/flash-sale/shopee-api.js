@@ -277,7 +277,8 @@ function normalizeModel(m, product, warehouses = []) {
     promoPrice: toNumber(pick(m, ['price_info.input_promotion_price', 'price_info.promotion_price', 'input_promotion_price'])),
     stock: rawStock,
     locationStocks,
-    locationStocksSynced: locationStocks.length > 0,
+    // Dữ liệu kho từ danh sách SP có thể thiếu kho -> luôn đọc lại bằng get_product_stock
+    locationStocksSynced: false,
     raw: m
   };
 }

@@ -88,6 +88,26 @@ function fsPhase(f) {
   return 'next';
 }
 
+const selectedFs = new Map(); // id -> { id, slot, label }
+
+function updateFsSelectionUI() {
+  const count = selectedFs.size;
+  const countEl = $('#fsSelCount');
+  if (countEl) countEl.textContent = count;
+  const btnDel = $('#btnDeleteSelectedFs');
+  if (btnDel) {
+    btnDel.disabled = count === 0;
+    btnDel.style.opacity = count > 0 ? '1' : '0.5';
+  }
+  const chkAll = $('#fsChkAll');
+  if (chkAll) {
+    const enabledInputs = $$('.fs-chk-item:not([disabled])');
+    const checkedInputs = enabledInputs.filter((input) => input.checked);
+    chkAll.checked = enabledInputs.length > 0 && checkedInputs.length === enabledInputs.length;
+    chkAll.indeterminate = checkedInputs.length > 0 && checkedInputs.length < enabledInputs.length;
+  }
+}
+
 async function loadList() {
   const box = $('#fsList');
   box.innerHTML = '<div class="card">Đang tải...</div>';
@@ -96,15 +116,37 @@ async function loadList() {
     const list = await flashSale.listAll(listType, 4);
     if (!list.length) {
       box.innerHTML = '<div class="card muted">Không có Flash Sale nào.</div>';
+      selectedFs.clear();
+      updateFsSelectionUI();
       return;
     }
+
+    const existingIds = new Set(list.map((f) => String(f.flash_sale_id)));
+    for (const id of selectedFs.keys()) {
+      if (!existingIds.has(id)) selectedFs.delete(id);
+    }
+
     box.innerHTML = `
       <div class="card table-wrap"><table class="grid">
-        <thead><tr><th>ID</th><th>Khung giờ</th><th>Trạng thái</th><th>Sản phẩm</th><th>Thao tác</th></tr></thead>
+        <thead><tr>
+          <th style="width:36px;text-align:center"><input type="checkbox" id="fsChkAll" title="Chọn tất cả để xoá"></th>
+          <th>ID</th>
+          <th>Khung giờ</th>
+          <th>Trạng thái</th>
+          <th>Sản phẩm</th>
+          <th>Thao tác</th>
+        </tr></thead>
         <tbody>${list.map((f) => {
           const phase = fsPhase(f);
           const count = f.enabled_item_count ?? f.item_count ?? f.total_item_count ?? f.product_count ?? '-';
+          const isDeletable = phase === 'next';
+          const isChecked = selectedFs.has(String(f.flash_sale_id));
           return `<tr>
+            <td style="text-align:center">
+              ${isDeletable
+                ? `<input type="checkbox" class="fs-chk-item" data-id="${f.flash_sale_id}" data-slot="${f.timeslot_id}" data-label="${esc(`${fmtDay(f.start_time)} ${fmtHour(f.start_time)}`)}" ${isChecked ? 'checked' : ''}>`
+                : `<input type="checkbox" disabled title="Chỉ có thể xoá Flash Sale sắp diễn ra" style="opacity:0.3;cursor:not-allowed">`}
+            </td>
             <td>#${esc(f.flash_sale_id)}</td>
             <td>${fmtDay(f.start_time)} ${fmtHour(f.start_time)} – ${fmtHour(f.end_time)}</td>
             <td><span class="status ${phase}">${STATUS_LABEL[phase]}</span></td>
@@ -117,6 +159,7 @@ async function loadList() {
               ${phase === 'next' ? `<button class="btn small danger" data-act="delete" data-id="${f.flash_sale_id}" data-slot="${f.timeslot_id}" data-label="${esc(`${fmtDay(f.start_time)} ${fmtHour(f.start_time)}`)}">Xoá</button>` : ''}
             </td></tr>`;
         }).join('')}</tbody></table></div>`;
+    updateFsSelectionUI();
   } catch (e) {
     box.innerHTML = `<div class="card" style="color:var(--err)">Lỗi: ${esc(e.message)}</div>`;
   }
@@ -127,13 +170,88 @@ $('#listTypes').onclick = (e) => {
   if (!b) return;
   listType = b.dataset.type;
   $$('#listTypes button').forEach((x) => x.classList.toggle('active', x === b));
+  selectedFs.clear();
+  updateFsSelectionUI();
   loadList();
 };
-$('#btnReloadList').onclick = loadList;
+$('#btnReloadList').onclick = () => {
+  selectedFs.clear();
+  updateFsSelectionUI();
+  loadList();
+};
 $('#btnNewFs').onclick = () => {
   resetEditor();
   showTab('editor');
 };
+
+$('#fsList').onchange = (e) => {
+  if (e.target.id === 'fsChkAll') {
+    const checked = e.target.checked;
+    $$('.fs-chk-item:not([disabled])').forEach((input) => {
+      input.checked = checked;
+      const id = String(input.dataset.id);
+      if (checked) {
+        selectedFs.set(id, { id: input.dataset.id, slot: input.dataset.slot, label: input.dataset.label });
+      } else {
+        selectedFs.delete(id);
+      }
+    });
+    updateFsSelectionUI();
+    return;
+  }
+  if (e.target.classList.contains('fs-chk-item')) {
+    const id = String(e.target.dataset.id);
+    if (e.target.checked) {
+      selectedFs.set(id, { id: e.target.dataset.id, slot: e.target.dataset.slot, label: e.target.dataset.label });
+    } else {
+      selectedFs.delete(id);
+    }
+    updateFsSelectionUI();
+  }
+};
+
+const btnDeleteSelectedFs = $('#btnDeleteSelectedFs');
+if (btnDeleteSelectedFs) {
+  btnDeleteSelectedFs.onclick = async () => {
+    const count = selectedFs.size;
+    if (!count) return;
+    const items = Array.from(selectedFs.values());
+    if (!confirm(`Xoá ${count} Flash Sale đã chọn?\n\nThao tác này xoá hẳn trên Shopee, không khôi phục được.`)) return;
+
+    btnDeleteSelectedFs.disabled = true;
+    const oldHtml = btnDeleteSelectedFs.innerHTML;
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      btnDeleteSelectedFs.textContent = `Đang xoá ${i + 1}/${items.length}...`;
+      try {
+        await flashSale.remove(item.id, item.slot);
+        successCount++;
+        selectedFs.delete(String(item.id));
+      } catch (err) {
+        failCount++;
+        console.error(`Lỗi xoá Flash Sale #${item.id}:`, err);
+      }
+      if (i < items.length - 1) {
+        await sleep(350);
+      }
+    }
+
+    btnDeleteSelectedFs.innerHTML = oldHtml;
+    updateFsSelectionUI();
+
+    if (failCount === 0) {
+      toast(`Đã xoá thành công ${successCount} Flash Sale.`, 'success');
+    } else {
+      toast(`Đã xoá ${successCount} Flash Sale (thất bại ${failCount}).`, 'warn');
+    }
+
+    await loadList();
+  };
+}
 
 $('#fsList').onclick = async (e) => {
   const b = e.target.closest('button[data-act]');
@@ -148,6 +266,7 @@ $('#fsList').onclick = async (e) => {
       if (!confirm(`Xoá Flash Sale #${id} (${b.dataset.label})?
 Thao tác này xoá hẳn trên Shopee, không khôi phục được.`)) return;
       await flashSale.remove(id, b.dataset.slot);
+      selectedFs.delete(String(id));
       toast(`Đã xoá Flash Sale #${id}`, 'success');
       loadList();
     }

@@ -168,7 +168,7 @@ export function applyTableStyles(tableId, config, skipResizer = false) {
       }
 
       const leftPx = cumulativeLeft;
-      rules.push(`${thSel} { position: sticky !important; left: ${leftPx}px !important; z-index: 15 !important; background: #f8fafc !important; }`);
+      rules.push(`${thSel} { position: sticky !important; top: 0 !important; left: ${leftPx}px !important; z-index: 25 !important; background: #f8fafc !important; }`);
       rules.push(`${tdSel} { position: sticky !important; left: ${leftPx}px !important; z-index: 5 !important; background: inherit !important; }`);
       rules.push(`#${tableId} tr.first-model ${tdSel} { background: #fff !important; }`);
       rules.push(`#${tableId} tr.model-row ${tdSel} { background: #fcfcfd !important; }`);
@@ -176,6 +176,9 @@ export function applyTableStyles(tableId, config, skipResizer = false) {
       lastFixedColId = c.id;
     }
   }
+
+  // Luôn ghim cố định dòng tiêu đề lên đỉnh bảng khi cuộn
+  rules.push(`#${tableId} thead th { position: sticky !important; top: 0 !important; z-index: 10; background: #fafafa !important; box-shadow: 0 1px 1px rgba(0,0,0,0.06); }`);
 
   // Viền bóng nhẹ bên phải cột cố định cuối cùng để phân tách rõ ràng khi cuộn
   if (lastFixedColId) {
@@ -211,7 +214,8 @@ export function attachColumnResizers(tableId, onResizeEnd) {
   ths.forEach((th) => {
     if (th.querySelector('.col-resizer')) return;
 
-    if (!th.style.position || th.style.position === 'static') {
+    const currentPos = th.style.position || window.getComputedStyle(th).position;
+    if (!currentPos || currentPos === 'static') {
       th.style.position = 'relative';
     }
 

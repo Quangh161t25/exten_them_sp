@@ -136,7 +136,48 @@ function filtered() {
     sold: (a, b) => b.sold - a.sold
   };
   if (sorters[sort]) list = list.slice().sort(sorters[sort]);
+  // Bấm tiêu đề cột: sắp xếp tăng / giảm theo cột đó
+  const cs = state.colSort;
+  const getv = cs && COL_SORT_GET[cs.col];
+  if (getv) {
+    const dir = cs.dir === 'desc' ? -1 : 1;
+    list = list.slice().sort((a, b) => {
+      const x = getv(a), y = getv(b);
+      if (typeof x === 'number' && typeof y === 'number') return (x - y) * dir;
+      return String(x ?? '').localeCompare(String(y ?? ''), 'vi', { numeric: true }) * dir;
+    });
+  }
+  // Lọc 1 ký tự đầu của SKU (số lượng tính trên các lọc khác)
+  renderShopPrefixChips(list);
+  if (state.prefix) list = list.filter((p) => shopPrefixOf(p) === state.prefix);
   return list;
+}
+
+// Giá trị dùng để sắp xếp theo từng cột (cột không có trong đây thì không sắp xếp được)
+const COL_SORT_GET = {
+  itemId: (p) => Number(p.itemId) || 0,
+  name: (p) => p.name || '',
+  desc: (p) => String(p.description || p.desc || ''),
+  parentSku: (p) => p.parentSku || '',
+  modelId: (p) => Number(p.models?.[0]?.modelId) || 0,
+  modelName: (p) => p.models?.[0]?.name || '',
+  modelSku: (p) => p.models?.[0]?.sku || '',
+  price: (p) => { const v = Math.min(...p.models.map((m) => m.price || Infinity)); return Number.isFinite(v) ? v : 0; },
+  promoPrice: (p) => { const v = Math.min(...p.models.map((m) => (m.promoPrice && m.promoPrice < m.price ? m.promoPrice : Infinity))); return Number.isFinite(v) ? v : 0; },
+  stock: (p) => p.models.reduce((a, m) => a + (Number(m.stock) || 0), 0),
+  createTime: (p) => Number(p.createTime) || 0,
+  sold: (p) => Number(p.sold) || 0
+};
+const shopPrefixOf = (p) => String(p.models?.[0]?.sku || p.parentSku || '').trim().charAt(0).toUpperCase() || '?';
+function renderShopPrefixChips(list) {
+  const box = $('#pPrefixChips');
+  if (!box) return;
+  const counts = new Map();
+  list.forEach((p) => { const k = shopPrefixOf(p); counts.set(k, (counts.get(k) || 0) + 1); });
+  if (state.prefix && !counts.has(state.prefix)) counts.set(state.prefix, 0);
+  const keys = [...counts.keys()].sort((a, b) => a.localeCompare(b));
+  const chip = (k, label, n) => `<button type="button" class="prefix-chip${(state.prefix || '') === k ? ' active' : ''}" data-prefix="${esc(k)}">${esc(label)}<sub>${n}</sub></button>`;
+  box.innerHTML = list.length || state.prefix ? '<span class="muted">1 ký tự:</span>' + chip('', 'Tất cả', list.length) + keys.map((k) => chip(k, k, counts.get(k))).join('') : '';
 }
 
 // ---------- Hiển thị ----------
@@ -205,8 +246,25 @@ export function renderPTableThead() {
     if (c.id === 'chk') {
       return `<th data-col="chk" style="text-align:center;"><div style="display:inline-flex;align-items:center;gap:3px;"><input type="checkbox" id="pChkAll" title="Chọn cả trang"><button class="btn-th-config" data-open-cols title="Tuỳ chỉnh chi tiết các cột" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0;line-height:1;">⚙️</button></div></th>`;
     }
-    return `<th data-col="${c.id}">${esc(c.label)}</th>`;
+    if (!COL_SORT_GET[c.id]) return `<th data-col="${c.id}">${esc(c.label)}</th>`;
+    const on = state.colSort && state.colSort.col === c.id;
+    const arrow = on ? (state.colSort.dir === 'desc' ? '▼' : '▲') : '⇅';
+    return `<th data-col="${c.id}" data-colsort="${c.id}" title="Bấm để sắp xếp tăng / giảm / bỏ" style="cursor:pointer;user-select:none;white-space:nowrap">${esc(c.label)} <span style="font-size:10px;color:${on ? '#ee4d2d' : '#94a3b8'}">${arrow}</span></th>`;
   }).join('')}</tr>`;
+  // Bấm tiêu đề: tăng → giảm → bỏ sắp xếp
+  if (!thead.dataset.colSortBound) {
+    thead.dataset.colSortBound = '1';
+    thead.addEventListener('click', (e) => {
+      const th = e.target.closest('[data-colsort]');
+      if (!th || e.target.closest('input,button')) return;
+      const col = th.dataset.colsort;
+      const cur = state.colSort;
+      state.colSort = !cur || cur.col !== col ? { col, dir: 'asc' } : cur.dir === 'asc' ? { col, dir: 'desc' } : null;
+      state.page = 1;
+      renderPTableThead();
+      render();
+    });
+  }
 
   const chkAll = $('#pChkAll');
   if (chkAll) {
@@ -476,6 +534,9 @@ async function loadCache() {
     const { [CACHE_KEY]: cache } = await chrome.storage.local.get(CACHE_KEY);
     if (cache && Array.isArray(cache.products)) {
       state.all = cache.products;
+      // Cache cũ có thể thiếu kho: đọc lại tồn từng kho khi hiển thị
+      state.all.forEach((p) => (p.models || []).forEach((m) => { m.locationStocksSynced = false; // cache
+      }));
       state.loadedAt = cache.loadedAt;
       state.shopId = cache.shopId;
       if (Array.isArray(cache.warehouses)) state.warehouses = cache.warehouses;
@@ -512,6 +573,11 @@ async function loadAll() {
       if (res.total && result.length >= res.total) break;
       cursor = res.cursor || '';
       await sleep(400);
+    }
+    // Đọc tồn kho đủ các kho cho TẤT CẢ SP (danh sách Shopee có thể thiếu kho)
+    for (let i = 0; i < result.length && !state.stop; i += 100) {
+      progress.textContent = `Đang đọc tồn kho từng kho... ${Math.min(i + 100, result.length)}/${result.length} sản phẩm`;
+      try { await syncStockFromShopee(result.slice(i, i + 100)); } catch (e) { console.warn('Lỗi đọc tồn kho:', e); }
     }
     state.all = result;
     mediaCache.clear();
@@ -2249,6 +2315,20 @@ export async function initProductsTab(h) {
   initProductEditModal(hooks);
 
   $('#btnPLoad').onclick = loadAll;
+  // Xoá dữ liệu đã tải (chỉ trong tool, không đụng sản phẩm trên Shopee)
+  if ($('#btnPClearData')) $('#btnPClearData').onclick = async () => {
+    if (state.loading) return hooks.toast('Đang tải, vui lòng chờ hoặc bấm Dừng', 'error');
+    if (!confirm('Xoá toàn bộ dữ liệu sản phẩm đã tải trong tool?\n(Sản phẩm trên Shopee không bị ảnh hưởng. Bấm "Tải toàn bộ sản phẩm" để tải lại.)')) return;
+    state.all = [];
+    state.selected.clear();
+    state.page = 1;
+    state.loadedAt = 0;
+    mediaCache.clear();
+    mediaErrors.clear();
+    await chrome.storage.local.remove([CACHE_KEY, MEDIA_KEY]).catch(() => {});
+    render();
+    hooks.toast('Đã xoá dữ liệu sản phẩm đã tải', 'success');
+  };
   initAutoLoad();
   $('#btnPStop').onclick = () => { state.stop = true; };
   if ($('#btnPExport')) $('#btnPExport').onclick = exportCsv;
@@ -2651,6 +2731,14 @@ ${label}
   $('#pfSearch').oninput = () => {
     clearTimeout(t);
     t = setTimeout(() => { state.page = 1; render(); }, 250);
+  };
+  // Chip lọc 1 ký tự đầu SKU
+  if ($('#pPrefixChips')) $('#pPrefixChips').onclick = (e) => {
+    const b = e.target.closest('[data-prefix]');
+    if (!b) return;
+    state.prefix = b.dataset.prefix;
+    state.page = 1;
+    render();
   };
 
   $('#pChkAll').onchange = (e) => {

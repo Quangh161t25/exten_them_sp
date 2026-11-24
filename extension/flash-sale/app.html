@@ -38,18 +38,6 @@
 
       <!-- SUBTAB 1: SẢN PHẨM CỦA SHOP (GIAO DIỆN HIỆN TẠI) -->
       <div id="subtabShopProductsView">
-        <div class="card">
-          <div class="card-head">
-            <div id="pSummary"></div>
-            <div class="row">
-              <span id="pProgress" class="muted"></span>
-              <button id="btnPStop" class="btn danger small hidden">Dừng</button>
-              <button id="btnPLoadNew" class="btn small" title="Chỉ tải các trang đầu (sản phẩm mới nhất) rồi gộp vào danh sách đang có; dừng khi gặp trang toàn sản phẩm đã có">🆕 Tải SP mới nhất</button>
-              <label class="muted" title="Khi trang này đang mở: tự tải sản phẩm mới nhất theo chu kỳ"><input type="checkbox" id="pAutoOn"> Tự tải mỗi <input type="number" id="pAutoMin" min="1" value="30" style="width:52px"> phút</label>
-              <button id="btnPLoad" class="btn primary">Tải toàn bộ sản phẩm</button>
-            </div>
-          </div>
-        </div>
 
         <div class="card">
           <div class="toolbar">
@@ -78,6 +66,16 @@
               </select>
             </label>
             <span class="muted">Khớp: <b id="pFilteredCount">0</b></span>
+            <div class="p-load-bar" style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+              <div id="pSummary" style="font-size:12px"></div>
+              <span id="pProgress" class="muted"></span>
+              <button id="btnPStop" class="btn danger small hidden">Dừng</button>
+              <button id="btnPLoadNew" class="btn small" title="Chỉ tải các trang đầu (sản phẩm mới nhất) rồi gộp vào danh sách đang có; dừng khi gặp trang toàn sản phẩm đã có">🆕 Tải SP mới nhất</button>
+              <label class="muted" title="Khi trang này đang mở: tự tải sản phẩm mới nhất theo chu kỳ"><input type="checkbox" id="pAutoOn"> Tự tải mỗi <input type="number" id="pAutoMin" min="1" value="30" style="width:52px"> phút</label>
+              <button id="btnPLoad" class="btn primary">Tải toàn bộ sản phẩm</button>
+              <button id="btnPClearData" class="btn small" title="Xoá danh sách sản phẩm đang lưu trong tool (không ảnh hưởng sản phẩm trên Shopee)">🗑 Xoá dữ liệu</button>
+            </div>
+          <div id="pPrefixChips" class="prefix-chips"></div>
           </div>
           <div class="toolbar">
             <span class="muted">Đã chọn: <b id="pSelCount">0</b></span>
@@ -277,6 +275,7 @@
           <button data-type="all">Tất cả</button>
         </div>
         <button id="btnReloadList" class="btn">Tải lại</button>
+        <button id="btnDeleteSelectedFs" class="btn danger" disabled style="display:inline-flex;align-items:center;gap:4px;border-color:#fca5a5;color:#dc2626;" title="Xoá các Flash Sale đã tích chọn">🗑 Xoá đã chọn (<b id="fsSelCount">0</b>)</button>
         <button id="btnNewFs" class="btn primary">+ Tạo Flash Sale mới</button>
       </div>
       <div id="fsList"></div>
@@ -416,5 +415,6 @@
 
   <div id="toast" class="toast hidden"></div>
   <script type="module" src="app.js"></script>
+  <script src="../lib/table-tools.js"></script>
 </body>
 </html>
