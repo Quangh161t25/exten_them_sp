@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>Hẹn giờ sao chép</title>
+  <style>
+    body { margin: 0; font: 13px/1.45 "Segoe UI", Arial, sans-serif; background: #f5f5f7; color: #222; }
+    main { padding: 12px; }
+    .card { background: #fff; border: 1px solid #e3e3e8; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+    h3 { margin: 0 0 8px; font-size: 14px; }
+    .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+    input, textarea, select { font: inherit; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; }
+    textarea { width: 100%; min-height: 70px; }
+    .btn { border: 1px solid #cbd5e1; background: #fff; border-radius: 4px; padding: 5px 10px; cursor: pointer; font: inherit; }
+    .btn.primary { background: #ee4d2d; border-color: #ee4d2d; color: #fff; font-weight: 600; }
+    .muted { color: #64748b; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 6px 8px; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
+    td.link { max-width: 260px; word-break: break-all; }
+    .st { padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .st.wait { background: #fef3c7; color: #92400e; } .st.run { background: #dbeafe; color: #1d4ed8; }
+    .st.ok { background: #dcfce7; color: #15803d; } .st.err { background: #fee2e2; color: #b91c1c; }
+    .gian-row input[type=text] { width: 80px; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+<main>
+  <section class="card">
+    <h3>⏰ Thêm lịch sao chép</h3>
+    <div class="muted">Mỗi dòng 1 link sản phẩm shopee.vn. Mỗi link được đăng vào từng gian ở dưới, đúng thời gian của gian đó. SKU phân loại để trống, tự bấm "⚡ Tự động".</div>
+    <textarea id="links" placeholder="https://shopee.vn/...-i.123.456"></textarea>
+    <div id="gians"></div>
+    <div class="row">
+      <button id="addGian" class="btn">➕ Thêm gian</button>
+      <button id="save" class="btn primary">💾 Thêm vào lịch</button>
+      <span id="msg" class="muted"></span>
+    </div>
+  </section>
+  <section class="card">
+    <div class="row">
+      <h3 style="margin:0">📋 Lịch đã hẹn <span class="muted">(sheet HEN_GIO_SAO_CHEP)</span></h3>
+      <button id="reload" class="btn">🔄 Tải lại</button>
+      <select id="filter"><option value="">Tất cả trạng thái</option><option>Chờ đăng</option><option>Đang đăng</option><option>Đã đăng</option><option>Lỗi</option></select>
+      <span id="info" class="muted"></span>
+    </div>
+    <table>
+      <thead><tr><th>Thời gian đăng</th><th>Gian</th><th>Link sản phẩm</th><th>Trạng thái</th><th>Kết quả</th><th></th></tr></thead>
+      <tbody id="list"></tbody>
+    </table>
+  </section>
+</main>
+<script src="app.js"></script>
+  <script src="../lib/table-tools.js"></script>
+</body>
+</html>
