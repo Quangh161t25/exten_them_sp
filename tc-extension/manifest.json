@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "TC Extension",
+  "version": "1.0.0",
+  "description": "Tải toàn bộ sản phẩm của một shop Shopee: ảnh chính + tên sản phẩm.",
+  "permissions": [
+    "downloads",
+    "scripting",
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://shopee.vn/*",
+    "https://*.susercontent.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "TC Extension - Tải danh sách SP shop"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://shopee.vn/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+:root { --main: #ee4d2d; --line: #e5e7eb; --muted: #6b7280; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 12px; font: 13px/1.45 Arial, sans-serif; color: #1f2937; background: #fff; }
+h1 { font-size: 16px; margin: 0 0 10px; color: #111; }
+h1::first-letter { color: var(--main); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.toolbar { margin-top: 10px; }
+input[type=text], input:not([type]) { flex: 1; min-width: 160px; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font: inherit; }
+button { padding: 7px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; font: inherit; cursor: pointer; }
+button:hover { background: #f9fafb; }
+button.primary { background: var(--main); border-color: var(--main); color: #fff; font-weight: 700; padding: 8px 16px; }
+button:disabled { opacity: .6; cursor: default; }
+.muted { color: var(--muted); }
+#status { margin-top: 6px; min-height: 18px; }
+#status.err { color: #dc2626; }
+.table-wrap { margin-top: 10px; border: 1px solid var(--line); border-radius: 6px; overflow: auto; max-height: calc(100vh - 230px); }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+th { position: sticky; top: 0; background: #f9fafb; font-weight: 600; color: #374151; z-index: 1; }
+td.idx { color: var(--main); width: 36px; }
+td.img img { width: 64px; height: 64px; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); display: block; }
+td.name a { color: #111; text-decoration: none; }
+td.name a:hover { color: var(--main); }
+td.name .id { color: var(--muted); font-size: 11px; }
+tr:hover td { background: #fafafa; }
+button.report { color: #b91c1c; border-color: #fca5a5; white-space: nowrap; }
+button.report:hover { background: #fef2f2; }
+#reportText { width: 100%; box-sizing: border-box; }
+input[type=number] { width: 58px; min-width: 50px; flex: none; padding: 5px 6px; border: 1px solid #d1d5db; border-radius: 6px; text-align: center; font: inherit; }

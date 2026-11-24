@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TC Extension</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header>
+    <h1>● TC Extension</h1>
+    <div class="row">
+      <input id="shopInput" placeholder="Dán link shop Shopee, vd https://shopee.vn/moricolife">
+      <button id="btnLoad" class="primary">Tải SP</button>
+    </div>
+    <div id="status" class="muted"></div>
+  </header>
+
+  <section id="result" hidden>
+    <div class="row toolbar">
+      <input id="search" placeholder="Tìm tên sản phẩm...">
+      <span class="muted">Khớp: <b id="count">0</b></span>
+    </div>
+    <div class="row toolbar">
+      <button id="btnCsv">⬇ Xuất Excel (CSV)</button>
+      <button id="btnImgs">🖼 Tải ảnh chính</button>
+      <button id="btnCopy">📋 Copy tên</button>
+      <button id="btnReportSel" class="report" title="Mở lần lượt từng SP đã chọn, tự điền form tố cáo và tự động bấm Gửi">🚩 Tố cáo SP đã chọn (lần lượt)</button>
+      <span class="muted">Đã chọn: <b id="selCount">0</b> (không chọn = tất cả)</span>
+    </div>
+    <div class="row toolbar" style="align-items: flex-start;">
+      <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; max-width: 580px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="muted">5 nội dung tố cáo chọn ngẫu nhiên (mỗi dòng 1 nội dung, tối đa 50 ký tự):</span>
+          <button type="button" id="btnResetTemplates" style="padding: 2px 8px; font-size: 11px; color: #4b5563;" title="Khôi phục 5 mẫu mặc định">↺ Mẫu mặc định</button>
+        </div>
+        <textarea id="reportText" rows="5" style="padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font: inherit; resize: vertical; line-height: 1.45;" placeholder="Mỗi dòng một nội dung tố cáo..."></textarea>
+      </div>
+      <div style="margin-top: 20px; margin-left: 14px; display: flex; flex-direction: column; gap: 10px;">
+        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">
+          <input type="checkbox" id="chkAutoSend" checked> Tự động bấm "Gửi Tố Cáo"
+        </label>
+        <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px;">
+          <span class="muted">Khoảng nghỉ giữa các SP:</span>
+          Từ <input type="number" id="minDelay" min="1" max="600" value="20">
+          đến <input type="number" id="maxDelay" min="1" max="600" value="40"> giây
+        </div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="chkAll"></th>
+            <th>#</th>
+            <th>Hình ảnh</th>
+            <th>Tên sản phẩm</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <script src="panel.js"></script>
+</body>
+</html>
