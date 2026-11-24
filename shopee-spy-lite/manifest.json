@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Shopee Spy Lite",
+  "description": "Spy sản phẩm & Spy từ khóa trên trang tìm kiếm Shopee (2 chức năng rút gọn).",
+  "version": "1.0.0",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": ["storage", "cookies"],
+  "host_permissions": ["https://shopee.vn/*"],
+  "action": {
+    "default_title": "Shopee Spy Lite",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://shopee.vn/*"],
+      "js": ["src/bridge-main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://shopee.vn/*"],
+      "js": ["src/content.js"],
+      "css": ["src/content.css"],
+      "run_at": "document_idle",
+      "world": "ISOLATED"
+    }
+  ]
+}

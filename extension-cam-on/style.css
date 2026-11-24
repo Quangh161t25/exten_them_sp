@@ -1,0 +1,14 @@
+.tc-thanks-btn {
+  margin-left: 8px;
+  padding: 2px 10px;
+  border: 1px solid #ee4d2d;
+  border-radius: 12px;
+  background: #fff;
+  color: #ee4d2d;
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 20px;
+}
+.tc-thanks-btn:hover { background: #ee4d2d; color: #fff; }
+.tc-thanks-btn.tc-done { border-color: #26aa99; color: #26aa99; }
+.tc-thanks-btn.tc-done:hover { background: #26aa99; color: #fff; }

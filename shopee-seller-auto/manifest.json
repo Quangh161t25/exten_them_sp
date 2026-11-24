@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Shopee Seller Auto",
+  "short_name": "Seller Auto",
+  "description": "Tự động cho nhà bán Shopee: đẩy sản phẩm theo lịch, trả lời đánh giá, đánh giá người mua, gửi tin nhắn hàng loạt theo kịch bản.",
+  "version": "1.0.0",
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "permissions": ["tabs", "scripting", "storage", "unlimitedStorage", "alarms", "cookies", "notifications"],
+  "host_permissions": ["https://banhang.shopee.vn/*", "https://shopee.vn/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Shopee Seller Auto" }
+}

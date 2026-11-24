@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shopee Video Dashboard</title>
+  <link rel="stylesheet" href="../lib/style.css">
+</head>
+<body>
+  <main class="page">
+    <div class="row row--wrap" style="margin-bottom:14px">
+      <a class="btn btn--primary" href="download.html">+ Video từ link sản phẩm</a>
+      <a class="btn" href="compose.html">+ Soạn video mới</a>
+      <span class="grow"></span>
+      <button class="btn btn--ghost hidden" id="btnSeed">Nạp dữ liệu mẫu</button>
+      <a class="btn btn--ghost" id="lnkManage" target="_blank" rel="noopener">Quản lý video trên Shopee ↗</a>
+    </div>
+    <p class="err-msg hidden" id="shopErr" style="font-size:14px;margin:0 0 12px"></p>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="dash">
+      <aside class="card">
+        <div class="row">
+          <h3 class="grow">Chiến dịch</h3>
+          <button class="btn btn--sm btn--ghost" id="btnReload" title="Tải lại">⟳</button>
+          <button class="btn btn--sm btn--primary" id="btnNewCamp">+ Tạo</button>
+        </div>
+        <div id="camps"></div>
+      </aside>
+
+      <section class="card">
+        <div class="row row--wrap">
+          <div class="tabs" id="tabs">
+            <button data-f="all" class="is-active">Tất cả</button>
+            <button data-f="done">Đã đăng</button>
+            <button data-f="error">Lỗi</button>
+            <button data-f="pending">Chờ</button>
+          </div>
+          <span class="grow"></span>
+          <span class="small muted" id="syncInfo"></span>
+          <button class="btn btn--sm" id="btnSyncAll">Đồng bộ chỉ số</button>
+          <button class="btn btn--sm btn--danger" id="btnPostAll">Đăng tất cả (0)</button>
+        </div>
+        <div class="progress hidden" id="bulkProg" style="margin-top:12px"><div style="width:0"></div></div>
+        <div id="items"></div>
+      </section>
+    </div>
+  </main>
+  <script src="../lib/store.js"></script>
+  <script src="../lib/bridge.js"></script>
+  <script src="../lib/shopee.js"></script>
+  <script src="../lib/ui.js"></script>
+  <script src="../lib/publisher.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

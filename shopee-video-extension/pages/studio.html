@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shopee Video Studio</title>
+  <link rel="stylesheet" href="../lib/style.css">
+</head>
+<body class="studio-body">
+  <main class="studio" id="studio">
+    <section class="studio__col">
+      <div class="studio__head"><b>1 · Tải video</b><a class="small" href="download.html" target="_blank" title="Mở riêng trong tab mới">Mở riêng ↗</a></div>
+      <iframe id="col-download" title="Tải video"></iframe>
+    </section>
+    <section class="studio__col">
+      <div class="studio__head"><b>2 · Soạn &amp; đăng</b><a class="small" href="compose.html" target="_blank" title="Mở riêng trong tab mới">Mở riêng ↗</a></div>
+      <iframe id="col-compose" title="Soạn &amp; đăng"></iframe>
+    </section>
+    <section class="studio__col studio__col--wide">
+      <div class="studio__head"><b>3 · Dashboard</b><a class="small" href="dashboard.html" target="_blank" title="Mở riêng trong tab mới">Mở riêng ↗</a></div>
+      <iframe id="col-dashboard" title="Dashboard"></iframe>
+    </section>
+  </main>
+  <script src="../lib/store.js"></script>
+  <script src="../lib/bridge.js"></script>
+  <script src="../lib/shopee.js"></script>
+  <script src="../lib/ui.js"></script>
+  <script src="studio.js"></script>
+</body>
+</html>

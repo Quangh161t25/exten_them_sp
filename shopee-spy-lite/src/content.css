@@ -1,0 +1,113 @@
+/* Shopee Spy Lite - UI */
+
+/* đảm bảo ô sản phẩm giãn ra để hiện khối số liệu (Shopee set height cố định) */
+li.spl-has { height: auto !important; overflow: visible !important; }
+li.spl-has > div { height: auto !important; }
+
+/* ----- Chức năng 1: dải số liệu dưới mỗi sản phẩm ----- */
+.spl-card {
+  margin: 4px 4px 8px;
+  padding: 6px 8px;
+  border: 1px solid #ffd4c2;
+  border-radius: 8px;
+  background: #fff6f2;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #333;
+  font-family: Arial, Helvetica, sans-serif;
+}
+.spl-card .spl-head {
+  font-weight: 700;
+  color: #ee4d2d;
+  margin-bottom: 3px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.spl-card .spl-rank {
+  background: #ee4d2d;
+  color: #fff;
+  border-radius: 10px;
+  padding: 0 6px;
+  font-size: 10px;
+}
+.spl-row { display: flex; justify-content: space-between; gap: 6px; }
+.spl-row .spl-k { color: #888; }
+.spl-row .spl-v { color: #222; font-weight: 600; text-align: right; }
+.spl-row .spl-v.spl-strong { color: #ee4d2d; }
+.spl-flag {
+  background: #ffefe6; color: #ee4d2d; border-radius: 4px;
+  padding: 0 4px; font-size: 10px; font-weight: 700;
+}
+
+/* ----- Nút nổi Spy từ khóa ----- */
+#spl-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 90px;
+  z-index: 2147483000;
+  background: #ee4d2d;
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  font-family: Arial, Helvetica, sans-serif;
+}
+#spl-fab:hover { background: #d8431f; }
+#spl-fab:disabled { opacity: 0.7; cursor: default; }
+
+/* ----- Chức năng 2: popup tổng hợp từ khóa ----- */
+#spl-popup {
+  position: fixed;
+  right: 18px;
+  top: 70px;
+  width: 440px;
+  max-width: calc(100vw - 36px);
+  max-height: calc(100vh - 100px);
+  overflow: auto;
+  z-index: 2147483000;
+  background: #fff;
+  border: 2px solid #ee4d2d;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  padding: 14px 16px 16px;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #222;
+  display: none;
+}
+.spl-pop-head { display: flex; justify-content: space-between; align-items: center; }
+.spl-pop-title { font-size: 16px; font-weight: 800; color: #ee4d2d; }
+.spl-x { border: none; background: transparent; font-size: 16px; cursor: pointer; color: #999; }
+.spl-kw { font-size: 15px; font-weight: 700; margin: 6px 0 2px; }
+.spl-sub { font-size: 11px; color: #999; margin-bottom: 10px; }
+
+.spl-kpis {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 10px 6px;
+  margin-bottom: 12px;
+}
+.spl-kpi { text-align: center; }
+.spl-kpi-v { font-size: 15px; font-weight: 800; color: #222; }
+.spl-kpi-k { font-size: 10px; color: #888; margin-top: 2px; }
+
+.spl-top-title { font-weight: 800; font-size: 13px; margin-bottom: 6px; }
+.spl-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.spl-table th {
+  text-align: left; color: #888; font-weight: 600;
+  border-bottom: 1px solid #eee; padding: 5px 4px;
+}
+.spl-table td { padding: 5px 4px; border-bottom: 1px solid #f3f3f3; vertical-align: top; }
+.spl-table td.spl-c { color: #bbb; width: 18px; }
+.spl-table td.spl-name { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spl-table td.spl-r { text-align: right; white-space: nowrap; }
+.spl-table td.spl-r:last-child { color: #ee4d2d; font-weight: 700; }
+.spl-empty { text-align: center; color: #aaa; padding: 12px; }

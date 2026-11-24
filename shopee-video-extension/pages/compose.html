@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Soạn & đăng video</title>
+  <link rel="stylesheet" href="../lib/style.css">
+</head>
+<body>
+  <main class="page page--narrow">
+    <section class="card">
+      <div class="row" style="align-items:flex-start">
+        <div class="grow">
+          <h1 class="card__title">Đăng video lên kênh Shopee</h1>
+          <p class="card__desc">Gắn sản phẩm của shop bạn và đăng video lên Shopee Video.</p>
+        </div>
+        <span class="compose__badge" id="srcBadge">Shopee</span>
+      </div>
+
+      <div class="compose">
+        <div class="compose__media">
+          <div id="mediaBox"><div class="ph">Chưa có video</div></div>
+          <label class="btn btn--sm" style="margin-top:10px;width:100%">
+            Chọn video từ máy…
+            <input type="file" id="fileInput" accept="video/mp4,video/*" hidden>
+          </label>
+          <p class="small muted" id="shopLine" style="margin-top:10px"></p>
+        </div>
+
+        <div>
+          <div class="field" id="fCampaign">
+            <label class="field__label" for="campaign">Chiến dịch</label>
+            <input class="input" id="campaign" list="campaignList" placeholder="Chọn chiến dịch có sẵn hoặc gõ tên mới" autocomplete="off">
+            <datalist id="campaignList"></datalist>
+            <p class="field__tip">Gõ tên chưa có để tự tạo chiến dịch mới khi lưu / đăng.</p>
+          </div>
+
+          <div class="field" id="fProducts">
+            <label class="field__label" for="pq">Sản phẩm gắn vào video</label>
+            <form id="pForm" class="row"><input class="input grow" id="pq" placeholder="Tìm sản phẩm theo tên"><button class="btn" type="submit">Tìm</button></form>
+            <div class="row small muted" style="margin:6px 0 0"><span class="grow">Tối đa 6 sản phẩm mỗi video</span><b id="pCount" style="color:var(--brand)">0/6</b></div>
+            <div class="chips" id="chips"></div>
+            <div class="picker" id="picker"><div class="empty">Đang tải…</div></div>
+          </div>
+
+          <div class="field" id="fCaption">
+            <label class="field__label" for="caption">Tiêu đề / mô tả</label>
+            <textarea class="input" id="caption" rows="3" maxlength="2200" placeholder="Nhập tiêu đề hoặc mô tả cho video"></textarea>
+          </div>
+
+          <div class="progress hidden" id="progress"><div style="width:0"></div></div>
+          <p class="log hidden" id="log"></p>
+
+          <div class="checklist" id="checklist"></div>
+
+          <div class="row" style="justify-content:flex-end">
+            <button class="btn btn--lg" id="btnSave">Lưu vào hàng chờ</button>
+            <button class="btn btn--lg btn--danger" id="btnPublish">Đăng video</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="../lib/store.js"></script>
+  <script src="../lib/bridge.js"></script>
+  <script src="../lib/shopee.js"></script>
+  <script src="../lib/ui.js"></script>
+  <script src="../lib/publisher.js"></script>
+  <script src="compose.js"></script>
+</body>
+</html>

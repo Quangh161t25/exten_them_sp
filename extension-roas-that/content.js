@@ -200,6 +200,19 @@
   const $ = (s) => root.querySelector(s);
   const panel = $('.panel');
   $('.fab').onclick = () => panel.classList.toggle('open');
+
+  // Chỉ hiện nút "ROAS thật" ở trang Quảng cáo Shopee (/portal/marketing/pas/...); trang khác thì ẩn.
+  // Kênh Người Bán là SPA nên kiểm tra lại mỗi khi đổi URL.
+  const onAdsPage = () => location.pathname.startsWith('/portal/marketing/pas');
+  let roasLastPath = '';
+  const syncRoasVisible = () => {
+    if (location.pathname === roasLastPath) return;
+    roasLastPath = location.pathname;
+    host.style.display = onAdsPage() ? '' : 'none';
+    if (!onAdsPage()) panel.classList.remove('open');
+  };
+  syncRoasVisible();
+  setInterval(syncRoasVisible, 800);
   $('.x').onclick = () => panel.classList.remove('open');
 
   const today = new Date(Date.now() + TZ * 1000);

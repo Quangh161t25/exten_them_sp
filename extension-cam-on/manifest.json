@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "TOPCARE - Cảm ơn khách 1 chạm",
+  "version": "1.0.0",
+  "description": "Thêm nút 💚 cạnh tên người mua trong Quản lý đơn hàng Shopee: bấm để mở chat và soạn sẵn lời cảm ơn riêng theo sản phẩm.",
+  "content_scripts": [
+    {
+      "matches": ["https://banhang.shopee.vn/portal/sale/*"],
+      "js": ["content.js"],
+      "css": ["style.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Shopee Video Studio",
+  "short_name": "Video Studio",
+  "description": "Tải video sản phẩm Shopee, soạn & đăng video lên kênh Shopee Video, theo dõi trạng thái và lượt xem.",
+  "version": "1.0.0",
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "permissions": ["tabs", "scripting", "storage", "unlimitedStorage", "downloads", "cookies"],
+  "host_permissions": [
+    "https://shopee.vn/*",
+    "https://banhang.shopee.vn/*",
+    "https://creator.shopee.vn/*",
+    "https://api.mms.shopee.vn/*",
+    "https://*.shopee.vn/*",
+    "https://*.vod.shopee.com/*",
+    "http://*.vod.shopee.com/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Shopee Video Studio" },
+  "content_scripts": [
+    {
+      "matches": ["https://shopee.vn/*"],
+      "js": ["content/product-button.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
