@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tải video sản phẩm</title>
+  <link rel="stylesheet" href="../lib/style.css">
+</head>
+<body>
+  <main class="page page--narrow">
+    <section class="card">
+      <h1 class="card__title">Tải video sản phẩm Shopee</h1>
+      <p class="card__desc">Dán link sản phẩm shopee.vn để xem, tải video / ảnh, hoặc đăng video lên kênh Shopee Video của shop bạn.</p>
+      <form id="form" class="row">
+        <input id="link" class="input grow" placeholder="https://shopee.vn/Ten-san-pham-i.123456.7890123" autocomplete="off">
+        <button class="btn btn--primary" id="btnFetch" type="submit">Lấy dữ liệu</button>
+      </form>
+      <p id="status" class="small muted" style="margin:8px 0 0"></p>
+    </section>
+
+    <section class="card hidden" id="result">
+      <div class="row">
+        <div class="grow">
+          <h2 class="card__title" id="pName"></h2>
+          <div class="small muted" id="pMeta"></div>
+        </div>
+        <a class="btn" id="pOpen" target="_blank" rel="noopener">Mở trên Shopee</a>
+      </div>
+
+      <h3 style="margin-top:18px">Video <span class="muted small" id="vCount"></span></h3>
+      <div id="videos" class="media-grid"></div>
+
+      <div class="row" style="margin-top:22px">
+        <h3 class="grow">Ảnh <span class="muted small" id="iCount"></span></h3>
+        <button class="btn btn--sm" id="btnImgs">Tải tất cả ảnh</button>
+      </div>
+      <div id="images" class="img-grid"></div>
+    </section>
+  </main>
+  <script src="../lib/store.js"></script>
+  <script src="../lib/bridge.js"></script>
+  <script src="../lib/shopee.js"></script>
+  <script src="../lib/ui.js"></script>
+  <script src="download.js"></script>
+</body>
+</html>

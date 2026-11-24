@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hẹn giờ đăng video</title>
+  <link rel="stylesheet" href="../lib/style.css">
+  <style>
+    .auto-grid{display:grid;grid-template-columns:minmax(380px,1fr) minmax(460px,1.3fr);gap:14px}
+    @media(max-width:1000px){.auto-grid{grid-template-columns:1fr}}
+    .plist{max-height:62vh;overflow:auto;border:1px solid #e5e7eb;border-radius:8px}
+    .plist table,.jobs table{width:100%;border-collapse:collapse;font-size:13px}
+    .plist td,.plist th,.jobs td,.jobs th{padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:left;vertical-align:middle}
+    .plist th,.jobs th{position:sticky;top:0;background:#f8fafc;z-index:1}
+    .plist img{width:40px;height:40px;object-fit:cover;border-radius:4px}
+    .jobs{max-height:70vh;overflow:auto;border:1px solid #e5e7eb;border-radius:8px}
+    .st{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;white-space:nowrap}
+    .st.wait{background:#fef9c3;color:#854d0e}.st.run{background:#dbeafe;color:#1e40af}
+    .st.done{background:#dcfce7;color:#166534}.st.err{background:#fee2e2;color:#991b1b}
+    .muted{color:#64748b}.small{font-size:12px}
+    .ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+    .ctl input,.ctl select{padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font:inherit}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <p class="muted small" id="shopLine">Đang kiểm tra Kênh Người Bán…</p>
+    <div class="auto-grid">
+      <section class="card">
+        <h3>1 · Chọn sản phẩm của shop</h3>
+        <p class="muted small">Danh sách lấy từ module <b>Sản phẩm</b> (Sản phẩm của Shop). Chưa có thì mở module đó bấm "Tải toàn bộ sản phẩm".</p>
+        <div class="ctl">
+          <input id="q" placeholder="Tìm tên, ID, SKU…" style="flex:1;min-width:160px">
+          <span class="small muted">Đã chọn: <b id="selCount">0</b></span>
+        </div>
+        <div class="plist"><table><thead><tr><th><input type="checkbox" id="chkAll"></th><th></th><th>Sản phẩm</th><th>Video đã hẹn</th></tr></thead><tbody id="plist"></tbody></table></div>
+
+        <h3 style="margin-top:14px">2 · Hẹn giờ</h3>
+        <div class="ctl">
+          <label class="small">Bắt đầu <input type="datetime-local" id="startAt"></label>
+          <label class="small">Mỗi SP cách nhau <input type="number" id="gapMin" value="30" min="1" style="width:70px"> phút</label>
+        </div>
+        <div class="ctl">
+          <label class="small">Chiến dịch <input id="campaign" list="campList" placeholder="Tên chiến dịch (chưa có sẽ tự tạo)" style="min-width:220px"></label>
+          <datalist id="campList"></datalist>
+        </div>
+        <div class="ctl">
+          <label class="small"><input type="checkbox" id="aiCaption" checked> AI viết tiêu đề + hashtag (Gemini)</label>
+        </div>
+        <div class="ctl">
+          <button class="btn btn--primary" id="btnAdd">⏰ Thêm vào lịch đăng</button>
+          <span class="small" id="addMsg"></span>
+        </div>
+        <p class="muted small">Tới giờ, tool tự: tìm tên sản phẩm trên shopee.vn → chọn <b>sản phẩm đầu tiên có video</b> (không phải shop bạn) → lấy video →
+          chọn chiến dịch → gắn sản phẩm của bạn → viết tiêu đề kèm hashtag → <b>đăng luôn</b>. Cần Chrome đang mở và đăng nhập shopee.vn + Kênh Người Bán.</p>
+      </section>
+
+      <section class="card">
+        <div class="row"><h3 class="grow">3 · Lịch đăng & trạng thái</h3>
+          <select id="fStatus" class="small"><option value="">Tất cả</option><option value="wait">Chờ</option><option value="run">Đang chạy</option><option value="done">Đã đăng</option><option value="err">Lỗi</option></select>
+          <button class="btn btn--sm btn--ghost" id="btnRunNow" title="Chạy ngay các lịch đã tới giờ">▶ Chạy lịch tới giờ</button>
+          <button class="btn btn--sm btn--ghost" id="btnClearDone">Xoá lịch đã đăng</button>
+          <button class="btn btn--sm" id="btnDelSelected" style="color:#dc2626;border-color:#fca5a5;opacity:0.5" disabled title="Xoá các lịch đã tích chọn">🗑 Xoá đã chọn (<b id="jobSelCount">0</b>)</button>
+        </div>
+        <p class="small muted" id="runnerLine"></p>
+        <div class="jobs"><table><thead><tr><th style="width:34px"><input type="checkbox" id="chkAllJobs" title="Chọn tất cả"></th><th>Thời gian</th><th>Sản phẩm</th><th>Chiến dịch</th><th>Trạng thái</th><th>Kết quả</th><th></th></tr></thead><tbody id="jobs"></tbody></table></div>
+      </section>
+    </div>
+  </main>
+  <script src="../lib/store.js"></script>
+  <script src="../lib/bridge.js"></script>
+  <script src="../lib/shopee.js"></script>
+  <script src="../lib/ui.js"></script>
+  <script src="../lib/publisher.js"></script>
+  <script src="auto.js"></script>
+  <script src="../../lib/table-tools.js"></script>
+</body>
+</html>
