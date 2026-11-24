@@ -89,6 +89,7 @@
     try { const c = await chrome.cookies.get({ url: ORIGINS[kind].base + '/', name }); return c ? c.value : ''; } catch { return ''; }
   }
 
+  let directBlockedUntil = 0; // thời điểm được thử lại gọi API ngầm (sau khi bị chặn)
   const Bridge = {
     HAS_EXT,
     ORIGINS,
@@ -99,7 +100,17 @@
       const o = ORIGINS[kind];
       const u = new URL(req.url || o.base + req.path);
       Object.entries(req.query || {}).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, v); });
-      const r = await exec(kind, pageFetch, [{ ...req, url: u.toString() }]);
+      const full = { ...req, url: u.toString() };
+      let r = null;
+      // Kênh Người Bán: gọi API ngầm thẳng từ extension (cookie đăng nhập đi kèm), không cần mở tab.
+      // Bị chặn (401/403), lỗi mạng hay không ra JSON → quay về cách cũ (chạy trong tab) và tạm dùng cách cũ 10 phút.
+      if (kind === 'seller' && Date.now() > directBlockedUntil) {
+        r = await pageFetch(full);
+        const authErr = r && r.data && (r.data.code || r.data.error) && /csrf|token|login|forbid|permission|unauthori|not.?logged/i.test(JSON.stringify(r.data).slice(0, 400));
+        const bad = !r || r.error || r.status === 0 || r.status === 401 || r.status === 403 || authErr || (!r.data && r.status >= 200 && r.status < 300);
+        if (bad) { directBlockedUntil = Date.now() + 10 * 60e3; r = null; }
+      }
+      if (!r) r = await exec(kind, pageFetch, [full]);
       if (!r) throw new Error('NO_RESULT');
       if (r.error) throw new Error('Lỗi mạng: ' + r.error);
       if (r.status === 401 || r.status === 403) {
@@ -107,7 +118,7 @@
       }
       return r;
     },
-    sha256: (s) => exec('seller', pageSha256, [s]),
+    sha256: (s) => (globalThis.crypto && crypto.subtle ? pageSha256(s) : exec('seller', pageSha256, [s])),
   };
 
   self.Bridge = Bridge;
