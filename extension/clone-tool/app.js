@@ -60,6 +60,8 @@ let cachedCaiDatRows = null;
 // ---------- Nhật ký ----------
 
 function log(text, type = '') {
+  // Lỗi → gom về trang "Lỗi hôm nay" + báo Telegram
+  if (type === 'err') { try { chrome.runtime.sendMessage({ type: 'QLSP_ERROR', module: 'Sao chép sản phẩm', message: String(text).replace(/^✖\s*/, ''), ref: (typeof current !== 'undefined' && current) ? `SP ${current.itemId}` : '' }); } catch (e) { /* bỏ qua */ } }
   const el = document.createElement('div');
   el.className = type;
   el.textContent = `${new Date().toLocaleTimeString('vi-VN')}  ${text}`;

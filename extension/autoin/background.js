@@ -162,6 +162,8 @@ async function getTelegramConfig() {
   };
 }
 
+// Cho chỗ gom lỗi chung (extension/errors/hub.js) dùng lại cấu hình + gửi Telegram của Auto In
+self.AutoInTele = { send: (...a) => sendTelegram(...a), config: () => getTelegramConfig() };
 async function sendTelegram(text, targetChatId = null, replyMarkup = null) {
   try {
     const cfg = await getTelegramConfig();
@@ -846,6 +848,8 @@ async function recordWameli(base, slot, warehouse, count, sns) {
 }
 
 async function recordError(order_sn, stage, message) {
+  // Gom về trang "Lỗi hôm nay" (Auto In đã tự báo Telegram nên không gửi lại)
+  try { self.qlspReportError && self.qlspReportError('Auto In · ' + (stage || 'Lỗi'), message, order_sn ? 'Đơn ' + order_sn : '', { tele: false }); } catch (e) { /* bỏ qua */ }
   const now = new Date();
   const time = `${p2(now.getHours())}:${p2(now.getMinutes())}`;
   await updateDayStats(todayStr(), (day) => {

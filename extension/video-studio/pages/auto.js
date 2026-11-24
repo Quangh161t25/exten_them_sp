@@ -274,6 +274,7 @@
       UI.notify && UI.notify('changed', { campaign: camp.id });
     } catch (e) {
       await patchJob(job.id, { status: 'err', result: errText(e).slice(0, 250) });
+      try { chrome.runtime.sendMessage({ type: 'QLSP_ERROR', module: 'Hẹn giờ đăng video', message: errText(e).slice(0, 300), ref: job.name.slice(0, 80) }); } catch (_) { /* bỏ qua */ }
     }
   }
 

@@ -4258,3 +4258,6 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     .catch((e) => reply({ ok: false, error: String(e && e.message || e) }));
   return true;
 });
+
+// Gom lỗi mọi module về trang "Lỗi hôm nay" + báo Telegram (nạp cuối)
+importScripts("errors/hub.js");
