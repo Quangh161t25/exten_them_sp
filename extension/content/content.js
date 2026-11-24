@@ -5808,7 +5808,10 @@ Chúc anh/chị có một ngày thật vui vẻ, nhiều năng lượng và tố
           if (!finalUrl.includes("#auto_edit_km")) {
             finalUrl = finalUrl.includes("#") ? finalUrl.replace("#", "#auto_edit_km=1&") : `${finalUrl}#auto_edit_km=1`;
           }
-          window.open(finalUrl, "_blank");
+          // Mở tab qua background (window.open sau khi chờ đọc sheet bị Chrome chặn popup)
+          chrome.runtime.sendMessage({ type: "QLSP_OPEN_TAB", url: finalUrl }, (r) => {
+            if (chrome.runtime.lastError || !r || !r.ok) window.open(finalUrl, "_blank");
+          });
         } else {
           alert(`Không tìm thấy link KM cho mã gian "${maGian || '(chưa chọn)'}" tại Cột I (link_km) sheet CAI_DAT.\n\nVui lòng điền link KM vào Cột I sheet CAI_DAT!`);
         }
@@ -5908,10 +5911,8 @@ Chúc anh/chị có một ngày thật vui vẻ, nhiều năng lượng và tố
     }
 
     for (const { row, moreTarget } of findProductActionRows()) {
-      if (row.dataset.shopeeQlspQuickActions === "1") {
-        continue;
-      }
-
+      // Chỉ bỏ qua khi khung nút của tool VẪN còn ngay sau hàng. Shopee (Vue) dùng lại thẻ khi đổi trang/lọc
+      // và xoá khung nút đã chèn, nên không dựa vào cờ dataset (cờ còn mà nút mất → phải F5 mới hiện).
       if (row.nextElementSibling?.classList.contains(PRODUCT_LIST_QUICK_ACTION_CLASS)) {
         continue;
       }

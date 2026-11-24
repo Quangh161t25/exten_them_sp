@@ -9804,6 +9804,14 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       btnDeleteSelected.style.display = "none";
     }
+    // Nút đưa ảnh đã chọn sang trang sửa sản phẩm
+    const n = selectedApiItemIds.size;
+    for (const [id, label] of [["api-btn-push-main", "🖼️ Thêm vào ảnh chính"], ["api-btn-push-desc", "📝 Thêm vào mô tả"]]) {
+      const b = document.getElementById(id);
+      if (!b || b.dataset.busy) continue;
+      b.style.display = n > 0 ? "inline-block" : "none";
+      b.textContent = `${label} (${n})`;
+    }
   }
 
   function updateSelectAllState(pageItems) {
@@ -9874,6 +9882,80 @@ document.addEventListener("DOMContentLoaded", () => {
       fetchLuuAnhApiFromSheet();
     });
   }
+
+  // ---- Đưa các ảnh đã chọn vào trang sửa / thêm sản phẩm (ảnh chính hoặc mô tả) ----
+  async function findProductEditTabForApi() {
+    const tabs = await chrome.tabs.query({ url: "https://banhang.shopee.vn/portal/product/*" });
+    const isEdit = (t) => /\/portal\/product\/(\d+|new)(?:[/?#]|$)/.test(t.url || "");
+    return tabs.filter(isEdit).sort((a, b) => (b.active - a.active) || ((b.lastAccessed || 0) - (a.lastAccessed || 0)))[0] || null;
+  }
+  // Nén ảnh: cạnh dài tối đa 1200px (vẫn ≥ 500px theo chuẩn Shopee), JPEG chất lượng 85%.
+  // Ảnh đã nhỏ (< 300KB và ≤ 1200px) thì giữ nguyên. Nền trong suốt (PNG) được tô trắng.
+  async function compressApiImage(blob) {
+    const MAX = 1200, Q = 0.85;
+    try {
+      const bmp = await createImageBitmap(blob);
+      const scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+      if (scale === 1 && blob.size < 300 * 1024) { blob.__origSize = blob.size; return blob; }
+      const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
+      const c = new OffscreenCanvas(w, h);
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(bmp, 0, 0, w, h);
+      const out = await c.convertToBlob({ type: "image/jpeg", quality: Q });
+      if (out.size >= blob.size) { blob.__origSize = blob.size; return blob; }
+      out.__origSize = blob.size;
+      return out;
+    } catch (e) {
+      blob.__origSize = blob.size;
+      return blob; // không nén được thì dùng ảnh gốc
+    }
+  }
+  async function pushSelectedApiImages(type, btn, where) {
+    if (btn.dataset.busy) return;
+    // Giữ đúng thứ tự trong danh sách
+    const items = uploadedList.filter((it) => selectedApiItemIds.has(it.id) || selectedApiItemIds.has(it.link)).filter((it) => it.link);
+    if (!items.length) return;
+    const label = btn.textContent;
+    btn.dataset.busy = "1";
+    btn.disabled = true;
+    try {
+      const tab = await findProductEditTabForApi();
+      if (!tab) throw new Error("Chưa mở trang sửa / thêm sản phẩm (banhang.shopee.vn/portal/product/...)");
+      const files = [];
+      let savedKb = 0;
+      for (let i = 0; i < items.length; i++) {
+        btn.textContent = `Đang tải ảnh ${i + 1}/${items.length}...`;
+        const r = await fetch(items[i].link);
+        if (!r.ok) throw new Error(`Không tải được ảnh ${i + 1} (HTTP ${r.status})`);
+        const blob = await compressApiImage(await r.blob());
+        const dataUrl = await new Promise((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onloadend = () => resolve(fr.result);
+          fr.onerror = () => reject(new Error(`Không đọc được ảnh ${i + 1}`));
+          fr.readAsDataURL(blob);
+        });
+        savedKb += Math.max(0, Math.round((blob.__origSize - blob.size) / 1024));
+        files.push({ name: `image-${i + 1}.jpg`, type: blob.type || "image/jpeg", lastModified: Date.now(), dataUrl });
+      }
+      btn.textContent = "Đang đưa vào trang...";
+      const res = await chrome.tabs.sendMessage(tab.id, { type, files });
+      if (res && (res.ok === false || res.success === false || res.error)) throw new Error(res.error || res.message || "Trang Shopee không nhận ảnh");
+      await chrome.tabs.update(tab.id, { active: true });
+      showStatus(`✅ Đã đưa ${files.length} ảnh vào ${where} ở trang sửa sản phẩm${savedKb ? ` (đã nén, giảm ${savedKb >= 1024 ? (savedKb / 1024).toFixed(1) + " MB" : savedKb + " KB"})` : ""}.`, "#16a34a");
+    } catch (e) {
+      showStatus(`❌ Không đưa được ảnh: ${e.message}`, "#dc2626");
+    } finally {
+      delete btn.dataset.busy;
+      btn.disabled = false;
+      btn.textContent = label;
+      updateDeleteButtonUI();
+    }
+  }
+  const btnPushMain = document.getElementById("api-btn-push-main");
+  if (btnPushMain) btnPushMain.addEventListener("click", () => pushSelectedApiImages("UPLOAD_PRODUCT_IMAGES", btnPushMain, "ảnh chính"));
+  const btnPushDesc = document.getElementById("api-btn-push-desc");
+  if (btnPushDesc) btnPushDesc.addEventListener("click", () => pushSelectedApiImages("UPLOAD_DESCRIPTION_IMAGES", btnPushDesc, "mô tả"));
 
   const btnDeleteSelected = document.getElementById("api-btn-delete-selected");
   if (btnDeleteSelected) {

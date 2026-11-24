@@ -289,6 +289,8 @@ style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); bo
     <button type="button" id="api-btn-reload-sheet" style="padding: 2px 7px; font-size: 10px; font-weight: bold; background: #10b981; color: white; border: none; border-radius: 3px; cursor: pointer;" title="Tải lại từ Sheet LUU_ANH_API">🔄 Tải lại</button>
   </div>
   <div style="display: flex; align-items: center; gap: 4px;">
+    <button type="button" id="api-btn-push-main" style="padding: 2px 8px; font-size: 10px; font-weight: bold; background: #0ea5e9; color: white; border: none; border-radius: 3px; cursor: pointer; display: none;" title="Đưa các ảnh đã chọn vào ẢNH CHÍNH ở trang sửa / thêm sản phẩm đang mở">🖼️ Thêm vào ảnh chính (0)</button>
+    <button type="button" id="api-btn-push-desc" style="padding: 2px 8px; font-size: 10px; font-weight: bold; background: #8b5cf6; color: white; border: none; border-radius: 3px; cursor: pointer; display: none;" title="Đưa các ảnh đã chọn vào MÔ TẢ ở trang sửa / thêm sản phẩm đang mở">📝 Thêm vào mô tả (0)</button>
     <button type="button" id="api-btn-delete-selected" style="padding: 2px 8px; font-size: 10px; font-weight: bold; background: #ef4444; color: white; border: none; border-radius: 3px; cursor: pointer; display: none;" title="Xóa các ảnh đã chọn khỏi Sheet">🗑️ Xóa đã chọn (0)</button>
     <button type="button" id="api-view-btn-table" style="padding: 2px 8px; font-size: 10px; font-weight: bold; background: #2563eb; color: white; border: none; border-radius: 3px; cursor: pointer;">Bảng</button>
     <button type="button" id="api-view-btn-grid3" style="padding: 2px 8px; font-size: 10px; font-weight: bold; background: #64748b; color: white; border: none; border-radius: 3px; cursor: pointer;">Lưới 3 cột</button>
@@ -2140,6 +2142,7 @@ Kết quả trả về sẽ tự động định dạng bằng HTML cơ bản (&
 <script src="tabs/wameli_account_settings.js"></script>
 <script src="tabs/roas_that_tab.js"></script>
 <script src="tabs/open_web.js"></script>
+  <script src="../lib/table-tools.js"></script>
 </body>
 
 </html>
