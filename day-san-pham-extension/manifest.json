@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Đẩy Sản Phẩm Shopee",
+  "version": "1.0.0",
+  "description": "Tự động bấm \"Đẩy sản phẩm\" trên Kênh Người Bán theo khung giờ, xoay vòng danh sách; nút + Đẩy ngay trên danh sách sản phẩm.",
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "permissions": ["storage", "alarms", "tabs", "scripting", "notifications", "cookies"],
+  "host_permissions": ["https://banhang.shopee.vn/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Đẩy Sản Phẩm Shopee" },
+  "content_scripts": [
+    {
+      "matches": ["https://banhang.shopee.vn/*"],
+      "js": ["content/push-button.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
