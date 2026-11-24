@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>Shop Spy</title>
+  <link rel="stylesheet" href="lib/style.css" />
+  <link rel="stylesheet" href="spy.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="logo"><span>●</span> Shop Spy</div>
+    <div class="search">
+      <input id="q" class="input" placeholder="Dán link shop / link sản phẩm / username / shop ID" />
+      <button id="go" class="btn primary">Soi shop</button>
+    </div>
+  </header>
+
+  <main data-page="spy">
+    <nav class="page-tabs" id="pageTabs"><button class="page-tab active" data-page="spy">🔍 Soi shop</button><button class="page-tab" data-page="list">📋 Danh sách shop <span id="shopListCount" class="muted"></span></button><button class="page-tab" data-page="sheet">📄 Đọc từ Sheet</button></nav>
+    <!-- Đọc lại dữ liệu đã tải vào sheet SHOP_SPY -->
+    <section id="sheetBox" class="card shop-list">
+      <div class="auto-row">
+        <button id="sheetLoad" class="btn primary">🔄 Đọc từ Sheet</button>
+        <select id="sheetShop" class="input"><option value="">Tất cả shop</option></select>
+        <input id="sheetSearch" class="input" placeholder="Tìm tên / ID sản phẩm" style="min-width:220px" />
+        <span id="sheetInfo" class="muted"></span>
+      </div>
+      <div class="auto-row">
+        <button id="sheetPost" class="btn primary">🚀 Đăng toàn bộ (<span id="sheetPickCount">0</span> đã chọn)</button>
+        <label class="muted">mỗi sản phẩm cách nhau <input id="sheetDelay" class="input" type="number" min="1" value="5" style="width:60px"> phút, bắt đầu sau 1 phút</label>
+        <span class="muted">Đăng vào gian đang dùng trên Chrome · SKU để trống · theo dõi ở tab Hẹn giờ sao chép</span>
+      </div>
+      <div style="overflow:auto"><table class="shop-table" id="sheetTable"><thead></thead><tbody></tbody></table></div>
+    </section>
+    <!-- Danh sách shop (tự thêm) + tự quét theo khung giờ -->
+    <section id="shopListBox" class="card shop-list">
+      <div class="auto-row">
+        <input id="addShopInput" class="input" placeholder="Thêm shop: dán link shop / username / shop ID" style="min-width:300px" />
+        <button id="addShopBtn" class="btn primary">➕ Thêm vào danh sách</button>
+      </div>
+      <div class="auto-row">
+        <label class="check"><input id="autoOn" type="checkbox" /> Tự quét lại các shop đã tích vào lúc</label>
+        <input id="autoTimes" class="input" placeholder="vd 08:00, 20:00" style="width:160px" />
+        <button id="autoSave" class="btn primary">Lưu lịch</button>
+        <span id="autoNote" class="muted"></span>
+      </div>
+      <table class="shop-table">
+        <thead><tr><th>Tự quét</th><th>Shop</th><th class="r">Sản phẩm</th><th>Quét lúc</th><th></th></tr></thead>
+        <tbody id="shopListBody"></tbody>
+      </table>
+    </section>
+    <div id="err" class="alert hidden"></div>
+    <section id="head" class="card hidden"></section>
+
+    <section id="loading" class="card loading hidden">
+      <div class="row">
+        <span class="spinner"></span>
+        <b id="loadTitle">Đang quét sản phẩm…</b>
+        <span id="loadText" class="muted"></span>
+        <button id="cancel" class="btn" style="margin-left:auto">Dừng</button>
+      </div>
+      <div class="progress"><div id="bar"></div></div>
+    </section>
+
+    <section id="body" class="hidden">
+      <div id="stats" class="stats"></div>
+
+      <nav class="tabs">
+        <button class="tab active" data-tab="products">Sản phẩm</button>
+        <button class="tab" data-tab="report">Báo cáo</button>
+      </nav>
+
+      <div id="tab-products">
+        <div class="card filters">
+          <div class="filter-bar">
+            <div id="presets" class="chips">
+              <button class="chip active" data-preset="all">Tất cả</button>
+              <button class="chip" data-preset="flashSale">Đang Flash Sale</button>
+              <button class="chip" data-preset="deepDiscount">Giảm sâu ≥ 50%</button>
+              <button class="chip" data-preset="noDiscount">Chưa giảm giá</button>
+              <button class="chip" data-preset="recent">Hàng mới ≤ 90 ngày</button>
+              <button class="chip" data-preset="newItem">Đang lên</button>
+              <button class="chip" data-preset="mall">Shop Mall</button>
+              <button class="chip" data-preset="video">Có video</button>
+              <button class="chip" data-preset="noVideo">Không video</button>
+            </div>
+            <button id="fToggle" class="chip outline">⧩ Bộ lọc</button>
+            <button id="fReset" class="chip danger hidden">Xoá lọc (<span id="fCount">0</span>)</button>
+          </div>
+
+          <div id="fPanel" class="filter-panel hidden">
+            <div class="grid3">
+              <input id="fSearch" class="input" placeholder="🔍 Tìm sản phẩm hoặc shop" />
+              <div class="ms" data-field="categoryName" data-placeholder="Ngành hàng"></div>
+              <div class="ms" data-field="brand" data-placeholder="Thương hiệu"></div>
+              <div class="ms" data-field="shopName" data-placeholder="Shop"></div>
+              <div class="ms" data-field="location" data-placeholder="Kho hàng"></div>
+              <div class="pair">
+                <input id="fPriceMin" class="input" type="number" min="0" placeholder="Giá từ" />
+                <input id="fPriceMax" class="input" type="number" min="0" placeholder="Giá đến" />
+              </div>
+              <div class="pair">
+                <input id="fDiscMin" class="input" type="number" min="0" max="100" placeholder="% giảm từ" />
+                <input id="fDiscMax" class="input" type="number" min="0" max="100" placeholder="% giảm đến" />
+              </div>
+              <div class="pair">
+                <input id="fSoldMin" class="input" type="number" min="0" placeholder="Đã bán tối thiểu" />
+                <input id="fSaleMin" class="input" type="number" min="0" placeholder="Doanh thu tối thiểu" />
+              </div>
+              <select id="fAge" class="input">
+                <option value="">Tuổi sản phẩm</option>
+                <option value="a30">≤ 30 ngày</option>
+                <option value="recent90">≤ 90 ngày</option>
+                <option value="a90">31 – 90 ngày</option>
+                <option value="a180">91 – 180 ngày</option>
+                <option value="a365">181 – 365 ngày</option>
+                <option value="old">Trên 1 năm</option>
+              </select>
+              <select id="fRating" class="input">
+                <option value="">Đánh giá tối thiểu</option>
+                <option value="0">Bất kỳ</option>
+                <option value="4">Từ 4.0 ★</option>
+                <option value="4.5">Từ 4.5 ★</option>
+                <option value="4.8">Từ 4.8 ★</option>
+              </select>
+            </div>
+            <div class="checks">
+              <label class="check"><input id="fFlash" type="checkbox" /> Chỉ Flash Sale</label>
+              <label class="check"><input id="fMall" type="checkbox" /> Chỉ Shopee Mall</label>
+              <label class="check"><input id="fVideo" type="checkbox" /> Chỉ có video</label>
+              <label class="check"><input id="fNoVideo" type="checkbox" /> Chỉ không có video</label>
+              <label class="check"><input id="fCross" type="checkbox" /> Chỉ hàng xuyên biên giới</label>
+              <label class="check"><input id="fVoucher" type="checkbox" /> Chỉ có voucher shop</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <button id="export" class="btn">⬇ Xuất Excel (CSV)</button>
+          <button id="toSheet" class="btn" title="Ghi các sản phẩm đang lọc (hoặc đang chọn) vào Google Sheet SHOP_SPY: mới thì thêm, khác thì cập nhật">📤 Tải vào Sheet Shop Spy</button>
+          <button id="copy" class="btn">Sao chép link [<span id="selCount">0</span>]</button>
+          <label class="check" hidden><input id="autoDetail" type="checkbox" /> Tự động tải chi tiết</label>
+          <button id="loadDetail" class="btn" hidden title="Tải phân loại + mô tả + ảnh mô tả cho tất cả sản phẩm đang lọc (hoặc đang chọn)">Tải chi tiết tất cả</button>
+          <span id="detailProgress" class="muted"></span>
+          <span id="resultCount" class="muted"></span>
+          <div class="pager">
+            <select id="pageSize" class="input">
+              <option>20</option><option selected>50</option><option>100</option><option>500</option>
+            </select>
+            <button id="prev" class="btn">‹</button>
+            <span id="pageInfo"></span>
+            <button id="next" class="btn">›</button>
+          </div>
+        </div>
+
+        <div class="card table-wrap">
+          <table id="table">
+            <thead>
+              <tr>
+                <th class="c-check"><input type="checkbox" id="checkAll" /></th>
+                <th>#</th>
+                <th data-sort="name">Tên sản phẩm</th>
+                <th>Hình ảnh</th>
+                <th data-sort="categoryName">Ngành hàng</th>
+                <th data-sort="brand">Thương hiệu</th>
+                <th data-sort="shopName">Shop</th>
+                <th data-sort="ageDay" class="r">Ngày tạo</th>
+                <th data-sort="price" class="r">Giá</th>
+                <th data-sort="discountPercent" class="r">Giảm</th>
+                <th data-sort="sold" class="r">Đã bán</th>
+                <th data-sort="sale" class="r">Doanh thu</th>
+                <th data-sort="soldMonth" class="r">Bán 30 ngày</th>
+                <th data-sort="saleMonth" class="r">DT 30 ngày</th>
+                <th data-sort="soldPerDay" class="r">Bán/ngày</th>
+                <th data-sort="ratingStar" class="r">Đánh giá</th>
+                <th data-sort="liked" class="r">Thích</th>
+                <th>Thao tác</th>
+                <th>Ảnh sản phẩm chính</th>
+                <th class="v">Phân loại</th>
+                <th class="v">Ảnh phân loại</th>
+                <th class="v r">Giá phân loại</th>
+                <th class="v r">Giá gốc</th>
+                <th class="v r">Giảm</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div id="empty" class="empty hidden">Không có sản phẩm phù hợp bộ lọc.</div>
+        </div>
+      </div>
+
+      <div id="tab-report" class="hidden">
+        <div class="report-grid">
+          <div class="card panel"><h3>Top 10 bán chạy (doanh thu)</h3><div id="rTop"></div></div>
+          <div class="card panel"><h3>Doanh thu theo ngành hàng</h3><div id="rCat"></div></div>
+          <div class="card panel"><h3>Phân bổ theo khoảng giá</h3><div id="rPrice"></div></div>
+          <div class="card panel"><h3>Sản phẩm theo năm đăng</h3><div id="rAge"></div></div>
+        </div>
+        <p class="muted note">Doanh thu ước tính = số đã bán × giá hiện tại. Chỉ mang tính tham khảo.</p>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-box card">
+      <div class="modal-head">
+        <b id="modalTitle"></b>
+        <span style="margin-left:auto;display:flex;gap:6px">
+          <button id="modalCopy" class="btn">Sao chép</button>
+          <button id="modalClose" class="btn">✕</button>
+        </span>
+      </div>
+      <div id="modalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="lib/api.js"></script>
+  <script src="spy.js"></script>
+  <script src="../lib/table-tools.js"></script>
+</body>
+</html>
