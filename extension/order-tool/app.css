@@ -10,24 +10,61 @@
   --err: #c62828;
 }
 * { box-sizing: border-box; }
-body { margin: 0; font: 14px/1.45 "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
+html, body { height: 100%; margin: 0; }
+body { font: 14px/1.45 "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; overflow: hidden; }
 .hidden { display: none !important; }
 .muted { color: var(--muted); }
 .hint { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
 
-.topbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: var(--primary); color: #fff; }
-.brand { font-size: 18px; font-weight: 600; }
+.topbar { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: var(--primary); color: #fff; flex-shrink: 0; }
+.brand { font-size: 16px; font-weight: 600; }
 .conn { display: flex; gap: 8px; align-items: center; }
 .badge { background: rgba(255,255,255,.2); padding: 3px 10px; border-radius: 12px; font-size: 13px; }
 .badge.ok { background: #fff; color: var(--ok); }
 .badge.err { background: #fff; color: var(--err); }
 
-main { padding: 16px 20px 40px; }
-.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
-.card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+main { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 8px 14px; overflow: hidden; }
+
+/* Card 1: Cấu hình tải đơn */
+#syncCard {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+#syncCard.collapsed {
+  padding: 6px 12px;
+}
+#syncCard.collapsed .toolbar:not(.sync-header-row) {
+  display: none !important;
+}
+
+.stats { flex-shrink: 0; margin-bottom: 8px; }
+
+/* Card 2: Bảng đơn hàng chính */
+#orderCard {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin-bottom: 0;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+#orderCard > .toolbar { flex-shrink: 0; }
+#statusTabs { flex-shrink: 0; margin-top: 6px; }
+#statusSub { flex-shrink: 0; margin-top: 4px; }
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
 .card-head h3 { margin: 0; font-size: 16px; }
-.toolbar, .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.toolbar + .toolbar { margin-top: 10px; }
+.toolbar, .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
+.toolbar + .toolbar { margin-top: 6px; }
 
 .btn { border: 1px solid var(--border); background: #fff; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13.5px; }
 .btn:hover { border-color: #bbb; }
@@ -44,10 +81,39 @@ label { font-size: 13px; color: #444; display: inline-flex; align-items: center;
 .stat .v { font-size: 20px; font-weight: 700; }
 .stat .l { color: var(--muted); font-size: 12.5px; }
 
-.table-wrap { overflow-x: auto; margin-top: 10px; }
-table.grid { width: 100%; border-collapse: collapse; }
-table.grid th, table.grid td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: middle; font-size: 13px; }
-table.grid th { background: #fafafa; font-weight: 600; white-space: nowrap; position: sticky; top: 0; }
+.table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin-top: 6px;
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+}
+table.grid, table#dhSheetTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+}
+table.grid th, table.grid td,
+table#dhSheetTable th, table#dhSheetTable td {
+  border-bottom: 1px solid var(--border);
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: middle;
+  font-size: 13px;
+}
+table.grid th, table#dhSheetTable th {
+  background: #fafafa !important;
+  font-weight: 600;
+  white-space: nowrap;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10;
+  box-shadow: 0 1px 1px rgba(0,0,0,0.06);
+}
 table.grid tr.first td { border-top: 2px solid #ddd; }
 .prod { display: flex; gap: 6px; align-items: center; min-width: 220px; max-width: 360px; }
 .prod img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; background: #eee; flex-shrink: 0; }

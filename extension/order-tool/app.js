@@ -857,6 +857,15 @@ async function initAutoSync() {
   $('#btnSyncNow').onclick = runAutoSync;
   scheduleAutoSync(p);
   if (p.enabled) runAutoSync(); // mở trang là cập nhật luôn
+
+  const btnToggle = $('#btnToggleSyncCard');
+  if (btnToggle) {
+    btnToggle.onclick = () => {
+      const card = $('#syncCard');
+      const isCollapsed = card.classList.toggle('collapsed');
+      btnToggle.textContent = isCollapsed ? '▼ Cấu hình tải' : '▲ Thu gọn';
+    };
+  }
 }
 
 async function runRefresh(list) {

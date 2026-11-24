@@ -346,6 +346,7 @@ async function handleUnshippedOrdersQuery(chatId) {
     const store = await chrome.storage.local.get(["tcdd-shop-code", "maGian", "dhHoanTextValue"]);
     const shopCode = String(store["tcdd-shop-code"] || store.maGian || store.dhHoanTextValue || "").trim().toUpperCase();
     await resolveTelegramSkus([...choXuLyCards, ...daXuLyCards], shopCode);
+    await attachWmlTimes([...choXuLyCards, ...daXuLyCards]);
     const msg = formatUnshippedTelegram(choXuLyCards, daXuLyCards, shopCode, choXuLyIdx.list.length, daXuLyIdx.list.length);
 
     // Tạo các nút Inline Keyboard
@@ -381,11 +382,13 @@ async function handleUnshippedOrdersQuery(chatId) {
   }
 }
 
-async function handlePrintSingleOrderWameliFromTelegram(targetSn, chatId) {
+// opts.say: hàm báo kết quả (mặc định gửi Telegram); opts.confirmOnly: chỉ xác nhận lấy hàng, không in / nạp WML
+async function handlePrintSingleOrderWameliFromTelegram(targetSn, chatId, opts = {}) {
+  const say = opts.say || ((text) => sendTelegram(text, chatId));
   try {
     const tabs = await chrome.tabs.query({ url: "https://banhang.shopee.vn/*" });
     if (!tabs.length) {
-      await sendTelegram(`⚠️ Kênh Người Bán Shopee chưa mở trên máy tính, không thể in đơn <code>${teleEsc(targetSn)}</code>.`, chatId);
+      await say(`⚠️ Kênh Người Bán Shopee chưa mở trên máy tính, không thể in đơn <code>${teleEsc(targetSn)}</code>.`, chatId);
       return;
     }
 
@@ -428,7 +431,7 @@ async function handlePrintSingleOrderWameliFromTelegram(targetSn, chatId) {
     }
 
     if (!targetRow) {
-      await sendTelegram(`⚠️ Không tìm thấy đơn <code>${teleEsc(targetSn)}</code> trong danh sách Chưa xử lý hoặc Đã xử lý (có thể đơn đã giao cho bưu tá hoặc bị huỷ).`, chatId);
+      await say(`⚠️ Không tìm thấy đơn <code>${teleEsc(targetSn)}</code> trong danh sách Chưa xử lý hoặc Đã xử lý (có thể đơn đã giao cho bưu tá hoặc bị huỷ).`, chatId);
       return;
     }
 
@@ -472,26 +475,33 @@ async function handlePrintSingleOrderWameliFromTelegram(targetSn, chatId) {
       targetRow.tracking = tn;
     }
 
+    if (opts.confirmOnly) {
+      await say(orderStatus === 1
+        ? `✅ Đã xác nhận lấy hàng đơn <code>${teleEsc(targetSn)}</code>${targetRow.tracking ? ` · MVĐ <code>${teleEsc(targetRow.tracking)}</code>` : ''}`
+        : `ℹ️ Đơn <code>${teleEsc(targetSn)}</code> đã được xác nhận lấy hàng từ trước`);
+      return;
+    }
+
     // Tiến hành in và nạp đơn lên Wameli
     await bgLog(`🖨 [Telegram] Đang tạo phiếu in & nạp Wameli đơn ${targetSn}...`);
     const res = await processProcessedOrders([targetRow], { source: "Telegram Nút Bấm" });
 
     if (res.ok) {
-      await sendTelegram(
+      await say(
         `🎉 <b>ĐÃ IN & NẠP WAMELI THÀNH CÔNG!</b>\n\n` +
         `• Mã đơn: <code>${teleEsc(targetSn)}</code>\n` +
         `• ĐVVC: <b>${teleEsc(targetRow.carrier || "Shopee")}</b>\n` +
         `• Mã vận đơn: <code>${teleEsc(targetRow.tracking || "Đã tạo phiếu")}</code>\n` +
         `• Trạng thái: Đã tải file PDF/Excel và nạp lên hệ thống Wameli thành công!\n` +
-        `⏰ Lúc: ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`,
+        `🖨️ In lên WML lúc: <b>${teleTime(Date.now())}</b>`,
         chatId
       );
     } else {
-      await sendTelegram(`❌ Lỗi khi in & nạp đơn <code>${teleEsc(targetSn)}</code>: ${teleEsc(res.error || "Không rõ nguyên nhân")}`, chatId);
+      await say(`❌ Lỗi khi in & nạp đơn <code>${teleEsc(targetSn)}</code>: ${teleEsc(res.error || "Không rõ nguyên nhân")}`, chatId);
     }
   } catch (err) {
     console.error("handlePrintSingleOrderWameliFromTelegram error:", err);
-    await sendTelegram(`❌ Lỗi khi xử lý đơn <code>${teleEsc(targetSn)}</code>: ${teleEsc(err.message)}`, chatId);
+    await say(`❌ Lỗi khi xử lý đơn <code>${teleEsc(targetSn)}</code>: ${teleEsc(err.message)}`, chatId);
   }
 }
 
@@ -743,9 +753,32 @@ async function resolveTelegramSkus(fresh, shopCode) {
   } catch (e) { bgLog(`Không tra được SKU từ SP_SHOPEE: ${teleEsc(e.message)}`); }
 }
 
+// Ngày giờ "hh:mm dd/mm/yyyy"
+function teleTime(ms) {
+  const d = new Date(ms);
+  return `${p2(d.getHours())}:${p2(d.getMinutes())} ${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+// Gắn thời điểm đã in & nạp lên Wameli (danh sách theo dõi WML) vào từng đơn trước khi gửi Telegram
+async function attachWmlTimes(rows) {
+  try {
+    const watch = await readWameliWatch();
+    const bySn = new Map(watch.map((x) => [String(x.order_sn), x]));
+    for (const r of rows) { const w = bySn.get(String(r.order_sn)); if (w) { r.wmlAt = w.at; r.wmlSlot = w.slot || ""; } }
+  } catch (e) { /* bỏ qua */ }
+}
+
 function formatTelegramOrderLines(r) {
   const products = (r.itemRows || []).map((it) => `${teleEsc(it.name)}\nSKU phân loại: <code>${teleEsc(it.modelSku || "Chưa tìm thấy SKU")}</code>`).join("\n");
-  return `Mã đơn: <code>${teleEsc(r.order_sn)}</code>\n${products || "Chưa có thông tin sản phẩm"}`;
+  const lines = [`Mã đơn: <code>${teleEsc(r.order_sn)}</code>`];
+  if (r.tracking) lines.push(`Mã vận đơn: <code>${teleEsc(r.tracking)}</code>${r.carrier ? ` (${teleEsc(r.carrier)})` : ""}`);
+  if (r.wmlAt) {
+    lines.push(`🖨️ Đã in lên WML: <b>${teleTime(r.wmlAt)}</b>`);
+    const m = String(r.wmlSlot || "").match(/^(\S+)\s*ngày\s*(\S+)/i);
+    if (m) lines.push(`📅 Ngày in: <b>${teleEsc(m[2])}</b> · ⏰ Giờ in: <b>${teleEsc(m[1])}</b>`);
+    else if (r.wmlSlot) lines.push(`⏰ Khung in: <b>${teleEsc(r.wmlSlot)}</b>`);
+  } else lines.push("🖨️ Chưa in lên WML");
+  lines.push(products || "Chưa có thông tin sản phẩm");
+  return lines.join("\n");
 }
 
 function formatOrderTelegram(r, shopCode) {
@@ -757,7 +790,7 @@ function formatUnshippedTelegram(pending, processed, shopCode, pendingCount, pro
   for (const [list, count, label] of [[pending, pendingCount, "Chưa xử lý"], [processed, processedCount, "Chờ bưu tá lấy"]]) {
     if (!count) continue;
     blocks.push(`<b>${label}: ${count} đơn</b>`);
-    blocks.push(...list.map(formatTelegramOrderLines));
+    blocks.push(list.map((r, i) => `<b>#${i + 1}</b>\n${formatTelegramOrderLines(r)}`).join("\n━━━━━━━━━━━━━━━\n"));
     if (count > list.length) blocks.push(`<i>Còn ${count - list.length} đơn khác</i>`);
   }
   return blocks.join("\n\n");
@@ -778,6 +811,7 @@ async function recordConfirmed(r) {
     const store = await chrome.storage.local.get(["tcdd-shop-code", "maGian", "dhHoanTextValue"]);
     const shopCode = String(store["tcdd-shop-code"] || store.maGian || store.dhHoanTextValue || "").trim().toUpperCase();
     await resolveTelegramSkus([r], shopCode);
+    await attachWmlTimes([r]);
     const text = formatOrderTelegram(r, shopCode);
     await sendTelegram(text);
   }
@@ -1358,10 +1392,10 @@ async function readWameliWatch() {
   const list = (await chrome.storage.local.get(WML_WATCH_KEY))[WML_WATCH_KEY];
   return (Array.isArray(list) ? list : []).filter((x) => Date.now() - x.at < WML_WATCH_MS);
 }
-async function rememberWameliOrder(order, base) {
+async function rememberWameliOrder(order, base, slot = "") {
   if (!order?.order_id) return;
   const list = (await readWameliWatch()).filter((x) => x.order_id !== order.order_id);
-  list.unshift({ order_id: order.order_id, order_sn: order.order_sn, base, at: Date.now() });
+  list.unshift({ order_id: order.order_id, order_sn: order.order_sn, base, slot: slot || "", at: Date.now() });
   await chrome.storage.local.set({ [WML_WATCH_KEY]: list.slice(0, 1000) });
 }
 
@@ -1542,6 +1576,15 @@ const XLS_HEAD = ["Mã đơn hàng", "Mã Kiện Hàng", "Ngày đặt hàng", "
   "SKU phân loại hàng", "Tên phân loại hàng", "Giá gốc", "Người bán trợ giá", "Được Shopee trợ giá",
   "Tổng số tiền được người bán trợ giá", "Giá gốc (Y)", "Số lượng", "Số lượng sản phẩm được hoàn trả", "Tổng số tiền Người mua thanh toán"];
 
+// SKU sửa tay ở khung tài chính trang Đơn hàng: { order_sn: { "<SKU gốc>": "<SKU dùng cho cột S>" } }
+const SKU_OVERRIDE_KEY = "tcdd-sku-override";
+async function skuForExcel(orderSn, sku) {
+  try {
+    const all = (await chrome.storage.local.get(SKU_OVERRIDE_KEY))[SKU_OVERRIDE_KEY] || {};
+    const v = all[String(orderSn)]?.[String(sku || "")];
+    return v && String(v).trim() ? String(v).trim() : sku;
+  } catch (e) { return sku; }
+}
 const DEFAULT_EXCEL_PRICE = 100000000; // Mặc định giá 100.000.000đ khi xuất Excel nạp Wameli
 
 // ---------- GHI LỊCH SỬ IN ĐƠN VÀO GOOGLE SHEET IN_DON_WML ----------
@@ -1960,7 +2003,7 @@ async function runAutoBackground() {
                       r[0] = od.order_sn || o.order_sn;
                       r[5] = o.tn || "";
                       r[6] = carrier;
-                      r[18] = modelSku;
+                      r[18] = await skuForExcel(od.order_sn || o.order_sn, modelSku);
                       r[24] = DEFAULT_EXCEL_PRICE;
                       r[25] = amount;
                       xlsRows.push(r);
@@ -2022,7 +2065,7 @@ async function runAutoBackground() {
                     const sName = wRes.shop_name || tenShop || "Shop " + (wRes.shop_id || "");
                     await bgLog(`☁️ Đã nạp Wameli: ${base} · [${sName}] · khung <b>${wRes.slot}</b> · kho ${warehouse_id === 1 ? "HN" : "HCM"}`);
                     await recordWameli(base, wRes.slot, warehouse_id === 1 ? "HN" : "HCM", orders.length, sns);
-                    await rememberWameliOrder(orders[0], base);
+                    await rememberWameliOrder(orders[0], base, wRes.slot);
                     await notifyAndSound({
                       title: `${tenShop || "AutoIn"} · Wameli`,
                       message: `Đã nạp ${base} lên Wameli · Khung ${wRes.slot}`,
@@ -2300,7 +2343,7 @@ async function processProcessedOrders(targetOrders = null, options = {}) {
                 r[0] = od.order_sn || o.order_sn;
                 r[5] = o.tn || "";
                 r[6] = carrier;
-                r[18] = modelSku;
+                r[18] = await skuForExcel(od.order_sn || o.order_sn, modelSku);
                 r[24] = DEFAULT_EXCEL_PRICE;
                 r[25] = amount;
                 xlsRows.push(r);
@@ -2369,7 +2412,7 @@ async function processProcessedOrders(targetOrders = null, options = {}) {
                 const sName = wRes.shop_name || tenShop || "Shop " + (wRes.shop_id || "");
                 await bgLog(`☁️ Đã nạp Wameli: ${base} · [${sName}] · khung <b>${wRes.slot}</b> · kho ${warehouse_id === 1 ? "HN" : "HCM"}`);
                 await recordWameli(base, wRes.slot, warehouse_id === 1 ? "HN" : "HCM", orders.length, sns);
-                for (const o of orders) await rememberWameliOrder(o, base);
+                for (const o of orders) await rememberWameliOrder(o, base, wRes.slot);
                 await notifyAndSound({
                   title: `${tenShop || "AutoIn"} · Wameli`,
                   message: `[Đã xử lý] Đã nạp ${base} lên Wameli · Khung ${wRes.slot}`,
@@ -2655,6 +2698,50 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     (async () => {
       await triggerDailyReport(msg.reportType || "17h");
       reply({ ok: true });
+    })();
+    return true;
+  }
+
+  // Kho của các đơn Chưa xử lý (để tô màu nút Xác nhận lấy hàng theo kho): { order_sn: "Tên kho" }
+  if (msg.type === "tcdd-pending-wh") {
+    (async () => {
+      const now = Date.now();
+      if (self.__pendingWhCache && now - self.__pendingWhCache.at < 60e3) return reply({ ok: true, map: self.__pendingWhCache.map });
+      const idx = await bgFetchIndex(1);
+      if (!idx.list.length) return reply({ ok: true, map: {} });
+      const rows = (await bgFetchCards(idx.list)).map(toRow);
+      const w = await bgApi("/api/v3/product/get_shop_warehouse/", null, "GET");
+      const whs = (w.warehouse_list || w.list || w || []).map((x) => ({ id: x.location_id, name: x.warehouse_name || x.name }));
+      const byPkg = {};
+      for (const wh of whs) {
+        const d = await bgApi("/api/v3/order/search_mass_shipment_index", {
+          mass_shipment_tab: 201, entity_type: 1,
+          filter: { is_single_item: 0, product_location_id: wh.id, pre_order: 0, product_location_ids: [wh.id], process_status: 1, ofg_process_status: 1, return_null_product_location_id_order: false },
+          pagination: { from_page_number: 1, page_number: 1, page_size: 50 },
+          sort: { sort_type: 2, ascending: true },
+        });
+        for (const x of d.index_list || []) byPkg[x.package_number || x] = wh.name;
+      }
+      const map = {};
+      for (const r of rows) map[r.order_sn] = byPkg[r.package_number] || "";
+      self.__pendingWhCache = { at: now, map };
+      reply({ ok: true, map });
+    })().catch((e) => reply({ ok: false, error: e.message || String(e) }));
+    return true;
+  }
+
+  // Nút trên khung tài chính từng đơn: xác nhận lấy hàng / chạy đơn (xác nhận nếu cần + in + nạp Wameli)
+  if (msg.type === "tcdd-single-order" && msg.order_sn) {
+    (async () => {
+      const msgs = [];
+      try {
+        await handlePrintSingleOrderWameliFromTelegram(String(msg.order_sn), null, {
+          confirmOnly: !!msg.confirmOnly,
+          say: async (text) => { msgs.push(String(text).replace(/<[^>]+>/g, "")); },
+        });
+      } catch (e) { msgs.push("❌ " + (e.message || e)); }
+      const last = msgs[msgs.length - 1] || "";
+      reply({ ok: !!last && !/^\s*(❌|⚠️)/.test(last), text: last });
     })();
     return true;
   }
