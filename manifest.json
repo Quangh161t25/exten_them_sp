@@ -71,7 +71,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://banhang.shopee.vn/portal/sale/order*"
+        "https://banhang.shopee.vn/*"
       ],
       "js": [
         "extension/content/order-finance-hook.js"
@@ -81,7 +81,7 @@
     },
     {
       "matches": [
-        "https://banhang.shopee.vn/portal/sale/order*"
+        "https://banhang.shopee.vn/*"
       ],
       "js": [
         "extension/content/order-list-finance.js"
@@ -267,6 +267,46 @@
       ],
       "css": [
         "extension/cam-on/style.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://banhang.shopee.vn/*"
+      ],
+      "js": [
+        "extension/content/sku-suggest.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://banhang.shopee.vn/*"
+      ],
+      "js": [
+        "extension/nhiem-vu/content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://shopee.vn/*"
+      ],
+      "js": [
+        "extension/spy-lite/bridge-main.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://shopee.vn/*"
+      ],
+      "js": [
+        "extension/spy-lite/content.js"
+      ],
+      "css": [
+        "extension/spy-lite/content.css"
       ],
       "run_at": "document_idle"
     }

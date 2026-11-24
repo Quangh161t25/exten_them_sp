@@ -4249,3 +4249,12 @@ async function upsertSheetRows(title, rows, keyOf, token, sheetId, ignoreCols = 
   }
   return { added: appends.length, updated: updates.length, same };
 }
+
+// Mở tab mới theo yêu cầu của content script (tránh Chrome chặn window.open sau khi chờ bất đồng bộ)
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg?.type !== "QLSP_OPEN_TAB" || !/^https?:\/\//.test(String(msg.url || ""))) return false;
+  chrome.tabs.create({ url: msg.url, active: true, index: sender.tab ? sender.tab.index + 1 : undefined })
+    .then(() => reply({ ok: true }))
+    .catch((e) => reply({ ok: false, error: String(e && e.message || e) }));
+  return true;
+});
