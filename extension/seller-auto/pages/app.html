@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shopee Seller Auto</title>
+  <link rel="stylesheet" href="../lib/style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="side">
+      <div class="side__brand"><span class="side__logo">⚡</span> Seller Auto</div>
+      <a href="#dashboard" data-nav="dashboard">Tổng quan</a>
+      <a href="#push" data-nav="push">Đẩy sản phẩm <span class="dot" data-dot="push"></span></a>
+      <a href="#reply" data-nav="reply">Trả lời đánh giá <span class="dot" data-dot="reply"></span></a>
+      <a href="#rate" data-nav="rate">Đánh giá người mua <span class="dot" data-dot="rate"></span></a>
+      <a href="#send" data-nav="send">Gửi tin nhắn</a>
+      <a href="#settings" data-nav="settings">Cài đặt</a>
+      <div class="side__foot">
+        <div id="shopBox">Đang kiểm tra shop…</div>
+        <label class="check"><input type="checkbox" id="demoToggle"> Chế độ thử (dữ liệu giả)</label>
+      </div>
+    </aside>
+    <main class="main"><div class="main__inner" id="view"></div></main>
+  </div>
+  <script src="../lib/stickers.js"></script>
+  <script src="../lib/store.js"></script>
+  <script src="../lib/bridge.js"></script>
+  <script src="../lib/shopee.js"></script>
+  <script src="../lib/jobs.js"></script>
+  <script src="../lib/ui.js"></script>
+  <script src="view-dashboard.js"></script>
+  <script src="view-push.js"></script>
+  <script src="view-reply.js"></script>
+  <script src="view-rate.js"></script>
+  <script src="view-send.js"></script>
+  <script src="view-settings.js"></script>
+  <script src="app.js"></script>
+  <script src="../../lib/table-tools.js"></script>
+</body>
+</html>
