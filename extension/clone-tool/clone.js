@@ -328,7 +328,9 @@ export function buildPayload(src, opts, ctx) {
       value_list: t.options.map((o, oi) => ({
         id: 0,
         custom_value: (opts.modelNames && String(opts.modelNames[`${gi}-${oi}`] || '').trim().slice(0, MAX_OPTION_LEN)) || (o.length > MAX_OPTION_LEN ? `${o.slice(0, MAX_OPTION_LEN - 3)}_${oi + 1}` : o) || `Loại ${oi + 1}`,
-        image_id: gi === 0 ? (t.images[oi] || '') : ''
+        // Nhóm 1 luôn phải có ảnh: tạo phân loại không ảnh thì sau này Shopee không cho thêm ảnh phân loại
+        // (lỗi 236710001 CudItem). Không có ảnh phân loại nguồn → dùng ảnh bìa / ảnh chính đầu tiên.
+        image_id: gi === 0 ? (t.images[oi] || images[0] || '') : ''
       }))
     }));
   } else {

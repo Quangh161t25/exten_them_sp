@@ -329,6 +329,33 @@
       if (res.ok) return res;
     }
 
+    // 5. Cách cuối: chụp đúng vùng ảnh đang hiện trên màn hình (luôn được, không bị CORS/đăng nhập)
+    try {
+      img.scrollIntoView({ block: "center" });
+      await new Promise((r) => setTimeout(r, 400));
+      const hidden = [...document.querySelectorAll(".scl-cover-btn")].map((b) => { const v = b.style.visibility; b.style.visibility = "hidden"; return [b, v]; });
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const shot = await new Promise((resolve) => chrome.runtime.sendMessage({ type: "sclCaptureTab" }, (r) => resolve(chrome.runtime.lastError ? null : r)));
+      hidden.forEach(([b, v]) => { b.style.visibility = v; });
+      if (shot && shot.ok && shot.dataUrl) {
+        const rect = img.getBoundingClientRect();
+        const full = new Image();
+        await new Promise((res, rej) => { full.onload = res; full.onerror = rej; full.src = shot.dataUrl; });
+        const scale = full.naturalWidth / window.innerWidth;
+        const c = document.createElement("canvas");
+        c.width = Math.round(rect.width * scale);
+        c.height = Math.round(rect.height * scale);
+        c.getContext("2d").drawImage(full, rect.left * scale, rect.top * scale, rect.width * scale, rect.height * scale, 0, 0, c.width, c.height);
+        const dataUrl = c.toDataURL("image/jpeg", 0.95);
+        if (dataUrl.length > 500) {
+          await saveCoverDataUrl(dataUrl, source);
+          return { ok: true, captured: true };
+        }
+      }
+    } catch (e) {
+      console.warn("[Shopee Clone AI] capture fallback error:", e);
+    }
+
     return { ok: false, error: "Không đọc được dữ liệu ảnh từ trang" };
   }
 
@@ -517,51 +544,38 @@
       reportStatus(`Đang thêm ${files.length} ảnh vào ChatGPT...`);
       let attached = false;
 
-      for (let attempt = 0; attempt < 5 && !attached; attempt++) {
+      // Mỗi lần chỉ dùng MỘT cách thêm ảnh; thấy ảnh đã vào thì dừng (tránh 2 ảnh thành 8 ảnh)
+      const methods = [
+        async () => {
+          let fileInput = document.querySelector('input[type="file"]');
+          if (!fileInput) return false;
+          const dt = new DataTransfer();
+          files.forEach((f) => dt.items.add(f));
+          const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "files");
+          if (descriptor && descriptor.set) descriptor.set.call(fileInput, dt.files);
+          else fileInput.files = dt.files;
+          fileInput.dispatchEvent(new Event("input", { bubbles: true }));
+          fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+          return true;
+        },
+        async () => { pasteFiles(textarea, files); return true; },
+        async () => { dropFiles(textarea, files); return true; },
+        async () => { const form = textarea.closest("form") || document.querySelector("form"); if (!form) return false; dropFiles(form, files); return true; }
+      ];
+      const startCount = countChatGptAttachments();
+      for (const run of methods) {
+        if (attached) break;
         textarea = getChatGptInput() || textarea;
-        const beforeCount = countChatGptAttachments();
-
-        // Thử gán vào input[type="file"] nếu có
-        let fileInput = document.querySelector('input[type="file"]');
-        if (!fileInput) {
-          const attachBtn = document.querySelector('button[data-testid="attach-button"], button[aria-label*="Attach"], button[aria-label*="Đính kèm"], button[aria-label*="tệp"]');
-          if (attachBtn) {
-            try { attachBtn.click(); } catch (_) {}
-            await sleep(300);
-            fileInput = document.querySelector('input[type="file"]');
-          }
+        let tried = false;
+        try { tried = await run(); } catch (_) {}
+        if (!tried) continue;
+        // Chờ tối đa ~6 giây xem ảnh có vào không
+        for (let i = 0; i < 20; i++) {
+          await sleep(300);
+          if (countChatGptAttachments() > startCount) { attached = true; break; }
         }
-
-        if (fileInput) {
-          try {
-            const dt = new DataTransfer();
-            files.forEach((f) => dt.items.add(f));
-            const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "files");
-            if (descriptor && descriptor.set) {
-              descriptor.set.call(fileInput, dt.files);
-            } else {
-              fileInput.files = dt.files;
-            }
-            fileInput.dispatchEvent(new Event("input", { bubbles: true }));
-            fileInput.dispatchEvent(new Event("change", { bubbles: true }));
-          } catch (_) {}
-        }
-
-        // Đồng thời dispatch sự kiện paste & drop
-        pasteFiles(textarea, files);
-        dropFiles(textarea, files);
-        const form = textarea.closest("form") || document.querySelector("form");
-        if (form) dropFiles(form, files);
-
-        for (let i = 0; i < 10; i++) {
-          await sleep(350);
-          if (countChatGptAttachments() > beforeCount) {
-            attached = true;
-            break;
-          }
-        }
-        if (!attached) await sleep(1000);
       }
+      if (!attached) console.warn("[Shopee Clone AI] Không xác nhận được ảnh đã vào ChatGPT");
 
       // Chờ các spinner tiến trình tải ảnh của ChatGPT kết thúc
       for (let s = 0; s < 30; s++) {
@@ -635,24 +649,47 @@
       }
     }
 
-    // 2. Chờ ChatGPT tạo ảnh mới (lên tới 5 phút)
-    let foundImg = null;
+    // 2. Chờ ChatGPT tạo ảnh XONG (tối đa 5 phút):
+    //  - chỉ xét ảnh trong tin trả lời của ChatGPT (bỏ ảnh bạn gửi kèm)
+    //  - ảnh đủ lớn, ChatGPT đã ngừng tạo (không còn nút Dừng / chữ "đang tạo")
+    //  - ảnh đứng yên (không đổi nguồn/kích thước) ít nhất 6 giây — ChatGPT vẽ dần nên ảnh đổi liên tục khi chưa xong
+    // Ảnh ChatGPT tạo nằm trong button[data-testid="generated-image-preview"] (khung generated-image-gallery),
+    // KHÔNG nằm trong [data-message-author-role="assistant"]. Lượt trả lời có data-talvt-turn-state="complete" khi xong.
+    const GEN_IMG_SEL = '[data-testid="generated-image-preview"] img, [data-testid="generated-image-gallery"] img';
+    const turnOf = (im) => im.closest('[data-talvt-turn-state]');
+    const isGenerating = (im) => {
+      if (document.querySelector('[data-testid="stop-button"]')) return true;
+      const t = im && turnOf(im);
+      if (t) return t.getAttribute('data-talvt-turn-state') !== 'complete';
+      return false;
+    };
+    const okImg = (im) => {
+      const src = im.currentSrc || im.src || "";
+      if (!src || (existingSrcs && existingSrcs.has(src))) return false;
+      if (im.closest('[data-message-author-role="user"], [class*="avatar"]')) return false;
+      if (!im.complete || im.naturalWidth < 400) return false;
+      return im.getBoundingClientRect().width >= 150;
+    };
+    const pickCandidate = () => {
+      // 1) Ảnh trong khung ảnh được tạo (cách mới của ChatGPT)
+      let imgs = Array.from(document.querySelectorAll(GEN_IMG_SEL)).filter(okImg);
+      // 2) Dự phòng: ảnh trong tin trả lời cuối của ChatGPT (giao diện cũ)
+      if (!imgs.length) {
+        const msgs = document.querySelectorAll('[data-message-author-role="assistant"]');
+        const last = msgs[msgs.length - 1];
+        const scope = last ? (last.closest("article") || last) : null;
+        if (scope) imgs = Array.from(scope.querySelectorAll("img")).filter(okImg);
+      }
+      return imgs[imgs.length - 1] || null;
+    };
+    let foundImg = null, stableSig = "", stableSince = 0;
     for (let i = 0; i < 600 && !foundImg; i++) {
       await sleep(500);
-      const candidates = Array.from(document.querySelectorAll(
-        'article img, [data-message-author-role="assistant"] img, main img, img[src*="oaiusercontent"], img[alt*="Generated"]'
-      ));
-      for (let j = candidates.length - 1; j >= 0; j--) {
-        const im = candidates[j];
-        const src = im.currentSrc || im.src || "";
-        if (!src) continue;
-        if (im.closest('[class*="avatar"], button[id*="headlessui"]') || (im.naturalWidth > 0 && im.naturalWidth < 120)) continue;
-        if (existingSrcs && existingSrcs.has(src)) continue;
-        if (im.complete && (im.naturalWidth >= 120 || im.naturalWidth === 0)) {
-          foundImg = im;
-          break;
-        }
-      }
+      const im = pickCandidate();
+      if (!im || isGenerating(im)) { stableSig = ""; continue; }
+      const sig = (im.currentSrc || im.src) + "|" + im.naturalWidth + "x" + im.naturalHeight;
+      if (sig !== stableSig) { stableSig = sig; stableSince = Date.now(); reportStatus("ChatGPT đang hoàn thiện ảnh..."); continue; }
+      if (Date.now() - stableSince >= 6000) foundImg = im;
     }
 
     if (!foundImg) {

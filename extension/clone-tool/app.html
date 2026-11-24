@@ -173,6 +173,17 @@
       <label>Thêm vào đầu mô tả<textarea data-opt="descPrefix" rows="2"></textarea></label>
       <label>Thêm vào cuối mô tả<textarea data-opt="descSuffix" rows="2"></textarea></label>
     </details>
+    <div id="schBox" style="margin-top:8px;padding:8px;border:1px dashed #f59e0b;border-radius:6px;background:#fffbeb">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap">
+        <b style="color:#b45309">⏰ Hẹn giờ sao chép sản phẩm này</b>
+        <button type="button" id="schAddRow" class="btn" style="padding:2px 8px;font-size:11px">+ Thêm gian</button>
+      </div>
+      <div id="schRows"></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px">
+        <button type="button" id="schAdd" class="btn red" style="padding:4px 12px">Thêm vào lịch</button>
+        <span id="schMsg" class="hint small"></span>
+      </div>
+    </div>
   </section>
 
   <section class="card ai" id="aiCard">
@@ -242,5 +253,6 @@
   </section>
 
   <script type="module" src="app.js"></script>
+  <script src="schedule-box.js"></script>
 </body>
 </html>

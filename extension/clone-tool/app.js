@@ -203,6 +203,7 @@ async function setCurrentItem(itemId) {
   if (itemId !== currentItemId) aiImageIndex = 0;
   currentItemId = itemId || '';
   current = rec ? normalizeSource(rec) : null;
+  window.__sclCurrent = current; // cho khung Hẹn giờ sao chép (schedule-box.js)
   renderProduct();
   maybeAutoStart();
 }
@@ -451,17 +452,25 @@ function filterDsSpSuggestions(query, limit = 25) {
     return dsSpList.slice(0, limit);
   }
 
-  const results = [];
+  // Tìm theo mã SKU HOẶC tên SP (vd gõ "LK-8924" / "lk8924" / "bếp từ 8924" → ra mã LK59-BK-00).
+  // Bỏ qua dấu, hoa/thường, dấu gạch/cách; nhiều từ thì phải khớp đủ các từ.
+  const compact = (s) => s.replace(/[^a-z0-9]/g, '');
+  const tokens = q.split(/\s+/).filter(Boolean);
+  const exact = [], byName = [];
   for (const item of dsSpList) {
     const skuNorm = normalizeSearchStr(item.sku);
-    const nameNorm = normalizeSearchStr(item.name);
     const parentNorm = normalizeSearchStr(item.parentSku);
-    if (skuNorm.includes(q) || nameNorm.includes(q) || parentNorm.includes(q)) {
-      results.push(item);
-      if (results.length >= limit) break;
-    }
+    const nameNorm = normalizeSearchStr(item.name);
+    const hay = `${skuNorm} ${parentNorm} ${nameNorm}`;
+    const hayCompact = compact(hay);
+    const ok = tokens.every((t) => hay.includes(t) || (compact(t) && hayCompact.includes(compact(t))));
+    if (!ok) continue;
+    // Khớp mã SKU lên trước, khớp theo tên xếp sau
+    const skuHit = tokens.every((t) => compact(skuNorm + parentNorm).includes(compact(t)));
+    (skuHit ? exact : byName).push(item);
+    if (exact.length >= limit) break;
   }
-  return results;
+  return exact.concat(byName).slice(0, limit);
 }
 
 function getOrCreateSkuDropdown() {
@@ -1271,7 +1280,7 @@ function normalizeImageUrl(url) {
 }
 
 function parseCaiDatRows(rows, targetGian) {
-  if (!rows || rows.length <= 1) return { coverUrl: '', gianList: [] };
+  if (!rows || rows.length <= 1) return { coverUrl: '', gianList: [], prompt: '' };
   const headers = (rows[0] || []).map((h) => String(h || '').trim().toLowerCase());
 
   let gianIdx = headers.findIndex((h) => h === 'gian' || h === 'mã gian' || h === 'ma gian' || h === 'ma_gian' || h === 'magian');
@@ -1283,6 +1292,9 @@ function parseCaiDatRows(rows, targetGian) {
     h === 'cover' || h.includes('anh_mau') || h.includes('ảnh')
   );
   if (anhIdx === -1) anhIdx = 3;
+  // Cột "prompt anh": câu lệnh tạo ảnh AI theo từng gian
+  const promptIdx = headers.findIndex((h) => ['prompt anh', 'prompt_anh', 'prompt ảnh', 'prompt'].includes(h) || h.startsWith('prompt'));
+  let foundPrompt = '';
 
   const gianList = [];
   let foundCoverUrl = '';
@@ -1293,6 +1305,9 @@ function parseCaiDatRows(rows, targetGian) {
     const g = String(row[gianIdx] || '').trim();
     if (g && !gianList.includes(g)) gianList.push(g);
 
+    if (cleanTarget && g.toLowerCase() === cleanTarget && promptIdx >= 0 && !foundPrompt) {
+      foundPrompt = String(row[promptIdx] || '').trim();
+    }
     if (cleanTarget && g.toLowerCase() === cleanTarget && !foundCoverUrl) {
       const rawImg = String(row[anhIdx] || '').trim();
       if (rawImg) {
@@ -1316,7 +1331,7 @@ function parseCaiDatRows(rows, targetGian) {
     }
   }
 
-  return { coverUrl: foundCoverUrl, gianList };
+  return { coverUrl: foundCoverUrl, gianList, prompt: foundPrompt };
 }
 
 async function loadCaiDatCover(gian = currentMaGian, forceReload = false) {
@@ -1333,7 +1348,15 @@ async function loadCaiDatCover(gian = currentMaGian, forceReload = false) {
       }
     }
 
-    const { coverUrl, gianList } = parseCaiDatRows(cachedCaiDatRows, gian);
+    const { coverUrl, gianList, prompt } = parseCaiDatRows(cachedCaiDatRows, gian);
+
+    // Câu lệnh prompt lấy theo mã gian ở cột "prompt anh" sheet CAI_DAT (ô trống = giữ prompt hiện tại)
+    if (prompt) {
+      opts.aiPrompt = prompt;
+      const ta = document.querySelector('[data-opt="aiPrompt"]');
+      if (ta) { ta.value = prompt; ta.title = `Lấy từ cột "prompt anh" sheet CAI_DAT (gian ${gian})`; }
+      chrome.storage.local.set({ [OPTS_KEY]: opts });
+    }
 
     const dl = $('#cloneMaGianList');
     if (dl && gianList.length > 0) {
@@ -1465,13 +1488,25 @@ async function handleCloneClick() {
 
   // Nếu không tích chọn tạo ảnh AI (hoặc đã có sẵn ảnh bìa AI):
   // TỰ ĐĂNG LÊN LUÔN!
-  await runClone();
+  await runClone(true);
 }
 
 // ---------- Sao chép ----------
 
-async function runClone() {
+// Lần sao chép thành công gần nhất (chặn đăng trùng cùng SP + cùng ảnh bìa)
+let lastCloned = null;
+const cloneKey = () => current ? `${current.itemId}|${coverMatches() && aiCover ? aiCover.timestamp : 'noai'}` : '';
+
+async function runClone(manual = false) {
   if (busy || !current) return;
+  const key = cloneKey();
+  if (lastCloned && lastCloned.key === key) {
+    if (!manual) {
+      log(`Bỏ qua tự động sao chép: sản phẩm này đã sao chép rồi (ID ${lastCloned.productId}).`, 'warn');
+      return;
+    }
+    if (!confirm(`Sản phẩm này vừa được sao chép sang Shopee (ID ${lastCloned.productId}).\nSao chép THÊM 1 bài nữa?`)) return;
+  }
   busy = true;
   $('#btnClone').disabled = true;
   $('#btnClone').textContent = '⏳ Đang đăng sản phẩm lên Shopee...';
@@ -1485,6 +1520,7 @@ async function runClone() {
       coverDataUrl,
       log
     });
+    lastCloned = { key, productId: String(productId) };
     log(`✔ Sao chép thành công! ID sản phẩm mới: ${productId}`, 'ok');
     chrome.storage.local.set({ scl_clone_result: { itemId: String(current.itemId), ok: true, productId: String(productId), at: Date.now() } });
     chrome.tabs.create({ url: `https://banhang.shopee.vn/portal/product/${productId}`, active: false });

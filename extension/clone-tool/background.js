@@ -47,6 +47,13 @@
       })();
       return true;
     }
+    if (msg && msg.type === 'sclCaptureTab') {
+      const winId = sender && sender.tab ? sender.tab.windowId : undefined;
+      chrome.tabs.captureVisibleTab(winId, { format: 'png' })
+        .then((dataUrl) => sendResponse({ ok: true, dataUrl }))
+        .catch((e) => sendResponse({ ok: false, error: String((e && e.message) || e) }));
+      return true;
+    }
     if (!msg || msg.type !== 'sclFetchImage' || !msg.url) return;
     (async () => {
       try {
